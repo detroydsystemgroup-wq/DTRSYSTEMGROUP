@@ -331,212 +331,164 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);min-hei
 
 .empty{text-align:center;padding:24px;color:var(--t3);font-size:13px;}
 
-/* ── АДАПТИВНОСТЬ И МОБИЛЬНАЯ ВЕРСИЯ (APP STYLE) ── */
-@media(max-width:900px) {
-  .main { grid-template-columns: 1fr; }
-  .kpi-row { grid-template-columns: repeat(2, 1fr); }
-  .cat-breakdown { grid-template-columns: 1fr 1fr; }
+/* ── RESPONSIVE TABLET ── */
+@media(max-width:1024px){
+  .main{grid-template-columns:1fr 260px;}
+}
+@media(max-width:900px){
+  .main{grid-template-columns:1fr;}
+  .kpi-row{grid-template-columns:repeat(2,1fr);}
+  .insight-row,.rec-grid,.forecast-row{grid-template-columns:1fr 1fr;}
+  .ph-acts{display:none;}
 }
 
-@media(max-width:600px) {
-  /* Жесткая защита от бокового скролла */
-  html, body { overflow-x: hidden !important; width: 100%; max-width: 100vw; }
-  body { padding-bottom: 80px; } /* Отступ снизу, чтобы контент не прятался за меню */
+/* ── MOBILE (< 600px) ── */
+@media(max-width:600px){
+  /* Base */
+  html,body{overflow-x:hidden;width:100%;max-width:100vw;}
+  body{padding-bottom:72px;background:var(--bg);}
 
-  .main { padding: 12px; gap: 12px; display: flex; flex-direction: column; width: 100%; max-width: 100vw; overflow-x: hidden; box-sizing: border-box; }
-  
-  .nav { padding: 0 16px; height: 56px; }
-  .nav-logo { font-size: 20px; }
-  
-  /* Прячем лишнее из верхней панели, оставляем только лого и кнопку Сессии/Настроек */
-  .nb:not(.nb-p, #settingsBtn) { display: none; }
-  .nav-user { display: none; } 
+  /* Nav — minimal */
+  .nav{padding:0 14px;height:52px;position:sticky;top:0;z-index:100;}
+  .nav-logo{font-size:18px;}
+  .nb:not(.nb-p,#settingsBtn){display:none;}
+  .nav-user{display:none;}
+  .nb-p{padding:6px 14px;font-size:13px;}
 
-  /* ── НИЖНЕЕ МЕНЮ (НАВИГАЦИЯ КАК В ПРИЛОЖЕНИЯХ) ── */
-  .ph-tabs { 
-    position: fixed; bottom: 0; left: 0; right: 0; z-index: 999;
-    background: rgba(13,17,23,0.95); backdrop-filter: blur(15px);
-    border-top: 1px solid var(--border);
-    display: flex; justify-content: space-around; align-items: center;
-    padding: 8px 4px calc(env(safe-area-inset-bottom) + 8px);
-    margin: 0; overflow: visible; border-bottom: none;
+  /* Settings panel */
+  .settings-panel{top:56px;right:8px;width:220px;}
+
+  /* Profile header */
+  .ph-cover{height:64px;}
+  .ph-in{padding:0 14px;}
+  .ph-top{flex-direction:row;align-items:flex-end;gap:12px;margin-top:-32px;padding-bottom:10px;}
+  .avatar{width:68px;height:68px;font-size:28px;border-width:3px;}
+  .av-dot{width:10px;height:10px;bottom:1px;right:1px;}
+  .ph-name{font-size:18px;}
+  .ph-title{font-size:10px;padding:2px 7px;margin-bottom:5px;}
+  .ph-meta{gap:8px;}
+  .mi{font-size:10px;}
+  .xp-wrap{max-width:100%;}
+  .xp-top{font-size:10px;}
+  .ph-acts{display:none;}
+
+  /* Bottom nav tabs (app-style) */
+  .ph-tabs{
+    position:fixed;bottom:0;left:0;right:0;z-index:200;
+    background:rgba(13,17,23,0.97);
+    backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+    border-top:1px solid var(--border);
+    display:flex;justify-content:space-around;align-items:center;
+    padding:6px 0 calc(env(safe-area-inset-bottom,0px) + 6px);
+    margin:0;overflow:visible;border-radius:0;
   }
-  [data-theme="light"] .ph-tabs { background: rgba(255,255,255,0.96); border-top-color: #e9ecef; }
-  
-  .stab { 
-    flex-direction: column; padding: 4px 0; gap: 4px; font-size: 10px; 
-    flex: 1; text-align: center; border: none !important; color: var(--t3); 
-    white-space: normal; letter-spacing: 0; font-weight: 600;
+  [data-theme="light"] .ph-tabs{background:rgba(255,255,255,0.97);border-top-color:var(--border);}
+  .stab{
+    flex-direction:column;padding:4px 0;gap:2px;
+    font-size:9px;font-weight:600;flex:1;text-align:center;
+    border:none!important;color:var(--t3);
+    white-space:normal;letter-spacing:0;border-radius:0;
+    min-width:0;
   }
-  .stab span { font-size: 22px; margin: 0 auto; display: block; line-height: 1; }
-  .stab.active { color: var(--blue); }
-  .stab.active span { transform: scale(1.15); transition: transform 0.2s cubic-bezier(0.4,0,0.2,1); filter: drop-shadow(0 0 6px rgba(26,159,255,0.4)); }
+  .stab span{font-size:20px;display:block;line-height:1;margin:0 auto 1px;}
+  .stab.active{color:var(--blue);}
+  .stab.active span{transform:scale(1.1);transition:transform .2s;}
+  .stab:hover{background:transparent;}
 
-  /* Профиль (компактный и центрированный) */
-  .ph { padding: 0; }
-  .ph-cover { height: 70px; }
-  .ph-top { flex-direction: column; align-items: center; text-align: center; gap: 8px; margin-top: -36px; padding-bottom: 12px; }
-  .avatar { width: 96px; height: 96px; font-size: 40px; border-width: 4px; z-index: 5; position: relative; }
-  .ph-name { font-size: 24px; white-space: normal; overflow: visible; word-break: break-word; }
-  .ph-meta { justify-content: center; margin-bottom: 4px; }
-  .xp-wrap { margin: 4px auto 0; }
-  .ph-acts { display: none; }
-  
-  /* Карточки на 100% ширины экрана */
-  .card { border-radius: 16px; margin-bottom: 12px; width: 100%; max-width: 100vw; box-sizing: border-box; }
-  .ch { padding: 14px 16px; }
-  .cb { padding: 14px 16px; }
-  
-  /* Дашборд: сетки превращаем в 1 или 2 колонки */
-  .kpi-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-  .kpi { padding: 12px; min-height: 85px; }
-  .kpi-val { font-size: 22px; }
-  .cat-breakdown { grid-template-columns: 1fr; gap: 10px; }
-  .insight-row, .rec-grid, .forecast-row { grid-template-columns: 1fr; gap: 8px; }
-  .bar-chart { height: 130px; width: 100%; }
-  .hm-grid { max-width: 100%; overflow-x: auto; padding-bottom: 12px; }
-  
-  /* Достижения в 1 колонку */
-  .ach-summary { flex-direction: column; text-align: center; padding: 16px; gap: 16px; }
-  .ach-grid2 { grid-template-columns: 1fr; gap: 10px; }
-  .ach2 { padding: 16px 14px; }
-  
-  /* Арена и управление */
-  .csg, .mg-grid { grid-template-columns: 1fr; gap: 10px; }
-  .mg-item { padding: 14px; }
-  .mg-name { white-space: normal; word-break: break-word; }
-  .lr-name { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
-  
-  /* Таймер огромный */
-  .timer-panel { padding: 24px 16px; border-radius: 16px; }
-  .t-disp { font-size: 52px; margin: 12px 0; }
-  .t-sbtn { padding: 16px; font-size: 16px; border-radius: 12px; }
-  
-  /* Всплывающие уведомления (поднимаем их над нижним меню) */
-  .toast { bottom: 95px !important; right: 16px !important; left: 16px !important; max-width: none !important; justify-content: center; }
-  
-  /* Модальные окна */
-  .modal { padding: 24px 16px; border-radius: 16px; width: 92%; max-width: 400px; }
-  .mg2 { grid-template-columns: 1fr; gap: 8px; }
-  .mb { padding: 16px; font-size: 14px; }
+  /* Main layout */
+  .main{
+    padding:10px 12px 12px;
+    gap:10px;
+    display:flex;flex-direction:column;
+    width:100%;max-width:100vw;
+    overflow-x:hidden;
+  }
+
+  /* Cards */
+  .card{border-radius:14px;margin-bottom:0;width:100%;box-sizing:border-box;}
+  .ch{padding:12px 14px 10px;}
+  .cb{padding:12px 14px;}
+  .ct{font-size:13px;}
+
+  /* KPI */
+  .kpi-row{grid-template-columns:repeat(2,1fr);gap:8px;}
+  .kpi{padding:10px;min-height:76px;}
+  .kpi-val{font-size:22px;}
+  .kpi-lbl{font-size:9px;}
+  .kpi-delta{font-size:9px;}
+
+  /* Bar chart */
+  .bar-chart{height:100px;}
+  .bar-lbl{font-size:8px;}
+
+  /* Cat breakdown */
+  .cat-breakdown{grid-template-columns:1fr!important;}
+  .cat-breakdown > div{padding:12px!important;}
+
+  /* Insight/records/forecast */
+  .insight-row,.rec-grid,.forecast-row{grid-template-columns:1fr 1fr;gap:8px;}
+  .insight{padding:10px;}
+  .insight-val{font-size:24px;}
+  .rec-item,.fc-item{padding:10px;}
+  .rec-val,.fc-val{font-size:18px;}
+
+  /* Heatmap */
+  .hm-grid{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:8px;}
+
+  /* Timer panel */
+  .timer-panel{padding:18px 14px;border-radius:14px;}
+  .t-disp{font-size:44px;margin:10px 0;}
+  .t-sbtn{padding:14px;font-size:15px;border-radius:10px;}
+  .t-note{font-size:11px;}
+  .csg{grid-template-columns:repeat(3,1fr)!important;gap:6px;}
+  .csg-item{padding:8px 6px;font-size:11px;}
+
+  /* Totals card */
+  .tot-val{font-size:48px;}
+  .tot-lbl{font-size:9px;letter-spacing:1px;}
+
+  /* Achievements */
+  .ach-summary{flex-direction:column;text-align:center;padding:14px;gap:10px;}
+  .ach-sum-big{font-size:32px;}
+  .ach-grid2{grid-template-columns:1fr!important;gap:8px;}
+  .ach2{padding:12px;}
+  .ach2-icon{font-size:28px;}
+  .ach-sec-name{font-size:15px;}
+
+  /* Arena/League */
+  .csg,.mg-grid{grid-template-columns:1fr!important;gap:8px;}
+  .mg-item{padding:12px;}
+  .lr-name{max-width:80px;}
+
+  /* Modal */
+  .modal{padding:20px 16px;border-radius:16px;width:94%;max-width:380px;}
+  .mg2{grid-template-columns:1fr;gap:6px;}
+
+  /* Toast above bottom nav */
+  #toast{bottom:82px!important;right:12px!important;left:12px!important;max-width:none!important;justify-content:center;}
+
+  /* Right sidebar becomes inline on mobile */
+  .right-col{display:contents;}
+
+  /* Section headers on mobile */
+  .ach-sec-hdr{padding-bottom:6px;margin-bottom:8px;}
+
+  /* Cat filter pills */
+  .cat-filter{gap:5px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;}
+  .cf-btn{white-space:nowrap;flex-shrink:0;}
+
+  /* Manage grid description */
+  #tab-manage .cb > div:first-child{font-size:12px;}
 }
-/* ── XP / LEVEL ── */
-.xp-wrap{margin:6px 0 2px;}
-.xp-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
-.xp-level{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:var(--blue);}
-.xp-pts{font-size:10px;color:var(--t3);}
-.xp-track{height:5px;background:var(--card);border-radius:3px;overflow:hidden;}
-.xp-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#1a9fff,#bc8cff);transition:width 1.4s cubic-bezier(.4,0,.2,1);}
 
-/* ── RINGS ── */
-.rings-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;}
-.ring-item{text-align:center;padding:14px 8px;background:var(--card);border:1px solid var(--border-l);border-radius:12px;}
-.ring-name{font-size:12px;font-weight:600;margin-top:6px;}
-.ring-hrs{font-family:'Rajdhani',sans-serif;font-size:11px;color:var(--t3);}
-
-/* ── RECORDS ── */
-.rec-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:4px;}
-.rec-card{background:var(--card);border:1px solid var(--border-l);border-radius:10px;padding:14px;text-align:center;}
-.rec-val{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;line-height:1;margin-bottom:4px;}
-.rec-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;line-height:1.4;}
-
-/* ── HEATMAP ── */
-.hm-grid{display:flex;gap:2px;overflow-x:auto;padding-bottom:4px;}
-.hm-col{display:flex;flex-direction:column;gap:2px;}
-.hm-cell{width:11px;height:11px;border-radius:2px;flex-shrink:0;cursor:pointer;transition:transform .1s;}
-.hm-cell:hover{transform:scale(1.5);z-index:10;}
-.hm-legend{display:flex;align-items:center;gap:5px;margin-top:8px;font-size:10px;color:var(--t3);}
-
-/* ── AVATAR UPLOAD ── */
-.av-upload-zone{border:2px dashed var(--border);border-radius:10px;padding:14px;text-align:center;cursor:pointer;margin-bottom:12px;transition:all .2s;}
-.av-upload-zone:hover{border-color:var(--blue);background:rgba(26,159,255,.05);}
-.av-upload-icon{font-size:28px;margin-bottom:6px;}
-.av-upload-txt{font-size:12px;color:var(--t2);}
-.av-photo-prev{width:80px;height:80px;border-radius:12px;object-fit:cover;border:2px solid var(--blue);display:block;margin:0 auto 10px;}
-
-/* ── ANIMATIONS ── */
-@keyframes countUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-@keyframes ringFill{from{stroke-dasharray:0 999}to{}}
-@keyframes fadeSlide{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-.anim-in{animation:fadeSlide .4s ease forwards;}
-@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-
-/* ── MOTIVATION BANNER ── */
-.mot-banner{background:linear-gradient(135deg,rgba(26,159,255,.12),rgba(188,140,255,.08));border:1px solid rgba(26,159,255,.2);border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:14px;}
-.mot-icon{font-size:28px;flex-shrink:0;}
-.mot-text{font-size:13px;color:var(--t2);line-height:1.5;}
-.mot-text b{color:var(--t1);}
-
-/* ── FORECAST ── */
-.forecast-row{display:flex;gap:10px;margin-top:12px;}
-.fc-item{flex:1;background:var(--card);border:1px solid var(--border-l);border-radius:10px;padding:12px;text-align:center;}
-.fc-val{font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:var(--blue);}
-.fc-lbl{font-size:10px;color:var(--t3);margin-top:2px;}
-
-/* ── LIGHT THEME ── */
-[data-theme="light"]{
-  --bg:#f0f2f5; --panel:#ffffff; --card:#ffffff; --hover:#f5f6f8;
-  --border:#dde1e7; --border-l:#e9ecef;
-  --t1:#1a1d23; --t2:#6b7280; --t3:#9ca3af;
-  --blue:#0070f3; --green:#16a34a; --orange:#d97706; --purple:#7c3aed; --red:#dc2626;
+/* Extra small phones */
+@media(max-width:380px){
+  .stab{font-size:8px;}
+  .stab span{font-size:18px;}
+  .kpi-val{font-size:20px;}
+  .t-disp{font-size:38px;}
+  .ph-name{font-size:16px;}
 }
-[data-theme="light"] .nav{background:#fff;border-bottom:1px solid #e9ecef;}
-[data-theme="light"] .ph-cover{background:linear-gradient(135deg,#dbeafe 0%,#ede9fe 100%);}
-[data-theme="light"] .ph-cover::after{background:none;}
-[data-theme="light"] .avatar{border-color:#fff;background:linear-gradient(135deg,#bfdbfe,#c4b5fd);}
-[data-theme="light"] .av-dot{border-color:#fff;}
-[data-theme="light"] .ph-title{background:rgba(0,112,243,.1);color:#0070f3;border-color:rgba(0,112,243,.2);}
-[data-theme="light"] .card{box-shadow:0 1px 4px rgba(0,0,0,.08);}
-[data-theme="light"] #onboard{background:var(--bg);}
-[data-theme="light"] .modal{background:#fff;box-shadow:0 8px 32px rgba(0,0,0,.15);}
-[data-theme="light"] .ov{background:rgba(0,0,0,.4);}
-[data-theme="light"] .hm-cell:first-child + .hm-cell{background:#dcfce7;}
-
-/* ── THEME & LANG TOGGLE ── */
-.tgl-wrap{display:flex;align-items:center;gap:6px;}
-.tgl-btn{width:32px;height:18px;border-radius:9px;border:none;cursor:pointer;position:relative;transition:background .25s;background:var(--border);}
-.tgl-btn.on{background:var(--blue);}
-.tgl-btn::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .25s;box-shadow:0 1px 3px rgba(0,0,0,.3);}
-.tgl-btn.on::after{transform:translateX(14px);}
-.tgl-lbl{font-size:11px;color:var(--t3);min-width:18px;}
-
-/* ── SETTINGS PANEL ── */
-.settings-panel{position:fixed;top:56px;right:12px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;z-index:200;width:200px;box-shadow:0 8px 24px rgba(0,0,0,.3);animation:fadeSlide .2s ease;}
-.sp-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-l);}
-.sp-row:last-child{border-bottom:none;}
-.sp-lbl{font-size:13px;color:var(--t2);font-weight:500;}
-
-/* ── CATEGORY FILTER ── */
-.cat-filter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
-.cf-btn{padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--t2);font-size:12px;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif;}
-.cf-btn.active{border-color:var(--blue);background:rgba(26,159,255,.12);color:var(--blue);font-weight:600;}
-
-/* ── RESPONSIVE CAT BREAKDOWN ── */
-.cbd-item{background:var(--card);border:1px solid var(--border-l);border-radius:10px;padding:14px;}
-.cbd-top{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
-.cbd-icon{font-size:22px;line-height:1;}
-.cbd-name{font-size:13px;font-weight:600;}
-.cbd-hrs{font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;line-height:1;}
-.cbd-bar-wr{height:4px;background:var(--bg);border-radius:2px;margin:8px 0;}
-.cbd-bar{height:100%;border-radius:2px;transition:width 1s ease;}
-.cbd-vs{font-size:11px;color:var(--t3);}
-/* ── RESPONSIVE KPI ── */
-
-/* ── WEEKLY REPORT ── */
-.report-btn{padding:5px 11px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--t2);font-size:11px;font-weight:600;cursor:pointer;transition:all .2s;letter-spacing:.3px;font-family:'Inter',sans-serif;}
-.report-btn:hover{border-color:var(--blue);color:var(--blue);background:rgba(26,159,255,.08);}
-.report-modal-body{font-size:13px;color:var(--t2);line-height:1.7;max-height:60vh;overflow-y:auto;}
-.report-modal-body h3{font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;color:var(--t1);margin:16px 0 6px;}
-.report-modal-body h3:first-child{margin-top:0;}
-.report-stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0;}
-.rsr-item{background:var(--bg);border-radius:8px;padding:10px;text-align:center;}
-.rsr-val{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;line-height:1;}
-.rsr-lbl{font-size:10px;color:var(--t3);margin-top:2px;}
-.report-cat-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border-l);}
-.report-cat-row:last-child{border-bottom:none;}
-.rcr-bar-wr{flex:1;height:4px;background:var(--bg);border-radius:2px;overflow:hidden;}
-.rcr-bar{height:100%;border-radius:2px;}
-.rcr-hrs{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;min-width:36px;text-align:right;}
 
 /* ── ACH FULL VIEW (Достижения) ── */
 .ach-summary { display: flex; align-items: center; gap: 20px; background: var(--bg); padding: 18px 24px; border-radius: 12px; margin-bottom: 24px; border: 1px solid var(--border-l); }
@@ -664,20 +616,27 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);min-hei
 
 <!-- SETTINGS PANEL -->
 <div class="settings-panel" id="settingsPanel" style="display:none">
-  <div class="sp-row">
-    <span class="sp-lbl" id="lbl_theme">Тема</span>
-    <div class="tgl-wrap">
-      <span class="tgl-lbl" id="lbl_dark">🌙</span>
-      <button class="tgl-btn" id="tglTheme" onclick="toggleTheme()"></button>
-      <span class="tgl-lbl" id="lbl_light">☀️</span>
+  <div class="sp-title">Настройки</div>
+  <div class="sp-section">
+    <div class="sp-lbl" id="lbl_theme_sec">Тема</div>
+    <div class="seg-ctrl">
+      <button class="seg-btn" id="seg_dark" onclick="setTheme('dark')">
+        <span class="seg-ico">🌙</span><span id="lbl_dark">Тёмная</span>
+      </button>
+      <button class="seg-btn" id="seg_light" onclick="setTheme('light')">
+        <span class="seg-ico">☀️</span><span id="lbl_light">Светлая</span>
+      </button>
     </div>
   </div>
-  <div class="sp-row">
-    <span class="sp-lbl">Язык</span>
-    <div class="tgl-wrap">
-      <span class="tgl-lbl">RU</span>
-      <button class="tgl-btn" id="tglLang" onclick="toggleLang()"></button>
-      <span class="tgl-lbl">UZ</span>
+  <div class="sp-section">
+    <div class="sp-lbl">Язык</div>
+    <div class="seg-ctrl">
+      <button class="seg-btn" id="seg_ru" onclick="setLang('ru')">
+        <span class="seg-ico">🇷🇺</span><span>Русский</span>
+      </button>
+      <button class="seg-btn" id="seg_uz" onclick="setLang('uz')">
+        <span class="seg-ico">🇺🇿</span><span>O'zbekcha</span>
+      </button>
     </div>
   </div>
 </div>
@@ -777,7 +736,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);min-hei
 
     <div id="tab-achievements" class="tc">
       <div class="card">
-        <div class="ch"><span class="ct">Достижения</span><span id="achCnt" style="font-size:13px;font-weight:600;color:var(--green)"></span></div>
+        <div class="ch"><span class="ct" id="lbl_ach_title">Достижения</span><span id="achCnt" style="font-size:13px;font-weight:600;color:var(--green)"></span></div>
         <div class="cb"><div id="achFull"></div></div>
       </div>
     </div>
@@ -786,7 +745,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);min-hei
       <div class="card">
         <div class="ch"><span class="ct">Управление ареной</span></div>
         <div class="cb">
-          <div style="font-size:13px;color:var(--t2);margin-bottom:14px;line-height:1.5">Выбери направления — ты попадёшь в арену с людьми у которых те же цели.</div>
+          <div style="font-size:13px;color:var(--t2);margin-bottom:14px;line-height:1.5"><span id="lbl_manage_desc">Выбери направления — ты попадёшь в арену с людьми у которых те же цели.</span></div>
           <div class="mg-grid" id="manageGrid"></div>
         </div>
       </div>
@@ -807,7 +766,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);min-hei
       <div class="cb">
         <div class="tot-wr">
           <div class="tot-num" id="totDisp">0</div>
-          <div class="tot-lbl">часов в себя</div>
+          <div class="tot-lbl" id="lbl_hrs_in_self">часов в себя</div>
           <div class="tot-div"></div>
           <div class="tot-streak" id="streakDisp">🔥 0 дней</div>
           <div class="tot-week" id="weekDisp">↑ +0 ч за 7 дней</div>
@@ -816,12 +775,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);min-hei
     </div>
 
     <div class="card">
-      <div class="ch"><span class="ct">Достижения</span><span style="font-size:12px;cursor:pointer;color:var(--blue)" onclick="showTab('achievements')">Все →</span></div>
+      <div class="ch"><span class="ct" id="lbl_ach_mini">Достижения</span><span style="font-size:12px;cursor:pointer;color:var(--blue)" id="lbl_see_all_ach" onclick="showTab('achievements')">Все →</span></div>
       <div class="cb" style="padding:12px"><div class="ach-grid" id="achMini"></div></div>
     </div>
 
     <div class="card">
-      <div class="ch"><span class="ct">Моя арена</span><span style="font-size:12px;cursor:pointer;color:var(--blue)" onclick="showTab('leagues')">Все →</span></div>
+      <div class="ch"><span class="ct" id="lbl_my_arena">Моя арена</span><span style="font-size:12px;cursor:pointer;color:var(--blue)" id="lbl_see_all_arena" onclick="showTab('leagues')">Все →</span></div>
       <div class="cb" style="padding:10px" id="lgMini"></div>
     </div>
 
@@ -1592,8 +1551,8 @@ function renderDash(){
         <div style="height:100%;width:${pct}%;background:${c.color};border-radius:2px;transition:width 1s ease"></div>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:10px;color:var(--t3)">${sessCount} сессий</span>
-        <span style="font-size:10px;color:var(--t3)">${c.hours.toFixed(0)} ч всего</span>
+        <span style="font-size:10px;color:var(--t3)">${sessCount} ${t("sessions_cnt")}</span>
+        <span style="font-size:10px;color:var(--t3)">${c.hours.toFixed(0)} ${t("total_hrs_lbl")}</span>
       </div>
     </div>`;
   }).join('');
@@ -1605,16 +1564,16 @@ function renderDash(){
     <div class="insight">
       <div class="insight-val" style="color:${bestCat?.color||'var(--blue)'}">${bestCat?.icon||'—'}</div>
       <div style="font-size:12px;font-weight:600;margin-bottom:4px">${bestCat?.name||'—'}</div>
-      <div class="insight-lbl">Топ за период</div>
+      <div class="insight-lbl">${t("top_period")}</div>
     </div>
     <div class="insight">
       <div class="insight-val" style="color:var(--green)">${goalPct}%</div>
-      <div class="insight-lbl">Выполнение цели</div>
+      <div class="insight-lbl">${t("goal_pct")}</div>
       <div style="height:3px;background:var(--bg);border-radius:2px;overflow:hidden;margin-top:6px"><div style="height:100%;width:${goalPct}%;background:var(--green);border-radius:2px"></div></div>
     </div>
     <div class="insight">
       <div class="insight-val" style="color:var(--orange)">${P.streak}🔥</div>
-      <div class="insight-lbl">Текущий стрик</div>
+      <div class="insight-lbl">${t("streak_cur")}</div>
     </div>`;
 }
 
@@ -1663,7 +1622,7 @@ function renderManageGrid(){
       <div class="mg-emo">${c.icon}</div>
       <div class="mg-txt">
         <div class="mg-name" style="${on?`color:${c.color}`:'color:var(--t1)'}">${c.name}</div>
-        <div class="mg-members">${c.members.toLocaleString('ru')} в лиге${on?` · ${hrs.toFixed(1)} ч у тебя`:''}</div>
+        <div class="mg-members">${c.members.toLocaleString()} ${t("in_league")}${on?` · ${hrs.toFixed(1)} ${t("at_you")}`:''}</div>
       </div>
     </div>`;
   }).join('');
@@ -1873,7 +1832,7 @@ async function showLeagueHero(){
   document.getElementById('lhStreak').textContent=`🔥 ${chosenLeader.streak} дней стрик`;
   document.getElementById('lhGap').innerHTML=`<span>${gap} ч</span><span class="lh-gap-lbl">до лидера</span>`;
   document.getElementById('lhGap').style.color=chosen.color;
-  document.getElementById('lhMsg').textContent=chosenLeader.fake?`${chosenLeader.name} лидирует в лиге ${chosen.name}`:`Реальный игрок из ${chosen.name}`;
+  document.getElementById('lhMsg').textContent=chosenLeader.fake?`${chosenLeader.name} ${t("lh_beat")} ${chosen.name}`:`${t("lh_real")} ${chosen.name}`;
   document.getElementById('leagueHero').style.display='flex';
 }
 function closeHero(){document.getElementById('leagueHero').style.display='none';}
@@ -1895,7 +1854,7 @@ function toggleQuick(){
     document.getElementById('qDisp').classList.add('run');
     document.getElementById('qBtn').textContent='⏹ Стоп';
     document.getElementById('qBtn').className='t-sbtn active';
-    document.getElementById('qNote').textContent='Сессия идёт...';
+    document.getElementById('qNote').textContent=t('sess_running');
   } else {
     clearInterval(quickInt);quickInt=null;
     const s=quickSec;quickSec=0;
@@ -1903,7 +1862,7 @@ function toggleQuick(){
     document.getElementById('qDisp').textContent='00:00:00';
     document.getElementById('qBtn').textContent='▶ Старт';
     document.getElementById('qBtn').className='t-sbtn idle';
-    document.getElementById('qNote').textContent='Выбери активность и нажми Старт';
+    document.getElementById('qNote').textContent=t('sess_choose_start');
     if(s>0)saveSession(quickSel,s);
   }
 }
@@ -1932,7 +1891,7 @@ function modalToggle(){
     mInt=setInterval(()=>{mSec++;document.getElementById('mTimer').textContent=fmt(mSec);},1000);
     document.getElementById('mStartBtn').textContent='⏹ Завершить';
     document.getElementById('mStartBtn').className='btn btn-d';
-    document.getElementById('mSub').textContent='Сессия активна...';
+    document.getElementById('mSub').textContent=t('sess_running');
   } else stopModal(true);
 }
 function stopModal(save){
@@ -1940,7 +1899,7 @@ function stopModal(save){
   if(save&&mSec>0){saveSession(mSel,mSec);closeSessModal();}
   document.getElementById('mStartBtn').textContent='▶ Старт';
   document.getElementById('mStartBtn').className='btn btn-p';
-  document.getElementById('mSub').textContent='Выбери активность';
+  document.getElementById('mSub').textContent=t('choose_act_short');
   document.getElementById('mTimer').textContent='00:00:00';
   mSec=0;
 }
@@ -2164,7 +2123,7 @@ function renderHeatmap(){
     <div class="ch"><span class="ct">${t("activity_year")}</span><span style="font-size:11px;color:var(--t3)">${Object.keys(actMap).length} ${t("active_days_cnt")}</span></div>
     <div class="cb">
       <div class="hm-grid">${cols.map(col=>`<div class="hm-col">${col.map(cell=>`<div class="hm-cell" style="background:${colors[cell.lv]}" title="${cell.date}: ${cell.h.toFixed(1)}ч"></div>`).join('')}</div>`).join('')}</div>
-      <div class="hm-legend">Меньше ${[0,1,2,3,4].map(l=>`<div style="width:10px;height:10px;border-radius:2px;background:${colors[l]}"></div>`).join('')} Больше</div>
+      <div class="hm-legend">${t("less")} ${[0,1,2,3,4].map(l=>`<div style="width:10px;height:10px;border-radius:2px;background:${colors[l]}"></div>`).join('')} ${t("more")}</div>
     </div>
   </div>`;
 }
@@ -2210,11 +2169,11 @@ function renderRecords(){
   el.innerHTML=`
     <div class="rec-card">
       <div class="rec-val" style="color:var(--blue)">${fmtD(bestSess)||'—'}</div>
-      <div class="rec-lbl">${t('best_session')}</div>
+      <div class="rec-lbl">${t("best_session")}</div>
     </div>
     <div class="rec-card">
       <div class="rec-val" style="color:var(--green)">${bestWeek.toFixed(1)}ч</div>
-      <div class="rec-lbl">${t('best_week')}</div>
+      <div class="rec-lbl">${t("best_week")}</div>
     </div>
     <div class="rec-card">
       <div class="rec-val" style="color:${topCat?.color||'var(--orange)'}">${topCat?.icon||'—'}</div>
@@ -2392,6 +2351,34 @@ const T = {
     level:'Уровень',
     // GENERAL
     no_sessions:'Нет сессий', days:'дней', hrs:'ч', min:'мин',
+    // SIDEBAR
+    hrs_in_self:'Часов в себя', quick_start:'Быстрый старт',
+    my_arena:'Моя арена', see_all:'Все →',
+    achievements_title:'Достижения', recent:'Последние',
+    // MANAGE
+    manage_title:'Управление ареной',
+    manage_desc:'Выбери направления — ты попадёшь в арену с людьми у которых те же цели.',
+    in_league:'в лиге', at_you:'ч у тебя',
+    // SESSION
+    choose_act_short:'Выбери активность', sess_running:'Сессия идёт...',
+    sess_choose_start:'Выбери активность и нажми Старт',
+    // HEATMAP
+    less:'Меньше', more:'Больше',
+    // INSIGHTS
+    top_period:'Топ за период', goal_pct:'Выполнение цели', streak_cur:'Текущий стрик',
+    // RECORDS
+    best_session:'Лучшая сессия', best_week:'Лучшая неделя',
+    // FORECAST
+    days_to_lbl:'до', at_pace_lbl:'при текущем темпе',
+    month_fc:'прогноз на месяц', avg_day_lbl:'среднее в день',
+    // LEAGUE HERO
+    lh_beat:'лидирует в лиге', lh_real:'Реальный игрок из',
+    // MISC
+    total_label:'Всего:', no_sess_lbl:'Нет сессий',
+    sessions_cnt:'сессий', total_hrs_lbl:'ч всего',
+    activity_year:'Активность — год', active_days_cnt:'активных дней',
+    progress:'Прогресс по лигам',
+    level:'Уровень',
   },
   uz: {
     // NAV
@@ -2456,6 +2443,34 @@ const T = {
     level:"Daraja",
     // GENERAL
     no_sessions:"Sessiya yo'q", days:"kun", hrs:"s", min:"daq",
+    // SIDEBAR
+    hrs_in_self:"O'zingizga soat", quick_start:"Tezkor boshlash",
+    my_arena:"Mening arenam", see_all:"Barchasi →",
+    achievements_title:"Yutuqlar", recent:"So'nggi",
+    // MANAGE
+    manage_title:"Arenani boshqarish",
+    manage_desc:"Yo'nalishlarni tanlang — maqsadlari bir xil odamlar bilan arenaga kirасiz.",
+    in_league:"arenada", at_you:"s senda",
+    // SESSION
+    choose_act_short:"Faollik turini tanlang", sess_running:"Sessiya davom etmoqda...",
+    sess_choose_start:"Faollik turini tanlang va Start bosing",
+    // HEATMAP
+    less:"Kam", more:"Ko'p",
+    // INSIGHTS
+    top_period:"Davrning eng yaxshisi", goal_pct:"Maqsad bajarilishi", streak_cur:"Joriy seriya",
+    // RECORDS
+    best_session:"Eng yaxshi sessiya", best_week:"Eng yaxshi hafta",
+    // FORECAST
+    days_to_lbl:"gacha", at_pace_lbl:"joriy sur'atda",
+    month_fc:"oylik prognoz", avg_day_lbl:"kunlik o'rtacha",
+    // LEAGUE HERO
+    lh_beat:"arenada yetakchilik qilmoqda", lh_real:"Haqiqiy o'yinchi",
+    // MISC
+    total_label:"Jami:", no_sess_lbl:"Sessiya yo'q",
+    sessions_cnt:"sessiya", total_hrs_lbl:"s jami",
+    activity_year:"Faollik — yil", active_days_cnt:"faol kun",
+    progress:"Arena bo'yicha jarayon",
+    level:"Daraja",
   }
 };
 let LANG = localStorage.getItem('lt_lang')||'ru';
@@ -2475,31 +2490,43 @@ function applyLang(){
   const tabMap = ['tab_dash','tab_arena','tab_hist','tab_ach','tab_manage'];
   stabs.forEach((s,i)=>{ if(tabMap[i]) s.textContent = t(tabMap[i]); });
 
-  // Manage tab header
+  // Manage tab
   const mh = document.querySelector('#tab-manage .ct');
   if(mh) mh.textContent = t('manage_title');
-  const md = document.querySelector('#tab-manage .cb > div:first-child');
-  if(md && md.style) {}
+  const md = document.getElementById('lbl_manage_desc');
+  if(md) md.textContent = t('manage_desc');
 
   // Arena tab header
-  const lh = document.querySelector('#tab-leagues .ct');
-  if(lh) lh.textContent = t('arena_title');
+  const lhEl = document.querySelector('#tab-leagues .ct');
+  if(lhEl) lhEl.textContent = t('arena_title');
 
   // History
   const ah = document.querySelector('#tab-activity .ct');
   if(ah) ah.textContent = t('all_sessions');
 
-  // Achievements
+  // Achievements titles
   const achH = document.querySelector('#tab-achievements .ct');
-  if(achH) achH.textContent = t('achievements');
+  if(achH) achH.textContent = t('achievements_title');
+  const achMiniH = document.getElementById('lbl_ach_mini');
+  if(achMiniH) achMiniH.textContent = t('achievements_title');
+  const achTitleH = document.getElementById('lbl_ach_title');
+  if(achTitleH) achTitleH.textContent = t('achievements_title');
 
-  // Settings panel labels
-  const ltheme = document.getElementById('lbl_theme');
-  if(ltheme) ltheme.textContent = t('theme');
-  const ldark = document.getElementById('lbl_dark');
-  if(ldark) ldark.textContent = t('dark');
-  const llight = document.getElementById('lbl_light');
-  if(llight) llight.textContent = t('light');
+  // Sidebar labels
+  const hrsLbl = document.getElementById('lbl_hrs_in_self');
+  if(hrsLbl) hrsLbl.textContent = t('hrs_in_self').toUpperCase();
+  const qStart = document.getElementById('lbl_quick_start');
+  if(qStart) qStart.textContent = t('quick_start').toUpperCase();
+  const myArena = document.getElementById('lbl_my_arena');
+  if(myArena) myArena.textContent = t('my_arena');
+  const seeArena = document.getElementById('lbl_see_all_arena');
+  if(seeArena) seeArena.textContent = t('see_all');
+  const seeAch = document.getElementById('lbl_see_all_ach');
+  if(seeAch) seeAch.textContent = t('see_all');
+
+  // Session notes
+  document.getElementById('qNote').textContent = t('sess_choose_start');
+  document.getElementById('mSub').textContent = t('choose_act_short');
 
   // Period buttons
   const dpW = document.getElementById('dpW');
@@ -2507,39 +2534,41 @@ function applyLang(){
   if(dpW) dpW.textContent = t('week');
   if(dpM) dpM.textContent = t('month');
 
-  // Login form
-  const uLabel = document.querySelector('label[for="regName"],label[for="logName"]');
-  document.querySelectorAll('.fi-lbl').forEach(el=>{
-    if(el.textContent.includes('Никнейм')||el.textContent.includes('Foydalanuvchi')) el.textContent=t('username');
-    if(el.textContent.includes('Пароль')||el.textContent.includes('Parol')) el.textContent=t('password');
+  // Stabs (tabs)
+  const stabMap = ['tab_dash','tab_arena','tab_hist','tab_ach','tab_manage'];
+  document.querySelectorAll('.stab').forEach((s,i)=>{
+    if(stabMap[i]) s.querySelector('span') ? (s.querySelector('span').nextSibling ? s.childNodes[s.childNodes.length-1].textContent = t(stabMap[i]).replace(/^[^\s]+\s*/,'') : null) : null;
   });
 
-  // XP level prefix
+  // Render everything fresh with new language
   renderXP();
   renderMotivation();
   renderDash();
+  renderTotals();
+  renderAchMini();
+  renderManageGrid();
+  renderSidebarLeague();
 }
 
 function applyTheme(){
   document.documentElement.setAttribute('data-theme', THEME==='light'?'light':'');
-  const btn = document.getElementById('tglTheme');
-  if(btn){ btn.classList.toggle('on', THEME==='light'); }
+  document.getElementById('seg_dark')?.classList.toggle('active', THEME==='dark');
+  document.getElementById('seg_light')?.classList.toggle('active', THEME==='light');
 }
 
-function toggleTheme(){
-  THEME = THEME==='light'?'dark':'light';
-  localStorage.setItem('lt_theme', THEME);
-  applyTheme();
+function setTheme(theme){
+  THEME=theme; localStorage.setItem('lt_theme',THEME); applyTheme();
 }
+function toggleTheme(){ setTheme(THEME==='light'?'dark':'light'); }
 
-function toggleLang(){
-  LANG = LANG==='ru'?'uz':'ru';
-  localStorage.setItem('lt_lang', LANG);
-  const btn = document.getElementById('tglLang');
-  if(btn) btn.classList.toggle('on', LANG==='uz');
-  document.documentElement.setAttribute('lang', LANG==='uz'?'uz':'ru');
+function setLang(lang){
+  LANG=lang; localStorage.setItem('lt_lang',LANG);
+  document.documentElement.setAttribute('lang',LANG);
+  document.getElementById('seg_ru')?.classList.toggle('active', LANG==='ru');
+  document.getElementById('seg_uz')?.classList.toggle('active', LANG==='uz');
   applyLang();
 }
+function toggleLang(){ setLang(LANG==='ru'?'uz':'ru'); }
 
 let settingsOpen = false;
 function toggleSettings(e){
@@ -2548,10 +2577,10 @@ function toggleSettings(e){
   const p = document.getElementById('settingsPanel');
   if(p) p.style.display = settingsOpen?'block':'none';
   if(settingsOpen){
-    const tl = document.getElementById('tglLang');
-    if(tl) tl.classList.toggle('on', LANG==='uz');
-    const tt = document.getElementById('tglTheme');
-    if(tt) tt.classList.toggle('on', THEME==='light');
+    applyTheme();
+    document.getElementById('seg_ru')?.classList.toggle('active', LANG==='ru');
+    document.getElementById('seg_uz')?.classList.toggle('active', LANG==='uz');
+    document.getElementById('sp-title-el') && (document.getElementById('sp-title-el').textContent = LANG==='uz'?'Sozlamalar':'Настройки');
   }
 }
 // Close settings on outside click
