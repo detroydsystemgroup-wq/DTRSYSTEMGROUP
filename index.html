@@ -1287,8 +1287,22 @@ async function saveSession(catId,secs){
     const newly=checkAchsLocal({dur:secs});
     renderAll();
     showToast(`${cat.icon} +${fmtD(secs)} в "${cat.name}"`, '✅');
-    newly.forEach((a,i)=>setTimeout(()=>showToast(`🏆 ${a.name}`,a.icon,true),(i+1)*900));
-    return;
+    newly.forEach((a,i)=>setTimeout(()=>showToast function animateValue(id, start, end, duration) {
+    const obj = document.getElementById(id);
+    if (!obj) return;
+    let startTimestamp = null;
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        const value = (progress * (end - start) + start).toFixed(1);
+        obj.innerHTML = value;
+        if (progress < 1) {
+            window.requestAnimationFrame(step);
+        }
+    };
+    window.requestAnimationFrame(step);
+}(`🏆 ${a.name}`,a.icon,true),(i+1)*900));
+    return; 
   }
 
   // Real Supabase save
@@ -2017,7 +2031,30 @@ async function openPub(){
           <div style="font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:${c}">${v}</div>
           <div style="font-size:10px;color:var(--t3);text-transform:uppercase">${l}</div>
         </div>`).join('')}
-    </div>
+    </div> // --- АНИМАЦИЯ ЦИФР ---
+function animateValue(id, end, duration = 1000) {
+    const obj = document.getElementById(id);
+    if (!obj) return;
+    const start = parseFloat(obj.innerHTML) || 0;
+    const range = end - start;
+    let startTime = null;
+
+    function step(timestamp) {
+        if (!startTime) startTime = timestamp;
+        const progress = Math.min((timestamp - startTime) / duration, 1);
+        obj.innerHTML = (start + progress * range).toFixed(1);
+        if (progress < 1) {
+            window.requestAnimationFrame(step);
+        }
+    }
+    window.requestAnimationFrame(step);
+}
+
+// --- АНИМАЦИЯ ПОЛОСОК ---
+function animateProgress(id, width) {
+    const el = document.getElementById(id);
+    if (el) setTimeout(() => el.style.width = width + '%', 100);
+}
     <div style="font-size:11px;color:var(--t3)">Лиги: ${cats.map(c=>c.icon+' '+c.name).join(' · ')}</div>`;
   document.getElementById('pubOv').classList.add('show');
 }
