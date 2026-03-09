@@ -452,7 +452,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);min-hei
 .av-upload-zone:hover{border-color:var(--blue);background:rgba(26,159,255,.05);}
 .av-upload-icon{font-size:28px;margin-bottom:6px;}
 .av-upload-txt{font-size:12px;color:var(--t2);}
-.av-photo-prev{width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid var(--blue);display:block;margin:0 auto 10px;}
+.av-photo-prev{width:80px;height:80px;border-radius:12px;object-fit:cover;border:2px solid var(--blue);display:block;margin:0 auto 10px;}
 
 /* ── ANIMATIONS ── */
 @keyframes countUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -1426,7 +1426,7 @@ function renderNav(){
 }
 function renderHeader(){
   const avEl=document.getElementById('profAv');
-  if(P.avatarUrl){avEl.innerHTML=`<img src="${P.avatarUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" onerror="this.parentNode.textContent='${P.avatar}'">`;}else{avEl.textContent=P.avatar;avEl.innerHTML=P.avatar;}
+  if(P.avatarUrl){avEl.innerHTML=`<img src="${P.avatarUrl}" style="width:100%;height:100%;border-radius:10px;object-fit:cover" onerror="this.parentNode.textContent='${P.avatar}'">`;}else{avEl.textContent=P.avatar;avEl.innerHTML=P.avatar;}
   document.getElementById('profName').textContent=P.name;
   document.getElementById('mJoined').textContent='📅 '+P.joinedDate;
   document.getElementById('mAch').textContent=`🏆 ${P.achievements.filter(a=>a.unlocked).length}`;
@@ -1991,55 +1991,43 @@ function copyUrl(){
 // ══ AVATAR EDIT ══════════════════════════════════════════════
 function openAvEdit(){editSelAv=P.avatar;rpAv('avEditPicker',editSelAv,'editAvFn');document.getElementById('avOv').classList.add('show');}
 async function saveAv(){
-  try {
+  const saveBtn=document.querySelector('#avOv .btn-auth');
+  if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='Сохраняем...';}
+  try{
     if(avPhotoFile){
       showToast('Загружаем фото...','⏳');
       if(SB_USER?.isDemoUser){
+        // Demo: just use local blob preview
         P.avatarUrl=document.getElementById('avPhotoImg').src;
         avPhotoFile=null;
+        showToast('Аватар обновлён!','🖼️');
       } else {
-        const url=await async function uploadAvatarPhoto(){
-  try {
-    if(!avPhotoFile || SB_USER?.isDemoUser) return null;
-    const ext = avPhotoFile.name ? avPhotoFile.name.split('.').pop().toLowerCase() : 'jpg';
-    const path = `${SB_USER.id}.${ext}`;
-    
-    // Добавляем upsert:true, чтобы файл можно было перезаписывать
-    const { data, error } = await sb.storage.from('avatars').upload(path, avPhotoFile, {
-      upsert: true,
-      contentType: avPhotoFile.type
-    });
-
-    if (error) throw error;
-
-    const { data: publicData } = sb.storage.from('avatars').getPublicUrl(path);
-    return publicData.publicUrl + '?t=' + Date.now();
-  } catch (e) {
-    console.error('Детальная ошибка загрузки:', e);
-    return null;
-  }
-}
+        const url=await uploadAvatarPhoto();
         if(url){
           P.avatarUrl=url;
           await sb.from('users').update({avatar_url:url}).eq('id',SB_USER.id);
+          avPhotoFile=null;
+          showToast('Аватар обновлён!','🖼️');
         } else {
-          showToast('Не удалось загрузить фото','⚠️');
+          showToast('Не удалось загрузить фото. Проверь размер (макс. 2МБ)','⚠️');
         }
-        avPhotoFile=null;
       }
     } else {
-      P.avatar=editSelAv;P.avatarUrl=null;
-      if(!SB_USER?.isDemoUser) await sb.from('users').update({avatar:editSelAv,avatar_url:null}).eq('id',SB_USER.id);
+      P.avatar=editSelAv;
+      P.avatarUrl=null;
+      if(!SB_USER?.isDemoUser){
+        await sb.from('users').update({avatar:editSelAv,avatar_url:null}).eq('id',SB_USER.id);
+      }
+      showToast('Аватар обновлён!','✅');
     }
-  } catch(e) {
-    console.error("Ошибка при сохранении:", e);
-    showToast('Сбой, но мы его поймали!','⚠️');
+  } catch(e){
+    console.error('saveAv error:',e);
+    showToast('Ошибка при сохранении','⚠️');
   } finally {
-    // Этот код выполнится В ЛЮБОМ СЛУЧАЕ (даже если была ошибка)
+    if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='Сохранить';}
     renderNav();
     renderHeader();
-    closeModal('avOv');
-    showToast('Процесс завершен','✅');
+    document.getElementById('avOv').classList.remove('show');
   }
 }
 // ══ TOAST ════════════════════════════════════════════════════
