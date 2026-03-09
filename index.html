@@ -1991,30 +1991,36 @@ function copyUrl(){
 // ══ AVATAR EDIT ══════════════════════════════════════════════
 function openAvEdit(){editSelAv=P.avatar;rpAv('avEditPicker',editSelAv,'editAvFn');document.getElementById('avOv').classList.add('show');}
 async function saveAv(){
-  if(avPhotoFile){
-    showToast('Загружаем фото...','⏳');
-    // Если это демо-аккаунт, сразу показываем картинку
-    if(SB_USER?.isDemoUser){
-      P.avatarUrl=document.getElementById('avPhotoImg').src;
-      avPhotoFile=null;
-    } else {
-      const url=await uploadAvatarPhoto();
-      if(url){
-        P.avatarUrl=url;
-        await sb.from('users').update({avatar_url:url}).eq('id',SB_USER.id);
+  try {
+    if(avPhotoFile){
+      showToast('Загружаем фото...','⏳');
+      if(SB_USER?.isDemoUser){
+        P.avatarUrl=document.getElementById('avPhotoImg').src;
+        avPhotoFile=null;
       } else {
-        showToast('Ошибка базы данных!','⚠️');
-        closeAvEdit(); // <-- Теперь окно закроется даже при ошибке!
-        return;
+        const url=await uploadAvatarPhoto();
+        if(url){
+          P.avatarUrl=url;
+          await sb.from('users').update({avatar_url:url}).eq('id',SB_USER.id);
+        } else {
+          showToast('Не удалось загрузить фото','⚠️');
+        }
+        avPhotoFile=null;
       }
-      avPhotoFile=null;
+    } else {
+      P.avatar=editSelAv;P.avatarUrl=null;
+      if(!SB_USER?.isDemoUser) await sb.from('users').update({avatar:editSelAv,avatar_url:null}).eq('id',SB_USER.id);
     }
-  } else {
-    P.avatar=editSelAv;P.avatarUrl=null;
-    if(!SB_USER?.isDemoUser)await sb.from('users').update({avatar:editSelAv,avatar_url:null}).eq('id',SB_USER.id);
+  } catch(e) {
+    console.error("Ошибка при сохранении:", e);
+    showToast('Сбой, но мы его поймали!','⚠️');
+  } finally {
+    // Этот код выполнится В ЛЮБОМ СЛУЧАЕ (даже если была ошибка)
+    renderNav();
+    renderHeader();
+    closeAvEdit(); 
+    showToast('Процесс завершен','✅');
   }
-  renderNav();renderHeader();
-  closeAvEdit();showToast('Аватар обновлён!','✅');
 }
 // ══ TOAST ════════════════════════════════════════════════════
 let toastTmr=null;
