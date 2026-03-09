@@ -1998,7 +1998,27 @@ async function saveAv(){
         P.avatarUrl=document.getElementById('avPhotoImg').src;
         avPhotoFile=null;
       } else {
-        const url=await uploadAvatarPhoto();
+        const url=await async function uploadAvatarPhoto(){
+  try {
+    if(!avPhotoFile || SB_USER?.isDemoUser) return null;
+    const ext = avPhotoFile.name ? avPhotoFile.name.split('.').pop().toLowerCase() : 'jpg';
+    const path = `${SB_USER.id}.${ext}`;
+    
+    // Добавляем upsert:true, чтобы файл можно было перезаписывать
+    const { data, error } = await sb.storage.from('avatars').upload(path, avPhotoFile, {
+      upsert: true,
+      contentType: avPhotoFile.type
+    });
+
+    if (error) throw error;
+
+    const { data: publicData } = sb.storage.from('avatars').getPublicUrl(path);
+    return publicData.publicUrl + '?t=' + Date.now();
+  } catch (e) {
+    console.error('Детальная ошибка загрузки:', e);
+    return null;
+  }
+}
         if(url){
           P.avatarUrl=url;
           await sb.from('users').update({avatar_url:url}).eq('id',SB_USER.id);
