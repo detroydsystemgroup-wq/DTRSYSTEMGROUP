@@ -1419,7 +1419,9 @@ function renderAll(){
 }
 
 function renderNav(){
-  document.getElementById('navAv').textContent=P.avatar;
+  const avEl=document.getElementById('navAv');
+  if(P.avatarUrl){avEl.innerHTML=`<img src="${P.avatarUrl}" style="width:100%;height:100%;border-radius:6px;object-fit:cover" onerror="this.parentNode.textContent='${P.avatar}'">`;}
+  else{avEl.textContent=P.avatar;avEl.innerHTML=P.avatar;}
   document.getElementById('navUname').textContent=P.name;
 }
 function renderHeader(){
@@ -1941,7 +1943,9 @@ async function openPub(){
 
   document.getElementById('pubPrev').innerHTML=`
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-      <div style="font-size:32px">${P.avatar}</div>
+     <div style="width:48px;height:48px;border-radius:50%;overflow:hidden;font-size:32px;display:flex;align-items:center;justify-content:center;background:var(--card);border:2px solid var(--blue);flex-shrink:0;">
+  ${P.avatarUrl?`<img src="${P.avatarUrl}" style="width:100%;height:100%;object-fit:cover">`:P.avatar}
+</div>
       <div><div style="font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700">${P.name}</div>
         <div style="font-size:12px;color:var(--blue);text-transform:uppercase;letter-spacing:.7px">${document.getElementById('profTitle').textContent}</div></div>
       <div style="margin-left:auto;font-size:18px;cursor:pointer;padding:6px;border-radius:8px;background:${iLiked?'rgba(248,81,73,.15)':'var(--card)'};" id="likeBtn" onclick="likeMyProfile()">
@@ -1987,15 +1991,23 @@ function copyUrl(){
 // ══ AVATAR EDIT ══════════════════════════════════════════════
 function openAvEdit(){editSelAv=P.avatar;rpAv('avEditPicker',editSelAv,'editAvFn');document.getElementById('avOv').classList.add('show');}
 async function saveAv(){
-  // If photo was selected — upload it
   if(avPhotoFile){
     showToast('Загружаем фото...','⏳');
-    const url=await uploadAvatarPhoto();
-    if(url){
-      P.avatarUrl=url;
-      if(!SB_USER?.isDemoUser)await sb.from('users').update({avatar_url:url}).eq('id',SB_USER.id);
+    // Если это демо-аккаунт, сразу показываем картинку
+    if(SB_USER?.isDemoUser){
+      P.avatarUrl=document.getElementById('avPhotoImg').src;
+      avPhotoFile=null;
+    } else {
+      const url=await uploadAvatarPhoto();
+      if(url){
+        P.avatarUrl=url;
+        await sb.from('users').update({avatar_url:url}).eq('id',SB_USER.id);
+      } else {
+        showToast('Ошибка! Хранилище Supabase не настроено','⚠️');
+        return;
+      }
+      avPhotoFile=null;
     }
-    avPhotoFile=null;
   } else {
     P.avatar=editSelAv;P.avatarUrl=null;
     if(!SB_USER?.isDemoUser)await sb.from('users').update({avatar:editSelAv,avatar_url:null}).eq('id',SB_USER.id);
@@ -2003,15 +2015,6 @@ async function saveAv(){
   renderNav();renderHeader();
   closeAvEdit();showToast('Аватар обновлён!','✅');
 }
-
-function closeAvEdit(){
-  document.getElementById('avOv').classList.remove('show');
-  avPhotoFile=null;
-  document.getElementById('avPhotoPrev').style.display='none';
-  document.getElementById('avUploadHint').style.display='block';
-  document.getElementById('avFileIn').value='';
-}
-
 // ══ TOAST ════════════════════════════════════════════════════
 let toastTmr=null;
 function showToast(msg,icon='✅',isAch=false){
