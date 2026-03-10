@@ -7,6 +7,76 @@
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
+    /* =========================================
+   PREMIUM UI ENGINE (Physics & Animations)
+   ========================================= */
+
+/* 1. Глобальная пружинная физика */
+:root {
+    --spring-easing: cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Эффект отскока */
+    --smooth-easing: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* 2. Пружинный отклик на любые клики (заменит старый button:active) */
+button, .tab, .stat-card, .league-card {
+    transition: transform 0.4s var(--spring-easing), box-shadow 0.3s var(--smooth-easing), border-color 0.3s ease;
+    will-change: transform, box-shadow; /* Аппаратное ускорение (60fps) */
+}
+
+button:active, .tab:active, .stat-card:active, .league-card:active {
+    transform: scale(0.92) translateY(2px) !important;
+    box-shadow: 0 0 0 rgba(0,0,0,0) !important;
+}
+
+/* 3. Каскадное 3D-появление списков (Staggered Reveal) */
+.premium-reveal {
+    opacity: 0;
+    transform: translateY(30px) rotateX(-10deg) scale(0.95);
+    animation: premiumFadeIn 0.7s var(--smooth-easing) forwards;
+    transform-origin: top center;
+}
+
+@keyframes premiumFadeIn {
+    to { opacity: 1; transform: translateY(0) rotateX(0) scale(1); }
+}
+
+/* Задержки для каскада (чтобы элементы выплывали по очереди) */
+.premium-reveal:nth-child(1) { animation-delay: 0.05s; }
+.premium-reveal:nth-child(2) { animation-delay: 0.10s; }
+.premium-reveal:nth-child(3) { animation-delay: 0.15s; }
+.premium-reveal:nth-child(4) { animation-delay: 0.20s; }
+.premium-reveal:nth-child(5) { animation-delay: 0.25s; }
+.premium-reveal:nth-child(6) { animation-delay: 0.30s; }
+
+/* 4. Карточки с динамическим свечением (Glass Spotlight) */
+.glow-card {
+    position: relative;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+}
+
+.glow-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    border-radius: inherit;
+    padding: 2px; /* Толщина светящейся рамки */
+    background: radial-gradient(
+        800px circle at var(--mouse-x, 0) var(--mouse-y, 0), 
+        rgba(255,255,255,0.15),
+        transparent 40%
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    z-index: 1;
+    transition: background 0.2s ease;
+}
     /* Плавность для всего интерфейса */
 * {
     transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
