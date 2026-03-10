@@ -1435,37 +1435,46 @@ function renderCatSelGrid(){
 function toggleCS(id){selCatIds.has(id)?selCatIds.delete(id):selCatIds.add(id);renderCatSelGrid();}
 
 // ══ REGISTER — FINISH ════════════════════════════════════════
-async function finishReg(){
-  if(!regBuf||!selCatIds.size)return;
-  const btn=document.getElementById('btnFinish');
-  btn.textContent='Создаём...';btn.disabled=true;
+async function finishReg() {
+    if(!regBuf || !selCatIds.size) return;
+    const btn = document.getElementById('btnFinish');
+    btn.textContent = 'Создаём...'; btn.disabled = true;
 
-  const {data:authData,error:authErr}=await sb.auth.signUp({
-    email:regBuf.name.toLowerCase()+'@lifetrack.app',
-    password:regBuf.pass,
-    options:{data:{username:regBuf.name}}
-  });
+    try {
+        // 1. Создаем запись в нашей таблице public.users
+        const { data: newUser, error: userErr } = await sb.from('users').insert([{
+            username: regBuf.name,
+            password_hash: regBuf.pass, // Храним просто текст для теста
+            avatar: regBuf.av || '🎯',
+            streak: 0,
+            total_sessions: 0
+        }]).select().single();
 
-  if(authErr){
-    btn.textContent='Начать';btn.disabled=false;
-    alert('Ошибка регистрации: '+authErr.message);return;
-  }
+        if (userErr) throw userErr;
 
-  // Email confirmation required?
-  if(!authData.session){
-    document.getElementById('catSel').innerHTML=`
-      <div style="text-align:center;padding:40px 24px;max-width:440px;color:var(--t1)">
-        <div style="font-size:56px;margin-bottom:16px">📧</div>
-        <div style="font-family:'Rajdhani',sans-serif;font-size:26px;font-weight:700;margin-bottom:10px">Подтверди email</div>
-        <div style="font-size:14px;color:var(--t2);line-height:1.7">
-          Supabase отправил письмо на <b>${regBuf.name.toLowerCase()}@lifetrack.app</b>.<br><br>
-          <b>Чтобы убрать этот шаг:</b><br>
-          Supabase → Authentication → Settings →<br>
-          выключи <b>"Confirm email"</b> → Save
-        </div>
-        <button onclick="location.reload()" style="margin-top:22px;padding:13px 28px;border-radius:10px;border:none;background:var(--blue);color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'Rajdhani',sans-serif;letter-spacing:1px">Обновить страницу</button>
-      </div>`;
-    return;
+        // 2. Добавляем выбранные категории (Лиги)
+        const catsToInsert = Array.from(selCatIds).map(catId => ({
+            user_id: newUser.id,
+            category_id: catId,
+            hours: 0
+        }));
+        
+        const { error: catErr } = await sb.from('user_categories').insert(catsToInsert);
+        if (catErr) throw catErr;
+
+        // 3. Сохраняем и входим
+        showToast('Успешная регистрация!', '🎉');
+        localStorage.setItem('lt_user', JSON.stringify(newUser));
+        
+        // Маленькая задержка для красоты и перезагрузка
+        setTimeout(() => location.reload(), 1000);
+
+    } catch (err) {
+        console.error(err);
+        btn.textContent = 'Начать'; btn.disabled = false;
+        alert('Ошибка регистрации: ' + (err.message || 'Неизвестная ошибка'));
+    }
+}
   }
 
   const userId=authData.user.id;
