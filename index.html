@@ -1750,20 +1750,25 @@ function renderSessions(all=false){
 }
 
 // ══ MANAGE ══════════════════════════════════════════════════
+// == MANAGE ==========================
 function renderManageGrid(){
   const el=document.getElementById('manageGrid');if(!el)return;
   el.innerHTML=ALL_CATS.map(c=>{
     const on=P.activeCatIds.includes(c.id);
     const hrs=P.categories.find(x=>x.id===c.id)?.hours||0;
-    return `<div class="mg-item ${on?'on':''}" style="${on?`color:${c.color};border-color:${c.color}`:'color:var(--t2)'}" onclick="toggleCat('${c.id}')">
-      <div class="mg-check" style="background:${c.color}22">✓</div>
+    
+    // Внедряем премиум-анимации: league-card (отскок), glow-card (свет), premium-reveal (выплывание)
+    return `<div class="mg-item league-card glow-card premium-reveal ${on?'on':''}" style="${on?`border-color:${c.color}`:'border-color:rgba(255,255,255,0.05)'}" onclick="toggleCat('${c.id}')">
+      <div class="mg-check" style="background:${c.color}22; color:${c.color}">✓</div>
       <div class="mg-emo">${c.icon}</div>
       <div class="mg-txt">
         <div class="mg-name" style="${on?`color:${c.color}`:'color:var(--t1)'}">${c.name}</div>
-        <div class="mg-members">${c.members.toLocaleString('ru')} в лиге${on?` · ${hrs.toFixed(1)} ч у тебя`:''}</div>
+        <div class="league-desc">${c.desc}</div>
+        <div class="mg-members" style="opacity: 0.7;">${c.members.toLocaleString('ru')} в лиге${on?` · ${hrs.toFixed(1)} ч у тебя`:''}</div>
       </div>
     </div>`;
   }).join('');
+}
 }
 
 // ══ ACHIEVEMENTS ════════════════════════════════════════════
