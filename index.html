@@ -3526,24 +3526,26 @@ setInterval(async () => {
     }
 }, 30000); // Раз в 30 секунд
 // === ЖИВОЙ ОНЛАЙН (HEARTBEAT & COUNTER) ===
+// === ЖИВОЙ ОНЛАЙН (УМНАЯ ВЕРСИЯ) ===
 async function syncOnlineStatus() {
     if (typeof sb === 'undefined' || typeof SB_USER === 'undefined') return;
 
-    // 1. Говорим базе, что мы онлайн (Пульс)
+    // 1. Пинг в базу (отмечаемся, что мы живы)
     await sb.from('users').update({ last_ping: new Date().toISOString() }).eq('id', SB_USER.id);
 
-    // 2. Скачиваем реальные цифры онлайна
+    // 2. Скачиваем данные онлайна
     const { data } = await sb.from('category_online_stats').select('*');
     
     if (data && typeof P !== 'undefined') {
-        // Записываем новые цифры в наши категории
         P.categories.forEach(cat => {
-            const stat = data.find(d => d.category_id === cat.id);
+            // Ищем совпадение, даже если одно число, а другое текст
+            const stat = data.find(d => String(d.category_id) === String(cat.id));
             cat.real_online = stat ? stat.real_count : 0;
         });
         
-        // Перерисовываем экран, чтобы цифры обновились
+        // 3. Заставляем сайт перерисовать цифры на экране
         if (typeof renderAll === 'function') renderAll();
+        console.log("Обновлено! Сейчас онлайн:", P.categories.map(c => c.real_online));
     }
 }
 
