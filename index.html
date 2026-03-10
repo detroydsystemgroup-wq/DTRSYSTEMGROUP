@@ -2098,8 +2098,7 @@ function renderManageGrid(){
     
     // --- УМНАЯ СТАТИСТИКА (STEAM STYLE) ---
     const membersCount = c.members || 0;
-    // Считаем примерный онлайн (30% от всех участников)
-    const onlineCount = membersCount > 0 ? Math.max(1, Math.floor(membersCount * 0.3)) : 0;
+    const onlineCount = c.real_online || 0; // Берем реальное число из базы
     
     const statsHtml = membersCount === 0 
         ? `<span style="opacity: 0.5;">Пока никого. Стань первым!</span>` 
@@ -3526,6 +3525,32 @@ setInterval(async () => {
         await sb.from('users').update({ last_ping: new Date().toISOString() }).eq('id', SB_USER.id);
     }
 }, 30000); // Раз в 30 секунд
+// === ЖИВОЙ ОНЛАЙН (HEARTBEAT & COUNTER) ===
+async function syncOnlineStatus() {
+    if (typeof sb === 'undefined' || typeof SB_USER === 'undefined') return;
+
+    // 1. Говорим базе, что мы онлайн (Пульс)
+    await sb.from('users').update({ last_ping: new Date().toISOString() }).eq('id', SB_USER.id);
+
+    // 2. Скачиваем реальные цифры онлайна
+    const { data } = await sb.from('category_online_stats').select('*');
+    
+    if (data && typeof P !== 'undefined') {
+        // Записываем новые цифры в наши категории
+        P.categories.forEach(cat => {
+            const stat = data.find(d => d.category_id === cat.id);
+            cat.real_online = stat ? stat.real_count : 0;
+        });
+        
+        // Перерисовываем экран, чтобы цифры обновились
+        if (typeof renderAll === 'function') renderAll();
+    }
+}
+
+// Запускаем проверку каждые 30 секунд
+setInterval(syncOnlineStatus, 30000);
+// И один раз при загрузке
+setTimeout(syncOnlineStatus, 2000);
 </script>
 </body>
 </html>
