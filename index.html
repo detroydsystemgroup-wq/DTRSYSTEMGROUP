@@ -3530,21 +3530,16 @@ async function syncOnlineStatus() {
     if (typeof sb === 'undefined' || typeof SB_USER === 'undefined') return;
 
     try {
-        // 1. Пинг в базу (я тут!)
         await sb.from('users').update({ last_ping: new Date().toISOString() }).eq('id', SB_USER.id);
-
-        // 2. Берем свежий онлайн
         const { data } = await sb.from('category_online_stats').select('*');
         
-        if (data && typeof P !== 'undefined') {
-            P.categories.forEach(cat => {
-                // Ищем совпадение ID (превращаем всё в текст для надежности)
+        if (data && typeof ALL_CATS !== 'undefined') {
+            // ВОТ ИСПРАВЛЕНИЕ: КЛАДЕМ ЦИФРЫ ПРЯМО В КАРТОЧКИ АРЕНЫ
+            ALL_CATS.forEach(cat => {
                 const stat = data.find(d => String(d.category_id) === String(cat.id));
                 cat.real_online = stat ? stat.real_count : 0;
             });
             
-            // 3. Перерисовываем экран
-            console.log("Обновляю экран... Сейчас онлайн:", P.categories.map(c => c.real_online));
             if (typeof renderAll === 'function') renderAll();
             else if (typeof renderArena === 'function') renderArena();
         }
@@ -3553,7 +3548,6 @@ async function syncOnlineStatus() {
     }
 }
 
-// Запускаем пульс
 setInterval(syncOnlineStatus, 20000);
 setTimeout(syncOnlineStatus, 2000);
 
