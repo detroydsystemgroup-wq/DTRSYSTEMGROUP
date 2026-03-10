@@ -1824,7 +1824,13 @@ function renderHeader(){
   document.getElementById('profTitle').textContent=tits[Math.max(0,ti)];
 }
 function renderTotals(){
-  document.getElementById('totDisp').textContent=totalHrs().toLocaleString('ru',{maximumFractionDigits:1});
+  const el = document.getElementById('totDisp');
+  // Чтобы анимация всегда красиво стартовала с нуля
+  if(el.textContent === '' || el.textContent === '0') el.textContent = '0'; 
+  
+  // Запускаем эффект 
+  animCount(el, totalHrs(), true, 1500); 
+  
   document.getElementById('streakDisp').textContent=`🔥 ${P.streak} дней подряд`;
   document.getElementById('weekDisp').textContent=`↑ +${weekHrs().toFixed(1)} ч за 7 дней`;
 }
@@ -1877,27 +1883,36 @@ function renderDash(){
   // Responsive KPI grid - fewer cats = bigger cards
   const kpiEl=document.getElementById('kpiRow');
   kpiEl.style.gridTemplateColumns=catCount<=2?'repeat(2,1fr)':catCount===3?'repeat(2,1fr)':'repeat(4,1fr)';
-  kpiEl.innerHTML=`
+ kpiEl.innerHTML=`
     <div class="kpi" style="--kpi-c:var(--blue)"><div class="cb" style="padding:0">
-      <div class="kpi-val" style="color:var(--blue)">${periodHrs.toFixed(1)}</div>
+      <div class="kpi-val" id="kpi1" style="color:var(--blue)">0</div>
       <div class="kpi-lbl">${isWeek?t('hrs_week'):t('hrs_month')}</div>
       <div class="kpi-delta up">↑ ${delta}% к прошлому</div>
     </div><div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--blue);border-radius:10px 10px 0 0"></div></div>
+    
     <div class="kpi"><div class="cb" style="padding:0">
-      <div class="kpi-val" style="color:var(--orange)">${avgPerDay.toFixed(1)}</div>
+      <div class="kpi-val" id="kpi2" style="color:var(--orange)">0</div>
       <div class="kpi-lbl">${t('hrs_day')}</div>
       <div class="kpi-delta neu">${t('goal')}</div>
     </div><div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--orange);border-radius:10px 10px 0 0"></div></div>
+    
     <div class="kpi"><div class="cb" style="padding:0">
-      <div class="kpi-val" style="color:var(--green)">${activeDays}</div>
+      <div class="kpi-val" id="kpi3" style="color:var(--green)">0</div>
       <div class="kpi-lbl">${t('active_days')}</div>
       <div class="kpi-delta ${activeDays>=Math.ceil(buckets*0.7)?'up':'dn'}">${activeDays}/${buckets} ${t('days')}</div>
     </div><div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--green);border-radius:10px 10px 0 0"></div></div>
+    
     <div class="kpi"><div class="cb" style="padding:0">
-      <div class="kpi-val" style="color:var(--purple)">${bestDay.toFixed(1)}</div>
+      <div class="kpi-val" id="kpi4" style="color:var(--purple)">0</div>
       <div class="kpi-lbl">${t('best_day')}</div>
       <div class="kpi-delta neu">${t('hrs_per_day')}</div>
     </div><div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--purple);border-radius:10px 10px 0 0"></div></div>`;
+
+  // Запускаем каскадную премиальную анимацию накрутки
+  animCount(document.getElementById('kpi1'), periodHrs, true, 1100);
+  animCount(document.getElementById('kpi2'), avgPerDay, true, 1300);
+  animCount(document.getElementById('kpi3'), activeDays, false, 1500);
+  animCount(document.getElementById('kpi4'), bestDay, true, 1700);
 
   document.getElementById('chartLegend').innerHTML=active.map(c=>
     `<div class="cl-item"><div class="cl-dot" style="background:${c.color}"></div>${c.name}</div>`).join('');
@@ -2858,18 +2873,21 @@ function renderXP(){
   if(fill)setTimeout(()=>fill.style.width=pct+'%',100);
 }
 
-// ══ ANIMATED COUNTER ═════════════════════════════════
-function animCount(el,end,dur=900){
+// ══ ANIMATED COUNTER (Premium Odometer) ══════════════════════
+function animCount(el, end, isFloat=false, dur=1200){
   if(!el)return;
-  const start=parseFloat(el.textContent)||0;
-  const isFloat=!Number.isInteger(end)&&String(end).includes('.');
-  const t0=performance.now();
+  const start = parseFloat(el.textContent.replace(',', '.')) || 0;
+  const t0 = performance.now();
+  
   function tick(now){
-    const p=Math.min((now-t0)/dur,1);
-    const ease=1-Math.pow(1-p,3);
-    const v=start+(end-start)*ease;
-    el.textContent=isFloat?v.toFixed(1):Math.floor(v).toLocaleString('ru');
-    if(p<1)requestAnimationFrame(tick);
+    const p = Math.min((now - t0) / dur, 1);
+    const ease = 1 - Math.pow(1 - p, 4); 
+    const v = start + (end - start) * ease;
+    
+    el.textContent = isFloat ? v.toFixed(1) : Math.floor(v).toLocaleString('ru');
+    
+    if(p < 1) requestAnimationFrame(tick);
+    else el.textContent = isFloat ? end.toFixed(1) : Math.floor(end).toLocaleString('ru');
   }
   requestAnimationFrame(tick);
 }
