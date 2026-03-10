@@ -1830,23 +1830,55 @@ function renderAll(){
   renderXP();renderHeatmap();renderRings();renderRecords();renderForecast();renderMotivation();
 }
 function renderNav(){
-  const avEl=document.getElementById('navAv');
-  if(P.avatarUrl){const cbUrl=P.avatarUrl+(P.avatarUrl.includes("blob:")||P.avatarUrl.includes("?")?"":"?v="+Date.now());avEl.innerHTML=`<img src="${cbUrl}" style="width:100%;height:100%;border-radius:6px;object-fit:cover" onerror="this.parentNode.textContent='${P.avatar}'">`;}
-  else{avEl.textContent=P.avatar;avEl.innerHTML=P.avatar;}
-  document.getElementById('navUname').textContent=P.name;
+    const avEl = document.getElementById('navAv');
+    if (!avEl) return;
+
+    // Если есть ссылка на фото - ставим фото, иначе - смайлик P.avatar
+    if (P.avatarUrl) {
+        const cbUrl = P.avatarUrl + (P.avatarUrl.includes("blob:") || P.avatarUrl.includes("?") ? "" : "?v=" + Date.now());
+        avEl.innerHTML = `<img src="${cbUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+    } else {
+        avEl.textContent = P.avatar || '🎯';
+    }
+    
+    const nameEl = document.getElementById('navName');
+    if (nameEl) nameEl.textContent = P.name;
 }
+
 function renderHeader(){
-  const avEl=document.getElementById('profAv');
-  if(P.avatarUrl){const cbUrl2=P.avatarUrl+(P.avatarUrl.includes("blob:")||P.avatarUrl.includes("?")?"":"?v="+Date.now());avEl.innerHTML=`<img src="${cbUrl2}" style="width:100%;height:100%;border-radius:10px;object-fit:cover" onerror="this.parentNode.textContent='${P.avatar}'">`;}else{avEl.textContent=P.avatar;avEl.innerHTML=P.avatar;}
-  document.getElementById('profName').textContent=P.name;
-  document.getElementById('mJoined').textContent='📅 '+P.joinedDate;
-  document.getElementById('mAch').textContent=`🏆 ${P.achievements.filter(a=>a.unlocked).length}`;
-  document.getElementById('mSess').textContent=`⏱ ${P.totalSessions} сессий`;
-  document.getElementById('mStreak').textContent=`🔥 ${P.streak} дней`;
-  const th=totalHrs();
-  const tits=['⚡ Новичок','📈 Начинающий','🔥 В процессе','🌟 Серьёзный','💎 Опытный','🏆 Легенда'];
-  const ti=[0,10,50,100,200,500].findIndex((v,i,a)=>th<(a[i+1]??Infinity)&&th>=v);
-  document.getElementById('profTitle').textContent=tits[Math.max(0,ti)];
+    const avEl = document.getElementById('profAv');
+    const userAvEl = document.getElementById('userAv'); // Тот самый ID из функции выбора аватара
+    
+    // Обновляем аватарку в шапке профиля
+    const setAv = (el) => {
+        if (!el) return;
+        if (P.avatarUrl) {
+            const cbUrl2 = P.avatarUrl + (P.avatarUrl.includes("blob:") || P.avatarUrl.includes("?") ? "" : "?v=" + Date.now());
+            el.innerHTML = `<img src="${cbUrl2}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+        } else {
+            el.textContent = P.avatar || '🎯';
+        }
+    };
+
+    setAv(avEl);
+    setAv(userAvEl);
+
+    // Обновляем все текстовые поля
+    if(document.getElementById('profName')) document.getElementById('profName').textContent = P.name;
+    if(document.getElementById('mJoined')) document.getElementById('mJoined').textContent = '🗓 ' + P.joinedDate;
+    if(document.getElementById('mAch')) document.getElementById('mAch').textContent = `🏆 ${P.achievements.filter(a=>a.unlocked).length}`;
+    if(document.getElementById('mSess')) document.getElementById('mSess').textContent = `⏱ ${P.totalSessions} сессий`;
+    if(document.getElementById('mStreak')) document.getElementById('mStreak').textContent = `🔥 ${P.streak} дней`;
+    
+    // ОБНОВЛЯЕМ ЛАЙКИ (чтобы не исчезали)
+    const countEl = document.getElementById('upLikeCount');
+    if(countEl) countEl.textContent = P.likes || 0;
+
+    // Уровень и звание
+    const th = totalHrs();
+    const tits = ['🔹 Новичок', '📈 Начинающий', '🔥 В процессе', '🌟 Серьёзный', '💎 Опытный', '🏆 Легенда'];
+    const ti = [0, 10, 50, 100, 200, 500].findIndex((v, i, a) => th < (a[i+1] || Infinity) && th >= v);
+    if(document.getElementById('profTitle')) document.getElementById('profTitle').textContent = tits[Math.max(0, ti)];
 }
 function renderTotals(){
   const el = document.getElementById('totDisp');
