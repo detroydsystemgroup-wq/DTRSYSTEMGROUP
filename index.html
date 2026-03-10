@@ -3356,16 +3356,26 @@ function copyReport(){
 
 window.addEventListener('load',async()=>{
   initBanner();rpAv('avPicker',selAv,'selAvFn');
-  document.getElementById('lP').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+  document.getElementById('IP').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
   document.getElementById('rP').addEventListener('keydown',e=>{if(e.key==='Enter')goToCatSel();});
 
   // Загружаем реальные счётчики участников
   await loadMemberCounts();
 
-  const{data:{session}}=await sb.auth.getSession();
-  if(session){
-    SB_USER=session.user;
-    await loadUser(session.user.id);
+  // ИСПРАВЛЕНИЕ: Проверяем, есть ли сохраненный пропуск в памяти браузера
+  const savedUser = localStorage.getItem('lt_user');
+  
+  if (savedUser) {
+    // Если есть - заходим сразу в профиль!
+    SB_USER = JSON.parse(savedUser);
+    await loadUser(SB_USER.id);
+  } else {
+    // Проверка стандартной сессии (для надежности)
+    const {data:{session}} = await sb.auth.getSession();
+    if (session) {
+      SB_USER = session.user;
+      await loadUser(session.user.id);
+    }
   }
 });
 
