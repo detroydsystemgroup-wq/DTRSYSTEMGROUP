@@ -2404,16 +2404,7 @@ async function openUserProfile(userId, name, av){
 function closeUserProfile(){
   document.getElementById('userProfileOv').classList.remove('show');
 }
-
-async function toggleLike(targetId) {
-    if(!SB_USER || SB_USER.isDemoUser) {
-        showToast('Только для авторизованных', '🔒'); return;
-    }
-    if(targetId === SB_USER.id) {
-        showToast('Нельзя лайкнуть себя', '😅'); return;
-    }
-
-    const btn = document.getElementById('upLikeBtn');
+const btn = document.getElementById('upLikeBtn');
     const iconEl = document.getElementById('upLikeIcon');
     const countEl = document.getElementById('upLikeCount');
     const statLikesEl = document.getElementById('upStatLikes');
@@ -2422,24 +2413,28 @@ async function toggleLike(targetId) {
     const isLiked = btn.classList.contains('liked');
 
     if(isLiked) {
+        // Убираем лайк с экрана
         btn.classList.remove('liked');
         iconEl.textContent = '🤍';
         const newCnt = Math.max(0, currentCount - 1);
         countEl.textContent = newCnt;
         if(statLikesEl) statLikesEl.textContent = newCnt;
+        
+        // УДАЛЯЕМ ИЗ БАЗЫ (чтобы после перезагрузки не вернулся)
         await sb.from('profile_likes').delete().eq('user_id', SB_USER.id).eq('target_user_id', targetId);
     } else {
+        // Ставим лайк на экран
         btn.classList.add('liked');
         iconEl.textContent = '❤️';
         const newCnt = currentCount + 1;
         countEl.textContent = newCnt;
         if(statLikesEl) statLikesEl.textContent = newCnt;
+        
+        // ЗАПИСЫВАЕМ В БАЗУ (навсегда)
         await sb.from('profile_likes').insert({user_id: SB_USER.id, target_user_id: targetId});
-        await sb.from('notifications').insert({user_id: targetId, from_user_id: SB_USER.id, type: 'like', message: `${SB_USER.username || 'Кто-то'} оценил твой профиль! ❤️`});
+        
         showToast('Вы оценили профиль!', '❤️');
     }
-}
-
 // ══ MESSAGES SYSTEM ════════════════════════════════════════
 let activeConvUserId = null;
 let msgsPolling = null;
