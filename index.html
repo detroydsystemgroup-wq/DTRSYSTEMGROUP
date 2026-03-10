@@ -3541,17 +3541,39 @@ async function syncOnlineStatus() {
             // Ищем совпадение, даже если одно число, а другое текст
             const stat = data.find(d => String(d.category_id) === String(cat.id));
             cat.real_online = stat ? stat.real_count : 0;
-        });
+  // === ЖИВОЙ ОНЛАЙН (ФИНАЛЬНЫЙ МОНТАЖ) ===
+async function syncOnlineStatus() {
+    // Если база или юзер не загрузились — просто ждем
+    if (typeof sb === 'undefined' || typeof SB_USER === 'undefined') return;
+
+    try {
+        // 1. Отмечаемся в базе (Пульс)
+        await sb.from('users').update({ last_ping: new Date().toISOString() }).eq('id', SB_USER.id);
+
+        // 2. Получаем цифры онлайна
+        const { data } = await sb.from('category_online_stats').select('*');
         
-        // 3. Заставляем сайт перерисовать цифры на экране
-        if (typeof renderAll === 'function') renderAll();
-        console.log("Обновлено! Сейчас онлайн:", P.categories.map(c => c.real_online));
+        if (data && typeof P !== 'undefined') {
+            P.categories.forEach(cat => {
+                const stat = data.find(d => String(d.category_id) === String(cat.id));
+                cat.real_online = stat ? stat.real_count : 0;
+            });
+            
+            // 3. ГОВОРИМ САЙТУ: "ПОКАЖИ НОВЫЕ ЦИФРЫ!"
+            console.log("Обновляю экран... Сейчас онлайн:", P.categories.map(c => c.real_online));
+            
+            // Пробуем вызвать главную функцию отрисовки твоего сайта
+            if (typeof renderAll === 'function') renderAll();
+            else if (typeof renderArena === 'function') renderArena();
+        }
+    } catch (e) {
+        console.log("Ошибка радара:", e);
     }
 }
 
-// Запускаем проверку каждые 30 секунд
-setInterval(syncOnlineStatus, 30000);
-// И один раз при загрузке
+// Запускаем проверку каждые 20 секунд
+setInterval(syncOnlineStatus, 20000);
+// Включаем через 2 секунды после захода на сайт
 setTimeout(syncOnlineStatus, 2000);
 </script>
 </body>
