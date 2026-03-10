@@ -16,32 +16,7 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden;}
-/* --- СЕТКА ДАШБОРДА (9 БЛОКОВ) --- */
-.dashboard-section {
-    display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important; /* 3 колонки в ряд */
-    gap: 15px !important;
-    margin-bottom: 25px;
-}
 
-.dashboard-section > div {
-    min-height: 120px !important; /* Одинаковая высота */
-    display: flex !important;
-    flex-direction: column !important;
-    justify-content: center !important;
-    align-items: center !important;
-    padding: 15px !important;
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    box-sizing: border-box;
-}
-
-.stat-icon {
-    margin-right: 5px;
-    font-style: normal;
-    display: inline-block;
-}
 /* ── ONBOARDING ── */
 #onboard{position:fixed;inset:0;z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);overflow-y:auto;padding:20px 0;}
 
@@ -1855,78 +1830,23 @@ function renderAll(){
   renderXP();renderHeatmap();renderRings();renderRecords();renderForecast();renderMotivation();
 }
 function renderNav(){
-    const avEl = document.getElementById('navAv');
-    if (!avEl) return;
-    if (P.avatarUrl) {
-        const cbUrl = P.avatarUrl + (P.avatarUrl.includes("?") ? "" : "?v=" + Date.now());
-        avEl.innerHTML = `<img src="${cbUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
-    } else {
-        avEl.textContent = P.avatar || '🎯';
-    }
-    const nameEl = document.getElementById('navName');
-    if (nameEl) nameEl.textContent = P.name;
+  const avEl=document.getElementById('navAv');
+  if(P.avatarUrl){const cbUrl=P.avatarUrl+(P.avatarUrl.includes("blob:")||P.avatarUrl.includes("?")?"":"?v="+Date.now());avEl.innerHTML=`<img src="${cbUrl}" style="width:100%;height:100%;border-radius:6px;object-fit:cover" onerror="this.parentNode.textContent='${P.avatar}'">`;}
+  else{avEl.textContent=P.avatar;avEl.innerHTML=P.avatar;}
+  document.getElementById('navUname').textContent=P.name;
 }
-
 function renderHeader(){
-    const avEl = document.getElementById('profAv');
-    const userAvEl = document.getElementById('userAv');
-    const setAv = (el) => {
-        if (!el) return;
-        if (P.avatarUrl) {
-            const cbUrl = P.avatarUrl + (P.avatarUrl.includes("?") ? "" : "?v=" + Date.now());
-            el.innerHTML = `<img src="${cbUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:12px;">`;
-        } else {
-            el.textContent = P.avatar || '🎯';
-            el.style.fontSize = '40px';
-        }
-    };
-    setAv(avEl); setAv(userAvEl);
-
-    if(document.getElementById('profName')) document.getElementById('profName').textContent = P.name;
-    if(document.getElementById('mJoined')) document.getElementById('mJoined').innerHTML = `<span class="stat-icon">📅</span> ${P.joinedDate || '—'}`;
-    if(document.getElementById('mAch')) document.getElementById('mAch').innerHTML = `<span class="stat-icon">🏆</span> ${P.achievements ? P.achievements.filter(a=>a.unlocked).length : 0}`;
-    if(document.getElementById('mSess')) document.getElementById('mSess').innerHTML = `<span class="stat-icon">⏱</span> ${(P.totalSessions || 0)} сессий`;
-    if(document.getElementById('mStreak')) document.getElementById('mStreak').innerHTML = `<span class="stat-icon">🔥</span> ${(P.streak || 0)} дней`;
-    
-    const th = totalHrs();
-    const tits = ['🔹 Новичок', '📈 Начинающий', '🔥 В процессе', '🌟 Серьёзный', '💎 Опытный', '🏆 Легенда'];
-    const ti = [0, 10, 50, 100, 200, 500].findIndex((v, i, a) => th < (a[i+1] || Infinity) && th >= v);
-    if(document.getElementById('profTitle')) document.getElementById('profTitle').textContent = tits[Math.max(0, ti)];
-    
-    const countEl = document.getElementById('upLikeCount');
-    if(countEl) countEl.textContent = P.likes || 0;
-}
-    
-    // Обновляем аватарку в шапке профиля
-    const setAv = (el) => {
-        if (!el) return;
-        if (P.avatarUrl) {
-            const cbUrl2 = P.avatarUrl + (P.avatarUrl.includes("blob:") || P.avatarUrl.includes("?") ? "" : "?v=" + Date.now());
-            el.innerHTML = `<img src="${cbUrl2}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
-        } else {
-            el.textContent = P.avatar || '🎯';
-        }
-    };
-
-    setAv(avEl);
-    setAv(userAvEl);
-
-    // Обновляем все текстовые поля
-    if(document.getElementById('profName')) document.getElementById('profName').textContent = P.name;
-    if(document.getElementById('mJoined')) document.getElementById('mJoined').textContent = '🗓 ' + P.joinedDate;
-    if(document.getElementById('mAch')) document.getElementById('mAch').textContent = `🏆 ${P.achievements.filter(a=>a.unlocked).length}`;
-    if(document.getElementById('mSess')) document.getElementById('mSess').textContent = `⏱ ${P.totalSessions} сессий`;
-    if(document.getElementById('mStreak')) document.getElementById('mStreak').textContent = `🔥 ${P.streak} дней`;
-    
-    // ОБНОВЛЯЕМ ЛАЙКИ (чтобы не исчезали)
-    const countEl = document.getElementById('upLikeCount');
-    if(countEl) countEl.textContent = P.likes || 0;
-
-    // Уровень и звание
-    const th = totalHrs();
-    const tits = ['🔹 Новичок', '📈 Начинающий', '🔥 В процессе', '🌟 Серьёзный', '💎 Опытный', '🏆 Легенда'];
-    const ti = [0, 10, 50, 100, 200, 500].findIndex((v, i, a) => th < (a[i+1] || Infinity) && th >= v);
-    if(document.getElementById('profTitle')) document.getElementById('profTitle').textContent = tits[Math.max(0, ti)];
+  const avEl=document.getElementById('profAv');
+  if(P.avatarUrl){const cbUrl2=P.avatarUrl+(P.avatarUrl.includes("blob:")||P.avatarUrl.includes("?")?"":"?v="+Date.now());avEl.innerHTML=`<img src="${cbUrl2}" style="width:100%;height:100%;border-radius:10px;object-fit:cover" onerror="this.parentNode.textContent='${P.avatar}'">`;}else{avEl.textContent=P.avatar;avEl.innerHTML=P.avatar;}
+  document.getElementById('profName').textContent=P.name;
+  document.getElementById('mJoined').textContent='📅 '+P.joinedDate;
+  document.getElementById('mAch').textContent=`🏆 ${P.achievements.filter(a=>a.unlocked).length}`;
+  document.getElementById('mSess').textContent=`⏱ ${P.totalSessions} сессий`;
+  document.getElementById('mStreak').textContent=`🔥 ${P.streak} дней`;
+  const th=totalHrs();
+  const tits=['⚡ Новичок','📈 Начинающий','🔥 В процессе','🌟 Серьёзный','💎 Опытный','🏆 Легенда'];
+  const ti=[0,10,50,100,200,500].findIndex((v,i,a)=>th<(a[i+1]??Infinity)&&th>=v);
+  document.getElementById('profTitle').textContent=tits[Math.max(0,ti)];
 }
 function renderTotals(){
   const el = document.getElementById('totDisp');
@@ -3546,30 +3466,7 @@ function staggerList(selector, delay=40){
     el.style.animation = `fadeUp .28s ${i * delay}ms ease both`;
   });
 }
-// --- ФУНКЦИЯ СОХРАНЕНИЯ АВАТАРКИ ---
-async function selectAvatar(icon) {
-    // 1. Сразу показываем новый смайлик на экране
-    const avEl = document.getElementById('userAv');
-    if (avEl) avEl.textContent = icon;
-    
-    // 2. Если ты в демо-режиме, база данных не трогается
-    if (!SB_USER || SB_USER.isDemoUser) return;
 
-    // 3. Сохраняем иконку в твою базу данных "навсегда"
-    try {
-        await sb.from('users').update({ avatar: icon }).eq('id', SB_USER.id);
-        
-        // 4. Обновляем память приложения (объект P)
-        if (typeof P !== 'undefined') P.avatar = icon;
-        
-        // 5. Закрываем окно выбора аватара
-        if (typeof closeModal === 'function') closeModal('avatarModal');
-        
-        console.log("Успешно: Аватар закрепился в базе!");
-    } catch (e) {
-        console.error("Ошибка сохранения:", e);
-    }
-}
 </script>
 </body>
 </html>
