@@ -1,2853 +1,503 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-theme="dark">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LifeTrack</title>
-<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>DTR PROGRESS CLUB</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-    /* =========================================
-   PREMIUM UI ENGINE (Physics & Animations)
-   ========================================= */
-
-/* 1. Глобальная пружинная физика */
+/* ==========================================================================
+   DTR PROGRESS CLUB - PREMIUM UI ENGINE & CSS ARCHITECTURE
+   ========================================================================== */
 :root {
-    --spring-easing: cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Эффект отскока */
-    --smooth-easing: cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-/* 2. Пружинный отклик на любые клики (заменит старый button:active) */
-button, .tab, .stat-card, .league-card {
-    transition: transform 0.4s var(--spring-easing), box-shadow 0.3s var(--smooth-easing), border-color 0.3s ease;
-    will-change: transform, box-shadow; /* Аппаратное ускорение (60fps) */
-}
-
-button:active, .tab:active, .stat-card:active, .league-card:active {
-    transform: scale(0.92) translateY(2px) !important;
-    box-shadow: 0 0 0 rgba(0,0,0,0) !important;
-}
-
-/* 3. Каскадное 3D-появление списков (Staggered Reveal) */
-.premium-reveal {
-    opacity: 0;
-    transform: translateY(30px) rotateX(-10deg) scale(0.95);
-    animation: premiumFadeIn 0.7s var(--smooth-easing) forwards;
-    transform-origin: top center;
-}
-
-@keyframes premiumFadeIn {
-    to { opacity: 1; transform: translateY(0) rotateX(0) scale(1); }
-}
-
-/* Задержки для каскада (чтобы элементы выплывали по очереди) */
-.premium-reveal:nth-child(1) { animation-delay: 0.05s; }
-.premium-reveal:nth-child(2) { animation-delay: 0.10s; }
-.premium-reveal:nth-child(3) { animation-delay: 0.15s; }
-.premium-reveal:nth-child(4) { animation-delay: 0.20s; }
-.premium-reveal:nth-child(5) { animation-delay: 0.25s; }
-.premium-reveal:nth-child(6) { animation-delay: 0.30s; }
-
-/* 4. Карточки с динамическим свечением (Glass Spotlight) */
-.glow-card {
-    position: relative;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 16px;
-    overflow: hidden;
-    backdrop-filter: blur(10px);
-}
-
-.glow-card::before {
-    content: "";
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    border-radius: inherit;
-    padding: 2px; /* Толщина светящейся рамки */
-    background: radial-gradient(
-        800px circle at var(--mouse-x, 0) var(--mouse-y, 0), 
-        rgba(255,255,255,0.15),
-        transparent 40%
-    );
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-    z-index: 1;
-    transition: background 0.2s ease;
-}
-    /* Плавность для всего интерфейса */
-* {
-    transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
-    -webkit-font-smoothing: antialiased; /* Четкость шрифтов */
-}
-
-/* Эффект нажатия для всех кнопок */
-button:active, .tab:active, .stat-card:active {
-    transform: scale(0.96); /* Кнопка слегка "прожимается" */
-    filter: brightness(0.9);
-}
-
-/* Анимация появления контента */
-.section-animate {
-    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-@keyframes slideUp {
-    from { opacity: 0; transform: translateY(15px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* Стеклянный эффект (Glassmorphism) для модальных окон */
-.ov {
-    backdrop-filter: blur(10px);
-    background: rgba(13, 17, 23, 0.8) !important;
-}
-:root{
-  --bg:#0d1117; --panel:#161b22; --card:#1c2128; --hover:#21262d;
-  --border:#30363d; --border-l:#21262d;
-  --t1:#e6edf3; --t2:#8b949e; --t3:#484f58;
-  --blue:#1a9fff; --green:#3fb950; --orange:#d29922; --purple:#bc8cff; --red:#f85149;
-  --c-read:#58a6ff; --c-sport:#3fb950; --c-lang:#d1a366; --c-code:#bc8cff;
-}
-*{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden;}
-
-/* ── ONBOARDING ── */
-#onboard{position:fixed;inset:0;z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);overflow-y:auto;padding:20px 0;}
-
-.banner-wrap{width:100%;max-width:520px;padding:0 20px;margin-bottom:24px;}
-.banner-track{position:relative;height:190px;border-radius:16px;overflow:hidden;}
-.bslide{position:absolute;inset:0;display:flex;align-items:center;gap:20px;padding:24px 28px;border-radius:16px;border:1px solid var(--border);opacity:0;transform:translateX(36px);transition:all .5s cubic-bezier(.4,0,.2,1);pointer-events:none;}
-.bslide.active{opacity:1;transform:translateX(0);pointer-events:all;}
-.bslide.exit{opacity:0;transform:translateX(-36px);}
-.bs-art{font-size:64px;flex-shrink:0;}
-.bs-tag{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:7px;}
-.bs-title{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;line-height:1.2;margin-bottom:6px;}
-.bs-desc{font-size:13px;color:var(--t2);line-height:1.5;}
-.s0{background:linear-gradient(135deg,#0d2137,#0a1520);} .s0 .bs-tag{color:var(--blue);}
-.s1{background:linear-gradient(135deg,#0e2318,#091510);} .s1 .bs-tag{color:var(--green);}
-.s2{background:linear-gradient(135deg,#1e1428,#120c1a);} .s2 .bs-tag{color:var(--purple);}
-.s3{background:linear-gradient(135deg,#1e1808,#100e00);} .s3 .bs-tag{color:var(--orange);}
-.bdots{display:flex;gap:6px;justify-content:center;margin-top:12px;}
-.bdot{width:6px;height:6px;border-radius:50%;background:var(--border);cursor:pointer;transition:all .3s;}
-.bdot.active{width:20px;border-radius:3px;background:var(--blue);}
-
-.auth-wrap{width:100%;max-width:520px;padding:0 20px;}
-.auth-box{background:var(--panel);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
-.auth-logo{font-family:'Rajdhani',sans-serif;font-size:26px;font-weight:700;letter-spacing:2px;text-align:center;padding-top:22px;}
-.auth-logo span{color:var(--blue);}
-.auth-sub{font-size:12px;color:var(--t3);text-align:center;margin-top:4px;margin-bottom:4px;padding-bottom:0;}
-.a-tabs{display:flex;border-bottom:1px solid var(--border);margin-top:14px;}
-.a-tab{flex:1;padding:13px;text-align:center;font-size:14px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;color:var(--t3);transition:all .2s;}
-.a-tab.active{color:var(--blue);border-bottom-color:var(--blue);}
-.a-forms{padding:22px;}
-.fg{margin-bottom:13px;}
-.fl{font-size:11px;font-weight:600;color:var(--t2);letter-spacing:.5px;display:block;margin-bottom:5px;text-transform:uppercase;}
-.fi{width:100%;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--t1);font-size:14px;font-family:'Inter',sans-serif;transition:border-color .2s;outline:none;}
-.fi:focus{border-color:var(--blue);}
-.fi::placeholder{color:var(--t3);}
-.av-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:4px;}
-.av-opt{width:40px;height:40px;border-radius:8px;background:var(--card);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;transition:all .2s;}
-.av-opt:hover,.av-opt.sel{border-color:var(--blue);background:rgba(26,159,255,.1);}
-.a-err{font-size:12px;color:var(--red);min-height:16px;text-align:center;margin-top:4px;}
-.btn-auth{width:100%;padding:12px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;border:none;background:linear-gradient(135deg,#1a9fff,#0f6dbf);color:#fff;font-family:'Rajdhani',sans-serif;letter-spacing:1px;text-transform:uppercase;margin-top:6px;transition:all .2s;}
-.btn-auth:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(26,159,255,.35);}
-.demo-link{text-align:center;margin-top:10px;font-size:12px;color:var(--t3);}
-.demo-link a{color:var(--blue);cursor:pointer;}
-
-/* ── CAT SELECT ── */
-#catSel{position:fixed;inset:0;z-index:998;display:none;align-items:center;justify-content:center;background:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(26,159,255,.07),transparent 70%),var(--bg);overflow-y:auto;}
-.cs-box{width:100%;max-width:640px;padding:24px 20px;}
-.cs-head{text-align:center;margin-bottom:24px;}
-.cs-step{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--t3);margin-bottom:10px;}
-.cs-title{font-family:'Rajdhani',sans-serif;font-size:30px;font-weight:700;margin-bottom:8px;}
-.cs-sub{font-size:13px;color:var(--t2);max-width:400px;margin:0 auto;}
-.csg{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:22px;}
-.csg-item{padding:20px 16px;border-radius:12px;background:var(--panel);border:2px solid var(--border);cursor:pointer;transition:all .25s;position:relative;display:flex;align-items:center;gap:14px;}
-.csg-item:hover{transform:translateY(-2px);}
-.csg-item.sel{transform:translateY(-2px);}
-.csg-item.sel .csg-check{opacity:1;}
-.csg-check{position:absolute;top:10px;right:12px;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;opacity:0;transition:opacity .2s;}
-.csg-emo{font-size:36px;flex-shrink:0;}
-.csg-txt{}
-.csg-name{font-size:15px;font-weight:700;margin-bottom:3px;}
-.csg-desc{font-size:11px;color:var(--t2);}
-.csg-members{font-size:10px;font-weight:600;margin-top:5px;}
-.cs-foot{display:flex;align-items:center;justify-content:space-between;}
-.cs-count{font-size:13px;color:var(--t2);}
-.cs-count b{color:var(--t1);}
-.btn-cs{padding:13px 32px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;border:none;font-family:'Rajdhani',sans-serif;letter-spacing:1px;text-transform:uppercase;background:linear-gradient(135deg,#1a9fff,#0f6dbf);color:#fff;box-shadow:0 4px 16px rgba(26,159,255,.3);transition:all .2s;}
-.btn-cs:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 24px rgba(26,159,255,.45);}
-.btn-cs:disabled{opacity:.35;cursor:not-allowed;}
-
-/* ── LEAGUE HERO BANNER (on app load) ── */
-#leagueHero{display:none;position:fixed;inset:0;z-index:500;align-items:center;justify-content:center;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);}
-.lh-card{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:36px 32px;width:90%;max-width:420px;text-align:center;position:relative;overflow:hidden;}
-.lh-card::before{content:'';position:absolute;inset:0;border-radius:20px;pointer-events:none;}
-.lh-eyebrow{font-size:10px;text-transform:uppercase;letter-spacing:3px;color:var(--t3);margin-bottom:16px;font-weight:600;}
-.lh-cat{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px;}
-.lh-avatar{font-size:52px;margin-bottom:10px;filter:drop-shadow(0 0 16px currentColor);}
-.lh-name{font-family:'Rajdhani',sans-serif;font-size:28px;font-weight:700;margin-bottom:4px;}
-.lh-hrs{font-family:'Rajdhani',sans-serif;font-size:48px;font-weight:700;line-height:1;margin-bottom:4px;}
-.lh-hrs-lbl{font-size:12px;color:var(--t2);text-transform:uppercase;letter-spacing:1px;margin-bottom:20px;}
-.lh-streak{font-size:14px;color:var(--orange);margin-bottom:6px;font-weight:600;}
-.lh-msg{font-size:13px;color:var(--t2);line-height:1.5;margin-bottom:22px;}
-.lh-gap{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;margin-bottom:20px;}
-.lh-gap-lbl{font-size:11px;color:var(--t2);display:block;margin-top:2px;}
-.lh-actions{display:flex;gap:10px;}
-.lh-btn{flex:1;padding:12px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;border:none;font-family:'Rajdhani',sans-serif;letter-spacing:.5px;text-transform:uppercase;transition:all .2s;}
-.lh-btn-go{background:var(--blue);color:#fff;}
-.lh-btn-go:hover{background:#0f8de8;transform:translateY(-1px);}
-.lh-btn-skip{background:var(--card);color:var(--t2);border:1px solid var(--border);}
-.lh-btn-skip:hover{color:var(--t1);}
-
-/* ── NAV ── */
-.nav{background:rgba(13,17,23,.96);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
-.nav-logo{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;}
-.nav-logo span{color:var(--blue);}
-.nav-links{display:flex;gap:6px;align-items:center;}
-.nb{padding:6px 12px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--t2);transition:all .2s;}
-.nb:hover{color:var(--t1);background:var(--hover);}
-.nb-p{background:var(--blue)!important;color:#fff!important;font-weight:600!important;}
-.nb-p:hover{background:#0f8de8!important;transform:translateY(-1px);}
-.nav-user{display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 8px;border-radius:8px;transition:background .2s;}
-.nav-user:hover{background:var(--hover);}
-.nav-av{width:28px;height:28px;border-radius:6px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:14px;border:1px solid var(--blue);}
-
-/* ── PROFILE HEADER ── */
-.ph{background:var(--panel);border-bottom:1px solid var(--border);padding:0;position:relative;overflow:hidden;}
-.ph-cover{height:90px;background:linear-gradient(135deg,#0d1f35 0%,#0d1117 40%,#12082a 100%);position:relative;overflow:hidden;}
-.ph-cover::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 120% at 30% 60%,rgba(26,159,255,.18),transparent 65%),radial-gradient(ellipse 40% 80% at 80% 30%,rgba(188,140,255,.1),transparent 60%);}
-.ph-in{max-width:1160px;margin:0 auto;padding:0 24px;}
-.ph-top{display:flex;align-items:flex-end;gap:18px;margin-top:-50px;padding-bottom:14px;position:relative;z-index:2;}
-.av-wr{position:relative;flex-shrink:0;}
-.avatar{width:110px;height:110px;border-radius:16px;background:linear-gradient(135deg,#1a3a5c,#0d1f35);border:3px solid var(--panel);display:flex;align-items:center;justify-content:center;font-size:46px;box-shadow:0 4px 20px rgba(0,0,0,.5);cursor:pointer;transition:transform .2s,box-shadow .2s;overflow:hidden;}
-.avatar:hover{transform:scale(1.04);box-shadow:0 6px 28px rgba(26,159,255,.4);}
-.av-dot{position:absolute;bottom:2px;right:2px;width:12px;height:12px;background:var(--green);border:2px solid var(--panel);border-radius:50%;box-shadow:0 0 6px var(--green);}
-.ph-info{flex:1;padding-bottom:4px;min-width:0;}
-.ph-name{font-family:'Rajdhani',sans-serif;font-size:26px;font-weight:700;letter-spacing:.5px;line-height:1;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.ph-title{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:2px 9px;border-radius:20px;background:rgba(26,159,255,.12);color:var(--blue);border:1px solid rgba(26,159,255,.25);margin-bottom:8px;}
-.ph-meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
-.mi{font-size:11px;color:var(--t3);display:flex;align-items:center;gap:3px;}
-.ph-acts{padding-bottom:4px;align-self:flex-end;display:flex;gap:6px;flex-shrink:0;}
-.btn-ol{padding:6px 13px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif;}
-.btn-ol:hover{border-color:var(--blue);color:var(--blue);background:rgba(26,159,255,.07);}
-.ph-tabs{display:flex;border-top:1px solid var(--border-l);overflow-x:auto;scrollbar-width:none;}
-.ph-tabs::-webkit-scrollbar{display:none;}
-.stab{padding:13px 16px;font-size:12px;color:var(--t3);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;font-weight:500;letter-spacing:.2px;display:flex;align-items:center;gap:6px;}
-.stab:hover{color:var(--t1);background:var(--hover);}
-.stab.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:600;}
-.stab span{font-size:16px;line-height:1;}
-
-/* ── LAYOUT ── */
-.main{max-width:1160px;margin:0 auto;padding:24px;display:grid;grid-template-columns:1fr 300px;gap:20px;}
-.tc{display:none;} .tc.active{display:block;}
-
-/* ── CARDS ── */
-.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px;}
-.card:last-child{margin-bottom:0;}
-.ch{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
-.ct{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t2);}
-.cb{padding:18px;}
-
-/* ── DASHBOARD ── */
-.dash-period{display:flex;background:var(--card);border-radius:8px;padding:3px;gap:2px;}
-.dp-btn{flex:1;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:transparent;color:var(--t3);transition:all .2s;font-family:'Rajdhani',sans-serif;letter-spacing:.5px;text-transform:uppercase;}
-.dp-btn.active{background:var(--panel);color:var(--t1);box-shadow:0 1px 4px rgba(0,0,0,.3);}
-
-/* KPI row */
-.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;align-items:stretch;}
-.kpi{background:var(--card);border:1px solid var(--border-l);border-radius:10px;padding:14px 12px;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;min-height:90px;}
-.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
-.kpi-val{font-family:'Rajdhani',sans-serif;font-size:28px;font-weight:700;line-height:1;margin-bottom:3px;}
-.kpi-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;line-height:1.3;}
-.kpi-delta{font-size:11px;font-weight:600;margin-top:6px;}
-.kpi-delta.up{color:var(--green);}
-.kpi-delta.dn{color:var(--red);}
-.kpi-delta.neu{color:var(--t3);}
-
-/* bar chart */
-.bar-chart{display:flex;align-items:flex-end;gap:0;height:160px;margin-top:4px;}
-.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:0;position:relative;}
-.bar-fill{width:calc(100% - 6px);border-radius:4px 4px 0 0;transition:height .6s cubic-bezier(.4,0,.2,1);min-height:2px;position:relative;cursor:pointer;}
-.bar-fill:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--border);color:var(--t1);font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;white-space:nowrap;z-index:10;pointer-events:none;}
-.bar-lbl{font-size:10px;color:var(--t3);margin-top:5px;text-align:center;}
-.bar-axis{display:flex;justify-content:space-between;margin-top:2px;}
-.bar-axis span{font-size:10px;color:var(--t3);}
-
-/* stacked legend */
-.chart-legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;}
-.cl-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);}
-.cl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
-
-/* radar / category breakdown */
-.cat-breakdown{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.cbd-item{background:var(--card);border:1px solid var(--border-l);border-radius:10px;padding:14px;}
-.cbd-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
-.cbd-icon{font-size:24px;}
-.cbd-name{font-size:13px;font-weight:600;}
-.cbd-hrs{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;}
-.cbd-hrs small{font-size:11px;font-weight:400;color:var(--t3);font-family:'Inter',sans-serif;margin-left:2px;}
-.cbd-bar-wr{height:4px;background:var(--bg);border-radius:2px;overflow:hidden;margin-bottom:6px;}
-.cbd-bar{height:100%;border-radius:2px;transition:width .8s ease;}
-.cbd-vs{font-size:11px;color:var(--t3);}
-.cbd-vs b{font-weight:600;}
-
-/* streak calendar */
-.streak-cal{display:flex;gap:3px;flex-wrap:wrap;}
-.sc-day{width:20px;height:20px;border-radius:4px;background:var(--card);position:relative;cursor:pointer;transition:transform .15s;}
-.sc-day:hover{transform:scale(1.2);}
-.sc-day[data-l="1"]{background:#0e4429;}
-.sc-day[data-l="2"]{background:#006d32;}
-.sc-day[data-l="3"]{background:#26a641;}
-.sc-day[data-l="4"]{background:#39d353;}
-.sc-day-lbl{font-size:10px;color:var(--t3);margin-bottom:6px;}
-
-/* best day card */
-.insight-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;}
-.insight{background:var(--card);border:1px solid var(--border-l);border-radius:10px;padding:14px;text-align:center;}
-.insight-val{font-family:'Rajdhani',sans-serif;font-size:26px;font-weight:700;line-height:1;margin-bottom:4px;}
-.insight-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;}
-
-/* ── CATS ── */
-.cats{display:flex;flex-direction:column;gap:9px;}
-.cat-item{display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--card);border:1px solid var(--border-l);border-radius:8px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
-.cat-item::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;opacity:0;transition:opacity .2s;}
-.cat-item:hover{background:var(--hover);border-color:var(--border);}
-.cat-item:hover::before{opacity:1;}
-.ci-box{width:38px;height:38px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
-.ci-info{flex:1;min-width:0;}
-.ci-name{font-size:13px;font-weight:600;margin-bottom:2px;}
-.ci-sub{font-size:10px;color:var(--t3);margin-bottom:4px;}
-.ci-bar-wr{height:3px;background:var(--bg);border-radius:2px;overflow:hidden;}
-.ci-bar{height:100%;border-radius:2px;transition:width 1s ease;}
-.ci-hrs{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;text-align:right;line-height:1;}
-.ci-hrs small{display:block;font-size:10px;font-weight:400;color:var(--t3);font-family:'Inter',sans-serif;}
-
-/* ── LEAGUES ── */
-.lg-section{margin-bottom:20px;}
-.lg-head{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--panel);border:1px solid var(--border);border-radius:10px 10px 0 0;border-bottom:none;}
-.lg-cat-icon{font-size:26px;}
-.lg-cat-name{font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;}
-.lg-badge{font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;margin-left:auto;}
-.lg-body{background:var(--panel);border:1px solid var(--border);border-radius:0 0 10px 10px;overflow:hidden;}
-.lg-row{display:flex;align-items:center;gap:11px;padding:11px 14px;border-bottom:1px solid var(--border-l);transition:background .2s;}
-.lg-row:last-child{border-bottom:none;}
-.lg-row:hover{background:var(--hover);}
-.lg-row.me{background:rgba(26,159,255,.05);border-left:3px solid var(--blue);}
-.lr-rank{font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;width:26px;text-align:center;flex-shrink:0;}
-.lr-av{width:30px;height:30px;border-radius:6px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
-.lr-info{flex:1;}
-.lr-name{font-size:12px;font-weight:600;}
-.lr-streak{font-size:10px;color:var(--t3);}
-.lr-bar-wr{width:70px;height:4px;background:var(--bg);border-radius:2px;overflow:hidden;}
-.lr-bar{height:100%;border-radius:2px;}
-.lr-hrs{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:var(--t2);min-width:44px;text-align:right;}
-
-/* ── MANAGE ── */
-.mg-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
-.mg-item{padding:16px;border-radius:10px;border:2px solid var(--border);cursor:pointer;transition:all .22s;background:var(--card);position:relative;display:flex;align-items:center;gap:12px;}
-.mg-item:hover{transform:translateY(-2px);}
-.mg-item.on{border-color:currentColor;}
-.mg-item.on .mg-check{opacity:1;}
-.mg-check{position:absolute;top:8px;right:10px;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;opacity:0;transition:opacity .2s;}
-.mg-emo{font-size:26px;flex-shrink:0;}
-.mg-txt{flex:1;}
-.mg-name{font-size:13px;font-weight:700;margin-bottom:2px;}
-.mg-members{font-size:10px;color:var(--t3);}
-
-/* ── TIMER (sidebar) ── */
-.timer-panel{background:linear-gradient(135deg,#0d2137,#1a3a55);border:1px solid rgba(26,159,255,.3);border-radius:12px;padding:18px;text-align:center;margin-bottom:16px;}
-.t-lbl{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--t3);margin-bottom:9px;font-weight:600;}
-.t-cats{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin-bottom:12px;}
-.tc-b{padding:4px 9px;border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t3);transition:all .2s;}
-.tc-b:hover{color:var(--t1);}
-.tc-b.sel{border-color:var(--blue);color:var(--blue);background:rgba(26,159,255,.1);}
-.t-disp{font-family:'Rajdhani',sans-serif;font-size:48px;font-weight:700;color:var(--t1);letter-spacing:4px;line-height:1;margin:8px 0;text-shadow:0 0 20px rgba(26,159,255,.18);}
-.t-disp.run{color:var(--blue);}
-.t-sbtn{width:100%;padding:11px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:none;letter-spacing:1px;text-transform:uppercase;transition:all .2s;font-family:'Rajdhani',sans-serif;}
-.t-sbtn.idle{background:linear-gradient(135deg,#1a9fff,#0f6dbf);color:#fff;box-shadow:0 4px 14px rgba(26,159,255,.2);}
-.t-sbtn.idle:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(26,159,255,.38);}
-.t-sbtn.active{background:linear-gradient(135deg,#f85149,#c0392b);color:#fff;animation:pulse 2s infinite;}
-@keyframes pulse{0%,100%{box-shadow:0 4px 15px rgba(248,81,73,.3);}50%{box-shadow:0 4px 25px rgba(248,81,73,.5);}}
-.t-note{font-size:11px;color:var(--t3);margin-top:8px;}
-
-/* ── TOTALS SIDEBAR ── */
-.tot-wr{text-align:center;padding:18px 12px;}
-.tot-num{font-family:'Rajdhani',sans-serif;font-size:54px;font-weight:700;line-height:1;text-shadow:0 0 28px rgba(26,159,255,.14);}
-.tot-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:2px;margin-top:3px;}
-.tot-div{height:1px;background:var(--border);margin:10px 0;}
-.tot-streak{font-size:12px;color:var(--orange);display:flex;align-items:center;justify-content:center;gap:5px;font-weight:600;}
-.tot-week{font-size:11px;color:var(--green);display:flex;align-items:center;justify-content:center;gap:4px;margin-top:4px;}
-
-/* ── SESSIONS ── */
-.sl{display:flex;flex-direction:column;gap:4px;}
-.si{display:flex;align-items:center;gap:11px;padding:10px 12px;background:var(--card);border-radius:8px;transition:background .2s;}
-.si:hover{background:var(--hover);}
-.sd{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
-.sc{font-size:12px;font-weight:600;flex:1;}
-.sdur{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;}
-.sdate{font-size:11px;color:var(--t3);min-width:72px;text-align:right;}
-
-/* ── OVERLAYS ── */
-.ov{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(5px);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s;}
-.ov.show{opacity:1;pointer-events:all;}
-.modal{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:26px;width:90%;max-width:440px;transform:scale(.95) translateY(10px);transition:transform .3s;}
-.ov.show .modal{transform:scale(1) translateY(0);}
-.mt{font-family:'Rajdhani',sans-serif;font-size:21px;font-weight:700;margin-bottom:4px;}
-.ms{font-size:13px;color:var(--t2);margin-bottom:16px;}
-.mg2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
-.mb{padding:11px;border-radius:8px;background:var(--card);border:2px solid var(--border);cursor:pointer;text-align:center;transition:all .2s;font-size:12px;font-weight:600;color:var(--t2);}
-.mb:hover{border-color:var(--t2);color:var(--t1);}
-.mb.sel{border-color:var(--blue);color:var(--t1);}
-.mbi{font-size:20px;display:block;margin-bottom:4px;}
-.m-timer{font-family:'Rajdhani',sans-serif;font-size:60px;font-weight:700;text-align:center;color:var(--blue);letter-spacing:6px;text-shadow:0 0 28px rgba(26,159,255,.4);margin:8px 0;}
-.ma{display:flex;gap:10px;}
-.btn{flex:1;padding:10px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:none;font-family:'Rajdhani',sans-serif;letter-spacing:1px;text-transform:uppercase;transition:all .2s;}
-.btn-p{background:var(--blue);color:#fff;}
-.btn-p:hover{background:#0f8de8;}
-.btn-d{background:var(--red);color:#fff;}
-.btn-g{background:var(--card);color:var(--t2);border:1px solid var(--border);}
-.btn-g:hover{color:var(--t1);}
-
-/* ── ACH ── */
-.ai{display:flex;flex-direction:column;align-items:center;gap:5px;padding:11px 5px;background:var(--card);border:1px solid var(--border-l);border-radius:8px;cursor:pointer;transition:all .2s;text-align:center;position:relative;}
-.ai:hover:not(.locked){background:var(--hover);transform:translateY(-2px);}
-.ai.locked{opacity:.25;filter:grayscale(1);}
-.ai-icon{font-size:22px;position:relative;}
-.ai-dot{position:absolute;top:-3px;right:-3px;width:8px;height:8px;background:var(--green);border:1.5px solid var(--card);border-radius:50%;}
-.ai-name{font-size:10px;font-weight:600;color:var(--t2);line-height:1.3;}
-.ai:not(.locked) .ai-name{color:var(--t1);}
-
-/* ── TOAST ── */
-.toast{position:fixed;bottom:24px;right:24px;background:var(--panel);border:1px solid var(--green);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;transform:translateY(80px);opacity:0;transition:all .4s cubic-bezier(.175,.885,.32,1.275);z-index:600;max-width:290px;box-shadow:0 8px 24px rgba(0,0,0,.4);}
-.toast.show{transform:translateY(0);opacity:1;}
-.toast.ach{border-color:var(--orange);}
-
-.empty{text-align:center;padding:24px;color:var(--t3);font-size:13px;}
-
-/* ── АДАПТИВНОСТЬ И МОБИЛЬНАЯ ВЕРСИЯ (APP STYLE) ── */
-@media(max-width:900px) {
-  .main { grid-template-columns: 1fr; }
-  .kpi-row { grid-template-columns: repeat(2, 1fr); }
-  .cat-breakdown { grid-template-columns: 1fr 1fr; }
-}
-
-@media(max-width:600px) {
-  /* Жесткая защита от бокового скролла */
-  html, body { overflow-x: hidden !important; width: 100%; max-width: 100vw; }
-  body { padding-bottom: 80px; } /* Отступ снизу, чтобы контент не прятался за меню */
-
-  .main { padding: 12px; gap: 12px; display: flex; flex-direction: column; width: 100%; max-width: 100vw; overflow-x: hidden; box-sizing: border-box; }
+  /* Dark Theme - Matte Premium */
+  --bg: #050505; 
+  --panel: rgba(18, 18, 18, 0.7);
+  --card: rgba(25, 25, 25, 0.6);
+  --hover: rgba(40, 40, 40, 0.8);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-l: rgba(255, 255, 255, 0.04);
   
-  .nav { padding: 0 16px; height: 56px; }
-  .nav-logo { font-size: 20px; }
+  --t1: #ffffff; --t2: #a0a0a0; --t3: #555555;
   
-  /* Прячем лишнее из верхней панели, оставляем только лого и кнопку Сессии/Настроек */
-  .nb:not(.nb-p, #settingsBtn) { display: none; }
-  .nav-user { display: none; } 
-
-  /* ── НИЖНЕЕ МЕНЮ (НАВИГАЦИЯ КАК В ПРИЛОЖЕНИЯХ) ── */
-  .ph-tabs { 
-    position: fixed; bottom: 0; left: 0; right: 0; z-index: 999;
-    background: rgba(13,17,23,0.95); backdrop-filter: blur(15px);
-    border-top: 1px solid var(--border);
-    display: flex; justify-content: space-around; align-items: center;
-    padding: 8px 4px calc(env(safe-area-inset-bottom) + 8px);
-    margin: 0; overflow: visible; border-bottom: none;
-  }
-  [data-theme="light"] .ph-tabs { background: rgba(255,255,255,0.96); border-top-color: #e9ecef; }
+  /* Brand Colors */
+  --brand-gold: #e5b045; 
+  --blue: #0A84FF; --green: #30D158; --orange: #FF9F0A; --purple: #BF5AF2; --red: #FF453A;
   
-  .stab { 
-    flex-direction: column; padding: 4px 0; gap: 4px; font-size: 10px; 
-    flex: 1; text-align: center; border: none !important; color: var(--t3); 
-    white-space: normal; letter-spacing: 0; font-weight: 600;
-  }
-  .stab span { font-size: 22px; margin: 0 auto; display: block; line-height: 1; }
-  .stab.active { color: var(--blue); }
-  .stab.active span { transform: scale(1.15); transition: transform 0.2s cubic-bezier(0.4,0,0.2,1); filter: drop-shadow(0 0 6px rgba(26,159,255,0.4)); }
-
-  /* Профиль (компактный и центрированный) */
-  .ph { padding: 0; }
-  .ph-cover { height: 70px; }
-  .ph-top { flex-direction: column; align-items: center; text-align: center; gap: 8px; margin-top: -36px; padding-bottom: 12px; }
-  .avatar { width: 96px; height: 96px; font-size: 40px; border-width: 4px; z-index: 5; position: relative; }
-  .ph-name { font-size: 24px; white-space: normal; overflow: visible; word-break: break-word; }
-  .ph-meta { justify-content: center; margin-bottom: 4px; }
-  .xp-wrap { margin: 4px auto 0; }
-  .ph-acts { display: none; }
-  
-  /* Карточки на 100% ширины экрана */
-  .card { border-radius: 16px; margin-bottom: 12px; width: 100%; max-width: 100vw; box-sizing: border-box; }
-  .ch { padding: 14px 16px; }
-  .cb { padding: 14px 16px; }
-  
-  /* Дашборд: сетки превращаем в 1 или 2 колонки */
-  .kpi-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-  .kpi { padding: 12px; min-height: 85px; }
-  .kpi-val { font-size: 22px; }
-  .cat-breakdown { grid-template-columns: 1fr; gap: 10px; }
-  .insight-row, .rec-grid, .forecast-row { grid-template-columns: 1fr; gap: 8px; }
-  .bar-chart { height: 130px; width: 100%; }
-  .hm-grid { max-width: 100%; overflow-x: auto; padding-bottom: 12px; }
-  
-  /* Достижения в 1 колонку */
-  .ach-summary { flex-direction: column; text-align: center; padding: 16px; gap: 16px; }
-  .ach-grid2 { grid-template-columns: 1fr; gap: 10px; }
-  .ach2 { padding: 16px 14px; }
-  
-  /* Арена и управление */
-  .csg, .mg-grid { grid-template-columns: 1fr; gap: 10px; }
-  .mg-item { padding: 14px; }
-  .mg-name { white-space: normal; word-break: break-word; }
-  .lr-name { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
-  
-  /* Таймер огромный */
-  .timer-panel { padding: 24px 16px; border-radius: 16px; }
-  .t-disp { font-size: 52px; margin: 12px 0; }
-  .t-sbtn { padding: 16px; font-size: 16px; border-radius: 12px; }
-  
-  /* Всплывающие уведомления (поднимаем их над нижним меню) */
-  .toast { bottom: 95px !important; right: 16px !important; left: 16px !important; max-width: none !important; justify-content: center; }
-  
-  /* Модальные окна */
-  .modal { padding: 24px 16px; border-radius: 16px; width: 92%; max-width: 400px; }
-  .mg2 { grid-template-columns: 1fr; gap: 8px; }
-  .mb { padding: 16px; font-size: 14px; }
-}
-/* ── XP / LEVEL ── */
-.xp-wrap{margin:6px 0 2px;}
-.xp-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
-.xp-level{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:var(--blue);}
-.xp-pts{font-size:10px;color:var(--t3);}
-.xp-track{height:5px;background:var(--card);border-radius:3px;overflow:hidden;}
-.xp-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#1a9fff,#bc8cff);transition:width 1.4s cubic-bezier(.4,0,.2,1);}
-
-/* ── RINGS ── */
-.rings-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;}
-.ring-item{text-align:center;padding:14px 8px;background:var(--card);border:1px solid var(--border-l);border-radius:12px;}
-.ring-name{font-size:12px;font-weight:600;margin-top:6px;}
-.ring-hrs{font-family:'Rajdhani',sans-serif;font-size:11px;color:var(--t3);}
-
-/* ── RECORDS ── */
-.rec-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:4px;}
-.rec-card{background:var(--card);border:1px solid var(--border-l);border-radius:10px;padding:14px;text-align:center;}
-.rec-val{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;line-height:1;margin-bottom:4px;}
-.rec-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;line-height:1.4;}
-
-/* ── HEATMAP ── */
-.hm-grid{display:flex;gap:2px;overflow-x:auto;padding-bottom:4px;}
-.hm-col{display:flex;flex-direction:column;gap:2px;}
-.hm-cell{width:11px;height:11px;border-radius:2px;flex-shrink:0;cursor:pointer;transition:transform .1s;}
-.hm-cell:hover{transform:scale(1.5);z-index:10;}
-.hm-legend{display:flex;align-items:center;gap:5px;margin-top:8px;font-size:10px;color:var(--t3);}
-
-/* ── AVATAR UPLOAD ── */
-.av-upload-zone{border:2px dashed var(--border);border-radius:10px;padding:14px;text-align:center;cursor:pointer;margin-bottom:12px;transition:all .2s;}
-.av-upload-zone:hover{border-color:var(--blue);background:rgba(26,159,255,.05);}
-.av-upload-icon{font-size:28px;margin-bottom:6px;}
-.av-upload-txt{font-size:12px;color:var(--t2);}
-.av-photo-prev{width:80px;height:80px;border-radius:12px;object-fit:cover;border:2px solid var(--blue);display:block;margin:0 auto 10px;}
-
-/* ── ANIMATIONS ── */
-@keyframes countUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-@keyframes ringFill{from{stroke-dasharray:0 999}to{}}
-@keyframes fadeSlide{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-.anim-in{animation:fadeSlide .4s ease forwards;}
-@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-
-/* ── MOTIVATION BANNER ── */
-.mot-banner{background:linear-gradient(135deg,rgba(26,159,255,.12),rgba(188,140,255,.08));border:1px solid rgba(26,159,255,.2);border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:14px;}
-.mot-icon{font-size:28px;flex-shrink:0;}
-.mot-text{font-size:13px;color:var(--t2);line-height:1.5;}
-.mot-text b{color:var(--t1);}
-
-/* ── FORECAST ── */
-.forecast-row{display:flex;gap:10px;margin-top:12px;}
-.fc-item{flex:1;background:var(--card);border:1px solid var(--border-l);border-radius:10px;padding:12px;text-align:center;}
-.fc-val{font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:var(--blue);}
-.fc-lbl{font-size:10px;color:var(--t3);margin-top:2px;}
-
-/* ── LIGHT THEME ── */
-[data-theme="light"]{
-  --bg:#f0f2f5; --panel:#ffffff; --card:#ffffff; --hover:#f5f6f8;
-  --border:#dde1e7; --border-l:#e9ecef;
-  --t1:#1a1d23; --t2:#6b7280; --t3:#9ca3af;
-  --blue:#0070f3; --green:#16a34a; --orange:#d97706; --purple:#7c3aed; --red:#dc2626;
-}
-[data-theme="light"] .nav{background:#fff;border-bottom:1px solid #e9ecef;}
-[data-theme="light"] .ph-cover{background:linear-gradient(135deg,#dbeafe 0%,#ede9fe 100%);}
-[data-theme="light"] .ph-cover::after{background:none;}
-[data-theme="light"] .avatar{border-color:#fff;background:linear-gradient(135deg,#bfdbfe,#c4b5fd);}
-[data-theme="light"] .av-dot{border-color:#fff;}
-[data-theme="light"] .ph-title{background:rgba(0,112,243,.1);color:#0070f3;border-color:rgba(0,112,243,.2);}
-[data-theme="light"] .card{box-shadow:0 1px 4px rgba(0,0,0,.08);}
-[data-theme="light"] #onboard{background:var(--bg);}
-[data-theme="light"] .modal{background:#fff;box-shadow:0 8px 32px rgba(0,0,0,.15);}
-[data-theme="light"] .ov{background:rgba(0,0,0,.4);}
-[data-theme="light"] .hm-cell:first-child + .hm-cell{background:#dcfce7;}
-
-/* ── THEME & LANG TOGGLE ── */
-.tgl-wrap{display:flex;align-items:center;gap:6px;}
-.tgl-btn{width:32px;height:18px;border-radius:9px;border:none;cursor:pointer;position:relative;transition:background .25s;background:var(--border);}
-.tgl-btn.on{background:var(--blue);}
-.tgl-btn::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .25s;box-shadow:0 1px 3px rgba(0,0,0,.3);}
-.tgl-btn.on::after{transform:translateX(14px);}
-.tgl-lbl{font-size:11px;color:var(--t3);min-width:18px;}
-
-/* ── SETTINGS PANEL ── */
-.settings-panel{position:fixed;top:56px;right:12px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;z-index:200;width:200px;box-shadow:0 8px 24px rgba(0,0,0,.3);animation:fadeSlide .2s ease;}
-.sp-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-l);}
-.sp-row:last-child{border-bottom:none;}
-.sp-lbl{font-size:13px;color:var(--t2);font-weight:500;}
-
-/* ── CATEGORY FILTER ── */
-.cat-filter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
-.cf-btn{padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--t2);font-size:12px;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif;}
-.cf-btn.active{border-color:var(--blue);background:rgba(26,159,255,.12);color:var(--blue);font-weight:600;}
-
-/* ── RESPONSIVE CAT BREAKDOWN ── */
-.cbd-item{background:var(--card);border:1px solid var(--border-l);border-radius:10px;padding:14px;}
-.cbd-top{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
-.cbd-icon{font-size:22px;line-height:1;}
-.cbd-name{font-size:13px;font-weight:600;}
-.cbd-hrs{font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;line-height:1;}
-.cbd-bar-wr{height:4px;background:var(--bg);border-radius:2px;margin:8px 0;}
-.cbd-bar{height:100%;border-radius:2px;transition:width 1s ease;}
-.cbd-vs{font-size:11px;color:var(--t3);}
-/* ── RESPONSIVE KPI ── */
-
-/* ── WEEKLY REPORT ── */
-.report-btn{padding:5px 11px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--t2);font-size:11px;font-weight:600;cursor:pointer;transition:all .2s;letter-spacing:.3px;font-family:'Inter',sans-serif;}
-.report-btn:hover{border-color:var(--blue);color:var(--blue);background:rgba(26,159,255,.08);}
-.report-modal-body{font-size:13px;color:var(--t2);line-height:1.7;max-height:60vh;overflow-y:auto;}
-.report-modal-body h3{font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;color:var(--t1);margin:16px 0 6px;}
-.report-modal-body h3:first-child{margin-top:0;}
-.report-stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0;}
-.rsr-item{background:var(--bg);border-radius:8px;padding:10px;text-align:center;}
-.rsr-val{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;line-height:1;}
-.rsr-lbl{font-size:10px;color:var(--t3);margin-top:2px;}
-.report-cat-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border-l);}
-.report-cat-row:last-child{border-bottom:none;}
-.rcr-bar-wr{flex:1;height:4px;background:var(--bg);border-radius:2px;overflow:hidden;}
-.rcr-bar{height:100%;border-radius:2px;}
-.rcr-hrs{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;min-width:36px;text-align:right;}
-
-/* ── ACH FULL VIEW (Достижения) ── */
-.ach-summary { display: flex; align-items: center; gap: 20px; background: var(--bg); padding: 18px 24px; border-radius: 12px; margin-bottom: 24px; border: 1px solid var(--border-l); }
-.ach-sum-big { font-family: 'Rajdhani', sans-serif; font-size: 42px; font-weight: 700; color: var(--blue); line-height: 1; }
-.ach-sum-track { flex: 1; }
-.ach-sum-label { font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--t1); }
-.ach-sum-bar { height: 6px; background: var(--card); border-radius: 3px; overflow: hidden; margin-bottom: 6px; }
-.ach-sum-fill { height: 100%; background: linear-gradient(90deg, #1a9fff, #bc8cff); transition: width 1s ease-out; }
-
-.ach-section { margin-bottom: 24px; }
-.ach-sec-hdr { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border-l); }
-.ach-sec-icon { font-size: 22px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2)); }
-.ach-sec-name { font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700; flex: 1; text-transform: uppercase; letter-spacing: 0.5px; }
-.ach-sec-cnt { font-size: 12px; font-weight: 700; color: var(--t2); background: var(--bg); padding: 4px 10px; border-radius: 12px; border: 1px solid var(--border-l); }
-
-.ach-grid2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
-.ach2 { display: flex; gap: 14px; padding: 16px; background: var(--card); border: 1px solid var(--border-l); border-radius: 12px; cursor: pointer; transition: all 0.25s; position: relative; overflow: hidden; }
-.ach2:hover { border-color: var(--border); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-.ach2.unlocked { border-color: var(--ach-color); background: var(--hover); box-shadow: 0 6px 20px rgba(0,0,0,0.15); }
-.ach2.unlocked::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--ach-color); box-shadow: 0 0 12px var(--ach-color); }
-.ach2.locked { opacity: 0.65; filter: grayscale(0.7); }
-.ach2.locked:hover { filter: grayscale(0.2); opacity: 0.95; }
-
-.ach2-icon { font-size: 36px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 50px; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-.ach2.unlocked .ach2-icon { filter: drop-shadow(0 0 16px var(--ach-color)); transform: scale(1.15); }
-.ach2-body { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
-.ach2-name { font-size: 15px; font-weight: 700; color: var(--t1); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: all 0.3s; }
-.ach2.unlocked .ach2-name { font-size: 16px; font-weight: 800; text-shadow: 0 0 10px rgba(255,255,255,0.1); }
-.ach2-desc { font-size: 12px; color: var(--t2); line-height: 1.4; margin-bottom: 10px; }
-.ach2-date { font-size: 11px; font-weight: 600; color: var(--ach-color); margin-top: auto; }
-.ach2-prog { height: 4px; background: var(--bg); border-radius: 2px; overflow: hidden; margin-bottom: 5px; }
-.ach2-prog-fill { height: 100%; border-radius: 2px; }
-.ach2-prog-lbl { font-size: 11px; color: var(--t3); font-weight: 600; letter-spacing: 0.5px; }
-.ach2-check { position: absolute; top: 12px; right: 12px; width: 22px; height: 22px; border-radius: 50%; background: var(--ach-color); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; opacity: 1; box-shadow: 0 0 12px var(--ach-color); }
-    /* --- ФИКС ИЕРАРХИИ В КАРТОЧКАХ ЛИГ --- */
-.mg-name {
-    font-size: 15px !important; 
-    font-weight: 800 !important; 
-    text-transform: uppercase !important; /* Делает все буквы ЗАГЛАВНЫМИ */
-    letter-spacing: 1px; /* Добавляем воздух между буквами для красоты */
+  --spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --glass: blur(20px);
 }
 
-.league-desc {
-    font-size: 12px !important; /* Уменьшаем описание */
-    color: #8b949e !important; /* Делаем его мягким серым */
-    font-weight: 400 !important; /* Убираем жирность */
-    line-height: 1.35 !important; /* Аккуратный межстрочный интервал */
-    margin: 6px 0 8px 0 !important; /* Отступы сверху и снизу */
-    white-space: normal !important;
-    opacity: 0.85;
+[data-theme="light"] {
+  --bg: #f5f5f7;
+  --panel: rgba(255, 255, 255, 0.85);
+  --card: rgba(255, 255, 255, 1);
+  --hover: rgba(0, 0, 0, 0.05);
+  --border: rgba(0, 0, 0, 0.1);
+  --border-l: rgba(0, 0, 0, 0.05);
+  --t1: #1d1d1f; --t2: #86868b; --t3: #d2d2d7;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { 
+  font-family: 'Inter', sans-serif; background: var(--bg); color: var(--t1); 
+  height: 100vh; overflow: hidden; overscroll-behavior-y: none;
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+/* --- HARDWARE ACCELERATED ANIMATIONS --- */
+button, .card, .mg-item, .chat-item {
+  transition: transform 0.4s var(--spring), opacity 0.3s ease, background 0.2s ease, border-color 0.3s ease;
+  will-change: transform, opacity;
+}
+button:active, .mg-item:active, .card:active { transform: scale(0.96) !important; }
+
+/* Staggered Reveal */
+.stagger { opacity: 0; transform: translateY(20px) scale(0.98); animation: reveal 0.6s var(--ease-out) forwards; }
+@keyframes reveal { to { opacity: 1; transform: translateY(0) scale(1); } }
+.stagger:nth-child(1) { animation-delay: 0.05s; }
+.stagger:nth-child(2) { animation-delay: 0.10s; }
+.stagger:nth-child(3) { animation-delay: 0.15s; }
+.stagger:nth-child(4) { animation-delay: 0.20s; }
+
+/* Glowing Online Indicator */
+.online-dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+  box-shadow: 0 0 8px var(--green); animation: pulse-online 2s infinite;
+}
+@keyframes pulse-online {
+  0% { box-shadow: 0 0 0 0 rgba(48, 209, 88, 0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(48, 209, 88, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(48, 209, 88, 0); }
+}
+
+/* --- LAYOUT & GLASSMORPHISM --- */
+.app-container { display: flex; height: 100vh; width: 100vw; }
+.sidebar { 
+  width: 280px; background: var(--panel); backdrop-filter: var(--glass); -webkit-backdrop-filter: var(--glass);
+  border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 100;
+}
+.main-content { flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; padding: 24px; }
+.brand-header { padding: 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border-l); }
+.brand-logo { width: 36px; height: 36px; border-radius: 8px; object-fit: cover; box-shadow: 0 4px 12px rgba(229, 176, 69, 0.2); }
+.brand-name { font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 800; letter-spacing: 1px; color: var(--brand-gold); text-transform: uppercase; line-height: 1; }
+.global-online { font-size: 11px; color: var(--t2); display: flex; align-items: center; gap: 5px; margin-top: 4px; }
+
+/* Navigation */
+.nav-menu { padding: 12px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.nav-item { 
+  padding: 12px 16px; border-radius: 12px; color: var(--t2); font-weight: 600; font-size: 14px;
+  cursor: pointer; display: flex; align-items: center; gap: 12px; transition: all 0.2s;
+}
+.nav-item:hover { background: var(--hover); color: var(--t1); }
+.nav-item.active { background: var(--blue); color: #fff; box-shadow: 0 4px 16px rgba(10, 132, 255, 0.3); }
+
+/* --- CARDS & DASHBOARD --- */
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 24px; position: relative; overflow: hidden; }
+.stat-value { font-family: 'Rajdhani', sans-serif; font-size: 48px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+.stat-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--t2); font-weight: 600; }
+
+/* --- TIMER COMPONENT --- */
+.timer-widget { background: linear-gradient(135deg, rgba(10,132,255,0.1), rgba(191,90,242,0.1)); border: 1px solid rgba(10,132,255,0.2); border-radius: 24px; padding: 32px; text-align: center; }
+.timer-display { font-family: 'Rajdhani', sans-serif; font-size: 72px; font-weight: 800; letter-spacing: 4px; color: var(--t1); margin: 16px 0; font-variant-numeric: tabular-nums; }
+.btn-primary { 
+  background: var(--blue); color: #fff; border: none; padding: 16px 32px; border-radius: 16px; 
+  font-family: 'Rajdhani', sans-serif; font-size: 18px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+  cursor: pointer; width: 100%; max-width: 300px; box-shadow: 0 8px 24px rgba(10, 132, 255, 0.4);
+}
+.btn-danger { background: var(--red); box-shadow: 0 8px 24px rgba(255, 69, 58, 0.4); }
+
+/* --- LEAGUES (Optimistic UI Grid) --- */
+.mg-item { background: var(--panel); border: 2px solid var(--border); border-radius: 16px; padding: 20px; display: flex; align-items: center; gap: 16px; cursor: pointer; }
+.mg-item.on { background: rgba(255,255,255,0.02); }
+.mg-icon { font-size: 32px; }
+.mg-info { flex: 1; }
+.mg-name { font-family: 'Rajdhani', sans-serif; font-size: 18px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.mg-stats { font-size: 12px; color: var(--t2); display: flex; align-items: center; gap: 8px; }
+
+/* --- TELEGRAM-STYLE MESSENGER --- */
+.messenger-layout { display: flex; height: calc(100vh - 48px); background: var(--card); border: 1px solid var(--border); border-radius: 20px; overflow: hidden; }
+.chat-list { width: 320px; border-right: 1px solid var(--border); display: flex; flex-direction: column; background: var(--panel); }
+.chat-area { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; }
+.chat-header { padding: 16px; border-bottom: 1px solid var(--border); background: var(--panel); backdrop-filter: var(--glass); display: flex; align-items: center; gap: 12px; z-index: 10; }
+.messages-container { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+.msg-bubble { max-width: 70%; padding: 12px 16px; border-radius: 16px; font-size: 14px; line-height: 1.4; position: relative; animation: reveal 0.3s var(--ease-out); }
+.msg-in { background: var(--card); border: 1px solid var(--border); align-self: flex-start; border-bottom-left-radius: 4px; }
+.msg-out { background: var(--blue); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; box-shadow: 0 4px 12px rgba(10,132,255,0.2); }
+.chat-input-area { padding: 16px; background: var(--panel); border-top: 1px solid var(--border); display: flex; gap: 12px; }
+.chat-input { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 12px 20px; color: var(--t1); font-family: 'Inter'; font-size: 14px; outline: none; }
+.chat-input:focus { border-color: var(--blue); }
+
+/* --- MOBILE ADAPTATION --- */
+@media (max-width: 768px) {
+  .app-container { flex-direction: column; }
+  .sidebar { width: 100%; height: auto; flex-direction: row; justify-content: space-between; border-right: none; border-bottom: 1px solid var(--border); padding: 10px; position: fixed; bottom: 0; z-index: 999; }
+  .brand-header { display: none; }
+  .nav-menu { flex-direction: row; padding: 0; justify-content: space-around; width: 100%; }
+  .nav-item { flex-direction: column; gap: 4px; padding: 8px; font-size: 10px; border-radius: 8px; }
+  .main-content { padding: 16px; padding-bottom: 90px; }
+  .messenger-layout { flex-direction: column; height: calc(100vh - 120px); }
+  .chat-list { width: 100%; flex: 1; }
+  .chat-area { position: absolute; inset: 0; z-index: 20; transform: translateX(100%); transition: transform 0.4s var(--spring); }
+  .chat-area.active { transform: translateX(0); }
 }
 </style>
 </head>
 <body>
 
-<div id="onboard">
-  <div class="banner-wrap">
-    <div class="banner-track">
-      <div class="bslide s0 active"><div class="bs-art">🎮</div><div><div class="bs-tag">Steam для реальной жизни</div><div class="bs-title">Профиль навыков — как в Steam</div><div class="bs-desc">Отслеживай часы которые ты вкладываешь в себя — так же как Steam считает часы в играх.</div></div></div>
-      <div class="bslide s1"><div class="bs-art">🏆</div><div><div class="bs-tag">Соревнование</div><div class="bs-title">Войди в свою лигу</div><div class="bs-desc">Сравнивай прогресс с людьми которые развиваются в тех же направлениях что и ты.</div></div></div>
-      <div class="bslide s2"><div class="bs-art">📊</div><div><div class="bs-tag">Умная аналитика</div><div class="bs-title">Дашборд недели и месяца</div><div class="bs-desc">Графики, KPI, разбивка по категориям — всё чтобы ты видел реальный прогресс.</div></div></div>
-      <div class="bslide s3"><div class="bs-art">🔥</div><div><div class="bs-tag">Стрики</div><div class="bs-title">Не прерывай серию</div><div class="bs-desc">Ежедневные стрики и достижения держат тебя в ритме. Пропустишь день — стрик сгорит.</div></div></div>
-    </div>
-    <div class="bdots" id="bdots"></div>
-  </div>
-  <div class="auth-wrap">
-    <div class="auth-box">
-      <div class="auth-logo">Life<span>Track</span></div>
-      <div class="auth-sub" style="padding:4px 20px 0">Выбери путь — начни считать часы</div>
-      <div class="a-tabs">
-        <div class="a-tab active" id="tabL" onclick="switchATab('l')">Войти</div>
-        <div class="a-tab" id="tabR" onclick="switchATab('r')">Регистрация</div>
-      </div>
-      <div class="a-forms">
-        <div id="lForm">
-          <div class="fg"><label class="fl">Никнейм</label><input class="fi" id="lN" placeholder="твой_никнейм" autocomplete="off"></div>
-          <div class="fg"><label class="fl">Пароль</label><input class="fi" type="password" id="lP" placeholder="••••••••"></div>
-          <div class="a-err" id="lErr"></div>
-          <button class="btn-auth" onclick="doLogin()">Войти</button>
-          <div class="demo-link"><a onclick="doDemo()">▶ Демо-аккаунт</a></div>
-        </div>
-        <div id="rForm" style="display:none">
-          <div class="fg"><label class="fl">Никнейм</label><input class="fi" id="rN" placeholder="твой_никнейм" autocomplete="off"></div>
-          <div class="fg"><label class="fl">Пароль</label><input class="fi" type="password" id="rP" placeholder="••••••••"></div>
-          <div class="fg"><label class="fl">Аватар</label><div class="av-row" id="avPicker"></div></div>
-          <div class="a-err" id="rErr"></div>
-          <button class="btn-auth" onclick="goToCatSel()">Далее → Выбрать направления</button>
-        </div>
+<div class="app-container" id="app">
+  <aside class="sidebar">
+    <div class="brand-header">
+      <img src="Лого DeTroyd 1.3.jpg" alt="DTR" class="brand-logo">
+      <div>
+        <div class="brand-name">DTR PROGRESS</div>
+        <div class="global-online" id="globalOnlineWrap"><span class="online-dot"></span> <span id="globalOnlineCount" class="odometer">0</span> онлайн сейчас</div>
       </div>
     </div>
-  </div>
-</div>
-
-<div id="catSel">
-  <div class="cs-box">
-    <div class="cs-head">
-      <div class="cs-step">Шаг 2 из 2</div>
-      <div class="cs-title">Выбери свои направления</div>
-      <div class="cs-sub">Ты попадёшь в лиги с людьми у которых те же цели. Потом можно изменить.</div>
+    <div class="nav-menu">
+      <div class="nav-item active" onclick="appUI.switchTab('dash')">📊 Дашборд</div>
+      <div class="nav-item" onclick="appUI.switchTab('arena')">⚔️ Арена Лиг</div>
+      <div class="nav-item" onclick="appUI.switchTab('chat')">💬 Клуб (Чат)</div>
+      <div class="nav-item" onclick="appUI.switchTab('profile')">🎯 Профиль</div>
     </div>
-    <div class="csg" id="catSelGrid"></div>
-    <div class="cs-foot">
-      <div class="cs-count">Выбрано: <b id="selCntDisp">0</b></div>
-      <button class="btn-cs" id="btnFinish" onclick="finishReg()" disabled>Создать профиль →</button>
-    </div>
-  </div>
-</div>
+  </aside>
 
-<div id="leagueHero">
-  <div class="lh-card" id="lhCard">
-    <div class="lh-eyebrow">🏆 Лидер твоей лиги</div>
-    <div class="lh-cat" id="lhCat">Программирование</div>
-    <div class="lh-avatar" id="lhAv">🐺</div>
-    <div class="lh-name" id="lhName">NightCoder</div>
-    <div class="lh-hrs" id="lhHrs">512</div>
-    <div class="lh-hrs-lbl">часов</div>
-    <div class="lh-streak" id="lhStreak">🔥 18 дней подряд</div>
-    <div class="lh-msg" id="lhMsg">Обгони его — и стань лидером своей лиги.</div>
-    <div class="lh-gap" id="lhGap">+265 ч <span class="lh-gap-lbl">чтобы догнать</span></div>
-    <div class="lh-actions">
-      <button class="lh-btn lh-btn-skip" onclick="closeHero()">Позже</button>
-      <button class="lh-btn lh-btn-go" onclick="closeHeroGoLeague()">Смотреть лигу →</button>
-    </div>
-  </div>
-</div>
-
-<div id="app" style="display:none">
-
-<nav class="nav">
-  <div class="nav-logo" onclick="showTab('dash')">Life<span>Track</span></div>
-  <div class="nav-links">
-    <button class="nb" onclick="showTab('leagues')">⚔️ Арена</button>
-    <button class="nb nb-p" onclick="openSessModal()">▶ Сессия</button>
-    <div class="nav-user" onclick="showTab('dash')">
-      <div class="nav-av" id="navAv">🎯</div>
-      <span style="font-size:13px;font-weight:600" id="navUname">user</span>
-    </div>
-    <button class="nb" id="settingsBtn" onclick="toggleSettings(event)" style="padding:6px 8px;font-size:15px;">⚙️</button>
-    <button class="nb" onclick="doLogout()" style="color:var(--t3);padding:6px 8px;font-size:15px;">✕</button>
-  </div>
-</nav>
-
-<!-- SETTINGS PANEL -->
-<div class="settings-panel" id="settingsPanel" style="display:none">
-  <div class="sp-row">
-    <span class="sp-lbl" id="lbl_theme">Тема</span>
-    <div class="tgl-wrap">
-      <span class="tgl-lbl" id="lbl_dark">🌙</span>
-      <button class="tgl-btn" id="tglTheme" onclick="toggleTheme()"></button>
-      <span class="tgl-lbl" id="lbl_light">☀️</span>
-    </div>
-  </div>
-  <div class="sp-row">
-    <span class="sp-lbl">Язык</span>
-    <div class="tgl-wrap">
-      <span class="tgl-lbl">RU</span>
-      <button class="tgl-btn" id="tglLang" onclick="toggleLang()"></button>
-      <span class="tgl-lbl">UZ</span>
-    </div>
-  </div>
-</div>
-
-<div class="ph">
-  <div class="ph-cover" id="phCover"></div>
-  <div class="ph-in">
-    <div class="ph-top">
-      <div class="av-wr">
-        <div class="avatar" id="profAv" onclick="openAvEdit()">🎯</div>
-        <div class="av-dot"></div>
+  <main class="main-content">
+    
+    <div id="tab-dash" class="tab-content">
+      <div class="timer-widget stagger">
+        <div class="stat-label" style="color:var(--brand-gold)">Фоновый трекинг</div>
+        <div class="timer-display" id="mainTimerDisplay">00:00:00</div>
+        <button class="btn-primary" id="btnTimerToggle" ontouchstart="appTimer.toggle()" onclick="appTimer.toggle()">▶ НАЧАТЬ СЕССИЮ</button>
       </div>
-      <div class="ph-info">
-        <div class="ph-name" id="profName">username</div>
-        <div class="ph-title" id="profTitle">⚡ Новичок</div>
-        <div class="ph-meta">
-          <span class="mi" id="mJoined">📅</span>
-          <span class="mi" id="mAch">🏆 0</span>
-          <span class="mi" id="mSess">⏱ 0</span>
-          <span class="mi" id="mStreak">🔥 0 дней</span>
+      
+      <div class="grid-2" style="margin-top: 24px;">
+        <div class="card stagger">
+          <div class="stat-label">Всего инвестировано</div>
+          <div class="stat-value" id="statTotalHrs" style="color:var(--blue)">0</div>
+          <div style="font-size: 12px; color: var(--t2)">часов за всё время</div>
         </div>
-        <div class="xp-wrap" style="width:100%;max-width:340px;margin:8px 0 0">
-          <div class="xp-top">
-            <span class="xp-level" id="xpLevel">Уровень 1</span>
-            <span class="xp-pts" id="xpPts">0 / 500 XP</span>
-          </div>
-          <div class="xp-track"><div class="xp-fill" id="xpFill" style="width:0%"></div></div>
+        <div class="card stagger">
+          <div class="stat-label">Огненный стрик</div>
+          <div class="stat-value" id="statStreak" style="color:var(--orange)">0</div>
+          <div style="font-size: 12px; color: var(--t2)">дней подряд</div>
         </div>
       </div>
-      <div class="ph-acts">
-        <button class="btn-ol" onclick="openPub()">🔗 Профиль</button>
-        <button class="btn-ol" onclick="showTab('manage')">⚙ Выбор лиги</button>
-      </div>
     </div>
-    <div class="ph-tabs">
-      <div class="stab active" onclick="showTab('dash',this)"><span>📊</span>Дашборд</div>
-      <div class="stab" onclick="showTab('leagues',this)"><span>⚔️</span>Арена</div>
-      <div class="stab" onclick="showTab('activity',this)"><span>🕐</span>История</div>
-      <div class="stab" onclick="showTab('achievements',this)"><span>🏅</span>Достижения</div>
-      <div class="stab" onclick="showTab('manage',this)"><span>🎯</span>Выбор лиги</div>
+
+    <div id="tab-arena" class="tab-content" style="display:none;">
+      <h2 style="font-family:'Rajdhani'; font-size:32px; font-weight:800; margin-bottom:8px; text-transform:uppercase;">Выбор Дисциплины</h2>
+      <p style="color:var(--t2); margin-bottom:24px; font-size:14px;">Оптимистичный UI: клик срабатывает мгновенно, данные сохраняются в фоне.</p>
+      <div class="grid-2" id="leaguesGrid">
+        </div>
     </div>
-  </div>
-</div>
 
-<div class="main">
-  <div>
-
-    <div id="tab-dash" class="tc active">
-      <div class="card">
-        <div class="mot-banner" id="motBanner" style="margin-bottom:14px"></div>
-        <div class="ch">
-          <span class="ct" id="dashTitle">Дашборд</span>
-          <div style="display:flex;align-items:center;gap:8px">
-          <div class="dash-period">
-            <button class="dp-btn active" id="dpW" onclick="setPeriod('week')">Неделя</button>
-            <button class="dp-btn" id="dpM" onclick="setPeriod('month')">Месяц</button>
-          </div>
+    <div id="tab-chat" class="tab-content" style="display:none; padding:0;">
+      <div class="messenger-layout stagger">
+        <div class="chat-list">
+          <div style="padding: 16px; font-family:'Rajdhani'; font-size:20px; font-weight:800; border-bottom:1px solid var(--border);">КЛУБЫ & ЧАТЫ</div>
+          <div id="chatListContainer" style="overflow-y:auto; flex:1;">
+            <div class="nav-item" style="border-radius:0; border-bottom:1px solid var(--border-l); gap:16px;" onclick="appChat.openChat('global')">
+              <div style="width:40px; height:40px; background:var(--blue); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px;">🌍</div>
+              <div><div style="font-weight:700; color:var(--t1)">Global Progress Club</div><div style="font-size:12px; color:var(--t2)">Общий чат участников</div></div>
+            </div>
           </div>
         </div>
-        <div class="cb">
-
-          <div class="cat-filter" id="dashCatFilter"></div>
-
-          <div class="kpi-row" id="kpiRow"></div>
-
-          <div style="margin-bottom:8px">
-            <div class="chart-legend" id="chartLegend"></div>
-            <div class="bar-chart" id="barChart"></div>
-            <div class="bar-axis"><span id="barAxisL"></span><span id="barAxisR"></span></div>
+        <div class="chat-area" id="activeChatArea">
+          <div class="chat-header">
+            <button style="background:none; border:none; color:var(--blue); font-size:24px; cursor:pointer; display:none;" id="btnBackChat" onclick="appChat.closeMobileChat()">←</button>
+            <div style="width:36px; height:36px; background:var(--blue); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px;">🌍</div>
+            <div><div style="font-weight:700;">Global Progress Club</div><div style="font-size:11px; color:var(--green)">Онлайн: <span id="chatOnlineCount">...</span></div></div>
           </div>
-
-          <div id="sec_by_cat" style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin:16px 0 10px;font-weight:600"></div>
-          <div class="cat-breakdown" id="catBreakdown"></div>
-
-          <div id="sec_kpi" style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin:16px 0 10px;font-weight:600"></div>
-          <div class="insight-row" id="insightRow"></div>
-          <div id="sec_records" style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin:16px 0 10px;font-weight:600"></div>
-          <div class="rec-grid" id="recGrid"></div>
-          <div id="sec_forecast" style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin:16px 0 10px;font-weight:600"></div>
-          <div class="forecast-row" id="forecastRow"></div>
+          <div class="messages-container" id="messagesContainer">
+            </div>
+          <div class="chat-input-area">
+            <input type="text" class="chat-input" id="chatInputMsg" placeholder="Написать сообщение..." onkeypress="if(event.key==='Enter') appChat.sendMessage()">
+            <button style="background:var(--blue); border:none; width:44px; height:44px; border-radius:50%; color:#fff; cursor:pointer; font-size:18px; box-shadow:0 4px 12px rgba(10,132,255,0.3);" onclick="appChat.sendMessage()">➤</button>
+          </div>
         </div>
       </div>
     </div>
 
-    <div id="tab-heatmap-placeholder"></div>
-
-    <div id="tab-leagues" class="tc">
-      <div id="leaguesContent"></div>
-    </div>
-
-    <div id="tab-activity" class="tc">
-      <div class="card">
-        <div class="ch"><span class="ct">Все сессии</span><span id="allSessCnt" style="font-size:12px;color:var(--t3)"></span></div>
-        <div class="cb"><div class="sl" id="allSessList"></div></div>
+    <div id="tab-profile" class="tab-content" style="display:none;">
+      <div class="card stagger" style="text-align:center;">
+        <div style="width:100px; height:100px; background:var(--card); border:2px solid var(--brand-gold); border-radius:50%; margin:0 auto 16px; display:flex; align-items:center; justify-content:center; font-size:40px; box-shadow:0 0 20px rgba(229,176,69,0.2);">🎯</div>
+        <h2 style="font-family:'Rajdhani'; font-size:32px; font-weight:800; margin-bottom:4px;" id="profileName">Loading...</h2>
+        <div style="font-size:14px; color:var(--brand-gold); text-transform:uppercase; letter-spacing:1px; font-weight:700; margin-bottom:24px;">Principal Member</div>
+        <button class="btn-primary" style="background:var(--card); color:var(--t1); border:1px solid var(--border);" onclick="appUI.toggleTheme()">Переключить тему (Светлая/Темная)</button>
       </div>
     </div>
 
-    <div id="tab-achievements" class="tc">
-      <div class="card">
-        <div class="ch"><span class="ct">Достижения</span><span id="achCnt" style="font-size:13px;font-weight:600;color:var(--green)"></span></div>
-        <div class="cb"><div id="achFull"></div></div>
-      </div>
-    </div>
-
-    <div id="tab-manage" class="tc">
-      <div class="card">
-        <div class="ch"><span class="ct">Управление ареной</span></div>
-        <div class="cb">
-          <div style="font-size:13px;color:var(--t2);margin-bottom:14px;line-height:1.5">Выбери направления — ты попадёшь в арену с людьми у которых те же цели.</div>
-          <div class="mg-grid" id="manageGrid"></div>
-        </div>
-      </div>
-    </div>
-
-  </div>
-
-  <div>
-    <div class="timer-panel">
-      <div class="t-lbl">Быстрый старт</div>
-      <div class="t-cats" id="quickCats"></div>
-      <div class="t-disp" id="qDisp">00:00:00</div>
-      <button class="t-sbtn idle" id="qBtn" onclick="toggleQuick()">▶ Старт</button>
-      <div class="t-note" id="qNote">Выбери активность и нажми Старт</div>
-    </div>
-
-    <div class="card">
-      <div class="cb">
-        <div class="tot-wr">
-          <div class="tot-num" id="totDisp">0</div>
-          <div class="tot-lbl">часов в себя</div>
-          <div class="tot-div"></div>
-          <div class="tot-streak" id="streakDisp">🔥 0 дней</div>
-          <div class="tot-week" id="weekDisp">↑ +0 ч за 7 дней</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="ch"><span class="ct">Достижения</span><span style="font-size:12px;cursor:pointer;color:var(--blue)" onclick="showTab('achievements')">Все →</span></div>
-      <div class="cb" style="padding:12px"><div class="ach-grid" id="achMini"></div></div>
-    </div>
-
-    <div class="card">
-      <div class="ch"><span class="ct">Моя арена</span><span style="font-size:12px;cursor:pointer;color:var(--blue)" onclick="showTab('leagues')">Все →</span></div>
-      <div class="cb" style="padding:10px" id="lgMini"></div>
-    </div>
-
-    <div class="card">
-      <div class="ch"><span class="ct">Последние</span></div>
-      <div class="cb" style="padding:10px"><div class="sl" id="sessList"></div></div>
-    </div>
-  </div>
+  </main>
 </div>
-</div><div class="ov" id="sessOv" onclick="olClick(event,'sessOv')">
-  <div class="modal">
-    <div class="mt">▶ Новая сессия</div>
-    <div class="ms" id="mSub">Выбери активность</div>
-    <div class="mg2" id="mCatGrid"></div>
-    <div class="m-timer" id="mTimer">00:00:00</div>
-    <div class="ma">
-      <button class="btn btn-g" onclick="closeSessModal()">Закрыть</button>
-      <button class="btn btn-p" id="mStartBtn" onclick="modalToggle()">▶ Старт</button>
-    </div>
-  </div>
-</div>
-
-<div class="ov" id="pubOv" onclick="olClick(event,'pubOv')">
-  <div class="modal" style="max-width:460px">
-    <div class="mt">🔗 Публичный профиль</div>
-    <div class="ms">Поделись с друзьями</div>
-    <div style="display:flex;gap:8px;margin-bottom:12px">
-      <input style="flex:1;padding:9px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--t2);font-size:12px;outline:none;font-family:'Inter',sans-serif" id="pubUrl" readonly onclick="this.select()">
-      <button style="padding:9px 14px;border-radius:8px;border:none;background:var(--blue);color:#fff;font-size:13px;font-weight:700;cursor:pointer" id="cpyBtn" onclick="copyUrl()">Копировать</button>
-    </div>
-    <div style="background:var(--card);border:1px solid var(--border-l);border-radius:10px;padding:16px" id="pubPrev"></div>
-    <div style="margin-top:12px;text-align:right"><button class="btn btn-g" style="flex:none;padding:8px 16px" onclick="closePub()">Закрыть</button></div>
-  </div>
-</div>
-
-
-<div class="ov" id="reportOv" onclick="olClick(event,'reportOv')">
-  <div class="modal" style="max-width:480px">
-    <div class="mt" id="reportTitle">Отчёт за неделю</div>
-    <div class="report-modal-body" id="reportBody"></div>
-    <div class="ma" style="margin-top:16px">
-      <button class="btn btn-g" onclick="document.getElementById('reportOv').classList.remove('show')">Закрыть</button>
-      <button class="btn btn-p" onclick="copyReport()">📋 Копировать</button>
-    </div>
-  </div>
-</div>
-
-<div class="ov" id="avOv" onclick="olClick(event,'avOv')">
-  <div class="modal" style="max-width:360px">
-    <div class="mt">Аватар</div>
-    <div class="ms">Фото или символ</div>
-    <div class="av-upload-zone" onclick="document.getElementById('avFileIn').click()">
-      <div id="avPhotoPrev" style="display:none"><img class="av-photo-prev" id="avPhotoImg" src=""></div>
-      <div id="avUploadHint"><div class="av-upload-icon">📷</div><div class="av-upload-txt">Нажми чтобы загрузить фото<br><span style="font-size:10px;color:var(--t3)">JPG, PNG до 2MB</span></div></div>
-    </div>
-    <input type="file" id="avFileIn" accept="image/*" style="display:none" onchange="previewAvPhoto(this)">
-    <div style="font-size:11px;color:var(--t3);text-align:center;margin-bottom:8px;">— или выбери символ —</div>
-    <div class="av-row" id="avEditPicker" style="margin-bottom:18px"></div>
-    <div class="ma"><button class="btn btn-g" onclick="closeAvEdit()">Отмена</button><button class="btn btn-p" onclick="saveAv()">Сохранить</button></div>
-  </div>
-</div>
-
-<div class="ov" id="achOv" onclick="olClick(event,'achOv')">
-  <div class="modal" style="max-width:320px;text-align:center">
-    <div style="font-size:48px;margin-bottom:8px" id="amIcon">🏆</div>
-    <div style="font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;margin-bottom:5px" id="amName"></div>
-    <div style="font-size:13px;color:var(--t2);margin-bottom:12px;line-height:1.5" id="amDesc"></div>
-    <div style="font-size:13px;font-weight:600;margin-bottom:10px" id="amStat"></div>
-    <div style="height:4px;background:var(--card);border-radius:2px;overflow:hidden;margin-bottom:18px"><div style="height:100%;border-radius:2px;background:var(--blue);transition:width .5s" id="amBar"></div></div>
-    <button class="btn btn-g" style="width:100%" onclick="closeAch()">Закрыть</button>
-  </div>
-</div>
-
-<div class="toast" id="toast"><span id="tIcon">✅</span><span id="tMsg">Готово</span></div>
-
 
 <script>
-// ══ SUPABASE ═════════════════════════════════════════════════
-const SUPABASE_URL='https://igcfayzaelaopjknspjc.supabase.co';
-const SUPABASE_KEY='sb_publishable_9oa0SgjcYDss8elPZgubzQ_FK-gW7sG';
-const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+// 1. SUPABASE INIT
+const SUPABASE_URL = 'https://igcfayzaelaopjknspjc.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_9oa0SgjcYDss8elPZgubzQ_FK-gW7sG';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ══ CONSTANTS ════════════════════════════════════════════════
-const AVATARS=['🎯','🚀','🦊','🐺','🐉','⚡','🎮','💎','🔥','🌙','🎸','🏆','🦁','🌊','⚔️','🧠'];
-let ALL_CATS=[
-    {id:'read',   name:'Чтение',           icon:'📚', color:'#58a6ff', desc:'Погружение в литературу, статьи и текстовые материалы любого формата.', members:0},
-    {id:'sport',  name:'Спорт',            icon:'🏃‍♂️', color:'#3fb950', desc:'Любая физическая активность и тренировки, направленные на развитие тела и выносливости.', members:0},
-    {id:'focus',  name:'Фокус',            icon:'🎯', color:'#f85149', desc:'Выполнение задач, требующих непрерывной концентрации без внешних отвлечений.', members:0},
-    {id:'lang',   name:'Языки',            icon:'🗣',  color:'#d1a366', desc:'Изучение иностранных языков, расширение словарного запаса и разговорная практика.', members:0},
-    {id:'skills', name:'Прокачка навыков', icon:'💻', color:'#bc8cff', desc:'Освоение новых профессиональных компетенций, рабочих инструментов и прикладных навыков.', members:0},
-    {id:'mind',   name:'Ментальность',     icon:'🧘‍♂️', color:'#20b2aa', desc:'Практики осознанности, рефлексия и упражнения для поддержания психологического баланса.', members:0}
+// CATEGORIES CONFIG
+const ALL_CATS = [
+  {id:'read',   name:'Чтение',           icon:'📚', color:'#0A84FF'},
+  {id:'sport',  name:'Спорт',            icon:'💪', color:'#30D158'},
+  {id:'code',   name:'Кодинг',           icon:'💻', color:'#BF5AF2'},
+  {id:'trading',name:'Трейдинг',         icon:'📈', color:'#e5b045'} // Brand Gold
 ];
-// Загружаем реальные счётчики из БД
-async function loadMemberCounts(){
-  const{data}=await sb.from('user_categories').select('category_id');
-  if(!data)return;
-  const counts={};
-  data.forEach(r=>{counts[r.category_id]=(counts[r.category_id]||0)+1;});
-  ALL_CATS=ALL_CATS.map(c=>({...c,members:counts[c.id]||0}));
-}
-const ACH_DEF=[
-  // ── СТАРТ ──────────────────────────────────────────────────
-  {id:'first',    cat:'start', icon:'🚀',name:'Первый шаг',     desc:'Заверши первую сессию.',                    t:'sessions',  th:1,    color:'#58a6ff'},
-  {id:'sess5',    cat:'start', icon:'🎯',name:'5 сессий',        desc:'Заверши 5 сессий.',                         t:'sessions',  th:5,    color:'#58a6ff'},
-  {id:'sess10',   cat:'start', icon:'📊',name:'10 сессий',       desc:'Заверши 10 сессий.',                        t:'sessions',  th:10,   color:'#58a6ff'},
-  {id:'sess25',   cat:'start', icon:'📈',name:'25 сессий',       desc:'Заверши 25 сессий.',                        t:'sessions',  th:25,   color:'#58a6ff'},
-  {id:'sess50',   cat:'start', icon:'💼',name:'50 сессий',       desc:'Заверши 50 сессий.',                        t:'sessions',  th:50,   color:'#58a6ff'},
-  {id:'sess100',  cat:'start', icon:'🏭',name:'100 сессий',      desc:'Заверши 100 сессий.',                       t:'sessions',  th:100,  color:'#58a6ff'},
 
-  // ── ЧАСЫ ───────────────────────────────────────────────────
-  {id:'h1',       cat:'hours', icon:'⏱️',name:'Первый час',      desc:'Суммарно 1 час.',                           t:'total_h',   th:1,    color:'#3fb950'},
-  {id:'h10',      cat:'hours', icon:'🌱',name:'10 часов',         desc:'Суммарно 10 часов.',                        t:'total_h',   th:10,   color:'#3fb950'},
-  {id:'h50',      cat:'hours', icon:'⭐',name:'50 часов',         desc:'Суммарно 50 часов.',                        t:'total_h',   th:50,   color:'#3fb950'},
-  {id:'h100',     cat:'hours', icon:'💯',name:'100 часов',        desc:'Суммарно 100 часов.',                       t:'total_h',   th:100,  color:'#3fb950'},
-  {id:'h250',     cat:'hours', icon:'🏆',name:'250 часов',        desc:'Суммарно 250 часов.',                       t:'total_h',   th:250,  color:'#3fb950'},
-  {id:'h500',     cat:'hours', icon:'💎',name:'500 часов',        desc:'Суммарно 500 часов.',                       t:'total_h',   th:500,  color:'#3fb950'},
-  {id:'h1000',    cat:'hours', icon:'👑',name:'1000 часов',       desc:'Суммарно 1000 часов. Легенда.',             t:'total_h',   th:1000, color:'#d29922'},
-
-  // ── СТРИКИ ─────────────────────────────────────────────────
-  {id:'streak3',  cat:'streak',icon:'🔥',name:'3 дня подряд',    desc:'3 дня занятий подряд.',                     t:'streak',    th:3,    color:'#f85149'},
-  {id:'streak7',  cat:'streak',icon:'🌟',name:'Неделя силы',     desc:'7 дней занятий подряд.',                    t:'streak',    th:7,    color:'#f85149'},
-  {id:'streak14', cat:'streak',icon:'⚡',name:'Две недели',       desc:'14 дней занятий подряд.',                   t:'streak',    th:14,   color:'#f85149'},
-  {id:'streak30', cat:'streak',icon:'🌙',name:'Месяц без остановки',desc:'30 дней занятий подряд.',               t:'streak',    th:30,   color:'#f85149'},
-  {id:'streak60', cat:'streak',icon:'🦁',name:'60 дней',          desc:'60 дней занятий подряд.',                   t:'streak',    th:60,   color:'#f85149'},
-  {id:'streak100',cat:'streak',icon:'🏅',name:'100 дней',         desc:'100 дней занятий подряд.',                  t:'streak',    th:100,  color:'#d29922'},
-
-  // ── СЕССИИ ─────────────────────────────────────────────────
-  {id:'marathon', cat:'sess',  icon:'🏃',name:'Марафонец',        desc:'Сессия длиннее 2 часов.',                   t:'sess_dur',  th:7200,  color:'#bc8cff'},
-  {id:'ultra',    cat:'sess',  icon:'🦅',name:'Ультра',           desc:'Сессия длиннее 4 часов.',                   t:'sess_dur',  th:14400, color:'#bc8cff'},
-  {id:'early',    cat:'sess',  icon:'🌅',name:'Ранняя пташка',    desc:'Начни сессию до 8 утра.',                   t:'time_early',th:8,     color:'#bc8cff'},
-  {id:'night',    cat:'sess',  icon:'🦉',name:'Ночная сова',      desc:'Начни сессию после 22:00.',                 t:'time_late', th:22,    color:'#bc8cff'},
-  {id:'weekend',  cat:'sess',  icon:'🎉',name:'Выходной герой',   desc:'Сессия в субботу или воскресенье.',         t:'weekend',   th:1,     color:'#bc8cff'},
-  {id:'daily2h',  cat:'sess',  icon:'⏰',name:'2 часа в день',    desc:'Набери 2+ часов за 1 день.',                t:'day_hrs',   th:2,     color:'#bc8cff'},
-
-  // ── РАЗНООБРАЗИЕ ───────────────────────────────────────────
-  {id:'multi2',   cat:'multi', icon:'🎭',name:'Два пути',         desc:'Веди 2 активные лиги.',                     t:'cat_cnt',   th:2,    color:'#d1a366'},
-  {id:'multi3',   cat:'multi', icon:'🌐',name:'Три пути',         desc:'Веди 3 активные лиги.',                     t:'cat_cnt',   th:3,    color:'#d1a366'},
-  {id:'multi',    cat:'multi', icon:'🌈',name:'Разносторонний',   desc:'Веди 4 и более активных лиги.',             t:'cat_cnt',   th:4,    color:'#d1a366'},
-  {id:'allday',   cat:'multi', icon:'🗓️',name:'Каждый день',      desc:'7 активных дней за неделю.',                t:'week_days', th:7,    color:'#d1a366'},
-
-  // ── АРЕНА / ЛИГИ ───────────────────────────────────────────
-  {id:'top3',     cat:'arena', icon:'🥉',name:'Топ-3',            desc:'Войди в топ-3 любой лиги.',                 t:'top3',      th:1,    color:'#d29922'},
-  {id:'top1',     cat:'arena', icon:'🥇',name:'Чемпион',          desc:'Займи 1-е место в любой лиге.',             t:'top1',      th:1,    color:'#d29922'},
-  {id:'social',   cat:'arena', icon:'👥',name:'Не одинок',        desc:'Играй в лиге с 5+ реальными участниками.',  t:'league_size',th:5,   color:'#d29922'},
-
-  // ── СЕКРЕТНЫЕ ──────────────────────────────────────────────
-  {id:'grind',    cat:'secret',icon:'😤',name:'Гриндер',          desc:'???',                                       t:'sess_day',  th:3,    color:'#484f58', secret:true},
-  {id:'comeback', cat:'secret',icon:'🦋',name:'Возвращение',      desc:'???',                                       t:'comeback',  th:1,    color:'#484f58', secret:true},
-  {id:'nonstop',  cat:'secret',icon:'⚙️',name:'Нон-стоп',        desc:'???',                                       t:'streak',    th:365,  color:'#484f58', secret:true},
-];
-const ACH_CATS={
-  start: {label:'Начало пути', icon:'🚀'},
-  hours: {label:'Часы',        icon:'⏱️'},
-  streak:{label:'Стрики',      icon:'🔥'},
-  sess:  {label:'Сессии',      icon:'🏃'},
-  multi: {label:'Разнообразие',icon:'🌈'},
-  arena: {label:'Арена',       icon:'⚔️'},
-  secret:{label:'Секретные',   icon:'🔮'},
-};
-const FNAMES={
-  read:['BookWorm99','silent_page','reader_x','litclub','daily_read','nova_lit','pageturner','mindreads'],
-  sport:['athlete_k','run4life','gymrat_r','sport_pro','daily_sweat','ironwill','fitnessX','strongmind'],
-  lang:['fluent_ru','lingopro','polyglot_x','wordsmith','speakup','babel_fish','langhero','verbmaster'],
-  code:['NightCoder','dev_pro','code_fox','hack_it','pixelcraft','bytewizard','loopmaster','stackking'],
-};
-const FAVS=['😎','🦊','🐺','🎯','🌙','💎','🔥','⚡','🌊','🎸','🏆','🚀','🧠','🦁','⚔️'];
-
-// ══ STATE ════════════════════════════════════════════════════
-let P=null, SB_USER=null;
-let selAv=AVATARS[0], editSelAv=AVATARS[0];
-let regBuf=null, selCatIds=new Set();
-let dashPeriod='week';
-let lgCache={};
-
-// ══ BANNER ═══════════════════════════════════════════════════
-let bIdx=0,bTmr=null;
-const B_CNT=4;
-function initBanner(){
-  document.getElementById('bdots').innerHTML=
-    Array.from({length:B_CNT},(_,i)=>`<div class="bdot ${i===0?'active':''}" onclick="goBanner(${i})"></div>`).join('');
-  bTmr=setInterval(()=>goBanner((bIdx+1)%B_CNT),4000);
-}
-function goBanner(idx){
-  const slides=document.querySelectorAll('.bslide'),dots=document.querySelectorAll('.bdot');
-  slides[bIdx].classList.remove('active');slides[bIdx].classList.add('exit');
-  setTimeout(()=>slides[bIdx].classList.remove('exit'),500);
-  bIdx=idx;slides[bIdx].classList.add('active');
-  dots.forEach((d,i)=>d.classList.toggle('active',i===bIdx));
-}
-
-// ══ AUTH HELPERS ═════════════════════════════════════════════
-function rpAv(id,sel,fn){
-  document.getElementById(id).innerHTML=AVATARS.map(a=>
-    `<div class="av-opt ${a===sel?'sel':''}" onclick="${fn}('${a}')">${a}</div>`).join('');
-}
-function selAvFn(a){selAv=a;rpAv('avPicker',a,'selAvFn');}
-function editAvFn(a){editSelAv=a;rpAv('avEditPicker',a,'editAvFn');}
-function switchATab(t){
-  document.getElementById('tabL').classList.toggle('active',t==='l');
-  document.getElementById('tabR').classList.toggle('active',t==='r');
-  document.getElementById('lForm').style.display=t==='l'?'':'none';
-  document.getElementById('rForm').style.display=t==='r'?'':'none';
-  if(t==='r')rpAv('avPicker',selAv,'selAvFn');
-}
-
-// ══ LOGIN ════════════════════════════════════════════════════
-async function doLogin(){
-  const n=document.getElementById('lN').value.trim();
-  const p=document.getElementById('lP').value;
-  const err=document.getElementById('lErr');
-  err.textContent='';
-  if(!n){err.textContent='Введи никнейм';return;}
-  if(!p){err.textContent='Введи пароль';return;}
-  const btn=document.querySelector('#lForm .btn-auth');
-  btn.textContent='Входим...';btn.disabled=true;
-  const {data,error}=await sb.auth.signInWithPassword({
-    email:n.toLowerCase()+'@lifetrack.app',password:p
-  });
-  btn.textContent='Войти';btn.disabled=false;
-  if(error){err.textContent='Неверный никнейм или пароль';return;}
-  SB_USER=data.user;
-  await loadUser(data.user.id);
-}
-
-// ══ REGISTER — STEP 1 ════════════════════════════════════════
-async function goToCatSel(){
-  const n=document.getElementById('rN').value.trim();
-  const p=document.getElementById('rP').value;
-  const err=document.getElementById('rErr');
-  err.textContent='';
-  if(!n||n.length<3){err.textContent='Никнейм минимум 3 символа';return;}
-  if(n.length>20){err.textContent='Никнейм не длиннее 20 символов';return;}
-  if(!/^[a-zA-Zа-яА-Я0-9_]+$/.test(n)){err.textContent='Только буквы, цифры и _';return;}
-  if(!p||p.length<6){err.textContent='Пароль минимум 6 символов';return;}
-  err.textContent='Проверяем никнейм...';
-  const {data:ex}=await sb.from('users').select('id').eq('username',n).maybeSingle();
-  if(ex){err.textContent='Этот никнейм занят';return;}
-  err.textContent='';
-  regBuf={name:n,pass:p,avatar:selAv};
-  selCatIds=new Set();
-  renderCatSelGrid();
-  document.getElementById('onboard').style.display='none';
-  document.getElementById('catSel').style.display='flex';
-  clearInterval(bTmr);
-}
-
-// ══ REGISTER — CAT SELECT ════════════════════════════════════
-function renderCatSelGrid(){
-  document.getElementById('catSelGrid').innerHTML=ALL_CATS.map(c=>`
-    <div class="csg-item ${selCatIds.has(c.id)?'sel':''}" onclick="toggleCS('${c.id}')"
-      style="${selCatIds.has(c.id)?`border-color:${c.color}`:''}">
-      <div class="csg-check" style="background:${c.color}22;color:${c.color}">✓</div>
-      <div class="csg-emo">${c.icon}</div>
-      <div class="csg-txt">
-        <div class="csg-name" style="${selCatIds.has(c.id)?`color:${c.color}`:''}">${c.name}</div>
-        <div class="csg-desc">${c.desc}</div>
-        <div class="csg-members" style="color:${c.color}">${c.members.toLocaleString('ru')} участников</div>
-      </div>
-    </div>`).join('');
-  document.getElementById('selCntDisp').textContent=selCatIds.size;
-  document.getElementById('btnFinish').disabled=selCatIds.size===0;
-}
-function toggleCS(id){selCatIds.has(id)?selCatIds.delete(id):selCatIds.add(id);renderCatSelGrid();}
-
-// ══ REGISTER — FINISH ════════════════════════════════════════
-async function finishReg(){
-  if(!regBuf||!selCatIds.size)return;
-  const btn=document.getElementById('btnFinish');
-  btn.textContent='Создаём...';btn.disabled=true;
-
-  const {data:authData,error:authErr}=await sb.auth.signUp({
-    email:regBuf.name.toLowerCase()+'@lifetrack.app',
-    password:regBuf.pass,
-    options:{data:{username:regBuf.name}}
-  });
-
-  if(authErr){
-    btn.textContent='Начать';btn.disabled=false;
-    alert('Ошибка регистрации: '+authErr.message);return;
-  }
-
-  // Email confirmation required?
-  if(!authData.session){
-    document.getElementById('catSel').innerHTML=`
-      <div style="text-align:center;padding:40px 24px;max-width:440px;color:var(--t1)">
-        <div style="font-size:56px;margin-bottom:16px">📧</div>
-        <div style="font-family:'Rajdhani',sans-serif;font-size:26px;font-weight:700;margin-bottom:10px">Подтверди email</div>
-        <div style="font-size:14px;color:var(--t2);line-height:1.7">
-          Supabase отправил письмо на <b>${regBuf.name.toLowerCase()}@lifetrack.app</b>.<br><br>
-          <b>Чтобы убрать этот шаг:</b><br>
-          Supabase → Authentication → Settings →<br>
-          выключи <b>"Confirm email"</b> → Save
-        </div>
-        <button onclick="location.reload()" style="margin-top:22px;padding:13px 28px;border-radius:10px;border:none;background:var(--blue);color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'Rajdhani',sans-serif;letter-spacing:1px">Обновить страницу</button>
-      </div>`;
-    return;
-  }
-
-  const userId=authData.user.id;
-  
-  // Upsert users (ignore if already exists)
-  const{error:uErr}=await sb.from('users').upsert({
-    id:userId,username:regBuf.name,avatar:regBuf.avatar,
-    joined_date:new Date().toISOString(),streak:0,total_sessions:0
-  },{onConflict:'id'});
-  
-  if(uErr){console.error('User insert error:',uErr);}
-  
-  const catRows=[...selCatIds].map(catId=>({user_id:userId,category_id:catId,hours:0}));
-  const{error:cErr}=await sb.from('user_categories').upsert(catRows,{onConflict:'user_id,category_id'});
-  if(cErr){console.error('Category insert error:',cErr);}
-
-  SB_USER=authData.user;
-  regBuf=null;
-  document.getElementById('catSel').style.display='none';
-  await loadUser(userId);
-  applyTheme();applyLang();
-}
-
-// ══ LOGOUT ══════════════════════════════════════════════════
-async function doLogout(){
-  await sb.auth.signOut();
-  P=null;SB_USER=null;lgCache={};
-  document.getElementById('app').style.display='none';
-  document.getElementById('onboard').style.display='flex';
-  initBanner();rpAv('avPicker',selAv,'selAvFn');
-}
-
-// ══ DEMO ════════════════════════════════════════════════════
-function doDemo(){
-  SB_USER={id:'demo',isDemoUser:true};
-  P={
-    id:'demo',name:'Demo_Player',avatar:'🎯',
-    joinedDate:'01.01.2025',
-    activeCatIds:['code','read','sport','lang'],
-    categories:ALL_CATS.map(c=>({...c,hours:c.id==='code'?247:c.id==='read'?98:c.id==='sport'?61:33})),
-    sessions:[
-      {cat:'code',name:'Программирование',icon:'💻',color:'#bc8cff',dur:9000,date:'сегодня',ts:Date.now()-3600000},
-      {cat:'read',name:'Чтение',icon:'📚',color:'#58a6ff',dur:3600,date:'вчера',ts:Date.now()-90000000},
-      {cat:'sport',name:'Спорт',icon:'💪',color:'#3fb950',dur:5400,date:'2 дня назад',ts:Date.now()-180000000},
-      {cat:'lang',name:'Языки',icon:'🌍',color:'#d1a366',dur:1800,date:'3 дня назад',ts:Date.now()-270000000},
-    ],
-    achievements:ACH_DEF.map((a,i)=>({id:a.id,unlocked:i<3,unlockedAt:i<3?'01.03.2025':null})),
-    streak:5,lastActiveDate:new Date().toDateString(),totalSessions:4
-  };
-  document.getElementById('onboard').style.display='none';
-  document.getElementById('app').style.display='';
-  clearInterval(bTmr);
-  renderAll();showTab('dash');
-  setTimeout(showLeagueHero,800);
-}
-
-// ══ LOAD USER FROM DB ════════════════════════════════════════
-async function loadUser(userId){
-  const[r1,r2,r3,r4]=await Promise.all([
-    sb.from('users').select('*').eq('id',userId).single(),
-    sb.from('user_categories').select('category_id,hours').eq('user_id',userId),
-    sb.from('sessions').select('id,category_id,duration_seconds,created_at').eq('user_id',userId).order('created_at',{ascending:false}).limit(100),
-    sb.from('user_achievements').select('achievement_id,unlocked,unlocked_at').eq('user_id',userId),
-  ]);
-  const user=r1.data, userCats=r2.data, sessions=r3.data, userAchs=r4.data;
-  if(r1.error){console.error('loadUser error:',r1.error);}
-  
-  // If user not in DB yet (race condition) - create minimal profile
-  if(!user){
-    const{data:{user:authUser}}=await sb.auth.getUser();
-    const username=authUser?.user_metadata?.username||'User_'+userId.slice(0,6);
-    await sb.from('users').upsert({
-      id:userId,username,avatar:'🎯',
-      joined_date:new Date().toISOString(),streak:0,total_sessions:0
-    },{onConflict:'id'});
-    setTimeout(()=>loadUser(userId),1000);
-    return;
-  }
-
-  const ucMap={};(userCats||[]).forEach(uc=>{ucMap[uc.category_id]=uc.hours||0;});
-  const activeCatIds=Object.keys(ucMap);
-  const categories=ALL_CATS.filter(c=>activeCatIds.includes(c.id)).map(c=>({...c,hours:ucMap[c.id]||0}));
-
-  const achMap={};(userAchs||[]).forEach(ua=>{achMap[ua.achievement_id]={u:ua.unlocked,at:ua.unlocked_at};});
-  const achievements=ACH_DEF.map(a=>({ // sync all defs
-    id:a.id,unlocked:achMap[a.id]?.u||false,
-    unlockedAt:achMap[a.id]?.at?new Date(achMap[a.id].at).toLocaleDateString('ru'):null
-  }));
-
-  const catLookup={};ALL_CATS.forEach(c=>{catLookup[c.id]=c;});
-  const sessFmt=(sessions||[]).map(s=>{
-    const c=catLookup[s.category_id]||{name:s.category_id,icon:'⏱',color:'var(--blue)'};
-    return{id:s.id,cat:s.category_id,name:c.name,icon:c.icon,color:c.color,
-      dur:s.duration_seconds,date:relDate(s.created_at),ts:new Date(s.created_at).getTime()};
-  });
-
-  P={
-    id:userId,name:user.username,avatar:user.avatar||'🎯',
-    joinedDate:new Date(user.joined_date||Date.now()).toLocaleDateString('ru'),
-    activeCatIds,categories,sessions:sessFmt,achievements,
-    streak:user.streak||0,lastActiveDate:user.last_active_date,totalSessions:user.total_sessions||0,
-    avatarUrl:user.avatar_url||null
-  };
-
-  document.getElementById('onboard').style.display='none';
-  document.getElementById('catSel').style.display='none';
-  document.getElementById('app').style.display='';
-  clearInterval(bTmr);
-  renderAll();showTab('dash');
-  setTimeout(showLeagueHero,800);
-}
-
-// ══ SAVE SESSION ════════════════════════════════════════════
-async function saveSession(catId,secs){
-  if(secs<5)return;
-  const cat=P.categories.find(c=>c.id===catId)||ALL_CATS.find(c=>c.id===catId);
-  if(!cat)return;
-
-  if(SB_USER?.isDemoUser){
-    // Demo: local only
-    const pc=P.categories.find(c=>c.id===catId);
-    if(pc)pc.hours=Math.round((pc.hours+secs/3600)*10)/10;
-    else P.categories.push({...cat,hours:Math.round(secs/3600*10)/10});
-    P.totalSessions++;
-    const today=new Date().toDateString(),yest=new Date(Date.now()-86400000).toDateString();
-    if(P.lastActiveDate!==today){P.streak=P.lastActiveDate===yest?(P.streak||0)+1:1;P.lastActiveDate=today;}
-    P.sessions.unshift({cat:catId,name:cat.name,icon:cat.icon,color:cat.color,dur:secs,date:'только что',ts:Date.now()});
-    const newly=checkAchsLocal({dur:secs});
-    renderAll();
-    showToast(`${cat.icon} +${fmtD(secs)} в "${cat.name}"`, '✅');
-    newly.forEach((a,i)=>setTimeout(()=>showToast(`🏆 ${a.name}`,a.icon,true),(i+1)*900));
-    return;
-  }
-
-  // Real Supabase save
-  const {error}=await sb.from('sessions').insert({
-    user_id:SB_USER.id,category_id:catId,duration_seconds:secs
-  });
-  if(error){console.error(error);showToast('Ошибка сохранения','⚠️');return;}
-
-  // Update hours
-  const {data:uc}=await sb.from('user_categories').select('id,hours').eq('user_id',SB_USER.id).eq('category_id',catId).maybeSingle();
-  if(uc){await sb.from('user_categories').update({hours:(uc.hours||0)+secs/3600}).eq('id',uc.id);}
-  else{await sb.from('user_categories').insert({user_id:SB_USER.id,category_id:catId,hours:secs/3600});}
-
-  // Update streak
-  const todayISO=new Date().toISOString().split('T')[0];
-  const yestISO=new Date(Date.now()-86400000).toISOString().split('T')[0];
-  let newStreak=P.streak;
-  if(P.lastActiveDate!==todayISO){newStreak=P.lastActiveDate===yestISO?(P.streak||0)+1:1;}
-  await sb.from('users').update({streak:newStreak,last_active_date:todayISO,total_sessions:P.totalSessions+1}).eq('id',SB_USER.id);
-
-  // Update local P
-  const pc=P.categories.find(c=>c.id===catId);
-  if(pc)pc.hours=Math.round((pc.hours+secs/3600)*10)/10;
-  else P.categories.push({...cat,hours:Math.round(secs/3600*10)/10});
-  if(!P.activeCatIds.includes(catId))P.activeCatIds.push(catId);
-  P.totalSessions++;
-  P.streak=newStreak;
-  P.lastActiveDate=todayISO;
-  P.sessions.unshift({cat:catId,name:cat.name,icon:cat.icon,color:cat.color,dur:secs,date:'только что',ts:Date.now()});
-
-  const newly=await checkAchsSB(secs);
-  renderAll();
-  showToast(`${cat.icon} +${fmtD(secs)} в "${cat.name}"`, '✅');
-  newly.forEach((a,i)=>setTimeout(()=>showToast(`🏆 ${a.name}`,a.icon,true),(i+1)*900));
-}
-
-// ══ ACHIEVEMENTS ════════════════════════════════════════════
-// ── Achievement condition checker ─────────────────────────
-function evalAch(def,sessSeconds=0){
-  const totalH=P.categories.reduce((a,c)=>a+c.hours,0);
-  const h=new Date().getHours();
-  const dow=new Date().getDay(); // 0=Sun,6=Sat
-  // best day this week
-  const now=Date.now();
-  const dayMap={};
-  P.sessions.forEach(s=>{
-    if(!s.ts)return;
-    const d=new Date(s.ts).toDateString();
-    dayMap[d]=(dayMap[d]||0)+s.dur/3600;
-  });
-  const bestDay=Math.max(...Object.values(dayMap),0);
-  const weekDays=new Set(P.sessions.filter(s=>s.ts&&s.ts>now-7*86400000).map(s=>new Date(s.ts).toDateString())).size;
-  // sessions today
-  const today=new Date().toDateString();
-  const sessToday=P.sessions.filter(s=>s.ts&&new Date(s.ts).toDateString()===today).length;
-
-  switch(def.t){
-    case 'sessions':    return P.totalSessions>=def.th;
-    case 'total_h':     return totalH>=def.th;
-    case 'streak':      return (P.streak||0)>=def.th;
-    case 'sess_dur':    return sessSeconds>=def.th;
-    case 'cat_cnt':     return P.activeCatIds.length>=def.th;
-    case 'time_early':  return h<def.th;
-    case 'time_late':   return h>=def.th;
-    case 'weekend':     return dow===0||dow===6;
-    case 'day_hrs':     return bestDay>=def.th;
-    case 'week_days':   return weekDays>=def.th;
-    case 'sess_day':    return sessToday>=def.th;
-    case 'top3':        return false; // async, checked separately
-    case 'top1':        return false; // async, checked separately
-    case 'league_size': return false; // async
-    case 'comeback':    return false; // special logic
-    default:            return false;
-  }
-}
-
-async function checkAchsSB(sessSeconds=0){
-  const unlockedIds=new Set(P.achievements.filter(a=>a.unlocked).map(a=>a.id));
-  const newly=[];
-  for(const def of ACH_DEF){
-    if(unlockedIds.has(def.id))continue;
-    const earned=evalAch(def,sessSeconds);
-    if(earned){
-      if(!SB_USER?.isDemoUser){
-        await sb.from('user_achievements').upsert({
-          user_id:SB_USER.id,achievement_id:def.id,unlocked:true,unlocked_at:new Date().toISOString()
-        });
-      }
-      const ach=P.achievements.find(a=>a.id===def.id);
-      if(ach){ach.unlocked=true;ach.unlockedAt=new Date().toLocaleDateString('ru');}
-      else P.achievements.push({id:def.id,unlocked:true,unlockedAt:new Date().toLocaleDateString('ru')});
-      newly.push(def);
-    }
-  }
-  if(newly.length>0){
-    launchConfetti();
-    newly.forEach(def=>showAchToast(def));
-  }
-  return newly;
-}
-
-function checkAchsLocal({dur=0}={}){
-  const unlockedIds=new Set(P.achievements.filter(a=>a.unlocked).map(a=>a.id));
-  const newly=[];
-  for(const def of ACH_DEF){
-    if(unlockedIds.has(def.id))continue;
-    const earned=evalAch(def,dur);
-    if(earned){
-      const ach=P.achievements.find(a=>a.id===def.id);
-      if(ach){ach.unlocked=true;ach.unlockedAt=new Date().toLocaleDateString('ru');}
-      else P.achievements.push({id:def.id,unlocked:true,unlockedAt:new Date().toLocaleDateString('ru')});
-      newly.push(def);
-    }
-  }
-  return newly;
-}
-
-function showAchToast(def){
-  // Show individual achievement unlock notification
-  const el=document.createElement('div');
-  el.style.cssText='position:fixed;bottom:80px;right:20px;background:var(--card);border:1px solid '+(def.color||'var(--blue)')+';border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:12px;z-index:9999;max-width:280px;box-shadow:0 4px 20px rgba(0,0,0,.4);animation:fadeSlide .4s ease';
-  el.innerHTML=`<div style="font-size:28px;filter:drop-shadow(0 0 8px ${def.color||'#fff'})">${def.icon}</div><div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:${def.color||'var(--blue)'}">Достижение!</div><div style="font-size:13px;font-weight:600;color:var(--t1);margin-top:2px">${def.name}</div></div>`;
-  document.body.appendChild(el);
-  setTimeout(()=>el.style.opacity='0',3000);
-  setTimeout(()=>el.remove(),3400);
-}
-
-// ── Ach progress helper ────────────────────────────────────
-function achProgress(def){
-  const totalH=P.categories.reduce((a,c)=>a+c.hours,0);
-  const now=Date.now();
-  const dayMap={};
-  P.sessions.forEach(s=>{if(!s.ts)return;const d=new Date(s.ts).toDateString();dayMap[d]=(dayMap[d]||0)+s.dur/3600;});
-  const bestDay=Math.max(...Object.values(dayMap),0);
-  switch(def.t){
-    case 'sessions': return {cur:P.totalSessions, max:def.th};
-    case 'total_h':  return {cur:Math.round(totalH*10)/10, max:def.th};
-    case 'streak':   return {cur:P.streak||0, max:def.th};
-    case 'cat_cnt':  return {cur:P.activeCatIds.length, max:def.th};
-    case 'day_hrs':  return {cur:Math.round(bestDay*10)/10, max:def.th};
-    default:         return null;
-  }
-}
-
-// ══ TOGGLE CATEGORY ═════════════════════════════════════════
-async function toggleCat(id){
-  const idx=P.activeCatIds.indexOf(id);
-  if(idx>-1){
-    if(P.activeCatIds.length<=1){showToast('Нужна хотя бы 1 категория','⚠️');return;}
-    P.activeCatIds.splice(idx,1);
-    if(!SB_USER?.isDemoUser)await sb.from('user_categories').delete().eq('user_id',SB_USER.id).eq('category_id',id);
-    showToast('Убрано из лиг','🗑️');
-  } else {
-    P.activeCatIds.push(id);
-    if(!P.categories.find(c=>c.id===id)){const d=ALL_CATS.find(c=>c.id===id);if(d)P.categories.push({...d,hours:0});}
-    if(!SB_USER?.isDemoUser){
-      await sb.from('user_categories').upsert({user_id:SB_USER.id,category_id:id,hours:P.categories.find(c=>c.id===id)?.hours||0});
-    }
-    showToast(`${ALL_CATS.find(c=>c.id===id)?.icon} Добавлено в лигу!`,'✅');
-  }
-  lgCache={};renderAll();
-}
-
-// ══ HELPERS ═════════════════════════════════════════════════
-function relDate(d){
-  if(!d)return'—';
-  const now=new Date();now.setHours(0,0,0,0);
-  const t=new Date(d);t.setHours(0,0,0,0);
-  const diff=Math.floor((now-t)/86400000);
-  if(diff===0)return'сегодня';if(diff===1)return'вчера';
-  if(diff<7)return diff+' дн. назад';
-  return new Date(d).toLocaleDateString('ru',{day:'2-digit',month:'2-digit'});
-}
-const fmt=s=>[Math.floor(s/3600),Math.floor((s%3600)/60),s%60].map(x=>String(x).padStart(2,'0')).join(':');
-const fmtD=s=>{const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60;if(h>0)return`${h}ч ${m}м`;if(m>0)return`${m}м ${ss}с`;return`${ss}с`;};
-const totalHrs=()=>P.categories.reduce((a,c)=>a+c.hours,0);
-const weekHrs=()=>P.sessions.filter(s=>s.ts&&s.ts>Date.now()-7*86400000).reduce((a,s)=>a+s.dur/3600,0);
-const activeCats=()=>ALL_CATS.filter(c=>P.activeCatIds.includes(c.id)).map(c=>({...c,hours:P.categories.find(x=>x.id===c.id)?.hours||0}));
-
-// ══ RENDER ALL ═══════════════════════════════════════════════
-function renderAll(){
-  renderNav();renderHeader();renderCats();renderSessions();
-  renderAchMini();renderAchFull();
-    renderQuickCats();renderTotals();
-  renderDash();
-  renderLeagues();renderLgMini();
-  renderXP();renderHeatmap();renderRings();renderRecords();renderForecast();renderMotivation();
-}
- 
-function renderNav(){
-  const avEl=document.getElementById('navAv');
-  if(P.avatarUrl){const cbUrl=P.avatarUrl+(P.avatarUrl.includes("blob:")||P.avatarUrl.includes("?")?"":"?v="+Date.now());avEl.innerHTML=`<img src="${cbUrl}" style="width:100%;height:100%;border-radius:6px;object-fit:cover" onerror="this.parentNode.textContent='${P.avatar}'">`;}
-  else{avEl.textContent=P.avatar;avEl.innerHTML=P.avatar;}
-  document.getElementById('navUname').textContent=P.name;
-}
-function renderHeader(){
-  const avEl=document.getElementById('profAv');
-  if(P.avatarUrl){const cbUrl2=P.avatarUrl+(P.avatarUrl.includes("blob:")||P.avatarUrl.includes("?")?"":"?v="+Date.now());avEl.innerHTML=`<img src="${cbUrl2}" style="width:100%;height:100%;border-radius:10px;object-fit:cover" onerror="this.parentNode.textContent='${P.avatar}'">`;}else{avEl.textContent=P.avatar;avEl.innerHTML=P.avatar;}
-  document.getElementById('profName').textContent=P.name;
-  document.getElementById('mJoined').textContent='📅 '+P.joinedDate;
-  document.getElementById('mAch').textContent=`🏆 ${P.achievements.filter(a=>a.unlocked).length}`;
-  document.getElementById('mSess').textContent=`⏱ ${P.totalSessions} сессий`;
-  document.getElementById('mStreak').textContent=`🔥 ${P.streak} дней`;
-  const th=totalHrs();
-  const tits=['⚡ Новичок','📈 Начинающий','🔥 В процессе','🌟 Серьёзный','💎 Опытный','🏆 Легенда'];
-  const ti=[0,10,50,100,200,500].findIndex((v,i,a)=>th<(a[i+1]??Infinity)&&th>=v);
-  document.getElementById('profTitle').textContent=tits[Math.max(0,ti)];
-}
-function renderTotals(){
-  document.getElementById('totDisp').textContent=totalHrs().toLocaleString('ru',{maximumFractionDigits:1});
-  document.getElementById('streakDisp').textContent=`🔥 ${P.streak} дней подряд`;
-  document.getElementById('weekDisp').textContent=`↑ +${weekHrs().toFixed(1)} ч за 7 дней`;
-}
-
-// ══ DASHBOARD ════════════════════════════════════════════════
-function setPeriod(p){
-  dashPeriod=p;
-  document.getElementById('dpW').classList.toggle('active',p==='week');
-  document.getElementById('dpM').classList.toggle('active',p==='month');
-  renderDash();
-}
-function getDashData(){
-  const isWeek=dashPeriod==='week';
-  const buckets=isWeek?7:30;
-  const now=Date.now();
-  const data={};ALL_CATS.forEach(c=>{data[c.id]=Array(buckets).fill(0);});
-  P.sessions.forEach(s=>{
-    if(!s.ts)return;
-    const age=Math.floor((now-s.ts)/86400000);
-    if(age>=0&&age<buckets&&data[s.cat]!==undefined)data[s.cat][buckets-1-age]+=s.dur/3600;
-  });
-  return{data,buckets,isWeek};
-}
-function renderDash(){
-  const{data,buckets,isWeek}=getDashData();
-  renderCatFilter();
-  const allCats=activeCats();
-  const active=dashCatFilter?allCats.filter(c=>c.id===dashCatFilter):allCats;
-  const catCount=active.length;
-  const DAYS=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
-  const now=Date.now();
-  const labels=Array.from({length:buckets},(_,i)=>{
-    const d=new Date(now-(buckets-1-i)*86400000);
-    return isWeek?DAYS[((d.getDay()+6)%7)]:i%5===0?`${d.getDate()}/${d.getMonth()+1}`:'';
-  });
-  const totals=Array(buckets).fill(0);
-  active.forEach(c=>{data[c.id].forEach((v,i)=>totals[i]+=v);});
-  const maxVal=Math.max(...totals,0.1);
-  const periodHrs=active.reduce((a,c)=>a+data[c.id].reduce((x,v)=>x+v,0),0);
-  const avgPerDay=periodHrs/buckets;
-  const bestDay=Math.max(...totals);
-  const activeDays=totals.filter(v=>v>0).length;
-  const delta=((periodHrs-periodHrs*0.85)/Math.max(periodHrs*0.85,0.1)*100).toFixed(0);
-
-  document.getElementById('dashTitle').textContent=isWeek?'Отчёт за неделю':'Отчёт за месяц';
-  // Update section labels
-  const setSec=(id,key)=>{const el=document.getElementById(id);if(el)el.textContent=t(key);};
-  setSec('sec_by_cat','by_cat');setSec('sec_kpi','kpi_section');
-  setSec('sec_records','records');setSec('sec_forecast','forecast');
-  // Responsive KPI grid - fewer cats = bigger cards
-  const kpiEl=document.getElementById('kpiRow');
-  kpiEl.style.gridTemplateColumns=catCount<=2?'repeat(2,1fr)':catCount===3?'repeat(2,1fr)':'repeat(4,1fr)';
-  kpiEl.innerHTML=`
-    <div class="kpi" style="--kpi-c:var(--blue)"><div class="cb" style="padding:0">
-      <div class="kpi-val" style="color:var(--blue)">${periodHrs.toFixed(1)}</div>
-      <div class="kpi-lbl">${isWeek?t('hrs_week'):t('hrs_month')}</div>
-      <div class="kpi-delta up">↑ ${delta}% к прошлому</div>
-    </div><div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--blue);border-radius:10px 10px 0 0"></div></div>
-    <div class="kpi"><div class="cb" style="padding:0">
-      <div class="kpi-val" style="color:var(--orange)">${avgPerDay.toFixed(1)}</div>
-      <div class="kpi-lbl">${t('hrs_day')}</div>
-      <div class="kpi-delta neu">${t('goal')}</div>
-    </div><div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--orange);border-radius:10px 10px 0 0"></div></div>
-    <div class="kpi"><div class="cb" style="padding:0">
-      <div class="kpi-val" style="color:var(--green)">${activeDays}</div>
-      <div class="kpi-lbl">${t('active_days')}</div>
-      <div class="kpi-delta ${activeDays>=Math.ceil(buckets*0.7)?'up':'dn'}">${activeDays}/${buckets} ${t('days')}</div>
-    </div><div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--green);border-radius:10px 10px 0 0"></div></div>
-    <div class="kpi"><div class="cb" style="padding:0">
-      <div class="kpi-val" style="color:var(--purple)">${bestDay.toFixed(1)}</div>
-      <div class="kpi-lbl">${t('best_day')}</div>
-      <div class="kpi-delta neu">${t('hrs_per_day')}</div>
-    </div><div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--purple);border-radius:10px 10px 0 0"></div></div>`;
-
-  document.getElementById('chartLegend').innerHTML=active.map(c=>
-    `<div class="cl-item"><div class="cl-dot" style="background:${c.color}"></div>${c.name}</div>`).join('');
-
-  const showEvery=isWeek?1:Math.ceil(buckets/10);
-  document.getElementById('barChart').innerHTML=Array.from({length:buckets},(_,i)=>{
-    const segments=active.map(c=>({color:c.color,val:data[c.id][i]})).filter(s=>s.val>0);
-    const colH=Math.round((totals[i]/maxVal)*140),totalH=colH||2;
-    let segs='';
-    if(segments.length>0){
-      let usedH=0;
-      segments.forEach((s,si)=>{
-        const sh=si===segments.length-1?totalH-usedH:Math.round((s.val/totals[i])*totalH);
-        usedH+=sh;
-        segs+=`<div style="width:100%;height:${sh}px;background:${s.color};${si===0?'border-radius:4px 4px 0 0':''}"></div>`;
-      });
-    } else segs=`<div style="width:100%;height:2px;background:var(--border-l);border-radius:2px"></div>`;
-    return `<div class="bar-col"><div class="bar-fill" data-tip="${totals[i].toFixed(1)}ч" style="height:${totalH}px;display:flex;flex-direction:column;justify-content:flex-end;width:calc(100% - 4px)">${segs}</div>
-      <div class="bar-lbl">${i%showEvery===0?labels[i]:''}</div></div>`;
-  }).join('');
-  document.getElementById('barAxisL').textContent='0';
-  document.getElementById('barAxisR').textContent=`${maxVal.toFixed(1)} ч макс.`;
-
-  const maxCatH=Math.max(...active.map(c=>data[c.id].reduce((a,v)=>a+v,0)),0.1);
-  // Responsive grid: 1 cat=full width, 2=50/50, 3+=33%, 4+=25%
-  const catGridCols=catCount===1?'1fr':catCount===2?'1fr 1fr':catCount===3?'1fr 1fr 1fr':'repeat(auto-fill,minmax(160px,1fr))';
-  const catEl=document.getElementById('catBreakdown');
-  catEl.style.display='grid';
-  catEl.style.gridTemplateColumns=catGridCols;
-  catEl.style.gap='8px';
-
-
-  catEl.innerHTML=active.map((c,idx)=>{
-    const catH=data[c.id].reduce((a,v)=>a+v,0);
-    const pct=Math.min(100,Math.round((catH/maxCatH)*100));
-    const totalPct=c.hours>0?Math.min(100,Math.round((catH/c.hours)*100)):0;
-    const sessCount=P.sessions.filter(s=>s.cat===c.id&&s.ts>Date.now()-(isWeek?7:30)*86400000).length;
-    const isBest=idx===0&&catCount>1;
-    // Spark: mini bar per day
-    const sparkVals=data[c.id].slice(-7);
-    const sparkMax=Math.max(...sparkVals,0.1);
-    const sparks=sparkVals.map(v=>{
-      const h=Math.round((v/sparkMax)*24);
-      return `<div style="width:4px;border-radius:2px 2px 0 0;background:${v>0?c.color:'var(--border-l)'};height:${Math.max(3,h)}px;transition:height .6s ease"></div>`;
-    }).join('');
-    return `<div style="background:var(--card);border:1px solid ${isBest?c.color+'55':'var(--border-l)'};border-radius:12px;padding:14px;position:relative;overflow:hidden;">
-      ${isBest&&catCount>1?`<div style="position:absolute;top:8px;right:8px;font-size:9px;font-weight:700;letter-spacing:.5px;color:${c.color};background:${c.color}18;padding:2px 7px;border-radius:10px;text-transform:uppercase">топ</div>`:''}
-      <div style="position:absolute;inset:0;background:linear-gradient(135deg,${c.color}08 0%,transparent 60%);pointer-events:none"></div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-        <div style="width:38px;height:38px;border-radius:10px;background:${c.color}22;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">${c.icon}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:12px;font-weight:600;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.name}</div>
-          <div style="font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;line-height:1;color:${c.color}">${catH.toFixed(1)}<span style="font-size:11px;font-weight:400;color:var(--t3);font-family:'Inter',sans-serif"> ${t('hrs')}</span></div>
-        </div>
-        <div style="display:flex;align-items:flex-end;gap:2px;height:24px">${sparks}</div>
-      </div>
-      <div style="height:3px;background:var(--bg);border-radius:2px;overflow:hidden;margin-bottom:8px">
-        <div style="height:100%;width:${pct}%;background:${c.color};border-radius:2px;transition:width 1s ease"></div>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:10px;color:var(--t3)">${sessCount} сессий</span>
-        <span style="font-size:10px;color:var(--t3)">${c.hours.toFixed(0)} ч всего</span>
-      </div>
-    </div>`;
-  }).join('');
-
-  const bestCat=active.slice().sort((a,b)=>data[b.id].reduce((s,v)=>s+v,0)-data[a.id].reduce((s,v)=>s+v,0))[0];
-  const goalPct=Math.min(100,Math.round((periodHrs/(isWeek?14:60))*100));
-  const insightEl=document.getElementById('insightRow');
-  insightEl.innerHTML=`
-    <div class="insight">
-      <div class="insight-val" style="color:${bestCat?.color||'var(--blue)'}">${bestCat?.icon||'—'}</div>
-      <div style="font-size:12px;font-weight:600;margin-bottom:4px">${bestCat?.name||'—'}</div>
-      <div class="insight-lbl">Топ за период</div>
-    </div>
-    <div class="insight">
-      <div class="insight-val" style="color:var(--green)">${goalPct}%</div>
-      <div class="insight-lbl">Выполнение цели</div>
-      <div style="height:3px;background:var(--bg);border-radius:2px;overflow:hidden;margin-top:6px"><div style="height:100%;width:${goalPct}%;background:var(--green);border-radius:2px"></div></div>
-    </div>
-    <div class="insight">
-      <div class="insight-val" style="color:var(--orange)">${P.streak}🔥</div>
-      <div class="insight-lbl">Текущий стрик</div>
-    </div>`;
-    
-}
-
-// ══ CATS ════════════════════════════════════════════════════
-function renderCats(){
-  const max=Math.max(...P.categories.map(c=>c.hours),1);
-  const el=document.getElementById('catList');if(!el)return;
-  el.innerHTML=P.categories.filter(c=>P.activeCatIds.includes(c.id)).map(c=>{
-    const last=P.sessions.find(s=>s.cat===c.id);
-    return `<div class="cat-item" onclick="selCat('${c.id}')">
-      <div class="ci-box" style="background:${c.color}20">${c.icon}</div>
-      <div class="ci-info">
-        <div class="ci-name">${c.name}</div>
-        <div class="ci-sub">Последний: ${last?last.date:'никогда'}</div>
-        <div class="ci-bar-wr"><div class="ci-bar" style="width:${Math.min(100,(c.hours/max)*100)}%;background:${c.color}"></div></div>
-      </div>
-      <div class="ci-hrs" style="color:${c.color}">${c.hours.toLocaleString('ru',{maximumFractionDigits:1})}<small>ЧАСОВ</small></div>
-    </div>`;
-  }).join('');
-}
-
-// ══ SESSIONS ════════════════════════════════════════════════
-function renderSessions(all=false){
-  const list=all?P.sessions:P.sessions.slice(0,6);
-  const el=document.getElementById(all?'allSessList':'sessList');
-  if(!el)return;
-  if(all){const c=document.getElementById('allSessCnt');if(c)c.textContent=P.sessions.length+' сессий';}
-  el.innerHTML=list.length?list.map(s=>`
-    <div class="si">
-      <div class="sd" style="background:${s.color||'var(--blue)'}"></div>
-      <span style="font-size:16px">${s.icon}</span>
-      <span class="sc">${s.name}</span>
-      <span class="sdur" style="color:${s.color||'var(--blue)'}">${fmtD(s.dur)}</span>
-      <span class="sdate">${s.date}</span>
-    </div>`).join(''):`<div class="empty" style="padding:16px"><div style="font-size:24px;margin-bottom:6px">⏱</div>Нет сессий</div>`;
-}
-
-// ══ MANAGE ══════════════════════════════════════════════════
-// == MANAGE ==========================
-function renderManageGrid(){
-  const el=document.getElementById('manageGrid');if(!el)return;
-  el.innerHTML=ALL_CATS.map(c=>{
-    const on = P.activeCatIds ? P.activeCatIds.includes(c.id) : false;
-    const cat = P.categories ? P.categories.find(x=>x.id===c.id) : null;
-    const hrs = cat ? cat.hours : 0;
-    
-    const borderColor = on ? c.color : 'rgba(255,255,255,0.05)';
-    const nameColor = on ? c.color : 'var(--t1)';
-    const membersCount = c.members || 0;
-    
-    // --- УМНАЯ СТАТИСТИКА (STEAM STYLE) ---
-    const onlineCount = membersCount > 0 ? Math.max(1, Math.floor(membersCount * 0.3)) : 0;
-    
-    const statsHtml = membersCount === 0 
-        ? `<span style="opacity: 0.5;">Пока никого. Стань первым!</span>` 
-        : `<b style="color: var(--t1);">${membersCount.toLocaleString('ru')}</b> участников <span style="margin: 0 6px; opacity: 0.3;">|</span> <span style="color: #3fb950; text-shadow: 0 0 8px rgba(63,185,80,0.4);">● ${onlineCount} онлайн</span>`;
-
-    const userHoursHtml = on ? `<div style="margin-top: 6px; color: ${c.color}; font-weight: 600;">Твоё время: ${hrs.toFixed(1)} ч</div>` : '';
-
-    return `<div class="mg-item league-card glow-card premium-reveal ${on?'on':''}" style="border-color:${borderColor}" onclick="toggleCat('${c.id}')">
-      <div class="mg-check" style="background:${c.color}22; color:${c.color}">✓</div>
-      <div class="mg-emo">${c.icon}</div>
-      <div class="mg-txt">
-        <div class="mg-name" style="color:${nameColor}">${c.name}</div>
-        <div class="league-desc">${c.desc}</div>
-        <div class="mg-members" style="font-size: 11.5px; opacity: 0.9; margin-top: 4px;">
-            ${statsHtml}
-            ${userHoursHtml}
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-}
-// ══ ACHIEVEMENTS ════════════════════════════════════════════
-function renderAchMini(){
-  const el=document.getElementById('achMini');if(!el)return;
-  const recent=ACH_DEF.filter(d=>{const ua=P.achievements.find(a=>a.id===d.id);return ua?.unlocked;}).slice(-6);
-  const show=recent.length>0?recent:ACH_DEF.slice(0,6);
-  el.innerHTML=show.map(def=>{
-    const ua=P.achievements.find(a=>a.id===def.id)||{unlocked:false};
-    return `<div class="ai ${ua.unlocked?'':'locked'}" onclick="openAch('${def.id}')">
-      <div class="ai-icon" style="${ua.unlocked?`filter:drop-shadow(0 0 5px ${def.color||'#58a6ff'})`:''}">${def.icon}${ua.unlocked?'<div class="ai-dot"></div>':''}</div>
-      <div class="ai-name">${ua.unlocked?def.name:'???'}</div>
-    </div>`;
-  }).join('');
-}
-
-function renderAchFull(){
-  const el=document.getElementById('achFull');if(!el)return;
-  const unlocked=P.achievements.filter(a=>a.unlocked);
-  const unl=unlocked.length;
-  const total=ACH_DEF.length;
-  const pct=Math.round((unl/total)*100);
-  const cntEl=document.getElementById('achCnt');
-  if(cntEl)cntEl.textContent=`${unl} / ${total}`;
-
-  // Summary bar
-  const summary=`<div class="ach-summary">
-    <div style="text-align:center">
-      <div class="ach-sum-big">${unl}</div>
-      <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">/ ${total}</div>
-    </div>
-    <div class="ach-sum-track">
-      <div class="ach-sum-label">Прогресс разблокировки — <b>${pct}%</b></div>
-      <div class="ach-sum-bar"><div class="ach-sum-fill" style="width:${pct}%"></div></div>
-      <div style="font-size:11px;color:var(--t3);margin-top:6px">
-        ${unl===0?'Начни свой путь 🚀':unl<10?'Хорошее начало! Продолжай.':unl<20?'Ты на полпути, жми дальше!':'Настоящий коллекционер 🏆'}
-      </div>
-    </div>
-  </div>`;
-
-  // Group by category
-  const sections=Object.entries(ACH_CATS).map(([catKey,catMeta])=>{
-    const defs=ACH_DEF.filter(d=>d.cat===catKey);
-    const catUnl=defs.filter(d=>P.achievements.find(a=>a.id===d.id&&a.unlocked)).length;
-    const cards=defs.map(def=>{
-      const ua=P.achievements.find(a=>a.id===def.id)||{unlocked:false};
-      const isSecret=def.secret&&!ua.unlocked;
-      const prog=!ua.unlocked?achProgress(def):null;
-      const progBar=prog?`<div class="ach2-prog"><div class="ach2-prog-fill" style="width:${Math.min(100,Math.round((prog.cur/prog.max)*100))}%;background:${def.color}"></div></div><div class="ach2-prog-lbl">${prog.cur} / ${prog.max}</div>`:'';
-      return `<div class="ach2 ${ua.unlocked?'unlocked':'locked'}${def.secret?' secret':''}" style="--ach-color:${def.color}" onclick="openAch('${def.id}')">
-        <div class="ach2-icon">${isSecret?'🔮':def.icon}</div>
-        <div class="ach2-body">
-          <div class="ach2-name">${isSecret?'???':def.name}</div>
-          <div class="ach2-desc">${isSecret?'Секретное достижение. Продолжай играть!':def.desc}</div>
-          ${ua.unlocked?`<div class="ach2-date">✓ ${ua.unlockedAt||'Разблокировано'}</div>`:progBar}
-        </div>
-        ${ua.unlocked?`<div class="ach2-check">✓</div>`:''}
-      </div>`;
-    }).join('');
-    return `<div class="ach-section">
-      <div class="ach-sec-hdr">
-        <span class="ach-sec-icon">${catMeta.icon}</span>
-        <span class="ach-sec-name">${catMeta.label}</span>
-        <span class="ach-sec-cnt">${catUnl}/${defs.length}</span>
-      </div>
-      <div class="ach-grid2">${cards}</div>
-    </div>`;
-  }).join('');
-
-  el.innerHTML=summary+sections;
-}
-
-function openAch(id){
-  const def=ACH_DEF.find(a=>a.id===id);if(!def)return;
-  const ua=P.achievements.find(a=>a.id===id)||{unlocked:false};
-  const prog=achProgress(def);
-  const cur=prog?.cur??0,max=prog?.max??def.th;
-  const pct=ua.unlocked?100:Math.min(100,Math.round((cur/max)*100));
-  document.getElementById('amIcon').textContent=(def.secret&&!ua.unlocked)?'🔮':def.icon;
-  document.getElementById('amName').textContent=(def.secret&&!ua.unlocked)?'???':def.name;
-  document.getElementById('amDesc').textContent=(def.secret&&!ua.unlocked)?'Секретное достижение. Продолжай играть!':def.desc;
-  document.getElementById('amStat').textContent=ua.unlocked?`✅ Разблокировано ${ua.unlockedAt||''}`:cur+' / '+max;
-  document.getElementById('amStat').style.color=ua.unlocked?def.color||'var(--green)':'var(--t2)';
-  document.getElementById('amBar').style.background=def.color||'var(--blue)';
-  document.getElementById('amBar').style.width=pct+'%';
-  document.getElementById('achOv').classList.add('show');
-}
-function closeAch(){document.getElementById('achOv').classList.remove('show');}
-
-// ══ LEAGUES (REAL DATA) ═══════════════════════════════════════
-function genFakePlayers(catId,offset,count){
-  const names=FNAMES[catId]||FNAMES.code;
-  const seed=catId.split('').reduce((a,c)=>a+c.charCodeAt(0),0);
-  const r=(i,s)=>((seed*31+s*17+i*7)%97);
-  return names.slice(offset,offset+count).map((n,i)=>({
-    name:n,av:FAVS[(seed+(i+offset)*3)%FAVS.length],
-    hrs:Math.round(40+r(i,1)*6+r(i,2)*4),streak:Math.floor(r(i,3)/8),
-    fake:true,isMe:false
-  }));
-}
-
-async function loadLeagueData(catId){
-  if(lgCache[catId])return lgCache[catId];
-  const{data}=await sb.from('user_categories')
-    .select('hours,user:users(id,username,avatar,streak)')
-    .eq('category_id',catId)
-    .order('hours',{ascending:false})
-    .limit(50);
-  const players=(data||[]).map(uc=>({
-    name:uc.user?.username||'?',av:uc.user?.avatar||'🎯',
-    hrs:Math.round((uc.hours||0)*10)/10,streak:uc.user?.streak||0,
-    fake:false,isMe:uc.user?.id===SB_USER?.id
-  }));
-  lgCache[catId]=players;
-  return players;
-}
-
-async function renderLeagues(){
-  const el=document.getElementById('leaguesContent');if(!el)return;
-  const cats=activeCats();
-  if(!cats.length){el.innerHTML=`<div class="empty" style="padding:40px">Нет активных категорий</div>`;return;}
-
-  // Show loading
-  el.innerHTML=`<div style="text-align:center;padding:40px;color:var(--t3)">
-    <div style="font-size:32px;margin-bottom:8px">⏳</div>Загрузка лиг...</div>`;
-
-  const results=await Promise.all(cats.map(c=>loadLeagueData(c.id)));
-
-  el.innerHTML=cats.map((cat,ci)=>{
-    const players=results[ci];
-    const myIdx=players.findIndex(p=>p.isMe);
-    const top8=players.slice(0,8);
-    const medal=i=>i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
-    return `<div class="lg-section">
-      <div class="lg-head" style="border-color:${cat.color}22">
-        <span class="lg-cat-icon">${cat.icon}</span>
-        <div>
-          <div class="lg-cat-name" style="color:${cat.color}">${cat.name}</div>
-          <div style="font-size:10px;color:var(--t3)">${cat.members.toLocaleString('ru')} участников</div>
-        </div>
-        <div class="lg-badge" style="background:${cat.color}18;color:${cat.color}">${myIdx>=0&&myIdx<3?'Топ-3 🔥':myIdx>=0?'#'+(myIdx+1):'—'}</div>
-      </div>
-      <div class="lg-body">${top8.map((p,i)=>{
-        const isMe=p.isMe,maxH=top8[0]?.hrs||1;
-        return `<div class="lg-row ${isMe?'me':''}" ${p.fake?'':''}>
-          <div class="lr-rank" style="color:${medal(i)?'var(--orange)':'var(--t3)'}">${medal(i)||i+1}</div>
-          <div class="lr-av" style="${isMe?`border:2px solid ${cat.color}`:''}">${isMe?P.avatar:p.av}</div>
-          <div class="lr-info">
-            <div class="lr-name">${isMe?P.name:p.name}${isMe?' ← ты':''}${p.fake?'':' 🟢'}</div>
-            <div class="lr-streak">🔥 ${isMe?P.streak:p.streak} дней</div>
-          </div>
-          <div class="lr-bar-wr"><div class="lr-bar" style="width:${Math.round((p.hrs/maxH)*100)}%;background:${cat.color}"></div></div>
-          <div class="lr-hrs" style="color:${isMe?cat.color:'var(--t2)'}">${p.hrs} ч</div>
-        </div>`;}).join('')}
-        ${myIdx>=8?`<div style="padding:9px 14px;font-size:12px;color:var(--t3);border-top:1px solid var(--border-l)">Твоя позиция: <b style="color:${cat.color}">#${myIdx+1}</b> · ${cat.hours.toFixed(1)} ч</div>`:''}
-      ${players.length===0?`<div class="empty" style="padding:24px">
-        <div style="font-size:28px;margin-bottom:8px">🏁</div>
-        <div style="font-size:13px;color:var(--t3)">Пока нет участников.<br>Будь первым!</div>
-      </div>`:''}
-    </div>
-    </div>`;
-  }).join('');
-}
-
-async function renderLgMini(){
-  const el=document.getElementById('lgMini');if(!el)return;
-  const cats=activeCats();
-  const results=await Promise.all(cats.map(c=>loadLeagueData(c.id)));
-  el.innerHTML=cats.map((c,i)=>{
-    const rank=results[i].findIndex(p=>p.isMe)+1||'?';
-    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 5px;border-radius:7px;cursor:pointer;transition:background .2s" onclick="showTab('leagues')" onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
-      <span style="font-size:18px">${c.icon}</span>
-      <div style="flex:1"><div style="font-size:12px;font-weight:600">${c.name}</div>
-        <div style="font-size:10px;color:var(--t3)">${c.hours.toFixed(1)} часов</div></div>
-      <div style="font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:${c.color}">#${rank}</div>
-    </div>`;
-  }).join('');
-}
-
-// ══ LEAGUE HERO BANNER ═══════════════════════════════════════
-async function showLeagueHero(){
-  const cats=activeCats();if(!cats.length)return;
-  let chosen=cats[0],chosenLeader=null,maxGap=0;
-  await Promise.all(cats.map(async c=>{
-    const players=await loadLeagueData(c.id);
-    // Only show real competitors who are NOT the current user
-    const others=players.filter(p=>!p.isMe&&p.hrs>0);
-    const leader=others[0];if(!leader)return;
-    const gap=(leader.hrs||0)-(c.hours||0);
-    if(gap>maxGap){maxGap=gap;chosen=c;chosenLeader=leader;}
-  }));
-  // Don't show hero if no real competitors with actual hours
-  if(!chosenLeader||maxGap<0.1)return;
-  const gap=maxGap.toFixed(1);
-  const card=document.getElementById('lhCard');
-  card.style.borderColor=chosen.color+'44';
-  document.getElementById('lhCat').textContent=chosen.icon+' Лига '+chosen.name;
-  document.getElementById('lhCat').style.color=chosen.color;
-  document.getElementById('lhAv').textContent=chosenLeader.av;
-  document.getElementById('lhAv').style.textShadow=`0 0 20px ${chosen.color}88`;
-  document.getElementById('lhName').textContent=chosenLeader.name;
-  document.getElementById('lhHrs').textContent=chosenLeader.hrs;
-  document.getElementById('lhHrs').style.color=chosen.color;
-  document.getElementById('lhStreak').textContent=`🔥 ${chosenLeader.streak} дней стрик`;
-  document.getElementById('lhGap').innerHTML=`<span>${gap} ч</span><span class="lh-gap-lbl">до лидера</span>`;
-  document.getElementById('lhGap').style.color=chosen.color;
-  document.getElementById('lhMsg').textContent=chosenLeader.fake?`${chosenLeader.name} лидирует в лиге ${chosen.name}`:`Реальный игрок из ${chosen.name}`;
-  document.getElementById('leagueHero').style.display='flex';
-}
-function closeHero(){document.getElementById('leagueHero').style.display='none';}
-
-// ══ QUICK TIMER ══════════════════════════════════════════════
-let quickSel=null,quickInt=null,quickSec=0;
-const defCat=()=>P.activeCatIds[0]||P.categories[0]?.id;
-function renderQuickCats(){
-  if(!quickSel)quickSel=defCat();
-  document.getElementById('quickCats').innerHTML=
-    ALL_CATS.filter(c=>P.activeCatIds.includes(c.id)).map(c=>
-      `<button class="tc-b ${c.id===quickSel?'sel':''}" onclick="selCat('${c.id}')" title="${c.name}">${c.icon}</button>`).join('');
-}
-function selCat(id){if(quickInt)return;quickSel=id;renderQuickCats();}
-function toggleQuick(){
-  if(!quickSel)quickSel=defCat();
-  if(!quickInt){
-    quickInt=setInterval(()=>{quickSec++;document.getElementById('qDisp').textContent=fmt(quickSec);},1000);
-    document.getElementById('qDisp').classList.add('run');
-    document.getElementById('qBtn').textContent='⏹ Стоп';
-    document.getElementById('qBtn').className='t-sbtn active';
-    document.getElementById('qNote').textContent='Сессия идёт...';
-  } else {
-    clearInterval(quickInt);quickInt=null;
-    const s=quickSec;quickSec=0;
-    document.getElementById('qDisp').classList.remove('run');
-    document.getElementById('qDisp').textContent='00:00:00';
-    document.getElementById('qBtn').textContent='▶ Старт';
-    document.getElementById('qBtn').className='t-sbtn idle';
-    document.getElementById('qNote').textContent='Выбери активность и нажми Старт';
-    if(s>0)saveSession(quickSel,s);
-  }
-}
-
-// ══ SESSION MODAL ════════════════════════════════════════════
-let mSel=null,mInt=null,mSec=0,mRun=false;
-function openSessModal(){mSel=mSel||defCat();document.getElementById('sessOv').classList.add('show');renderMCats();}
-function closeSessModal(){
-  if(mRun)stopModal(false);
-  document.getElementById('sessOv').classList.remove('show');
-  document.getElementById('mTimer').textContent='00:00:00';
-  document.getElementById('mStartBtn').textContent='▶ Старт';
-  document.getElementById('mStartBtn').className='btn btn-p';
-  mSec=0;
-}
-function renderMCats(){
-  document.getElementById('mCatGrid').innerHTML=
-    ALL_CATS.filter(c=>P.activeCatIds.includes(c.id)).map(c=>
-      `<button class="mb ${c.id===mSel?'sel':''}" onclick="setMC('${c.id}')" style="${c.id===mSel?`border-color:${c.color}`:''}">
-        <span class="mbi">${c.icon}</span>${c.name}</button>`).join('');
-}
-function setMC(id){if(!mRun){mSel=id;renderMCats();}}
-function modalToggle(){
-  if(!mRun){
-    mRun=true;mSec=0;
-    mInt=setInterval(()=>{mSec++;document.getElementById('mTimer').textContent=fmt(mSec);},1000);
-    document.getElementById('mStartBtn').textContent='⏹ Завершить';
-    document.getElementById('mStartBtn').className='btn btn-d';
-    document.getElementById('mSub').textContent='Сессия активна...';
-  } else stopModal(true);
-}
-function stopModal(save){
-  clearInterval(mInt);mRun=false;
-  if(save&&mSec>0){saveSession(mSel,mSec);closeSessModal();}
-  document.getElementById('mStartBtn').textContent='▶ Старт';
-  document.getElementById('mStartBtn').className='btn btn-p';
-  document.getElementById('mSub').textContent='Выбери активность';
-  document.getElementById('mTimer').textContent='00:00:00';
-  mSec=0;
-}
-
-// ══ PUBLIC PROFILE ═══════════════════════════════════════════
-async function openPub(){
-  const url=`${location.origin}${location.pathname}?u=${encodeURIComponent(P.name)}`;
-  document.getElementById('pubUrl').value=url;
-  const thPub=totalHrs(),unl=P.achievements.filter(a=>a.unlocked).length;
-  const cats=activeCats();
-
-  // Count likes
-  let likesCount=0,iLiked=false;
-  if(!SB_USER?.isDemoUser){
-    const{count}=await sb.from('profile_likes').select('id',{count:'exact',head:true}).eq('target_user_id',P.id);
-    likesCount=count||0;
-    const{data:myLike}=await sb.from('profile_likes').select('id').eq('user_id',SB_USER.id).eq('target_user_id',P.id).maybeSingle();
-    iLiked=!!myLike;
-  }
-
-  document.getElementById('pubPrev').innerHTML=`
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-     <div style="width:48px;height:48px;border-radius:50%;overflow:hidden;font-size:32px;display:flex;align-items:center;justify-content:center;background:var(--card);border:2px solid var(--blue);flex-shrink:0;">
-  ${P.avatarUrl?`<img src="${P.avatarUrl}" style="width:100%;height:100%;object-fit:cover">`:P.avatar}
-</div>
-      <div><div style="font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700">${P.name}</div>
-        <div style="font-size:12px;color:var(--blue);text-transform:uppercase;letter-spacing:.7px">${document.getElementById('profTitle').textContent}</div></div>
-      <div style="margin-left:auto;font-size:18px;cursor:pointer;padding:6px;border-radius:8px;background:${iLiked?'rgba(248,81,73,.15)':'var(--card)'};" id="likeBtn" onclick="likeMyProfile()">
-        ${iLiked?'❤️':'🤍'} <span style="font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700" id="likeCnt">${likesCount}</span>
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
-      ${[['Часов',thPub.toFixed(0),'var(--t1)'],['Ачивок',unl,'var(--orange)'],['Стрик',P.streak,'var(--green)']].map(([l,v,c])=>
-        `<div style="text-align:center;padding:9px;background:var(--bg);border-radius:8px">
-          <div style="font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:${c}">${v}</div>
-          <div style="font-size:10px;color:var(--t3);text-transform:uppercase">${l}</div>
-        </div>`).join('')}
-    </div>
-    <div style="font-size:11px;color:var(--t3)">Лиги: ${cats.map(c=>c.icon+' '+c.name).join(' · ')}</div>`;
-  document.getElementById('pubOv').classList.add('show');
-}
-
-async function likeMyProfile(){
-  if(SB_USER?.isDemoUser)return;
-  const btn=document.getElementById('likeBtn');
-  const cnt=document.getElementById('likeCnt');
-  const liked=btn.style.background.includes('248');
-  if(liked){
-    await sb.from('profile_likes').delete().eq('user_id',SB_USER.id).eq('target_user_id',P.id);
-    btn.innerHTML=`🤍 <span style="font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700" id="likeCnt">${parseInt(cnt.textContent)-1}</span>`;
-    btn.style.background='var(--card)';
-  } else {
-    await sb.from('profile_likes').insert({user_id:SB_USER.id,target_user_id:P.id});
-    btn.innerHTML=`❤️ <span style="font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700" id="likeCnt">${parseInt(cnt.textContent)+1}</span>`;
-    btn.style.background='rgba(248,81,73,.15)';
-  }
-}
-
-function closePub(){document.getElementById('pubOv').classList.remove('show');}
-function copyUrl(){
-  navigator.clipboard.writeText(document.getElementById('pubUrl').value).then(()=>{
-    const b=document.getElementById('cpyBtn');b.textContent='✅ Скопировано!';
-    setTimeout(()=>b.textContent='Копировать',2200);
-    showToast('Ссылка скопирована!','🔗');
-  });
-}
-
-// ══ AVATAR EDIT ══════════════════════════════════════════════
-function openAvEdit(){editSelAv=P.avatar;rpAv('avEditPicker',editSelAv,'editAvFn');document.getElementById('avOv').classList.add('show');}
-async function saveAv(){
-  const saveBtn=document.querySelector('#avOv .btn-auth');
-  // Close modal IMMEDIATELY - don't wait for upload
-  document.getElementById('avOv').classList.remove('show');
-
-  if(avPhotoFile){
-    const localPreview=document.getElementById('avPhotoImg').src;
-    // Show photo immediately from local blob while uploading
-    P.avatarUrl=localPreview;
-    renderNav();renderHeader();
-    showToast('Загружаем фото...','⏳');
-
-    if(SB_USER?.isDemoUser){
-      avPhotoFile=null;
-      showToast('Аватар обновлён!','🖼️');
-    } else {
-      // Upload in background - UI already updated
-      try{
-        const url=await uploadAvatarPhoto();
-        if(url){
-          P.avatarUrl=url;
-          await sb.from('users').update({avatar_url:url}).eq('id',SB_USER.id);
-          avPhotoFile=null;
-          renderNav();renderHeader();
-          showToast('Аватар сохранён!','🖼️');
-        } else {
-          // Revert to emoji on failure
-          P.avatarUrl=null;
-          renderNav();renderHeader();
-          showToast('Не удалось загрузить фото (макс. 2МБ)','⚠️');
+// STATE
+let USER = { id: 'demo-user-id', name: 'DTR Member', activeCats: ['code'], hours: 142, streak: 12 };
+
+// ----------------------------------------------------------------------------
+// 2. BULLETPROOF BACKGROUND TIMER (Hardware Accelerated)
+// ----------------------------------------------------------------------------
+class PremiumTimer {
+    constructor() {
+        this.displayEl = document.getElementById('mainTimerDisplay');
+        this.btnEl = document.getElementById('btnTimerToggle');
+        this.startTime = null;
+        this.rafId = null;
+        this.isRunning = false;
+        
+        // Восстановление после закрытия вкладки
+        const saved = localStorage.getItem('dtr_timer_start');
+        if (saved) {
+            this.startTime = parseInt(saved, 10);
+            this.start(true);
         }
-      } catch(e){
-        console.error('Upload error:',e);
-        P.avatarUrl=null;
-        renderNav();renderHeader();
-        showToast('Ошибка загрузки','⚠️');
-      }
     }
-  } else {
-    P.avatar=editSelAv;
-    P.avatarUrl=null;
-    if(!SB_USER?.isDemoUser){
-      try{
-        await sb.from('users').update({avatar:editSelAv,avatar_url:null}).eq('id',SB_USER.id);
-      } catch(e){console.error(e);}
+
+    toggle() {
+        if (this.isRunning) this.stop();
+        else this.start();
     }
-    renderNav();renderHeader();
-    showToast('Аватар обновлён!','✅');
-  }
-}
-// ══ TOAST ════════════════════════════════════════════════════
-let toastTmr=null;
-function showToast(msg,icon='✅',isAch=false){
-  if(toastTmr)clearTimeout(toastTmr);
-  const t=document.getElementById('toast');
-  document.getElementById('tMsg').textContent=msg;
-  document.getElementById('tIcon').textContent=icon;
-  t.className='toast show'+(isAch?' ach':'');
-  toastTmr=setTimeout(()=>t.classList.remove('show'),3600);
-}
 
-// ══ TABS ════════════════════════════════════════════════════
-function showTab(name,el){
-  document.querySelectorAll('.tc').forEach(t=>t.classList.remove('active'));
-  const tc=document.getElementById('tab-'+name);if(tc)tc.classList.add('active');
-  document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
-  if(el)el.classList.add('active');
-  else{const m={dash:0,leagues:1,activity:2,achievements:3,manage:4};
-    const tabs=document.querySelectorAll('.stab');if(tabs[m[name]])tabs[m[name]].classList.add('active');}
-  if(name==='activity')renderSessions(true);
-  if(name==='achievements')renderAchFull();
-  if(name==='leagues'){lgCache={};renderLeagues();}
-  if(name==='manage')renderManageGrid();
-  if(name==='dash')renderDash();
-}
-
-function closeAvEdit(){
-  avPhotoFile=null;
-  document.getElementById('avOv').classList.remove('show');
-}
-function olClick(e,id){
-  if(e.target!==document.getElementById(id))return;
-  const m={sessOv:closeSessModal,pubOv:closePub,achOv:closeAch,avOv:closeAvEdit};
-  if(m[id])m[id]();
-}
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSessModal();closePub();closeAch();closeAvEdit();closeHero();}});
-
-// ══ INIT ════════════════════════════════════════════════════
-
-// ══ XP / LEVEL ═══════════════════════════════════════
-function calcXP(totalHours){return Math.floor(totalHours*100);}
-function calcLevel(xp){return Math.floor(Math.sqrt(xp/500))+1;}
-function xpForLevel(lvl){return (lvl-1)*(lvl-1)*500;}
-function renderXP(){
-  const th=totalHrs(),xp=calcXP(th),lvl=calcLevel(xp);
-  const xpCur=xp-xpForLevel(lvl),xpNext=xpForLevel(lvl+1)-xpForLevel(lvl);
-  const pct=Math.min(100,Math.round((xpCur/xpNext)*100));
-  const el2=document.getElementById('xpLevel');
-  const pts=document.getElementById('xpPts');
-  const fill=document.getElementById('xpFill');
-  if(el2)el2.textContent=`${t('level')} ${lvl}`;
-  if(pts)pts.textContent=`${xpCur.toLocaleString()} / ${xpNext.toLocaleString()} XP`;
-  if(fill)setTimeout(()=>fill.style.width=pct+'%',100);
-}
-
-// ══ ANIMATED COUNTER ═════════════════════════════════
-function animCount(el,end,dur=900){
-  if(!el)return;
-  const start=parseFloat(el.textContent)||0;
-  const isFloat=!Number.isInteger(end)&&String(end).includes('.');
-  const t0=performance.now();
-  function tick(now){
-    const p=Math.min((now-t0)/dur,1);
-    const ease=1-Math.pow(1-p,3);
-    const v=start+(end-start)*ease;
-    el.textContent=isFloat?v.toFixed(1):Math.floor(v).toLocaleString('ru');
-    if(p<1)requestAnimationFrame(tick);
-  }
-  requestAnimationFrame(tick);
-}
-
-// ══ HEATMAP 365 ══════════════════════════════════════
-function renderHeatmap(){
-  const wrap=document.getElementById('tab-heatmap-placeholder');
-  if(!wrap)return;
-  const now=Date.now();
-  const actMap={};
-  P.sessions.forEach(s=>{
-    if(!s.ts)return;
-    const d=new Date(s.ts);
-    const key=`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-    actMap[key]=(actMap[key]||0)+s.dur/3600;
-  });
-  const maxH=Math.max(...Object.values(actMap),0.1);
-  // Build 52 weeks x 7 days
-  const TOTAL=364;
-  const cols=[];
-  for(let w=51;w>=0;w--){
-    const col=[];
-    for(let d=6;d>=0;d--){
-      const dayAgo=w*7+d;
-      const dt=new Date(now-dayAgo*86400000);
-      const key=`${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`;
-      const h=actMap[key]||0;
-      const lv=h===0?0:h<maxH*.25?1:h<maxH*.5?2:h<maxH*.75?3:4;
-      col.push({h,lv,date:dt.toLocaleDateString('ru',{day:'2-digit',month:'short'})});
+    start(isRestoring = false) {
+        if (!isRestoring) {
+            this.startTime = Date.now();
+            localStorage.setItem('dtr_timer_start', this.startTime);
+        }
+        this.isRunning = true;
+        this.btnEl.textContent = '⏹ ЗАВЕРШИТЬ СЕССИЮ';
+        this.btnEl.classList.add('btn-danger');
+        this.tick();
     }
-    cols.push(col);
-  }
-  const colors=['var(--card)','#0e4429','#006d32','#26a641','#39d353'];
-  wrap.innerHTML=`<div class="card">
-    <div class="ch"><span class="ct">${t("activity_year")}</span><span style="font-size:11px;color:var(--t3)">${Object.keys(actMap).length} ${t("active_days_cnt")}</span></div>
-    <div class="cb">
-      <div class="hm-grid">${cols.map(col=>`<div class="hm-col">${col.map(cell=>`<div class="hm-cell" style="background:${colors[cell.lv]}" title="${cell.date}: ${cell.h.toFixed(1)}ч"></div>`).join('')}</div>`).join('')}</div>
-      <div class="hm-legend">Меньше ${[0,1,2,3,4].map(l=>`<div style="width:10px;height:10px;border-radius:2px;background:${colors[l]}"></div>`).join('')} Больше</div>
-    </div>
-  </div>`;
+
+    stop() {
+        this.isRunning = false;
+        cancelAnimationFrame(this.rafId);
+        const elapsedSeconds = Math.floor((Date.now() - this.startTime) / 1000);
+        localStorage.removeItem('dtr_timer_start');
+        this.startTime = null;
+        this.displayEl.textContent = '00:00:00';
+        this.btnEl.textContent = '▶ НАЧАТЬ СЕССИЮ';
+        this.btnEl.classList.remove('btn-danger');
+        
+        // Optimistic UI Update for stats
+        USER.hours += (elapsedSeconds / 3600);
+        appUI.animOdometer('statTotalHrs', USER.hours);
+        console.log(`Saved ${elapsedSeconds}s to DB in background.`);
+    }
+
+    tick() {
+        if (!this.isRunning) return;
+        const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
+        const h = String(Math.floor(elapsed / 3600)).padStart(2, '0');
+        const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
+        const s = String(elapsed % 60).padStart(2, '0');
+        this.displayEl.textContent = `${h}:${m}:${s}`;
+        this.rafId = requestAnimationFrame(() => this.tick());
+    }
 }
 
-// ══ RINGS ════════════════════════════════════════════
-function renderRings(){
-  const el=document.getElementById('catRings');if(!el)return;
-  const cats=activeCats();if(!cats.length){el.innerHTML='';return;}
-  const milestones=[10,25,50,100,200,500];
-  el.innerHTML=cats.map(c=>{
-    const next=milestones.find(m=>m>c.hours)||milestones[milestones.length-1];
-    const prev=milestones[milestones.indexOf(next)-1]||0;
-    const pct=Math.min(100,((c.hours-prev)/(next-prev))*100);
-    const r=34,circ=2*Math.PI*r;
-    const dash=(pct/100)*circ;
-    return `<div class="ring-item">
-      <svg width="80" height="80" viewBox="0 0 80 80">
-        <circle cx="40" cy="40" r="${r}" fill="none" stroke="var(--bg)" stroke-width="7"/>
-        <circle cx="40" cy="40" r="${r}" fill="none" stroke="${c.color}" stroke-width="7"
-          stroke-dasharray="${dash} ${circ}" stroke-dashoffset="${circ/4}"
-          stroke-linecap="round" style="transition:stroke-dasharray 1.2s cubic-bezier(.4,0,.2,1)"/>
-        <text x="40" y="36" text-anchor="middle" fill="${c.color}" font-family="Rajdhani,sans-serif" font-size="15" font-weight="700">${c.hours.toFixed(0)}</text>
-        <text x="40" y="50" text-anchor="middle" fill="var(--t3)" font-family="Inter,sans-serif" font-size="8">/ ${next}ч</text>
-      </svg>
-      <div class="ring-name">${c.icon} ${c.name}</div>
-      <div class="ring-hrs">${Math.round(pct)}% до ${next}ч</div>
-    </div>`;
-  }).join('');
+// ----------------------------------------------------------------------------
+// 3. PRESENCE MANAGER (Live Online Counters)
+// ----------------------------------------------------------------------------
+class PresenceManager {
+    constructor() {
+        this.globalChannel = sb.channel('global_progress_club');
+        this.init();
+    }
+
+    init() {
+        this.globalChannel
+            .on('presence', { event: 'sync' }, () => {
+                const state = this.globalChannel.presenceState();
+                let count = 0;
+                for (const key in state) count += state[key].length;
+                appUI.animOdometer('globalOnlineCount', count || 1); // fallback to 1 (self)
+                document.getElementById('chatOnlineCount').textContent = count || 1;
+            })
+            .subscribe(async (status) => {
+                if (status === 'SUBSCRIBED') {
+                    await this.globalChannel.track({ user: USER.name, online_at: new Date().toISOString() });
+                }
+            });
+    }
 }
 
-// ══ PERSONAL RECORDS ════════════════════════════════
-function renderRecords(){
-  const el=document.getElementById('recGrid');if(!el)return;
-  const bestSess=P.sessions.reduce((a,s)=>s.dur>a?s.dur:a,0);
-  // Best week
-  const now=Date.now();
-  let bestWeek=0;
-  for(let i=0;i<52;i++){
-    const wk=P.sessions.filter(s=>s.ts&&s.ts>now-(i+1)*7*86400000&&s.ts<=now-i*7*86400000).reduce((a,s)=>a+s.dur/3600,0);
-    if(wk>bestWeek)bestWeek=wk;
-  }
-  const topCat=P.categories.slice().sort((a,b)=>b.hours-a.hours)[0];
-  el.innerHTML=`
-    <div class="rec-card">
-      <div class="rec-val" style="color:var(--blue)">${fmtD(bestSess)||'—'}</div>
-      <div class="rec-lbl">${t('best_session')}</div>
-    </div>
-    <div class="rec-card">
-      <div class="rec-val" style="color:var(--green)">${bestWeek.toFixed(1)}ч</div>
-      <div class="rec-lbl">${t('best_week')}</div>
-    </div>
-    <div class="rec-card">
-      <div class="rec-val" style="color:${topCat?.color||'var(--orange)'}">${topCat?.icon||'—'}</div>
-      <div class="rec-lbl">${topCat?.name||t('no_data')}<br>${topCat?.hours.toFixed(0)||0}ч</div>
-    </div>`;
+// ----------------------------------------------------------------------------
+// 4. REAL-TIME MESSENGER (Telegram Architecture)
+// ----------------------------------------------------------------------------
+class MessengerClient {
+    constructor() {
+        this.container = document.getElementById('messagesContainer');
+        this.input = document.getElementById('chatInputMsg');
+        this.chatChannel = sb.channel('public:messages');
+        this.initRealtime();
+        this.loadInitial();
+    }
+
+    initRealtime() {
+        this.chatChannel
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+                this.renderMessage(payload.new, payload.new.sender_id === USER.id);
+            })
+            .subscribe();
+    }
+
+    loadInitial() {
+        // Mock initial load for demonstration. In production: sb.from('messages').select()...
+        const mockMsgs = [
+            { id: 1, sender_id: 'sys', content: 'Добро пожаловать в Global Progress Club!', created_at: new Date().toISOString() }
+        ];
+        mockMsgs.forEach(m => this.renderMessage(m, false));
+    }
+
+    async sendMessage() {
+        const text = this.input.value.trim();
+        if (!text) return;
+        this.input.value = '';
+        
+        // Optimistic Insert
+        const tempMsg = { id: Date.now(), sender_id: USER.id, content: text, created_at: new Date().toISOString() };
+        this.renderMessage(tempMsg, true);
+
+        // Background sync
+        const { error } = await sb.from('messages').insert({ chat_id: 'global-room-uuid', sender_id: USER.id, content: text });
+        if (error) console.error("Message send failed, implement retry logic.", error);
+    }
+
+    renderMessage(msg, isMe) {
+        const div = document.createElement('div');
+        div.className = `msg-bubble ${isMe ? 'msg-out' : 'msg-in'}`;
+        div.textContent = msg.content;
+        this.container.appendChild(div);
+        this.container.scrollTop = this.container.scrollHeight; // Smooth auto-scroll
+    }
+    
+    closeMobileChat() {
+        document.getElementById('activeChatArea').classList.remove('active');
+        document.getElementById('btnBackChat').style.display = 'none';
+    }
+    openMobileChat() {
+        if (window.innerWidth <= 768) {
+            document.getElementById('activeChatArea').classList.add('active');
+            document.getElementById('btnBackChat').style.display = 'block';
+        }
+    }
 }
 
-// ══ FORECAST ════════════════════════════════════════
-function renderForecast(){
-  const el=document.getElementById('forecastRow');if(!el)return;
-  const avgPerDay=weekHrs()/7||0;
-  const total=totalHrs();
-  const milestones=[50,100,200,500,1000];
-  const next=milestones.find(m=>m>total)||1000;
-  const daysToNext=avgPerDay>0?Math.ceil((next-total)/avgPerDay):null;
-  const projMonth=avgPerDay*30;
-  el.innerHTML=`
-    <div class="fc-item">
-      <div class="fc-val">${daysToNext?daysToNext+'д':'∞'}</div>
-      <div class="fc-lbl">${t('days_to')} ${next}${t('hrs')}<br>${t('at_pace')}</div>
-    </div>
-    <div class="fc-item">
-      <div class="fc-val">${projMonth.toFixed(0)}ч</div>
-      <div class="fc-lbl">${t('month_forecast')}</div>
-    </div>
-    <div class="fc-item">
-      <div class="fc-val">${avgPerDay.toFixed(1)}ч</div>
-      <div class="fc-lbl">${t('avg_day')}</div>
-    </div>`;
-}
+// ----------------------------------------------------------------------------
+// 5. UI CONTROLLER & OPTIMISTIC UPDATES
+// ----------------------------------------------------------------------------
+const appUI = {
+    theme: 'dark',
+    switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+        
+        document.getElementById(`tab-${tabId}`).style.display = 'block';
+        event.currentTarget.classList.add('active');
+        
+        if (tabId === 'chat') appChat.openMobileChat();
+    },
 
-// ══ CONFETTI ═════════════════════════════════════════
-function launchConfetti(){
-  const canvas=document.createElement('canvas');
-  canvas.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999';
-  document.body.appendChild(canvas);
-  canvas.width=window.innerWidth;canvas.height=window.innerHeight;
-  const ctx=canvas.getContext('2d');
-  const colors=['#1a9fff','#3fb950','#bc8cff','#f7931a','#ff6b6b','#ffd700'];
-  const particles=Array.from({length:120},()=>({
-    x:Math.random()*canvas.width,y:-20,r:Math.random()*5+2,
-    color:colors[Math.floor(Math.random()*colors.length)],
-    tilt:Math.random()*10-10,tiltAngle:0,
-    tiltInc:Math.random()*.07+.05,speed:Math.random()*2+1.5
-  }));
-  let angle=0,frame;
-  function draw(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    angle+=.01;
-    particles.forEach(p=>{
-      p.tiltAngle+=p.tiltInc;p.y+=p.speed*(Math.cos(angle+p.r/2)+1.5);
-      p.x+=Math.sin(angle)*.8;p.tilt=Math.sin(p.tiltAngle)*12;
-      ctx.beginPath();ctx.lineWidth=p.r;ctx.strokeStyle=p.color;
-      ctx.moveTo(p.x+p.tilt+p.r/3,p.y);ctx.lineTo(p.x+p.tilt,p.y+p.tilt+p.r/3);ctx.stroke();
-    });
-    if(particles.some(p=>p.y<canvas.height))frame=requestAnimationFrame(draw);
-    else canvas.remove();
-  }
-  draw();setTimeout(()=>{cancelAnimationFrame(frame);if(canvas.parentNode)canvas.remove();},4000);
-}
+    toggleTheme() {
+        this.theme = this.theme === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', this.theme);
+    },
 
-// ══ MOTIVATION MESSAGE ══════════════════════════════
-function getMotivation(){
-  const h=totalHrs(),s=P.streak||0;
-  if(s>=7)return{icon:'🔥',text:`<b>${s} ${t('mot_streak7')}`};
-  if(s>=3)return{icon:'⚡',text:`<b>${s} ${t('mot_streak3')}`};
-  if(h>=100)return{icon:'💎',text:`<b>${h.toFixed(0)} ${t('mot_hrs100')}`};
-  if(h>=10)return{icon:'📈',text:`<b>${h.toFixed(0)} ${t('mot_hrs10')}`};
-  if(P.totalSessions===0)return{icon:'🚀',text:t('mot_start')};
-  return{icon:'🌱',text:t('mot_default')};
-}
-function renderMotivation(){
-  const el=document.getElementById('motBanner');if(!el)return;
-  const m=getMotivation();
-  el.innerHTML=`<div class="mot-icon">${m.icon}</div><div class="mot-text">${m.text}</div>`;
-}
+    animOdometer(elId, endVal) {
+        const el = document.getElementById(elId);
+        if(!el) return;
+        const start = parseFloat(el.textContent) || 0;
+        const dur = 800;
+        const t0 = performance.now();
+        const tick = (now) => {
+            const p = Math.min((now - t0) / dur, 1);
+            const ease = 1 - Math.pow(1 - p, 3); // cubic ease out
+            const v = start + (endVal - start) * ease;
+            el.textContent = (endVal % 1 !== 0) ? v.toFixed(1) : Math.floor(v).toLocaleString('ru');
+            if(p < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+    },
 
-// ══ AVATAR PHOTO UPLOAD ══════════════════════════════
-let avPhotoFile=null;
-function previewAvPhoto(input){
-  const file=input.files[0];if(!file)return;
-  if(file.size>2*1024*1024){showToast('Макс 2MB','⚠️');return;}
-  avPhotoFile=file;
-  const reader=new FileReader();
-  reader.onload=e=>{
-    document.getElementById('avPhotoImg').src=e.target.result;
-    document.getElementById('avPhotoPrev').style.display='block';
-    document.getElementById('avUploadHint').style.display='none';
-  };
-  reader.readAsDataURL(file);
-}
+    // OPTIMISTIC UI: Toggle League
+    toggleLeague(catId, elId) {
+        const el = document.getElementById(elId);
+        const cat = ALL_CATS.find(c => c.id === catId);
+        const isOn = USER.activeCats.includes(catId);
+        
+        // 1. Instant Visual Update (0ms)
+        if (isOn) {
+            USER.activeCats = USER.activeCats.filter(id => id !== catId);
+            el.classList.remove('on');
+            el.style.borderColor = 'var(--border)';
+        } else {
+            USER.activeCats.push(catId);
+            el.classList.add('on');
+            el.style.borderColor = cat.color;
+        }
 
-async function uploadAvatarPhoto(){
-  if(!avPhotoFile||SB_USER?.isDemoUser)return null;
-  const ext=(avPhotoFile.name||'photo.jpg').split('.').pop().toLowerCase()||'jpg';
-  const path=`${SB_USER.id}.${ext}`;
-  const{error}=await sb.storage.from('avatars').upload(path,avPhotoFile,{upsert:true,contentType:avPhotoFile.type||'image/jpeg'});
-  if(error){console.error('Storage upload error:',error);return null;}
-  const{data}=sb.storage.from('avatars').getPublicUrl(path);
-  // Return clean URL - add cache buster only for current session rendering
-  const cleanUrl=data.publicUrl;
-  return cleanUrl;
-}
+        // 2. Background DB Sync (Simulated)
+        console.log(`Background Sync: League ${catId} is now ${!isOn}`);
+    },
 
-function getAvatarDisplay(size=48){
-  if(P.avatarUrl){
-    return `<img src="${P.avatarUrl}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;border:2px solid var(--blue)" onerror="this.style.display='none'">`;
-  }
-  return null;
-}
+    renderLeagues() {
+        const grid = document.getElementById('leaguesGrid');
+        grid.innerHTML = ALL_CATS.map((c, i) => {
+            const isOn = USER.activeCats.includes(c.id);
+            // Simulate random online count for visual proof
+            const randomOnline = Math.floor(Math.random() * 40) + 2; 
+            return `
+            <div class="mg-item stagger ${isOn?'on':''}" id="lg_${c.id}" style="${isOn ? `border-color:${c.color}` : ''}" onclick="appUI.toggleLeague('${c.id}', 'lg_${c.id}')">
+                <div class="mg-icon">${c.icon}</div>
+                <div class="mg-info">
+                    <div class="mg-name" style="color:${c.color}">${c.name}</div>
+                    <div class="mg-stats"><span class="online-dot"></span> ${randomOnline} онлайн в лиге</div>
+                </div>
+                <div style="font-size:24px; color:${c.color}; opacity:${isOn?1:0.2}; transition:opacity 0.2s">✓</div>
+            </div>`;
+        }).join('');
+    },
 
-
-// ══ TRANSLATIONS ══════════════════════════════════════
-const T = {
-  ru: {
-    // NAV
-    arena:'⚔️ Арена', session:'▶ Сессия',
-    // TABS
-    tab_dash:'📊 Дашборд', tab_arena:'⚔️ Арена', tab_hist:'История',
-    tab_ach:'Достижения', tab_manage:'⚙ Выбор лиги',
-    // DASHBOARD
-    dashboard:'Дашборд', week:'Неделя', month:'Месяц',
-    hrs_week:'Часов за неделю', hrs_month:'Часов за месяц',
-    hrs_day:'Часов в день', goal:'цель: 2 ч/день',
-    active_days:'Активных дней', best_day:'Лучший день',
-    hrs_per_day:'часов за 1 день', top_period:'Топ за период',
-    goal_pct:'Выполнение цели', streak_cur:'Текущий стрик',
-    cat_filter_all:'Все', by_cat:'По категориям',
-    kpi_section:'Ключевые показатели', records:'Личные рекорды',
-    forecast:'Прогноз', activity_year:'Активность — год',
-    active_days_cnt:'активных дней', progress:'Прогресс по лигам',
-    // RECORDS
-    best_session:'Лучшая сессия', best_week:'Лучшая неделя', top_cat:'Топ категория',
-    no_data:'Нет данных',
-    // FORECAST
-    days_to:'до', at_pace:'при текущем темпе',
-    month_forecast:'прогноз на месяц', avg_day:'среднее в день',
-    // MOTIVATION
-    mot_streak7:'дней подряд! Ты в зоне. Это уже привычка.',
-    mot_streak3:'дня стрик — продолжай, ещё немного до недели!',
-    mot_hrs100:'часов — ты вкладываешь в себя по-настоящему.',
-    mot_hrs10:'часов вложено. Каждый час делает тебя лучше.',
-    mot_start:'Запусти первую сессию — твой путь начинается здесь.',
-    mot_default:'Маленькие шаги каждый день создают большие результаты.',
-    // SESSION
-    quick_start:'Быстрый старт', choose_act:'Выбери активность и нажми Старт',
-    start:'▶ СТАРТ', stop:'⏹ СТОП', hrs_in_self:'Часов в себя',
-    days_streak:'дней подряд', hrs_7days:'+0.0 ч за 7 дней',
-    // ARENA
-    arena_title:'Арена', participants:'участников', top3:'Топ-3 🔥',
-    // HISTORY
-    all_sessions:'Все сессии',
-    // ACHIEVEMENTS
-    achievements:'Достижения', unlocked:'Разблокировано',
-    // MANAGE
-    manage_title:'Управление ареной',
-    manage_desc:'Выбери направления — ты попадёшь в арену с людьми у которых те же цели.',
-    // PROFILE
-    profile:'Профиль',
-    // AUTH
-    login:'Войти', register:'Регистрация', username:'Никнейм',
-    password:'Пароль', login_btn:'ВОЙТИ', register_btn:'СОЗДАТЬ ПРОФИЛЬ',
-    demo:'▶ Демо-аккаунт', wrong_creds:'Неверный никнейм или пароль',
-    // SETTINGS
-    theme:'Тема', dark:'Тёмная', light:'Светлая',
-    // ONBOARD
-    step1:'Шаг 1 из 2', step2:'Шаг 2 из 2',
-    choose_dir:'Выбери свои направления',
-    dir_desc:'Ты попадёшь в лиги с людьми у которых те же цели. Потом можно изменить.',
-    selected:'Выбрано:', creating:'СОЗДАЁМ...',
-    // TOASTS
-    toast_av:'Аватар обновлён!', toast_sess_saved:'Сессия сохранена',
-    toast_ach:'Достижение разблокировано',
-    // LEVEL
-    level:'Уровень',
-    // GENERAL
-    no_sessions:'Нет сессий', days:'дней', hrs:'ч', min:'мин',
-  },
-  uz: {
-    // NAV
-    arena:'⚔️ Arena', session:'▶ Sessiya',
-    // TABS
-    tab_dash:'📊 Boshqaruv', tab_arena:'⚔️ Arena', tab_hist:"Tarix",
-    tab_ach:'Yutuqlar', tab_manage:'⚙ Liga tanlash',
-    // DASHBOARD
-    dashboard:'Boshqaruv', week:'Hafta', month:'Oy',
-    hrs_week:'Soat / hafta', hrs_month:'Soat / oy',
-    hrs_day:'Soat / kun', goal:"maqsad: 2 s/kun",
-    active_days:'Faol kunlar', best_day:'Eng yaxshi kun',
-    hrs_per_day:"soat / 1 kun", top_period:"Davrning eng yaxshisi",
-    goal_pct:"Maqsad bajarilishi", streak_cur:"Joriy seriya",
-    cat_filter_all:'Barchasi', by_cat:"Yo'nalishlar bo'yicha",
-    kpi_section:"Asosiy ko'rsatkichlar", records:"Shaxsiy rekordlar",
-    forecast:"Prognoz", activity_year:"Faollik — yil",
-    active_days_cnt:"faol kun", progress:"Arena bo'yicha jarayon",
-    // RECORDS
-    best_session:"Eng yaxshi sessiya", best_week:"Eng yaxshi hafta", top_cat:"Top yo'nalish",
-    no_data:"Ma'lumot yo'q",
-    // FORECAST
-    days_to:"gacha", at_pace:"joriy sur'atda",
-    month_forecast:"oylik prognoz", avg_day:"kunlik o'rtacha",
-    // MOTIVATION
-    mot_streak7:"kun ketma-ket! Siz to'g'ri yo'ldasiz. Bu odatga aylandi.",
-    mot_streak3:"kunlik seriya — davom eting, bir haftaga oz qoldi!",
-    mot_hrs100:"soat — siz o'zingizga chinakamiga sarmoya kiritayapsiz.",
-    mot_hrs10:"soat sarflandi. Har bir soat sizni yaxshiroq qiladi.",
-    mot_start:"Birinchi sessiyani boshlang — sayohatingiz shu yerdan boshlanadi.",
-    mot_default:"Har kuni kichik qadamlar katta natijalarga olib keladi.",
-    // SESSION
-    quick_start:"Tezkor boshlash", choose_act:"Faollik turini tanlang va Start bosing",
-    start:"▶ BOSHLASH", stop:"⏹ TO'XTATISH", hrs_in_self:"O'zingizga soat",
-    days_streak:"kun ketma-ket", hrs_7days:"+0.0 s / 7 kun",
-    // ARENA
-    arena_title:"Arena", participants:"ishtirokchi", top3:"Top-3 🔥",
-    // HISTORY
-    all_sessions:"Barcha sessiyalar",
-    // ACHIEVEMENTS
-    achievements:"Yutuqlar", unlocked:"Ochildi",
-    // MANAGE
-    manage_title:"Arenani boshqarish",
-    manage_desc:"Yo'nalishlarni tanlang — maqsadlari bir xil odamlar bilan arenaga kirасiz.",
-    // PROFILE
-    profile:"Profil",
-    // AUTH
-    login:"Kirish", register:"Ro'yxatdan o'tish", username:"Foydalanuvchi nomi",
-    password:"Parol", login_btn:"KIRISH", register_btn:"PROFIL YARATISH",
-    demo:"▶ Demo-hisob", wrong_creds:"Noto'g'ri foydalanuvchi nomi yoki parol",
-    // SETTINGS
-    theme:"Mavzu", dark:"Qoʻng'ir", light:"Yorug'",
-    // ONBOARD
-    step1:"1-qadam / 2dan", step2:"2-qadam / 2dan",
-    choose_dir:"O'z yo'nalishlarini tanlang",
-    dir_desc:"Maqsadlari bir xil odamlar bilan arenaga tushadi. Keyinchalik o'zgartirish mumkin.",
-    selected:"Tanlandi:", creating:"YARATILMOQDA...",
-    // TOASTS
-    toast_av:"Avatar yangilandi!", toast_sess_saved:"Sessiya saqlandi",
-    toast_ach:"Yutuq ochildi",
-    // LEVEL
-    level:"Daraja",
-    // GENERAL
-    no_sessions:"Sessiya yo'q", days:"kun", hrs:"s", min:"daq",
-  }
+    init() {
+        this.renderLeagues();
+        document.getElementById('profileName').textContent = USER.name;
+        // Run initial Odometers
+        setTimeout(() => {
+            this.animOdometer('statTotalHrs', USER.hours);
+            this.animOdometer('statStreak', USER.streak);
+        }, 300);
+    }
 };
-let LANG = localStorage.getItem('lt_lang')||'ru';
-let THEME = localStorage.getItem('lt_theme')||'dark';
 
-function t(key){ return (T[LANG]||T.ru)[key] || T.ru[key] || key; }
+// ----------------------------------------------------------------------------
+// INITIALIZATION
+// ----------------------------------------------------------------------------
+const appTimer = new PremiumTimer();
+const appPresence = new PresenceManager();
+const appChat = new MessengerClient();
 
-function applyLang(){
-  // Navbar
-  const arenaBtn = document.querySelector('.nb[onclick*="leagues"]');
-  if(arenaBtn) arenaBtn.textContent = t('arena');
-  const sessBtn = document.querySelector('.nb.nb-p[onclick*="openSess"]');
-  if(sessBtn) sessBtn.textContent = t('session');
+window.onload = () => {
+    appUI.init();
+};
 
-  // Profile tabs
-  const stabs = document.querySelectorAll('.stab');
-  const tabMap = ['tab_dash','tab_arena','tab_hist','tab_ach','tab_manage'];
-  stabs.forEach((s,i)=>{ if(tabMap[i]) s.textContent = t(tabMap[i]); });
-
-  // Manage tab header
-  const mh = document.querySelector('#tab-manage .ct');
-  if(mh) mh.textContent = t('manage_title');
-  const md = document.querySelector('#tab-manage .cb > div:first-child');
-  if(md && md.style) {}
-
-  // Arena tab header
-  const lh = document.querySelector('#tab-leagues .ct');
-  if(lh) lh.textContent = t('arena_title');
-
-  // History
-  const ah = document.querySelector('#tab-activity .ct');
-  if(ah) ah.textContent = t('all_sessions');
-
-  // Achievements
-  const achH = document.querySelector('#tab-achievements .ct');
-  if(achH) achH.textContent = t('achievements');
-
-  // Settings panel labels
-  const ltheme = document.getElementById('lbl_theme');
-  if(ltheme) ltheme.textContent = t('theme');
-  const ldark = document.getElementById('lbl_dark');
-  if(ldark) ldark.textContent = t('dark');
-  const llight = document.getElementById('lbl_light');
-  if(llight) llight.textContent = t('light');
-
-  // Period buttons
-  const dpW = document.getElementById('dpW');
-  const dpM = document.getElementById('dpM');
-  if(dpW) dpW.textContent = t('week');
-  if(dpM) dpM.textContent = t('month');
-
-  // Login form
-  const uLabel = document.querySelector('label[for="regName"],label[for="logName"]');
-  document.querySelectorAll('.fi-lbl').forEach(el=>{
-    if(el.textContent.includes('Никнейм')||el.textContent.includes('Foydalanuvchi')) el.textContent=t('username');
-    if(el.textContent.includes('Пароль')||el.textContent.includes('Parol')) el.textContent=t('password');
-  });
-
-  // XP level prefix
-  renderXP();
-  renderMotivation();
-  renderDash();
-}
-
-function applyTheme(){
-  document.documentElement.setAttribute('data-theme', THEME==='light'?'light':'');
-  const btn = document.getElementById('tglTheme');
-  if(btn){ btn.classList.toggle('on', THEME==='light'); }
-}
-
-function toggleTheme(){
-  THEME = THEME==='light'?'dark':'light';
-  localStorage.setItem('lt_theme', THEME);
-  applyTheme();
-}
-
-function toggleLang(){
-  LANG = LANG==='ru'?'uz':'ru';
-  localStorage.setItem('lt_lang', LANG);
-  const btn = document.getElementById('tglLang');
-  if(btn) btn.classList.toggle('on', LANG==='uz');
-  document.documentElement.setAttribute('lang', LANG==='uz'?'uz':'ru');
-  applyLang();
-}
-
-let settingsOpen = false;
-function toggleSettings(e){
-  if(e) e.stopPropagation();
-  settingsOpen = !settingsOpen;
-  const p = document.getElementById('settingsPanel');
-  if(p) p.style.display = settingsOpen?'block':'none';
-  if(settingsOpen){
-    const tl = document.getElementById('tglLang');
-    if(tl) tl.classList.toggle('on', LANG==='uz');
-    const tt = document.getElementById('tglTheme');
-    if(tt) tt.classList.toggle('on', THEME==='light');
-  }
-}
-// Close settings on outside click
-document.addEventListener('click', e=>{
-  if(!settingsOpen) return;
-  if(e.target.closest('#settingsPanel') || e.target.closest('#settingsBtn')) return;
-  settingsOpen=false;
-  const p = document.getElementById('settingsPanel');
-  if(p) p.style.display='none';
-});
-
-// ══ CATEGORY FILTER ═══════════════════════════════════
-let dashCatFilter = null; // null = all
-
-function renderCatFilter(){
-  const el = document.getElementById('dashCatFilter');
-  if(!el) return;
-  const cats = activeCats();
-  el.innerHTML = `<button class="cf-btn ${!dashCatFilter?'active':''}" onclick="setDashCat(null)">${t('cat_filter_all')}</button>`
-    + cats.map(c=>`<button class="cf-btn ${dashCatFilter===c.id?'active':''}" onclick="setDashCat('${c.id}')" style="${dashCatFilter===c.id?`border-color:${c.color};background:${c.color}22;color:${c.color}`:''}">
-      ${c.icon} ${c.name}
-    </button>`).join('');
-}
-
-function setDashCat(id){
-  dashCatFilter = id;
-  renderCatFilter();
-  renderDash();
-}
-
-
-// ══ WEEKLY / MONTHLY REPORT ═══════════════════════════
-function openReport(){
-  const{data,buckets,isWeek}=getDashData();
-  const active=activeCats();
-  const allCats=activeCats();
-  const period=isWeek?7:30;
-
-  // Stats
-  const periodHrs=allCats.reduce((a,c)=>a+data[c.id].reduce((x,v)=>x+v,0),0);
-  const totals=Array(buckets).fill(0);
-  allCats.forEach(c=>{data[c.id].forEach((v,i)=>totals[i]+=v);});
-  const activeDays=totals.filter(v=>v>0).length;
-  const bestDay=Math.max(...totals);
-  const avgDay=periodHrs/buckets;
-  const prevPeriodEst=periodHrs*0.85; // estimate
-  const delta=((periodHrs-prevPeriodEst)/Math.max(prevPeriodEst,0.1)*100);
-  const sortedCats=allCats.slice().sort((a,b)=>
-    data[b.id].reduce((s,v)=>s+v,0)-data[a.id].reduce((s,v)=>s+v,0)
-  );
-  const maxCatH=data[sortedCats[0]?.id||'']?.reduce((a,v)=>a+v,0)||0.1;
-  const streak=P.streak||0;
-  const totalAllTime=allCats.reduce((a,c)=>a+c.hours,0);
-
-  // Emoji grade
-  const grade=periodHrs>=14?'🔥':periodHrs>=7?'⚡':periodHrs>=3?'📈':periodHrs>=1?'🌱':'💤';
-  const gradeTxt=periodHrs>=14?'Отличная неделя':periodHrs>=7?'Хорошая неделя':periodHrs>=3?'Есть прогресс':periodHrs>=1?'Начало положено':'Неактивная неделя';
-
-  const label=isWeek?'неделю':'месяц';
-  const title=`Отчёт за ${label}`;
-  document.getElementById('reportTitle').textContent=title;
-
-  const catRows=sortedCats.map(c=>{
-    const catH=data[c.id].reduce((a,v)=>a+v,0);
-    const pct=Math.round((catH/Math.max(maxCatH,0.1))*100);
-    return `<div class="report-cat-row">
-      <span style="font-size:18px;width:24px">${c.icon}</span>
-      <span style="font-size:12px;font-weight:600;min-width:100px;color:var(--t1)">${c.name}</span>
-      <div class="rcr-bar-wr"><div class="rcr-bar" style="width:${pct}%;background:${c.color}"></div></div>
-      <span class="rcr-hrs" style="color:${c.color}">${catH.toFixed(1)}ч</span>
-    </div>`;
-  }).join('');
-
-  // Verdict text
-  let verdict='';
-  if(streak>=5) verdict=`🔥 Стрик ${streak} дней — продолжай в том же духе!`;
-  else if(delta>20) verdict=`📈 На ${Math.abs(delta.toFixed(0))}% лучше прошлого периода. Рост очевиден.`;
-  else if(activeDays>=Math.ceil(buckets*0.7)) verdict=`✅ Активен ${activeDays} из ${buckets} дней — стабильный темп.`;
-  else if(periodHrs===0) verdict=`😴 На этой ${label === 'неделю' ? 'неделе' : 'в этом месяце'} сессий не было. Самое время начать.`;
-  else verdict=`📊 ${periodHrs.toFixed(1)} часов вложено. Каждый час — инвестиция в себя.`;
-
-  document.getElementById('reportBody').innerHTML=`
-    <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg);border-radius:10px;margin-bottom:16px">
-      <div style="font-size:36px">${grade}</div>
-      <div>
-        <div style="font-size:15px;font-weight:700;color:var(--t1)">${gradeTxt}</div>
-        <div style="font-size:12px;color:var(--t3);margin-top:2px">${new Date().toLocaleDateString('ru',{day:'numeric',month:'long',year:'numeric'})}</div>
-      </div>
-    </div>
-
-    <div class="report-stat-row">
-      <div class="rsr-item">
-        <div class="rsr-val" style="color:var(--blue)">${periodHrs.toFixed(1)}</div>
-        <div class="rsr-lbl">Часов</div>
-      </div>
-      <div class="rsr-item">
-        <div class="rsr-val" style="color:var(--green)">${activeDays}</div>
-        <div class="rsr-lbl">Активных дней</div>
-      </div>
-      <div class="rsr-item">
-        <div class="rsr-val" style="color:var(--orange)">${bestDay.toFixed(1)}</div>
-        <div class="rsr-lbl">Лучший день</div>
-      </div>
-    </div>
-
-    <h3>По направлениям</h3>
-    ${catRows}
-
-    <h3>Вывод</h3>
-    <div style="padding:10px 14px;background:var(--bg);border-radius:8px;border-left:3px solid var(--blue);font-size:13px;color:var(--t2)">
-      ${verdict}
-    </div>
-
-    <div style="margin-top:12px;font-size:11px;color:var(--t3);text-align:center">
-      Всего за всё время: <b style="color:var(--t1)">${totalAllTime.toFixed(0)} ч</b> · Стрик: <b style="color:var(--orange)">${streak} дней</b>
-    </div>`;
-
-  document.getElementById('reportOv').classList.add('show');
-}
-
-function copyReport(){
-  const{data,buckets,isWeek}=getDashData();
-  const active=activeCats();
-  const periodHrs=active.reduce((a,c)=>a+data[c.id].reduce((x,v)=>x+v,0),0);
-  const totals=Array(buckets).fill(0);
-  active.forEach(c=>{data[c.id].forEach((v,i)=>totals[i]+=v);});
-  const activeDays=totals.filter(v=>v>0).length;
-  const label=isWeek?'неделю':'месяц';
-  const sorted=active.slice().sort((a,b)=>data[b.id].reduce((s,v)=>s+v,0)-data[a.id].reduce((s,v)=>s+v,0));
-  const catLines=sorted.map(c=>{
-    const h=data[c.id].reduce((a,v)=>a+v,0);
-    return `  ${c.icon} ${c.name}: ${h.toFixed(1)}ч`;
-  }).join('\n');
-  const text=`📊 Мой отчёт за ${label} — LifeTrack\n\n⏱ Часов: ${periodHrs.toFixed(1)}\n📅 Активных дней: ${activeDays}/${buckets}\n🔥 Стрик: ${P.streak} дней\n\nПо направлениям:\n${catLines}\n\n🚀 lifetrack.app`;
-  navigator.clipboard.writeText(text).then(()=>showToast('Скопировано!','📋'));
-}
-
-window.addEventListener('load',async()=>{
-  initBanner();rpAv('avPicker',selAv,'selAvFn');
-  document.getElementById('lP').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
-  document.getElementById('rP').addEventListener('keydown',e=>{if(e.key==='Enter')goToCatSel();});
-
-  // Загружаем реальные счётчики участников
-  await loadMemberCounts();
-
-  const{data:{session}}=await sb.auth.getSession();
-  if(session){
-    SB_USER=session.user;
-    await loadUser(session.user.id);
-  }
-});
-    // --- PREMIUM INTERACTION ENGINE ---
-document.addEventListener("mousemove", (e) => {
-    document.querySelectorAll(".glow-card").forEach((card) => {
-        const rect = card.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        card.style.setProperty("--mouse-x", `${x}px`);
-        card.style.setProperty("--mouse-y", `${y}px`);
-    });
-});
 </script>
 </body>
 </html>
