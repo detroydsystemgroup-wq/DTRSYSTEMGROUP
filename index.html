@@ -2204,18 +2204,28 @@ async function renderLgMini(){
 
 // ══ LEAGUE HERO BANNER ═══════════════════════════════════════
 async function showLeagueHero(){
+  const d = new Date();
+  // Проверяем: сегодня воскресенье (0)? Если нет — выходим
+  if(d.getDay() !== 0) return; 
+  
+  // Проверяем: показывали ли уже сегодня?
+  const todayStr = d.toDateString();
+  if(localStorage.getItem('lt_hero_shown') === todayStr) return;
+
   const cats=activeCats();if(!cats.length)return;
   let chosen=cats[0],chosenLeader=null,maxGap=0;
+  
   await Promise.all(cats.map(async c=>{
     const players=await loadLeagueData(c.id);
-    // Only show real competitors who are NOT the current user
     const others=players.filter(p=>!p.isMe&&p.hrs>0);
     const leader=others[0];if(!leader)return;
     const gap=(leader.hrs||0)-(c.hours||0);
     if(gap>maxGap){maxGap=gap;chosen=c;chosenLeader=leader;}
   }));
-  // Don't show hero if no real competitors with actual hours
+  
   if(!chosenLeader||maxGap<0.1)return;
+  localStorage.setItem('lt_hero_shown', todayStr);
+
   const gap=maxGap.toFixed(1);
   const card=document.getElementById('lhCard');
   card.style.borderColor=chosen.color+'44';
@@ -2235,62 +2245,7 @@ async function showLeagueHero(){
 function closeHero(){document.getElementById('leagueHero').style.display='none';}
 
 
-// ══ SUNDAY TOP PLAYER BANNER ═══════════════════════════════
-let sundayBannerUserId = null;
 
-async function checkSundayBanner(){
-  const today = new Date();
-  const isSunday = today.getDay() === 0;
-  const lastShown = localStorage.getItem('lt_sunday_shown');
-  const todayKey = today.toISOString().slice(0,10);
-  if(!isSunday || lastShown === todayKey) return;
-  if(!P || !SB_USER) return;
-
-  const cats = activeCats();
-  if(!cats.length) return;
-
-  // Find top player across all active leagues
-  let topPlayer = null, topCat = null, topHrs = 0;
-  await Promise.all(cats.map(async cat => {
-    const players = await loadLeagueData(cat.id);
-    const real = players.filter(p => !p.fake && !p.isMe && p.hrs > 0);
-    if(real[0] && real[0].hrs > topHrs) {
-      topHrs = real[0].hrs;
-      topPlayer = real[0];
-      topCat = cat;
-    }
-  }));
-
-  if(!topPlayer || !topCat) return;
-
-  sundayBannerUserId = topPlayer.userId || null;
-  document.getElementById('swCat').textContent = topCat.icon + ' Лига ' + topCat.name;
-  document.getElementById('swCat').style.color = topCat.color;
-  document.getElementById('swAv').textContent = topPlayer.av;
-  document.getElementById('swName').textContent = topPlayer.name;
-  document.getElementById('swStat').textContent = topPlayer.hrs;
-  document.getElementById('swStat').style.color = topCat.color;
-  document.getElementById('swStreak').textContent = '🔥 ' + topPlayer.streak + ' дней подряд';
-  document.getElementById('swMsg').textContent =
-    topPlayer.name + ' — лучший в лиге «' + topCat.name + '» на этой неделе. ' +
-    'Вложено ' + topPlayer.hrs + ' ч — твой вызов!';
-
-  const viewBtn = document.getElementById('swViewBtn');
-  if(topPlayer.userId){
-    viewBtn.textContent = 'Открыть профиль →';
-    viewBtn.onclick = () => { closeSundayBanner(); openUserProfile(topPlayer.userId, topPlayer.name, topPlayer.av); };
-  } else {
-    viewBtn.textContent = 'Смотреть лигу →';
-    viewBtn.onclick = () => { closeSundayBanner(); showTab('leagues'); };
-  }
-
-  document.getElementById('sundayBanner').style.display = 'flex';
-}
-
-function closeSundayBanner(){
-  document.getElementById('sundayBanner').style.display = 'none';
-  localStorage.setItem('lt_sunday_shown', new Date().toISOString().slice(0,10));
-}
 
 // ══ LEAGUE ROW CLICK → USER PROFILE ════════════════════════
 async function openUserProfile(userId, name, av){
