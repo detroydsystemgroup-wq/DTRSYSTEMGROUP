@@ -1784,13 +1784,14 @@ const activeCats=()=>ALL_CATS.filter(c=>P.activeCatIds.includes(c.id)).map(c=>({
 
 // ══ RENDER ALL ═══════════════════════════════════════════════
 function renderAll(){
+  restoreQuickTimer();
+  restoreModalTimer();
   renderNav();renderHeader();renderCats();renderSessions();
   renderAchMini();renderAchFull();
   renderQuickCats();renderTotals();renderManageGrid();renderDash();
   renderLeagues();renderLgMini();
   renderXP();renderHeatmap();renderRings();renderRecords();renderForecast();renderMotivation();
 }
-
 function renderNav(){
   const avEl=document.getElementById('navAv');
   if(P.avatarUrl){const cbUrl=P.avatarUrl+(P.avatarUrl.includes("blob:")||P.avatarUrl.includes("?")?"":"?v="+Date.now());avEl.innerHTML=`<img src="${cbUrl}" style="width:100%;height:100%;border-radius:6px;object-fit:cover" onerror="this.parentNode.textContent='${P.avatar}'">`;}
@@ -2537,71 +2538,167 @@ function fmtMsgTime(iso){
 }
 
 
-// ══ QUICK TIMER ══════════════════════════════════════════════
-let quickSel=null,quickInt=null,quickSec=0;
+// ══ QUICK TIMER (Бронебойный) ════════════════════════════════════════
+let quickSel=null, quickInt=null, quickStartTs=null;
 const defCat=()=>P.activeCatIds[0]||P.categories[0]?.id;
+
 function renderQuickCats(){
   if(!quickSel)quickSel=defCat();
-  document.getElementById('quickCats').innerHTML=
-    ALL_CATS.filter(c=>P.activeCatIds.includes(c.id)).map(c=>
+  const el = document.getElementById('quickCats');
+  if(!el) return;
+  el.innerHTML = ALL_CATS.filter(c=>P.activeCatIds.includes(c.id)).map(c=>
       `<button class="tc-b ${c.id===quickSel?'sel':''}" onclick="selCat('${c.id}')" title="${c.name}">${c.icon}</button>`).join('');
 }
-function selCat(id){if(quickInt)return;quickSel=id;renderQuickCats();}
+
+function selCat(id){if(quickStartTs)return;quickSel=id;renderQuickCats();}
+
 function toggleQuick(){
   if(!quickSel)quickSel=defCat();
-  if(!quickInt){
-    quickInt=setInterval(()=>{quickSec++;document.getElementById('qDisp').textContent=fmt(quickSec);},1000);
-    document.getElementById('qDisp').classList.add('run');
-    document.getElementById('qBtn').textContent='⏹ Стоп';
-    document.getElementById('qBtn').className='t-sbtn active';
-    document.getElementById('qNote').textContent='Сессия идёт...';
+  const btn=document.getElementById('qBtn'), disp=document.getElementById('qDisp'), note=document.getElementById('qNote');
+
+  if(!quickStartTs){
+    // СТАРТ
+    quickStartTs = Date.now();
+    localStorage.setItem('lt_q_start', quickStartTs);
+    localStorage.setItem('lt_q_cat', quickSel);
+
+    disp.classList.add('run');
+    btn.textContent='⏹ Стоп';
+    btn.className='t-sbtn active';
+    note.textContent='Сессия идёт в фоне...';
+
+    quickInt = setInterval(() => {
+      disp.textContent = fmt(Math.floor((Date.now() - quickStartTs) / 1000));
+    }, 1000);
+    disp.textContent = fmt(0);
   } else {
-    clearInterval(quickInt);quickInt=null;
-    const s=quickSec;quickSec=0;
-    document.getElementById('qDisp').classList.remove('run');
-    document.getElementById('qDisp').textContent='00:00:00';
-    document.getElementById('qBtn').textContent='▶ Старт';
-    document.getElementById('qBtn').className='t-sbtn idle';
-    document.getElementById('qNote').textContent='Выбери активность и нажми Старт';
-    if(s>0)saveSession(quickSel,s);
+    // СТОП
+    clearInterval(quickInt); quickInt = null;
+    const elapsed = Math.floor((Date.now() - quickStartTs) / 1000);
+    quickStartTs = null;
+    localStorage.removeItem('lt_q_start');
+    localStorage.removeItem('lt_q_cat');
+
+    disp.classList.remove('run');
+    disp.textContent='00:00:00';
+    btn.textContent='▶ Старт';
+    btn.className='t-sbtn idle';
+    note.textContent='Выбери активность и нажми Старт';
+
+    if(elapsed > 0) saveSession(quickSel, elapsed);
   }
 }
 
-// ══ SESSION MODAL ════════════════════════════════════════════
-let mSel=null,mInt=null,mSec=0,mRun=false;
-function openSessModal(){mSel=mSel||defCat();document.getElementById('sessOv').classList.add('show');renderMCats();}
+// Восстановление при возврате в приложение
+function restoreQuickTimer() {
+    if (quickStartTs) return; // Защита от двойного запуска
+    const savedTs = localStorage.getItem('lt_q_start');
+    const savedCat = localStorage.getItem('lt_q_cat');
+    if (savedTs && savedCat) {
+        quickStartTs = parseInt(savedTs, 10);
+        quickSel = savedCat;
+        const disp = document.getElementById('qDisp');
+        const btn = document.getElementById('qBtn');
+        if(!disp || !btn) return;
+
+        disp.classList.add('run');
+        btn.textContent='⏹ Стоп';
+        btn.className='t-sbtn active';
+        document.getElementById('qNote').textContent='Сессия идёт в фоне...';
+        
+        quickInt = setInterval(() => {
+            disp.textContent = fmt(Math.floor((Date.now() - quickStartTs) / 1000));
+        }, 1000);
+        disp.textContent = fmt(Math.floor((Date.now() - quickStartTs) / 1000));
+    }
+}
+// ══ SESSION MODAL (Бронебойный) ══════════════════════════════════════
+let mSel=null, mInt=null, mStartTs=null;
+
+function openSessModal(){
+  mSel=mSel||defCat();
+  document.getElementById('sessOv').classList.add('show');
+  renderMCats();
+  if (mStartTs) { // Обновляем таймер сразу при открытии окна
+      document.getElementById('mTimer').textContent = fmt(Math.floor((Date.now() - mStartTs) / 1000));
+  }
+}
+
 function closeSessModal(){
-  if(mRun)stopModal(false);
+  if(mStartTs) stopModal(false);
   document.getElementById('sessOv').classList.remove('show');
   document.getElementById('mTimer').textContent='00:00:00';
   document.getElementById('mStartBtn').textContent='▶ Старт';
   document.getElementById('mStartBtn').className='btn btn-p';
-  mSec=0;
+  document.getElementById('mSub').textContent='Выбери активность';
 }
+
 function renderMCats(){
-  document.getElementById('mCatGrid').innerHTML=
-    ALL_CATS.filter(c=>P.activeCatIds.includes(c.id)).map(c=>
+  const el = document.getElementById('mCatGrid');
+  if(!el) return;
+  el.innerHTML= ALL_CATS.filter(c=>P.activeCatIds.includes(c.id)).map(c=>
       `<button class="mb ${c.id===mSel?'sel':''}" onclick="setMC('${c.id}')" style="${c.id===mSel?`border-color:${c.color}`:''}">
         <span class="mbi">${c.icon}</span>${c.name}</button>`).join('');
 }
-function setMC(id){if(!mRun){mSel=id;renderMCats();}}
+
+function setMC(id){if(!mStartTs){mSel=id;renderMCats();}}
+
 function modalToggle(){
-  if(!mRun){
-    mRun=true;mSec=0;
-    mInt=setInterval(()=>{mSec++;document.getElementById('mTimer').textContent=fmt(mSec);},1000);
+  if(!mStartTs){
+    // СТАРТ
+    mStartTs = Date.now();
+    localStorage.setItem('lt_m_start', mStartTs);
+    localStorage.setItem('lt_m_cat', mSel);
+    
     document.getElementById('mStartBtn').textContent='⏹ Завершить';
     document.getElementById('mStartBtn').className='btn btn-d';
-    document.getElementById('mSub').textContent='Сессия активна...';
-  } else stopModal(true);
+    document.getElementById('mSub').textContent='Сессия активна в фоне...';
+    
+    mInt = setInterval(() => {
+      document.getElementById('mTimer').textContent = fmt(Math.floor((Date.now() - mStartTs) / 1000));
+    }, 1000);
+    document.getElementById('mTimer').textContent = fmt(0);
+  } else {
+    // СТОП
+    stopModal(true);
+  }
 }
+
 function stopModal(save){
-  clearInterval(mInt);mRun=false;
-  if(save&&mSec>0){saveSession(mSel,mSec);closeSessModal();}
+  clearInterval(mInt); mInt=null;
+  const elapsed = mStartTs ? Math.floor((Date.now() - mStartTs) / 1000) : 0;
+  mStartTs = null;
+  localStorage.removeItem('lt_m_start');
+  localStorage.removeItem('lt_m_cat');
+  
+  if(save && elapsed > 0){ saveSession(mSel, elapsed); closeSessModal(); }
+  
   document.getElementById('mStartBtn').textContent='▶ Старт';
   document.getElementById('mStartBtn').className='btn btn-p';
   document.getElementById('mSub').textContent='Выбери активность';
   document.getElementById('mTimer').textContent='00:00:00';
-  mSec=0;
+}
+
+function restoreModalTimer() {
+    if (mStartTs) return; // Защита
+    const savedTs = localStorage.getItem('lt_m_start');
+    const savedCat = localStorage.getItem('lt_m_cat');
+    if (savedTs && savedCat) {
+        mStartTs = parseInt(savedTs, 10);
+        mSel = savedCat;
+        
+        const btn = document.getElementById('mStartBtn');
+        if(btn) {
+            btn.textContent='⏹ Завершить';
+            btn.className='btn btn-d';
+            document.getElementById('mSub').textContent='Сессия активна в фоне...';
+            
+            mInt = setInterval(() => {
+                document.getElementById('mTimer').textContent = fmt(Math.floor((Date.now() - mStartTs) / 1000));
+            }, 1000);
+            document.getElementById('mTimer').textContent = fmt(Math.floor((Date.now() - mStartTs) / 1000));
+        }
+    }
 }
 
 // ══ PUBLIC PROFILE ═══════════════════════════════════════════
