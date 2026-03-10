@@ -1609,62 +1609,93 @@ async function loadUser(userId) {
   showTab('dash'); // Показываем главную страницу
 }
 // ══ SAVE SESSION ════════════════════════════════════════════
-async function saveSession(catId,secs){
-  if(secs<5)return;
-  const cat=P.categories.find(c=>c.id===catId)||ALL_CATS.find(c=>c.id===catId);
-  if(!cat)return;
+// == SAVE SESSION ==
+async function saveSession(catId, secs) {
+    if (secs < 5) return; // Меньше 5 секунд не сохраняем
+    const cat = P.categories.find(c => c.id === catId) || ALL_CATS.find(c => c.id === catId);
+    if (!cat) return;
 
-  if(SB_USER?.isDemoUser){
-    // Demo: local only
-    const pc=P.categories.find(c=>c.id===catId);
-    if(pc)pc.hours=Math.round((pc.hours+secs/3600)*10)/10;
-    else P.categories.push({...cat,hours:Math.round(secs/3600*10)/10});
-    P.totalSessions++;
-    const today=new Date().toDateString(),yest=new Date(Date.now()-86400000).toDateString();
-    if(P.lastActiveDate!==today){P.streak=P.lastActiveDate===yest?(P.streak||0)+1:1;P.lastActiveDate=today;}
-    P.sessions.unshift({cat:catId,name:cat.name,icon:cat.icon,color:cat.color,dur:secs,date:'только что',ts:Date.now()});
-    const newly=checkAchsLocal({dur:secs});
-    renderAll();
-    showToast(`${cat.icon} +${fmtD(secs)} в "${cat.name}"`, '✅');
-    newly.forEach((a,i)=>setTimeout(()=>showToast(`🏆 ${a.name}`,a.icon,true),(i+1)*900));
-    return;
-  }
+    // --- 1. ДЕМО-РЕЖИМ ---
+    if (SB_USER?.isDemoUser) {
+        const pc = P.categories.find(c => c.id === catId);
+        if (pc) pc.hours = Math.round((pc.hours + secs / 3600) * 10) / 10;
+        else P.categories.push({ ...cat, hours: Math.round((secs / 3600) * 10) / 10 });
 
-  // Real Supabase save
-  const {error}=await sb.from('sessions').insert({
-    user_id:SB_USER.id,category_id:catId,duration_seconds:secs
-  });
-  if(error){console.error(error);showToast('Ошибка сохранения','⚠️');return;}
+        P.totalSessions++;
+        const today = new Date().toDateString();
+        const yest = new Date(Date.now() - 86400000).toDateString();
+        if (P.lastActiveDate !== today) {
+            P.streak = P.lastActiveDate === yest ? (P.streak || 0) + 1 : 1;
+            P.lastActiveDate = today;
+        }
 
-  // Update hours
-  const {data:uc}=await sb.from('user_categories').select('id,hours').eq('user_id',SB_USER.id).eq('category_id',catId).maybeSingle();
-  if(uc){await sb.from('user_categories').update({hours:(uc.hours||0)+secs/3600}).eq('id',uc.id);}
-  else{await sb.from('user_categories').insert({user_id:SB_USER.id,category_id:catId,hours:secs/3600});}
+        P.sessions.unshift({ cat: catId, name: cat.name, icon: cat.icon, color: cat.color, dur: secs, date: 'только что', ts: Date.now() });
+        renderAll();
+        showToast(`${cat.icon} +${typeof fmtD === 'function' ? fmtD(secs) : Math.round(secs/60)+'м'} в "${cat.name}"`, '✅');
+        
+        if(typeof checkAchsLocal === 'function') {
+            const newly = checkAchsLocal({dur:secs});
+            if(newly && newly.forEach) newly.forEach((a,i)=>setTimeout(()=>showToast(`🏆 ${a.name}`,a.icon,true),(i+1)*900));
+        }
+        return;
+    }
 
-  // Update streak
-  const todayISO=new Date().toISOString().split('T')[0];
-  const yestISO=new Date(Date.now()-86400000).toISOString().split('T')[0];
-  let newStreak=P.streak;
-  if(P.lastActiveDate!==todayISO){newStreak=P.lastActiveDate===yestISO?(P.streak||0)+1:1;}
-  await sb.from('users').update({streak:newStreak,last_active_date:todayISO,total_sessions:P.totalSessions+1}).eq('id',SB_USER.id);
+    // --- 2. РЕАЛЬНОЕ СОХРАНЕНИЕ В БАЗУ ---
+    try {
+        // Записываем сессию
+        const { error: sessErr } = await sb.from('sessions').insert({
+            user_id: SB_USER.id, category_id: catId, duration_seconds: secs
+        });
+        if (sessErr) throw sessErr;
 
-  // Update local P
-  const pc=P.categories.find(c=>c.id===catId);
-  if(pc)pc.hours=Math.round((pc.hours+secs/3600)*10)/10;
-  else P.categories.push({...cat,hours:Math.round(secs/3600*10)/10});
-  if(!P.activeCatIds.includes(catId))P.activeCatIds.push(catId);
-  P.totalSessions++;
-  P.streak=newStreak;
-  P.lastActiveDate=todayISO;
-  P.sessions.unshift({cat:catId,name:cat.name,icon:cat.icon,color:cat.color,dur:secs,date:'только что',ts:Date.now()});
+        // Обновляем часы в категории
+        const { data: uc } = await sb.from('user_categories').select('id,hours').eq('user_id', SB_USER.id).eq('category_id', catId).maybeSingle();
+        if (uc) {
+            await sb.from('user_categories').update({ hours: (uc.hours || 0) + secs/3600 }).eq('id', uc.id);
+        } else {
+            await sb.from('user_categories').insert({ user_id: SB_USER.id, category_id: catId, hours: secs/3600 });
+        }
 
-  const newly=await checkAchsSB(secs);
-  renderAll();
-  showToast(`${cat.icon} +${fmtD(secs)} в "${cat.name}"`, '✅');
-  newly.forEach((a,i)=>setTimeout(()=>showToast(`🏆 ${a.name}`,a.icon,true),(i+1)*900));
+        // Обновляем стрики и общее количество сессий пользователя
+        const todayISO = new Date().toISOString().split('T')[0];
+        const yestISO = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        let newStreak = P.streak || 0;
+        if (P.lastActiveDate !== todayISO) {
+            newStreak = P.lastActiveDate === yestISO ? newStreak + 1 : 1;
+        }
+        await sb.from('users').update({
+            streak: newStreak,
+            last_active_date: todayISO,
+            total_sessions: (P.totalSessions || 0) + 1
+        }).eq('id', SB_USER.id);
+
+        // Обновляем интерфейс
+        const pc = P.categories.find(c => c.id === catId);
+        if (pc) pc.hours = Math.round((pc.hours + secs / 3600) * 10) / 10;
+        else P.categories.push({ ...cat, hours: Math.round((secs / 3600) * 10) / 10 });
+        
+        if (!P.activeCatIds) P.activeCatIds = [];
+        if (!P.activeCatIds.includes(catId)) P.activeCatIds.push(catId);
+
+        P.totalSessions++;
+        P.streak = newStreak;
+        P.lastActiveDate = todayISO;
+        P.sessions.unshift({ id: Date.now(), cat: catId, name: cat.name, icon: cat.icon, color: cat.color, dur: secs, date: 'только что', ts: Date.now() });
+
+        renderAll();
+        showToast(`${cat.icon} +${typeof fmtD === 'function' ? fmtD(secs) : Math.round(secs/60)+'м'} в "${cat.name}"`, '✅');
+
+        if(typeof checkAchsSB === 'function') {
+            const newly = await checkAchsSB(secs);
+            if(newly && newly.forEach) newly.forEach((a,i)=>setTimeout(()=>showToast(`🏆 ${a.name}`,a.icon,true),(i+1)*900));
+        }
+
+    } catch (error) {
+        console.error("Ошибка сохранения в Supabase:", error);
+        showToast('Ошибка сохранения. Проверьте RLS базы', '⚠️');
+    }
 }
 
-// ══ ACHIEVEMENTS ════════════════════════════════════════════
 // ── Achievement condition checker ─────────────────────────
 function evalAch(def,sessSeconds=0){
   const totalH=P.categories.reduce((a,c)=>a+c.hours,0);
