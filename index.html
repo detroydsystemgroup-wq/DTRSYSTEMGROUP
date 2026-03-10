@@ -1747,25 +1747,37 @@ function achProgress(def){
   }
 }
 
-// ══ TOGGLE CATEGORY ═════════════════════════════════════════
+// ══ TOGGLE CATEGORY (Optimistic UI - Мгновенный отклик) ════════════
 async function toggleCat(id){
-  const idx=P.activeCatIds.indexOf(id);
-  if(idx>-1){
-    if(P.activeCatIds.length<=1){showToast('Нужна хотя бы 1 категория','⚠️');return;}
+  const idx = P.activeCatIds.indexOf(id);
+
+  // 1. МОМЕНТАЛЬНО меняем локальные данные (без ожидания сервера)
+  if(idx > -1){
+    if(P.activeCatIds.length <= 1){ showToast('Нужна хотя бы 1 категория','⚠️'); return; }
     P.activeCatIds.splice(idx,1);
-    if(!SB_USER?.isDemoUser)await sb.from('user_categories').delete().eq('user_id',SB_USER.id).eq('category_id',id);
     showToast('Убрано из лиг','🗑️');
   } else {
     P.activeCatIds.push(id);
-    if(!P.categories.find(c=>c.id===id)){const d=ALL_CATS.find(c=>c.id===id);if(d)P.categories.push({...d,hours:0});}
-    if(!SB_USER?.isDemoUser){
-      await sb.from('user_categories').upsert({user_id:SB_USER.id,category_id:id,hours:P.categories.find(c=>c.id===id)?.hours||0});
+    if(!P.categories.find(c=>c.id===id)){
+      const d=ALL_CATS.find(c=>c.id===id);
+      if(d) P.categories.push({...d, hours:0});
     }
     showToast(`${ALL_CATS.find(c=>c.id===id)?.icon} Добавлено в лигу!`,'✅');
   }
-  lgCache={};renderAll();
-}
 
+  // 2. МОМЕНТАЛЬНО перерисовываем интерфейс (0 мс лага)
+  lgCache = {};
+  renderAll();
+
+  // 3. Отправляем данные на сервер В ФОНЕ (без блокировки UI)
+  if(!SB_USER?.isDemoUser){
+    if(idx > -1){
+      sb.from('user_categories').delete().eq('user_id', SB_USER.id).eq('category_id', id).then();
+    } else {
+      sb.from('user_categories').upsert({user_id: SB_USER.id, category_id: id, hours: P.categories.find(c=>c.id===id)?.hours||0}).then();
+    }
+  }
+}
 // ══ HELPERS ═════════════════════════════════════════════════
 function relDate(d){
   if(!d)return'—';
