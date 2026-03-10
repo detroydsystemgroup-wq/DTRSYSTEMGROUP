@@ -1376,22 +1376,43 @@ function switchATab(t){
 }
 
 // ══ LOGIN ════════════════════════════════════════════════════
-async function doLogin(){
-  const n=document.getElementById('lN').value.trim();
-  const p=document.getElementById('lP').value;
-  const err=document.getElementById('lErr');
-  err.textContent='';
-  if(!n){err.textContent='Введи никнейм';return;}
-  if(!p){err.textContent='Введи пароль';return;}
-  const btn=document.querySelector('#lForm .btn-auth');
-  btn.textContent='Входим...';btn.disabled=true;
-  const {data,error}=await sb.auth.signInWithPassword({
-    email:n.toLowerCase()+'@lifetrack.app',password:p
-  });
-  btn.textContent='Войти';btn.disabled=false;
-  if(error){err.textContent='Неверный никнейм или пароль';return;}
-  SB_USER=data.user;
-  await loadUser(data.user.id);
+async function doLogin() {
+    const userVal = document.getElementById('IN').value.trim();
+    const passVal = document.getElementById('IP').value.trim();
+    const errEl = document.getElementById('lErr');
+
+    if (!userVal || !passVal) {
+        if(errEl) errEl.textContent = 'Введите логин и пароль';
+        return;
+    }
+
+    try {
+        // Ищем пользователя в нашей таблице по никнейму
+        const { data: user, error } = await sb
+            .from('users')
+            .select('*')
+            .eq('username', userVal)
+            .maybeSingle();
+
+        if (error) throw error;
+
+        // Проверяем: нашли ли пользователя и совпадает ли пароль
+        if (!user || user.password_hash !== passVal) {
+            if(errEl) errEl.textContent = 'Неверный никнейм или пароль';
+            return;
+        }
+
+        // Если всё ок — сохраняем данные и входим
+        showToast('С возвращением, ' + user.username + '!', '👋');
+        localStorage.setItem('lt_user', JSON.stringify(user));
+        
+        // Перезагружаем страницу, чтобы приложение подхватило пользователя
+        setTimeout(() => location.reload(), 500);
+
+    } catch (err) {
+        console.error('Ошибка входа:', err);
+        if(errEl) errEl.textContent = 'Ошибка связи с базой';
+    }
 }
 
 // ══ REGISTER — STEP 1 ════════════════════════════════════════
