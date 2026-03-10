@@ -1475,28 +1475,6 @@ async function finishReg() {
         alert('Ошибка регистрации: ' + (err.message || 'Неизвестная ошибка'));
     }
 }
-  }
-
-  const userId=authData.user.id;
-  
-  // Upsert users (ignore if already exists)
-  const{error:uErr}=await sb.from('users').upsert({
-    id:userId,username:regBuf.name,avatar:regBuf.avatar,
-    joined_date:new Date().toISOString(),streak:0,total_sessions:0
-  },{onConflict:'id'});
-  
-  if(uErr){console.error('User insert error:',uErr);}
-  
-  const catRows=[...selCatIds].map(catId=>({user_id:userId,category_id:catId,hours:0}));
-  const{error:cErr}=await sb.from('user_categories').upsert(catRows,{onConflict:'user_id,category_id'});
-  if(cErr){console.error('Category insert error:',cErr);}
-
-  SB_USER=authData.user;
-  regBuf=null;
-  document.getElementById('catSel').style.display='none';
-  await loadUser(userId);
-  applyTheme();applyLang();
-}
 
 // ══ LOGOUT ══════════════════════════════════════════════════
 async function doLogout(){
