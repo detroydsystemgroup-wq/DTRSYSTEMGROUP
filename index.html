@@ -2024,12 +2024,25 @@ function renderManageGrid(){
   el.innerHTML=ALL_CATS.map(c=>{
     const on=P.activeCatIds.includes(c.id);
     const hrs=P.categories.find(x=>x.id===c.id)?.hours||0;
+    
+    // --- УМНАЯ СТАТИСТИКА (STEAM STYLE) ---
+    const membersCount = c.members || 0;
+    // Считаем примерный онлайн (30% от всех участников)
+    const onlineCount = membersCount > 0 ? Math.max(1, Math.floor(membersCount * 0.3)) : 0;
+    
+    const statsHtml = membersCount === 0 
+        ? `<span style="opacity: 0.5;">Пока никого. Стань первым!</span>` 
+        : `<b style="color: var(--t1);">${membersCount.toLocaleString('ru')}</b> участников <span style="margin: 0 6px; opacity: 0.3;">|</span> <span style="color: var(--green); text-shadow: 0 0 8px rgba(48,209,88,0.5);">● ${onlineCount} онлайн</span>`;
+
     return `<div class="mg-item ${on?'on':''}" style="${on?`color:${c.color};border-color:${c.color}`:'color:var(--t2)'}" onclick="toggleCat('${c.id}')">
       <div class="mg-check" style="background:${c.color}22">✓</div>
       <div class="mg-emo">${c.icon}</div>
       <div class="mg-txt">
-        <div class="mg-name" style="${on?`color:${c.color}`:'color:var(--t1)'}">${c.name}</div>
-        <div class="mg-members">${c.members.toLocaleString('ru')} в лиге${on?` · ${hrs.toFixed(1)} ч у тебя`:''}</div>
+        <div class="mg-name" style="${on?`color:${c.color}`:'color:var(--t1)'}; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 800;">${c.name}</div>
+        <div style="font-size: 11px; margin-top: 4px; line-height: 1.4;">
+            ${statsHtml}
+            ${on ? `<div style="margin-top: 4px; color: ${c.color}; font-weight: 600;">Твоё время: ${hrs.toFixed(1)} ч</div>` : ''}
+        </div>
       </div>
     </div>`;
   }).join('');
