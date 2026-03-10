@@ -2357,7 +2357,8 @@ async function openUserProfile(userId, name, av){
 function closeUserProfile(){
   document.getElementById('userProfileOv').classList.remove('show');
 }
-// ══ LIKE SYSTEM ════════════════════════════════════════════════
+
+// ══ LIKE SYSTEM (Обновленная: Лайк + Уведомление) ══════════════
 async function toggleLike(targetId) {
     if(!SB_USER || SB_USER.isDemoUser) {
         showToast('Только для авторизованных', '🔒'); return;
@@ -2371,19 +2372,32 @@ async function toggleLike(targetId) {
     let currentCount = parseInt(countEl.textContent) || 0;
     const isLiked = btn.classList.contains('liked');
 
-    // Optimistic UI для лайков (меняем мгновенно)
     if(isLiked) {
+        // Убираем лайк
         btn.classList.remove('liked');
         btn.innerHTML = '🤍';
         countEl.textContent = Math.max(0, currentCount - 1);
-        sb.from('profile_likes').delete().eq('user_id', SB_USER.id).eq('target_user_id', targetId).then();
+        await sb.from('profile_likes').delete().eq('user_id', SB_USER.id).eq('target_user_id', targetId);
     } else {
+        // Ставим лайк
         btn.classList.add('liked');
         btn.innerHTML = '❤️';
         countEl.textContent = currentCount + 1;
-        sb.from('profile_likes').insert({user_id: SB_USER.id, target_user_id: targetId}).then();
+        
+        // 1. Записываем лайк в базу
+        await sb.from('profile_likes').insert({user_id: SB_USER.id, target_user_id: targetId});
+        
+        // 2. ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ человеку (targetId)
+        await sb.from('notifications').insert({
+            user_id: targetId,
+            from_user_id: SB_USER.id,
+            type: 'like',
+            message: `${SB_USER.username || 'Кто-то'} оценил твой профиль! ❤️`
+        });
+
         showToast('Вы оценили профиль!', '❤️');
     }
+}
 }
 
 // ══ MESSAGES SYSTEM ════════════════════════════════════════
