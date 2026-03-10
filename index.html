@@ -1552,34 +1552,12 @@ showTab('dash');
 }
 
 // ══ LOAD USER FROM DB ════════════════════════════════════════
-async function loadUser(userId){
-  const[r1,r2,r3,r4]=await Promise.all([
-    sb.from('users').select('*').eq('id',userId).single(),
-    sb.from('user_categories').select('category_id,hours').eq('user_id',userId),
-    sb.from('sessions').select('id,category_id,duration_seconds,created_at').eq('user_id',userId).order('created_at',{ascending:false}).limit(100),
-    sb.from('user_achievements').select('achievement_id,unlocked,unlocked_at').eq('user_id',userId),
-  ]);
-  const user=r1.data, userCats=r2.data, sessions=r3.data, userAchs=r4.data;
-  if(r1.error){console.error('loadUser error:',r1.error);}
-  
-  // If user not in DB yet (race condition) - create minimal profile
-  if(!user){
-    const{data:{user:authUser}}=await sb.auth.getUser();
-    const username=authUser?.user_metadata?.username||'User_'+userId.slice(0,6);
-    await sb.from('users').upsert({
-      id:userId,username,avatar:'🎯',
-      joined_date:new Date().toISOString(),streak:0,total_sessions:0
-    },{onConflict:'id'});
-    setTimeout(()=>loadUser(userId),1000);
-    return;
-  }
-
-  const ucMap={};(userCats||[]).forEach(uc=>{ucMap[uc.category_id]=uc.hours||0;});
+const ucMap={};(userCats||[]).forEach(uc=>{ucMap[uc.category_id]=uc.hours||0;});
   const activeCatIds=Object.keys(ucMap);
   const categories=ALL_CATS.filter(c=>activeCatIds.includes(c.id)).map(c=>({...c,hours:ucMap[c.id]||0}));
 
   const achMap={};(userAchs||[]).forEach(ua=>{achMap[ua.achievement_id]={u:ua.unlocked,at:ua.unlocked_at};});
-  const achievements=ACH_DEF.map(a=>({ // sync all defs
+  const achievements=ACH_DEF.map(a=>({
     id:a.id,unlocked:achMap[a.id]?.u||false,
     unlockedAt:achMap[a.id]?.at?new Date(achMap[a.id].at).toLocaleDateString('ru'):null
   }));
@@ -1591,12 +1569,16 @@ async function loadUser(userId){
       dur:s.duration_seconds,date:relDate(s.created_at),ts:new Date(s.created_at).getTime()};
   });
 
+  // ПОЛУЧАЕМ КОЛИЧЕСТВО ЛАЙКОВ ИЗ БАЗЫ ПРИ ЗАГРУЗКЕ
+  const { count: totalLikes } = await sb.from('profile_likes').select('id', { count: 'exact', head: true }).eq('target_user_id', userId);
+
   P={
     id:userId,name:user.username,avatar:user.avatar||'🎯',
     joinedDate:new Date(user.joined_date||Date.now()).toLocaleDateString('ru'),
     activeCatIds,categories,sessions:sessFmt,achievements,
     streak:user.streak||0,lastActiveDate:user.last_active_date,totalSessions:user.total_sessions||0,
-    avatarUrl:user.avatar_url||null
+    avatarUrl:user.avatar_url||null,
+    likes: totalLikes || 0 
   };
 
   document.getElementById('onboard').style.display='none';
