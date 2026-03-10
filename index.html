@@ -3466,7 +3466,30 @@ function staggerList(selector, delay=40){
     el.style.animation = `fadeUp .28s ${i * delay}ms ease both`;
   });
 }
+// --- ФУНКЦИЯ СОХРАНЕНИЯ АВАТАРКИ ---
+async function selectAvatar(icon) {
+    // 1. Сразу показываем новый смайлик на экране
+    const avEl = document.getElementById('userAv');
+    if (avEl) avEl.textContent = icon;
+    
+    // 2. Если ты в демо-режиме, база данных не трогается
+    if (!SB_USER || SB_USER.isDemoUser) return;
 
+    // 3. Сохраняем иконку в твою базу данных "навсегда"
+    try {
+        await sb.from('users').update({ avatar: icon }).eq('id', SB_USER.id);
+        
+        // 4. Обновляем память приложения (объект P)
+        if (typeof P !== 'undefined') P.avatar = icon;
+        
+        // 5. Закрываем окно выбора аватара
+        if (typeof closeModal === 'function') closeModal('avatarModal');
+        
+        console.log("Успешно: Аватар закрепился в базе!");
+    } catch (e) {
+        console.error("Ошибка сохранения:", e);
+    }
+}
 </script>
 </body>
 </html>
