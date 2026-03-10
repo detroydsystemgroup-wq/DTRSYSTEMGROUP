@@ -1041,23 +1041,29 @@ body { transition:background .28s,color .28s; }
   </div>
 </div>
 
-<!-- ══ USER PROFILE MODAL ════════════════════════════════════ -->
 <div id="userProfileOv" onclick="if(event.target===this)closeUserProfile()">
   <div class="up-modal" id="upModal">
     <div class="up-cover" id="upCover">
-      <div class="up-av" id="upAv">🎯</div>
       <button class="up-close" onclick="closeUserProfile()">✕</button>
-    </div>
-    <div class="up-head">
-      <div class="up-name" id="upName">—</div>
-      <div class="up-meta" id="upMeta"></div>
-      <div class="up-actions">
-        <button class="up-btn" id="upLikeBtn" onclick="toggleLikeUser()">♡ Лайк <span id="upLikeCount">0</span></button>
-        <button class="up-btn up-btn-msg" onclick="openChatWithUser()">💬 Написать</button>
+      <div class="up-av-wrapper">
+        <div class="up-av" id="upAv">🎯</div>
       </div>
     </div>
-    <div class="up-leagues">
-      <div class="up-leagues-title">Часы по лигам</div>
+    <div class="up-body">
+      <div class="up-name" id="upName">—</div>
+      <div class="up-title" id="upTitle">Загрузка...</div>
+
+      <div class="up-stats-grid" id="upStats">
+        </div>
+
+      <div class="up-actions">
+        <button class="up-btn up-btn-like" id="upLikeBtn" onclick="toggleLike(this.dataset.userId)">
+          <span id="upLikeIcon">🤍</span> <span id="upLikeCount">0</span>
+        </button>
+        <button class="up-btn up-btn-msg" id="upMsgBtn" onclick="openChatWithUser()">💬 Написать</button>
+      </div>
+
+      <div class="up-leagues-title">Направления</div>
       <div id="upLeaguesList"></div>
     </div>
   </div>
@@ -2312,65 +2318,87 @@ async function openUserProfile(userId, name, av){
   if(!userId){ showToast('Демо-игрок — профиль недоступен', 'ℹ️'); return; }
   const ov = document.getElementById('userProfileOv');
   ov.classList.add('show');
+  ov.dataset.userId = userId;
+  ov.dataset.userName = name;
+  ov.dataset.userAv = av;
+
   document.getElementById('upAv').textContent = av || '👤';
   document.getElementById('upName').textContent = name || '-';
-  document.getElementById('upMeta').innerHTML = 'Загружаем данные...';
-  document.getElementById('upLeaguesList').innerHTML = '<div style="color:var(--t3);font-size:13px;padding:8px 0">Загрузка...</div>';
+  document.getElementById('upTitle').textContent = 'Загрузка...';
+  document.getElementById('upStats').innerHTML = '';
+  document.getElementById('upLeaguesList').innerHTML = '<div style="color:var(--t3);font-size:13px;padding:8px;text-align:center;">Загрузка данных...</div>';
+
+  const likeBtn = document.getElementById('upLikeBtn');
+  likeBtn.dataset.userId = userId;
 
   try {
-    // Грузим юзера, его лиги и лайки одновременно (Fast Load)
-    const [uRes, ucRes, likesRes, myLikeRes] = await Promise.all([
+    const [uRes, ucRes, likesRes, myLikeRes, achRes] = await Promise.all([
       sb.from('users').select('id,username,avatar,streak,created_at').eq('id',userId).single(),
       sb.from('user_categories').select('category_id,hours').eq('user_id',userId),
       sb.from('profile_likes').select('*', { count: 'exact', head: true }).eq('target_user_id', userId),
-      SB_USER && !SB_USER.isDemoUser ? sb.from('profile_likes').select('id').eq('user_id', SB_USER.id).eq('target_user_id', userId).maybeSingle() : {data: null}
+      SB_USER && !SB_USER.isDemoUser ? sb.from('profile_likes').select('id').eq('user_id', SB_USER.id).eq('target_user_id', userId).maybeSingle() : {data: null},
+      sb.from('user_achievements').select('*', { count: 'exact', head: true }).eq('user_id', userId)
     ]);
     
     const u = uRes.data;
     const uc = ucRes.data || [];
     const totalLikes = likesRes.count || 0;
     const isLikedByMe = !!myLikeRes.data;
+    const totalAch = achRes.count || 0;
 
     if(!u){ closeUserProfile(); showToast('Пользователь не найден', '❌'); return; }
 
     const totalH = uc.reduce((sum, row) => sum + (row.hours || 0), 0);
     const joined = u.created_at ? new Date(u.created_at).toLocaleDateString('ru-RU') : 'Недавно';
 
-    // Рендерим статус, стрик и кнопку ЛАЙКА
-    document.getElementById('upMeta').innerHTML = `
-        <div style="display:flex; justify-content:center; align-items:center; gap:15px; margin-top:5px;">
-            <span style="color:var(--orange)">🔥 ${u.streak || 0} дней</span>
-            <span style="color:var(--t2)">🕒 ${totalH.toFixed(1)} ч</span>
-        </div>
-        <div style="margin-top: 15px; display:flex; justify-content:center; align-items:center; gap:8px;">
-            <button id="likeBtn" onclick="toggleLike('${userId}')" class="${isLikedByMe ? 'liked' : ''}" style="background:var(--bg2); border:1px solid var(--border-1); border-radius:50%; width:40px; height:40px; font-size:18px; cursor:pointer; transition:0.2s; display:flex; align-items:center; justify-content:center; outline:none;">
-                ${isLikedByMe ? '❤️' : '🤍'}
-            </button>
-            <span id="likeCount" style="font-weight:bold; font-size:16px; color:var(--t1)">${totalLikes}</span>
-        </div>
+    document.getElementById('upTitle').textContent = `В системе с ${joined}`;
+
+    document.getElementById('upLikeIcon').textContent = isLikedByMe ? '❤️' : '🤍';
+    document.getElementById('upLikeCount').textContent = totalLikes;
+    if(isLikedByMe) likeBtn.classList.add('liked'); else likeBtn.classList.remove('liked');
+
+    document.getElementById('upStats').innerHTML = `
+      <div class="up-stat-card">
+        <div class="up-stat-icon">🔥</div>
+        <div class="up-stat-val" style="color:var(--orange)">${u.streak || 0}</div>
+        <div class="up-stat-lbl">Стрик (дней)</div>
+      </div>
+      <div class="up-stat-card">
+        <div class="up-stat-icon">⏱️</div>
+        <div class="up-stat-val" style="color:var(--blue)">${totalH.toFixed(1)}</div>
+        <div class="up-stat-lbl">Всего часов</div>
+      </div>
+      <div class="up-stat-card">
+        <div class="up-stat-icon">🏆</div>
+        <div class="up-stat-val" style="color:var(--green)">${totalAch}</div>
+        <div class="up-stat-lbl">Достижений</div>
+      </div>
+      <div class="up-stat-card">
+        <div class="up-stat-icon">❤️</div>
+        <div class="up-stat-val" id="upStatLikes" style="color:var(--red)">${totalLikes}</div>
+        <div class="up-stat-lbl">Лайков</div>
+      </div>
     `;
 
     if(uc.length === 0){
-      document.getElementById('upLeaguesList').innerHTML = '<div style="color:var(--t3);font-size:13px;padding:8px 0">Пока не состоит в лигах</div>';
+      document.getElementById('upLeaguesList').innerHTML = '<div style="color:var(--t3);font-size:13px;padding:8px;text-align:center;background:var(--card);border-radius:16px;">Пока не состоит в лигах</div>';
     } else {
       const sorted = uc.sort((a,b)=> (b.hours||0)-(a.hours||0));
       document.getElementById('upLeaguesList').innerHTML = sorted.map(row=>{
         const cat = ALL_CATS.find(c=>c.id===row.category_id);
         if(!cat) return '';
         return `
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg2);border-radius:12px;margin-bottom:8px; border: 1px solid var(--border-1)">
-            <div style="display:flex;align-items:center;gap:10px;">
-              <span style="font-size:20px">${cat.icon}</span>
-              <span style="color:var(--t1);font-weight:600;font-size:14px">${cat.name}</span>
-            </div>
-            <span style="color:${cat.color};font-weight:700;font-size:14px">${(row.hours||0).toFixed(1)} ч</span>
+          <div class="up-league-row">
+            <div class="up-lcat" style="color:${cat.color}">${cat.icon}</div>
+            <div class="up-lname">${cat.name}</div>
+            <div class="up-lhrs" style="color:${cat.color}">${(row.hours||0).toFixed(1)} <span style="font-size:12px;font-weight:600;color:var(--t3)">ч</span></div>
           </div>
         `;
       }).join('');
     }
   } catch(e) {
     console.error(e);
-    document.getElementById('upMeta').textContent = 'Ошибка загрузки';
+    document.getElementById('upTitle').textContent = 'Ошибка загрузки данных';
   }
 }
 
@@ -2378,7 +2406,6 @@ function closeUserProfile(){
   document.getElementById('userProfileOv').classList.remove('show');
 }
 
-// ══ LIKE SYSTEM (Обновленная: Лайк + Уведомление) ══════════════
 async function toggleLike(targetId) {
     if(!SB_USER || SB_USER.isDemoUser) {
         showToast('Только для авторизованных', '🔒'); return;
@@ -2387,34 +2414,29 @@ async function toggleLike(targetId) {
         showToast('Нельзя лайкнуть себя', '😅'); return;
     }
 
-    const btn = document.getElementById('likeBtn');
-    const countEl = document.getElementById('likeCount');
+    const btn = document.getElementById('upLikeBtn');
+    const iconEl = document.getElementById('upLikeIcon');
+    const countEl = document.getElementById('upLikeCount');
+    const statLikesEl = document.getElementById('upStatLikes');
+
     let currentCount = parseInt(countEl.textContent) || 0;
     const isLiked = btn.classList.contains('liked');
 
     if(isLiked) {
-        // Убираем лайк
         btn.classList.remove('liked');
-        btn.innerHTML = '🤍';
-        countEl.textContent = Math.max(0, currentCount - 1);
+        iconEl.textContent = '🤍';
+        const newCnt = Math.max(0, currentCount - 1);
+        countEl.textContent = newCnt;
+        if(statLikesEl) statLikesEl.textContent = newCnt;
         await sb.from('profile_likes').delete().eq('user_id', SB_USER.id).eq('target_user_id', targetId);
     } else {
-        // Ставим лайк
         btn.classList.add('liked');
-        btn.innerHTML = '❤️';
-        countEl.textContent = currentCount + 1;
-        
-        // 1. Записываем лайк в базу
+        iconEl.textContent = '❤️';
+        const newCnt = currentCount + 1;
+        countEl.textContent = newCnt;
+        if(statLikesEl) statLikesEl.textContent = newCnt;
         await sb.from('profile_likes').insert({user_id: SB_USER.id, target_user_id: targetId});
-        
-        // 2. ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ человеку (targetId)
-        await sb.from('notifications').insert({
-            user_id: targetId,
-            from_user_id: SB_USER.id,
-            type: 'like',
-            message: `${SB_USER.username || 'Кто-то'} оценил твой профиль! ❤️`
-        });
-
+        await sb.from('notifications').insert({user_id: targetId, from_user_id: SB_USER.id, type: 'like', message: `${SB_USER.username || 'Кто-то'} оценил твой профиль! ❤️`});
         showToast('Вы оценили профиль!', '❤️');
     }
 }
