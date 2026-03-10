@@ -1550,46 +1550,64 @@ showTab('dash');
   setTimeout(showLeagueHero,800);
   setTimeout(checkSundayBanner,1500);
 }
+// == LOAD USER FROM DB ==
+async function loadUser(userId) {
+  // 1. Просим базу прислать всё: имя, часы и лайки одним махом
+  const [r1, r2, r3, r4, r5] = await Promise.all([
+    sb.from('users').select('*').eq('id', userId).single(),
+    sb.from('user_categories').select('category_id,hours').eq('user_id', userId),
+    sb.from('sessions').select('id,category_id,duration_seconds,created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(100),
+    sb.from('user_achievements').select('achievement_id,unlocked,unlocked_at').eq('user_id', userId),
+    sb.from('profile_likes').select('id', { count: 'exact', head: true }).eq('target_user_id', userId)
+  ]);
 
-// ══ LOAD USER FROM DB ════════════════════════════════════════
-const ucMap={};(userCats||[]).forEach(uc=>{ucMap[uc.category_id]=uc.hours||0;});
-  const activeCatIds=Object.keys(ucMap);
-  const categories=ALL_CATS.filter(c=>activeCatIds.includes(c.id)).map(c=>({...c,hours:ucMap[c.id]||0}));
+  const user = r1.data;
+  const userCats = r2.data || [];
+  const sessions = r3.data || [];
+  const userAchs = r4.data || [];
+  const totalLikes = r5.count || 0;
 
-  const achMap={};(userAchs||[]).forEach(ua=>{achMap[ua.achievement_id]={u:ua.unlocked,at:ua.unlocked_at};});
-  const achievements=ACH_DEF.map(a=>({
-    id:a.id,unlocked:achMap[a.id]?.u||false,
-    unlockedAt:achMap[a.id]?.at?new Date(achMap[a.id].at).toLocaleDateString('ru'):null
+  if (!user) return; 
+
+  // 2. Сортируем часы и ачивки
+  const ucMap = {}; userCats.forEach(uc => { ucMap[uc.category_id] = uc.hours || 0; });
+  const activeCatIds = Object.keys(ucMap);
+  const categories = ALL_CATS.filter(c => activeCatIds.includes(c.id)).map(c => ({ ...c, hours: ucMap[c.id] || 0 }));
+
+  const achMap = {}; userAchs.forEach(ua => { achMap[ua.achievement_id] = { u: ua.unlocked, at: ua.unlocked_at }; });
+  const achievements = ACH_DEF.map(a => ({
+    id: a.id, unlocked: achMap[a.id]?.u || false,
+    unlockedAt: achMap[a.id]?.at ? new Date(achMap[a.id].at).toLocaleDateString('ru') : null
   }));
 
-  const catLookup={};ALL_CATS.forEach(c=>{catLookup[c.id]=c;});
-  const sessFmt=(sessions||[]).map(s=>{
-    const c=catLookup[s.category_id]||{name:s.category_id,icon:'⏱',color:'var(--blue)'};
-    return{id:s.id,cat:s.category_id,name:c.name,icon:c.icon,color:c.color,
-      dur:s.duration_seconds,date:relDate(s.created_at),ts:new Date(s.created_at).getTime()};
+  const catLookup = {}; ALL_CATS.forEach(c => { catLookup[c.id] = c; });
+  const sessFmt = sessions.map(s => {
+    const c = catLookup[s.category_id] || { name: s.category_id, icon: '⏱', color: 'var(--blue)' };
+    return {
+      id: s.id, cat: s.category_id, name: c.name, icon: c.icon, color: c.color,
+      dur: s.duration_seconds, date: relDate(s.created_at), ts: new Date(s.created_at).getTime()
+    };
   });
 
-  // ПОЛУЧАЕМ КОЛИЧЕСТВО ЛАЙКОВ ИЗ БАЗЫ ПРИ ЗАГРУЗКЕ
-  const { count: totalLikes } = await sb.from('profile_likes').select('id', { count: 'exact', head: true }).eq('target_user_id', userId);
-
-  P={
-    id:userId,name:user.username,avatar:user.avatar||'🎯',
-    joinedDate:new Date(user.joined_date||Date.now()).toLocaleDateString('ru'),
-    activeCatIds,categories,sessions:sessFmt,achievements,
-    streak:user.streak||0,lastActiveDate:user.last_active_date,totalSessions:user.total_sessions||0,
-    avatarUrl:user.avatar_url||null,
-    likes: totalLikes || 0 
+  // 3. Заполняем твой профиль (P)
+  P = {
+    id: userId, name: user.username, avatar: user.avatar || '🎯',
+    joinedDate: new Date(user.joined_date || Date.now()).toLocaleDateString('ru'),
+    activeCatIds, categories, sessions: sessFmt, achievements,
+    streak: user.streak || 0, 
+    likes: totalLikes // ТЕПЕРЬ ЛАЙКИ ТУТ
   };
 
-  document.getElementById('onboard').style.display='none';
-  document.getElementById('catSel').style.display='none';
-  document.getElementById('app').style.display='';
-  clearInterval(bTmr);
-  renderAll();showTab('dash');
-  setTimeout(showLeagueHero,800);
-  setTimeout(checkSundayBanner,1500);
+  // 4. Убираем заставку "Загрузка" и включаем сайт
+  const onboard = document.getElementById('onboard');
+  if (onboard) onboard.style.display = 'none';
+  
+  const appEl = document.getElementById('app');
+  if (appEl) appEl.style.display = '';
+  
+  renderAll(); // Рисуем статистику
+  showTab('dash'); // Показываем главную страницу
 }
-
 // ══ SAVE SESSION ════════════════════════════════════════════
 async function saveSession(catId,secs){
   if(secs<5)return;
