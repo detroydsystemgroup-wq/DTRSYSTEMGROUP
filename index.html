@@ -1387,7 +1387,7 @@ async function doLogin() {
     }
 
     try {
-        // Ищем пользователя в нашей таблице по никнейму
+        // Запрос к нашей новой таблице users
         const { data: user, error } = await sb
             .from('users')
             .select('*')
@@ -1396,12 +1396,27 @@ async function doLogin() {
 
         if (error) throw error;
 
-        // Проверяем: нашли ли пользователя и совпадает ли пароль
+        // Проверяем существование юзера и пароль
         if (!user || user.password_hash !== passVal) {
             if(errEl) errEl.textContent = 'Неверный никнейм или пароль';
             return;
         }
 
+        // --- ВАЖНЫЙ МОМЕНТ: СОХРАНЕНИЕ СЕССИИ ---
+        localStorage.setItem('lt_user', JSON.stringify(user));
+        
+        showToast('С возвращением, ' + user.username + '!', '👋');
+        
+        // Перезагружаем через небольшую паузу, чтобы юзер увидел тост
+        setTimeout(() => {
+            location.reload();
+        }, 800);
+
+    } catch (err) {
+        console.error('Ошибка входа:', err);
+        if(errEl) errEl.textContent = 'Ошибка подключения к базе';
+    }
+}
         // Если всё ок — сохраняем данные и входим
         showToast('С возвращением, ' + user.username + '!', '👋');
         localStorage.setItem('lt_user', JSON.stringify(user));
