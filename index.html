@@ -3561,7 +3561,25 @@ async function syncOnlineStatus() {
 
 setInterval(syncOnlineStatus, 20000);
 setTimeout(syncOnlineStatus, 2000);
-
+// === АВТО-ФИКС ПУСТОТЫ (ВСТАВИТЬ В КОНЕЦ СКРИПТА) ===
+function fixEmptySpace() {
+    // Находим карточки по той самой ширине 180px, которую мы задали
+    const cards = document.querySelectorAll('div[style*="min-width: 180px"]');
+    if (cards.length > 0) {
+        const container = cards[0].parentElement;
+        container.style.display = 'flex';
+        container.style.flexWrap = 'wrap';
+        container.style.width = '100%';
+        container.style.gap = '0px'; // Чтобы не было лишних дырок
+        
+        cards.forEach(card => {
+            card.style.flex = '1';
+            card.style.margin = '5px';
+        });
+    }
+}
+// Запускаем через секунду, когда всё отрисуется
+setTimeout(fixEmptySpace, 1000);
 </script>
 </body>
 </html>
