@@ -1604,6 +1604,109 @@ async function loadUser(userId) {
   
   const appEl = document.getElementById('app');
   if (appEl) appEl.style.display = '';
+
+// === АКТИВАЦИЯ СТИЛЯ NEO-TACTILE (МОБИЛЬНЫЙ ФОКУС) ===
+if (!document.getElementById('neo-tactile-theme')) {
+    const neoStyle = document.createElement('style');
+    neoStyle.id = 'neo-tactile-theme';
+    neoStyle.innerHTML = `
+        /* 1. Глобальные переменные (Цвета из референса) */
+        :root {
+            --bg: #15181e !important;         /* Очень глубокий сине-черный фон */
+            --card: rgba(30, 34, 45, 0.6) !important; /* Матовое стекло для карточек */
+            --t1: #ffffff !important;         /* Яркий белый текст */
+            --t2: #a1a8b8 !important;         /* Приглушенный серый */
+            --border-1: rgba(255, 255, 255, 0.05) !important;
+            --shadow-out: 8px 8px 16px #0d0f13, -8px -8px 16px #1d2129 !important; /* Внешняя тень (выпуклость) */
+            --shadow-in: inset 4px 4px 8px #0d0f13, inset -4px -4px 8px #1d2129 !important; /* Внутренняя тень (вдавленность) */
+        }
+
+        /* 2. Фон всего приложения */
+        body, #app {
+            background-color: var(--bg) !important;
+            color: var(--t1) !important;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+        }
+
+        /* 3. Главные карточки (Эффект матового стекла) */
+        .card {
+            background: var(--card) !important;
+            backdrop-filter: blur(16px) !important; 
+            -webkit-backdrop-filter: blur(16px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.05) !important;
+            border-radius: 28px !important; 
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+            padding: 20px !important;
+            margin-bottom: 24px !important;
+        }
+
+        /* 4. Верхние KPI блоки (4 штуки) - Выпуклый пластик */
+        .kpi {
+            background: #1e222d !important;
+            border-radius: 24px !important;
+            box-shadow: var(--shadow-out) !important;
+            border: none !important;
+            padding: 16px !important;
+            margin-bottom: 16px !important;
+        }
+        
+        /* 5. Карточки категорий (Чтение, Спорт и т.д.) */
+        .cat-item {
+            background: #1e222d !important;
+            border-radius: 24px !important;
+            box-shadow: var(--shadow-out) !important;
+            border: 1px solid rgba(255,255,255,0.02) !important;
+            padding: 16px !important;
+            margin-bottom: 20px !important;
+            transition: transform 0.2s, box-shadow 0.2s !important;
+        }
+        .cat-item:active {
+            transform: scale(0.98) !important;
+            box-shadow: var(--shadow-in) !important;
+        }
+
+        /* 6. Полоски прогресса (Вдавленный трек + Неоновый ползунок) */
+        .ci-bar-wr {
+            background: #15181e !important; 
+            box-shadow: var(--shadow-in) !important;
+            border-radius: 12px !important;
+            height: 10px !important;
+            overflow: visible !important; 
+        }
+        .ci-bar {
+            border-radius: 12px !important;
+            position: relative;
+        }
+        .ci-bar::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: inherit;
+            border-radius: inherit;
+            filter: blur(6px);
+            opacity: 0.7;
+            z-index: -1;
+        }
+
+        /* 7. Адаптация чисто под мобилки (экраны до 768px) */
+        @media (max-width: 768px) {
+            .cb { 
+                grid-template-columns: 1fr !important; 
+                gap: 16px !important;
+            }
+            .kpi {
+                margin-bottom: 0 !important;
+            }
+            /* Уменьшаем квадратики календаря для мобилок */
+            .cb > div > div > div[style*="width:28px"] {
+                width: 20px !important;
+                height: 20px !important;
+            }
+        }
+    `;
+    document.head.appendChild(neoStyle);
+}
+// === КОНЕЦ АКТИВАЦИИ СТИЛЯ ===
   
   renderAll(); // Рисуем статистику
   showTab('dash'); // Показываем главную страницу
