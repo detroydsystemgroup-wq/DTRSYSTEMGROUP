@@ -1994,11 +1994,12 @@ function renderDash(){
 
   const maxCatH=Math.max(...active.map(c=>data[c.id].reduce((a,v)=>a+v,0)),0.1);
   // Responsive grid: 1 cat=full width, 2=50/50, 3+=33%, 4+=25%
-  const catGridCols=catCount===1?'1fr':catCount===2?'1fr 1fr':catCount===3?'1fr 1fr 1fr':'repeat(auto-fill,minmax(160px,1fr))';
+ const catGridCols = 'repeat(auto-fit, minmax(200px, 1fr))';
   const catEl=document.getElementById('catBreakdown');
   catEl.style.display='grid';
   catEl.style.gridTemplateColumns=catGridCols;
   catEl.style.gap='8px';
+  catEl.style.width = '100%';
 
 
   catEl.innerHTML=active.map((c,idx)=>{
@@ -2014,7 +2015,7 @@ function renderDash(){
       const h=Math.round((v/sparkMax)*24);
       return `<div style="width:4px;border-radius:2px 2px 0 0;background:${v>0?c.color:'var(--border-l)'};height:${Math.max(3,h)}px;transition:height .6s ease"></div>`;
     }).join('');
-    return `<div style="flex: 1;background:var(--card);border:1px solid ${isBest?c.color+'55':'var(--border-l)'};border-radius:12px;padding:14px;position:relative;overflow:hidden;">
+    return `<div style="background:var(--card);border:1px solid ${isBest?c.color+'55':'var(--border-l)'};border-radius:12px;padding:14px;position:relative;overflow:hidden;">
       ${isBest&&catCount>1?`<div style="position:absolute;top:8px;right:8px;font-size:9px;font-weight:700;letter-spacing:.5px;color:${c.color};background:${c.color}18;padding:2px 7px;border-radius:10px;text-transform:uppercase">топ</div>`:''}
       <div style="position:absolute;inset:0;background:linear-gradient(135deg,${c.color}08 0%,transparent 60%);pointer-events:none"></div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
