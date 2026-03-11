@@ -2982,39 +2982,73 @@ function animCount(el, end, isFloat=false, dur=1200){
 function renderHeatmap(){
   const wrap=document.getElementById('tab-heatmap-placeholder');
   if(!wrap)return;
-  const now=Date.now();
-  const actMap={};
-  P.sessions.forEach(s=>{
-    if(!s.ts)return;
-    const d=new Date(s.ts);
-    const key=`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-    actMap[key]=(actMap[key]||0)+s.dur/3600;
-  });
-  const maxH=Math.max(...Object.values(actMap),0.1);
-  // Build 52 weeks x 7 days
-  const TOTAL=364;
-  const cols=[];
-  for(let w=51;w>=0;w--){
-    const col=[];
-    for(let d=6;d>=0;d--){
-      const dayAgo=w*7+d;
-      const dt=new Date(now-dayAgo*86400000);
-      const key=`${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`;
-      const h=actMap[key]||0;
-      const lv=h===0?0:h<maxH*.25?1:h<maxH*.5?2:h<maxH*.75?3:4;
-      col.push({h,lv,date:dt.toLocaleDateString('ru',{day:'2-digit',month:'short'})});
+ // --- НАЧАЛО НОВОГО ДВОЙНОГО ГРАФИКА ЗА МЕСЯЦ ---
+// 1. Устанавливаем месяц и год (по умолчанию текущий)
+window.selMonth = window.selMonth ?? new Date().getMonth();
+const selYear = new Date().getFullYear();
+
+const hoursMap = {};
+const sessMap = {};
+
+// 2. Собираем стату ТОЛЬКО за выбранный месяц
+P.sessions.forEach(s => {
+    if(!s.ts) return;
+    const d = new Date(s.ts);
+    if(d.getFullYear() === selYear && d.getMonth() === window.selMonth) {
+        const key = d.getDate(); // Получаем число месяца
+        hoursMap[key] = (hoursMap[key] || 0) + (s.dur / 3600);
+        sessMap[key] = (sessMap[key] || 0) + 1;
     }
-    cols.push(col);
-  }
-  const colors=['var(--card)','#0e4429','#006d32','#26a641','#39d353'];
-  wrap.innerHTML=`<div class="card">
-    <div class="ch"><span class="ct">${t("activity_year")}</span><span style="font-size:11px;color:var(--t3)">${Object.keys(actMap).length} ${t("active_days_cnt")}</span></div>
-    <div class="cb">
-      <div class="hm-grid">${cols.map(col=>`<div class="hm-col">${col.map(cell=>`<div class="hm-cell" style="background:${colors[cell.lv]}" title="${cell.date}: ${cell.h.toFixed(1)}ч"></div>`).join('')}</div>`).join('')}</div>
-      <div class="hm-legend">Меньше ${[0,1,2,3,4].map(l=>`<div style="width:10px;height:10px;border-radius:2px;background:${colors[l]}"></div>`).join('')} Больше</div>
-    </div>
-  </div>`;
+});
+
+// 3. Считаем максимумы для интенсивности цвета
+const maxH = Math.max(...Object.values(hoursMap), 0.1);
+const maxS = Math.max(...Object.values(sessMap), 0.1);
+const daysInMonth = new Date(selYear, window.selMonth + 1, 0).getDate();
+
+const colors = ['var(--card)', '#0e4429', '#006d32', '#26a641', '#39d353'];
+const getLevel = (val, max) => val===0?0 : val<max*0.25?1 : val<max*0.5?2 : val<max*0.75?3 : 4;
+
+// 4. Генерируем квадратики дней (как мини-календарь)
+let cellsH = '';
+let cellsS = '';
+for(let i = 1; i <= daysInMonth; i++) {
+    const h = hoursMap[i] || 0;
+    const s = sessMap[i] || 0;
+    cellsH += `<div style="width:14px;height:14px;border-radius:2px;background:${colors[getLevel(h, maxH)]}" title="${i} число: ${h.toFixed(1)} ч"></div>`;
+    cellsS += `<div style="width:14px;height:14px;border-radius:2px;background:${colors[getLevel(s, maxS)]}" title="${i} число: ${s} сессий"></div>`;
 }
+
+// 5. Выпадающий список месяцев
+const mNames = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const mOpts = mNames.map((m, i) => `<option value="${i}" ${i === window.selMonth ? 'selected' : ''}>${m}</option>`).join('');
+
+// 6. Отрисовка HTML
+wrap.innerHTML = `
+<div class="card">
+    <div class="ch" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <span style="font-weight:700; color:var(--t1);">${T("activity_year")} – ${selYear}</span>
+        <select style="background:var(--bg); color:var(--t1); border:1px solid var(--border-1); padding:4px 8px; border-radius:6px; outline:none; font-family:inherit; cursor:pointer;" onchange="window.selMonth=parseInt(this.value); renderAll()">
+            ${mOpts}
+        </select>
+    </div>
+    <div class="cb" style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div style="display:flex; flex-direction:column; align-items:center;">
+            <div style="font-size:11px; color:var(--t3); margin-bottom:8px; text-transform:uppercase; letter-spacing:1px; font-weight:600;">По часам</div>
+            <div style="display:flex; flex-wrap:wrap; gap:4px; width:122px; justify-content:flex-start;">${cellsH}</div>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center;">
+            <div style="font-size:11px; color:var(--t3); margin-bottom:8px; text-transform:uppercase; letter-spacing:1px; font-weight:600;">По сессиям</div>
+            <div style="display:flex; flex-wrap:wrap; gap:4px; width:122px; justify-content:flex-start;">${cellsS}</div>
+        </div>
+    </div>
+    <div class="hm-legend" style="margin-top:20px; display:flex; gap:4px; align-items:center; justify-content:center; font-size:11px; color:var(--t3);">
+        Меньше
+        ${[0,1,2,3,4].map(l => `<div style="width:10px;height:10px;border-radius:2px;background:${colors[l]}"></div>`).join('')}
+        Больше
+    </div>
+</div>`;
+// --- КОНЕЦ НОВОГО ГРАФИКА ---
 
 // ══ RINGS ════════════════════════════════════════════
 function renderRings(){
