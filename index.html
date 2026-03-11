@@ -7,17 +7,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  #insightRow {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    width: 100% !important;
-    justify-content: space-between;
-}
-
-#insightRow > div {
-    flex: 1 !important;
-    min-width: 200px !important;
-}
 :root{
   --bg:#0d1117; --panel:#161b22; --card:#1c2128; --hover:#21262d;
   --border:#30363d; --border-l:#21262d;
@@ -2009,10 +1998,7 @@ function renderDash(){
   const catEl=document.getElementById('catBreakdown');
   catEl.style.display='grid';
   catEl.style.gridTemplateColumns=catGridCols;
-  catEl.style.gap = '8px';
-catEl.style.display = 'flex';
-catEl.style.flexWrap = 'wrap';
-catEl.style.width = '100%';
+  catEl.style.gap='8px';
 
 
   catEl.innerHTML=active.map((c,idx)=>{
@@ -2025,7 +2011,7 @@ catEl.style.width = '100%';
     const sparkVals=data[c.id].slice(-7);
     const sparkMax=Math.max(...sparkVals,0.1);
     const sparks=sparkVals.map(v=>{
-    return `<div style="flex: 1 1 180px; background: var(--card); border: 1px solid ${isBest ? c.color + '55' : 'var(--border-1)'}; border-radius: 12px; padding: 14px; position: relative; overflow: hidden; display: flex; flex-direction: column;">`
+      const h=Math.round((v/sparkMax)*24);
       return `<div style="width:4px;border-radius:2px 2px 0 0;background:${v>0?c.color:'var(--border-l)'};height:${Math.max(3,h)}px;transition:height .6s ease"></div>`;
     }).join('');
     return `<div style="flex: 1;background:var(--card);border:1px solid ${isBest?c.color+'55':'var(--border-l)'};border-radius:12px;padding:14px;position:relative;overflow:hidden;">
@@ -3564,25 +3550,7 @@ async function syncOnlineStatus() {
 
 setInterval(syncOnlineStatus, 20000);
 setTimeout(syncOnlineStatus, 2000);
-// === АВТО-ФИКС ПУСТОТЫ (ВСТАВИТЬ В КОНЕЦ СКРИПТА) ===
-function fixEmptySpace() {
-    // Находим карточки по той самой ширине 180px, которую мы задали
-    const cards = document.querySelectorAll('div[style*="min-width: 180px"]');
-    if (cards.length > 0) {
-        const container = cards[0].parentElement;
-        container.style.display = 'flex';
-        container.style.flexWrap = 'wrap';
-        container.style.width = '100%';
-        container.style.gap = '0px'; // Чтобы не было лишних дырок
-        
-        cards.forEach(card => {
-            card.style.flex = '1';
-            card.style.margin = '5px';
-        });
-    }
-}
-// Запускаем через секунду, когда всё отрисуется
-setTimeout(fixEmptySpace, 1000);
+
 </script>
 </body>
 </html>
