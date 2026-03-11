@@ -2037,7 +2037,8 @@ function renderDash(){
   }).join('');
 
   const bestCat=active.slice().sort((a,b)=>data[b.id].reduce((s,v)=>s+v,0)-data[a.id].reduce((s,v)=>s+v,0))[0];
-  const goalPct=Math.min(100,Math.round((periodHrs/(isWeek?14:60))*100));
+  const userGoal = parseFloat(localStorage.getItem('userGoal')) || 2;
+const goalPct=Math.min(100,Math.round((periodHrs/(isWeek ? userGoal*7 : userGoal*30))*100));
   const insightEl=document.getElementById('insightRow');
   insightEl.innerHTML=`
     <div class="insight">
@@ -2056,24 +2057,27 @@ function renderDash(){
     </div>`;
 }
 
-// ══ CATS ════════════════════════════════════════════════════
+// --- CATS -----------------------------------
 function renderCats(){
-  const max=Math.max(...P.categories.map(c=>c.hours),1);
-  const el=document.getElementById('catList');if(!el)return;
-  el.innerHTML=P.categories.filter(c=>P.activeCatIds.includes(c.id)).map(c=>{
-    const last=P.sessions.find(s=>s.cat===c.id);
-    return `<div class="cat-item" onclick="selCat('${c.id}')">
-      <div class="ci-box" style="background:${c.color}20">${c.icon}</div>
-      <div class="ci-info">
-        <div class="ci-name">${c.name}</div>
-        <div class="ci-sub">Последний: ${last?last.date:'никогда'}</div>
-        <div class="ci-bar-wr"><div class="ci-bar" style="width:${Math.min(100,(c.hours/max)*100)}%;background:${c.color}"></div></div>
-      </div>
-      <div class="ci-hrs" style="color:${c.color}">${c.hours.toLocaleString('ru',{maximumFractionDigits:1})}<small>ЧАСОВ</small></div>
-    </div>`;
-  }).join('');
-}
+    const el=document.getElementById('catList');if(!el)return;
+    const userGoal = parseFloat(localStorage.getItem('userGoal')) || 2;
+    const todayStart = new Date().setHours(0,0,0,0);
 
+    el.innerHTML=P.categories.filter(c=>P.activeCatIds.includes(c.id)).map(c=>{
+        const todayHrs = P.sessions.filter(s => s.cat === c.id && s.ts >= todayStart).reduce((sum, s) => sum + ((s.dur||0)/3600), 0);
+        const pct = Math.min(100, (todayHrs / userGoal) * 100);
+
+        return `<div class="cat-item" onclick="selCat('${c.id}')">
+            <div class="ci-box" style="background:${c.color}20">${c.icon}</div>
+            <div class="ci-info">
+                <div class="ci-name">${c.name}</div>
+                <div class="ci-sub">Сегодня: ${todayHrs.toFixed(1)} ч из ${userGoal} ч (цель)</div>
+                <div class="ci-bar-wr"><div class="ci-bar" style="width:${pct}%;background:${c.color}"></div></div>
+            </div>
+            <div class="ci-hrs" style="color:${c.color}">${c.hours.toLocaleString('ru',{maximumFractionDigits:1})}<small>Ч ВСЕГО</small></div>
+        </div>`;
+    }).join('');
+}
 // ══ SESSIONS ════════════════════════════════════════════════
 function renderSessions(all=false){
   const list=all?P.sessions:P.sessions.slice(0,6);
