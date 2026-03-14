@@ -3516,14 +3516,14 @@ async function renderLeagues(){
     return `<div class="lg-section">
       <div class="lg-head" style="border-color:${cat.color}22">
         <span class="lg-cat-icon">${cat.icon}</span>
-        <div>
-          <div class="lg-cat-name" style="color:${cat.color}">${cat.name}</div>
+        <div style="flex:1;min-width:0">
+          <div class="lg-cat-name" style="color:${cat.color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cat.name}</div>
           <div style="font-size:10px;color:var(--t3)">${rawPlayers.length} участников · ${modeLbl}</div>
         </div>
-        <div class="lg-online-wrap" data-league-online="${cat.id}" style="display:flex;align-items:center;gap:5px;margin-left:auto;padding:3px 9px;border-radius:6px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);font-size:11px;font-weight:600;color:var(--green)">
-          <div class="online-dot" style="width:6px;height:6px"></div> 0 онлайн
+        <div class="lg-online-wrap" data-league-online="${cat.id}" style="flex-shrink:0;display:flex;align-items:center;gap:5px;padding:3px 9px;border-radius:6px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);font-size:11px;font-weight:600;color:var(--green);min-width:80px;justify-content:center">
+          <div class="online-dot" style="width:6px;height:6px;flex-shrink:0"></div><span>0 онлайн</span>
         </div>
-        <div class="lg-badge" style="background:${cat.color}18;color:${cat.color}">${myIdx>=0&&myIdx<3?'Топ-3 🔥':myIdx>=0?'#'+(myIdx+1):'—'}</div>
+        <div class="lg-badge" style="flex-shrink:0;background:${cat.color}18;color:${cat.color}">${myIdx>=0&&myIdx<3?'Топ-3 🔥':myIdx>=0?'#'+(myIdx+1):'—'}</div>
       </div>
       <div class="lg-body">${top8.length===0?`<div class="empty" style="padding:24px;text-align:center">
         <div style="font-size:28px;margin-bottom:8px">🏁</div>
@@ -3533,17 +3533,24 @@ async function renderLeagues(){
         const clickable=!isMe&&!p.fake&&p.userId;
         const valStr=arenaMode==='streak'?`${getArenaValue(p,arenaMode)} д`:`${getArenaValue(p,arenaMode)} ч`;
         const barW=Math.round((getArenaValue(p,arenaMode)/Math.max(...top8.map(x=>getArenaValue(x,arenaMode)),0.1))*100);
-        return `<div class="lg-row ${isMe?'me':''}" ${clickable?`onclick="openUserProfile('${p.userId}','${p.name}','${p.av}')" style="cursor:pointer"`:''}>
-          <div class="lr-rank" style="color:${medal(i)?'var(--orange)':'var(--t3)'}">${medal(i)||i+1}</div>
-          <div class="lr-av" style="${isMe?`border:2px solid ${cat.color}`:''}">${isMe?P.avatar:p.av}</div>
+        // FIX 1: my row is visually distinct — gold border + glow + bright background
+        const meStyle = isMe
+          ? `background:linear-gradient(90deg,rgba(245,200,66,.13),rgba(245,200,66,.06));border-left:3px solid var(--gold);box-shadow:inset 0 0 24px rgba(245,200,66,.05);`
+          : '';
+        return `<div class="lg-row ${isMe?'me':''}" style="${meStyle}${clickable?'cursor:pointer':''}" ${clickable?`onclick="openUserProfile('${p.userId}','${p.name}','${p.av}')"`:''}>
+          <div class="lr-rank" style="color:${isMe?'var(--gold)':medal(i)?'var(--orange)':'var(--t3)'};font-weight:${isMe?'700':'400'}">${isMe?'★':medal(i)||i+1}</div>
+          <div class="lr-av" style="border:${isMe?'2px solid var(--gold)':'1px solid var(--border)'};box-shadow:${isMe?'0 0 10px rgba(245,200,66,.4)':'none'}">${isMe?P.avatar:p.av}</div>
           <div class="lr-info">
-            <div class="lr-name">${isMe?P.name:p.name}${isMe?' ← ты':clickable?' 🟢':''}</div>
+            <div class="lr-name" style="${isMe?'color:var(--gold);font-weight:700':''}">
+              ${isMe?P.name:p.name}
+              ${isMe?`<span style="font-size:10px;font-weight:700;letter-spacing:.5px;background:rgba(245,200,66,.15);color:var(--gold);border:1px solid rgba(245,200,66,.35);border-radius:6px;padding:1px 7px;margin-left:6px;text-transform:uppercase">ТЫ</span>`:clickable?' 🟢':''}
+            </div>
             <div class="lr-badges">
-              <span class="lr-pill lr-pill-hrs">⚡ ${valStr}</span>
+              <span class="lr-pill lr-pill-hrs" style="${isMe?'border-color:rgba(245,200,66,.35);color:var(--gold);background:rgba(245,200,66,.08)':''}">⚡ ${valStr}</span>
               <span class="lr-pill lr-pill-streak">🔥 ${isMe?P.streak:p.streak} д</span>
             </div>
           </div>
-          <div class="lr-bar-wr"><div class="lr-bar" style="width:${barW}%;background:${cat.color}"></div></div>
+          <div class="lr-bar-wr"><div class="lr-bar" style="width:${barW}%;background:${isMe?'var(--gold)':cat.color};${isMe?'box-shadow:0 0 6px rgba(245,200,66,.5)':''}"></div></div>
         </div>`;}).join('')}
         ${myIdx>=8?`<div style="padding:9px 14px;font-size:12px;color:var(--t3);border-top:1px solid var(--border-l)">Твоя позиция: <b style="color:${cat.color}">#${myIdx+1}</b> · ${cat.hours.toFixed(1)} ч</div>`:''}
     </div>
@@ -3659,31 +3666,52 @@ async function openUserProfile(userId, name, av){
   if(!userId){ showToast('Демо-игрок — профиль недоступен','ℹ️'); return; }
   const ov = document.getElementById('userProfileOv');
   ov.classList.add('show');
+  // Show data from cache IMMEDIATELY while loading
   document.getElementById('upAv').textContent = av || '🎯';
   document.getElementById('upName').textContent = name || '—';
-  document.getElementById('upMeta').textContent = 'Загружаем...';
+  document.getElementById('upMeta').innerHTML = '<span style="color:var(--t3);font-size:12px">Загружаем...</span>';
   document.getElementById('upLeaguesList').innerHTML = '<div style="color:var(--t3);font-size:13px;padding:8px 0">Загрузка...</div>';
+  document.getElementById('userProfileOv').dataset.userId = userId;
+  document.getElementById('userProfileOv').dataset.userName = name || '—';
+  document.getElementById('userProfileOv').dataset.userAv = av || '🎯';
 
   try {
+    // FIX: use .select() without .single() — avoids 406 error if row missing
     const [uRes, ucRes] = await Promise.all([
-      sb.from('users').select('id,username,avatar,streak,created_at').eq('id',userId).maybeSingle(),
+      sb.from('users').select('id,username,avatar,avatar_url,streak,created_at').eq('id',userId).limit(1),
       sb.from('user_categories').select('category_id,hours').eq('user_id',userId)
     ]);
-    const u = uRes.data;
+    const u = (uRes.data && uRes.data.length > 0) ? uRes.data[0] : null;
     const uc = ucRes.data || [];
+
     if(!u){
-      console.warn('User not found, id:', userId, 'error:', uRes.error);
-      closeUserProfile();
-      showToast('Пользователь не найден','❌');
+      // FIX: don't close modal — show what we know from league cache
+      document.getElementById('upMeta').innerHTML =
+        `<span style="color:var(--t3);font-size:12px">Данные недоступны</span>`;
+      document.getElementById('upLeaguesList').innerHTML =
+        `<div style="color:var(--t3);font-size:13px;padding:8px 0">
+          Профиль этого пользователя скрыт или ещё не завершил регистрацию.
+        </div>`;
+      // Try likes anyway
+      await refreshLikeBtn(userId);
       return;
     }
 
     // Cover gradient based on top cat color
-    const topCatId = uc.sort((a,b)=>b.hours-a.hours)[0]?.category_id;
+    const ucSorted = [...uc].sort((a,b)=>b.hours-a.hours);
+    const topCatId = ucSorted[0]?.category_id;
     const catDef = ALL_CATS.find(c=>c.id===topCatId);
     document.getElementById('upCover').style.background =
       catDef ? `linear-gradient(135deg,${catDef.color}33,#12082a)` : 'linear-gradient(135deg,#0d1f35,#12082a)';
-    document.getElementById('upAv').textContent = u.avatar || '🎯';
+
+    // Avatar — photo or emoji
+    const upAvEl = document.getElementById('upAv');
+    if(u.avatar_url){
+      upAvEl.innerHTML = `<img src="${u.avatar_url}" style="width:100%;height:100%;border-radius:12px;object-fit:cover" onerror="this.parentNode.textContent='${u.avatar||'🎯'}'">`;
+    } else {
+      upAvEl.textContent = u.avatar || '🎯';
+    }
+
     document.getElementById('upName').textContent = u.username;
     document.getElementById('upMeta').innerHTML =
       `<span>🔥 ${u.streak||0} дней стрик</span>` +
@@ -3701,7 +3729,7 @@ async function openUserProfile(userId, name, av){
     const maxHrs = Math.max(...uc.map(r=>r.hours), 1);
     document.getElementById('upLeaguesList').innerHTML = uc.length === 0
       ? '<div style="color:var(--t3);font-size:13px">Нет данных по лигам</div>'
-      : uc.sort((a,b)=>b.hours-a.hours).map(row => {
+      : ucSorted.map(row => {
           const cat = ALL_CATS.find(c=>c.id===row.category_id) || {name:row.category_id,icon:'📌',color:'#888'};
           const pct = Math.round((row.hours/maxHrs)*100);
           return `<div class="up-league-row">
@@ -3712,9 +3740,11 @@ async function openUserProfile(userId, name, av){
           </div>`;
         }).join('');
   } catch(e){
-    console.error(e);
-    closeUserProfile();
-    showToast('Ошибка загрузки профиля','❌');
+    console.error('openUserProfile error:', e);
+    // FIX: don't close — show error inside modal, not as toast that closes modal
+    document.getElementById('upMeta').innerHTML =
+      `<span style="color:var(--red);font-size:12px">Ошибка загрузки — проверь подключение</span>`;
+    document.getElementById('upLeaguesList').innerHTML = '';
   }
 }
 
@@ -4508,7 +4538,9 @@ async function updateLeagueOnlineCounts(){
     document.querySelectorAll('[data-league-online]').forEach(el => {
       const catId = el.dataset.leagueOnline;
       const cnt = cntMap[catId] || 0;
-      el.innerHTML = '<div class="online-dot" style="width:6px;height:6px;flex-shrink:0"></div> ' + cnt + ' онлайн';
+      const span = el.querySelector('span');
+      if(span) span.textContent = cnt + ' онлайн';
+      else el.innerHTML = '<div class="online-dot" style="width:6px;height:6px;flex-shrink:0"></div><span>' + cnt + ' онлайн</span>';
     });
   } catch(e){ console.warn('updateLeagueOnlineCounts:', e); }
 }
@@ -5591,7 +5623,9 @@ function updateLeagueOnlineUI() {
   document.querySelectorAll('[data-league-online]').forEach(el => {
     const catId = el.dataset.leagueOnline;
     const cnt = leagueOnlineMap[catId] ? leagueOnlineMap[catId].size : 0;
-    el.innerHTML = '<div class="online-dot" style="width:6px;height:6px;flex-shrink:0"></div> ' + cnt + ' онлайн';
+    const span = el.querySelector('span');
+    if(span) span.textContent = cnt + ' онлайн';
+    else el.innerHTML = '<div class="online-dot" style="width:6px;height:6px;flex-shrink:0"></div><span>' + cnt + ' онлайн</span>';
     el.style.display = 'flex';
   });
 }
