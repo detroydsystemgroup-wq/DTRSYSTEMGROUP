@@ -43,7 +43,7 @@
   --c-sport:#4ADE80;
   --c-lang:#FBBF24;
   --c-code:#C084FC;
-  --c-trading:#F97316;
+  --c-trading:#f7931a;
   --c-cooking:#FB7185;
 
   /* ── Glass effect ── */
@@ -328,8 +328,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 
 /* ── TOTALS SIDEBAR ── */
 .tot-wr{text-align:center;padding:18px 12px;}
-.tot-num{font-family:'Bebas Neue',sans-serif;font-size:58px;letter-spacing:2px;line-height:1;text-shadow:0 0 32px rgba(245,200,66,.12);}
-.tot-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:2px;margin-top:3px;}
+.tot-num{font-family:'Bebas Neue',sans-serif;font-size:58px;letter-spacing:2px;line-height:1;color:#4ade80;text-shadow:0 0 20px rgba(74,222,128,.35),0 0 40px rgba(74,222,128,.15);transition:all .3s;}
+.tot-lbl{font-size:10px;color:rgba(74,222,128,.7);text-transform:uppercase;letter-spacing:2px;margin-top:3px;font-weight:600;}
 .tot-div{height:1px;background:var(--border);margin:10px 0;}
 .tot-streak{font-size:12px;color:var(--orange);display:flex;align-items:center;justify-content:center;gap:5px;font-weight:600;}
 .tot-week{font-size:11px;color:var(--green);display:flex;align-items:center;justify-content:center;gap:4px;margin-top:4px;}
@@ -1801,6 +1801,17 @@ body.modal-open{overflow:hidden!important;}
 .timer-mode-btn.active{background:rgba(245,200,66,.1);border-color:var(--gold);color:var(--gold);box-shadow:0 0 0 2px rgba(245,200,66,.12);}
 .timer-mode-btn:active{transform:scale(.96);}
 
+
+@keyframes growthPulse{
+  0%,100%{transform:scale(1);opacity:.5;}
+  50%{transform:scale(1.15);opacity:1;}
+}
+@keyframes numberRise{
+  0%{transform:translateY(8px);opacity:0;}
+  100%{transform:translateY(0);opacity:1;}
+}
+.tot-num.updated{animation:numberRise .4s cubic-bezier(.34,1.56,.64,1) both;}
+
 </style>
 </head>
 <body>
@@ -2124,34 +2135,35 @@ body.modal-open{overflow:hidden!important;}
   <div>
     <div class="timer-panel">
       <div class="t-lbl">Быстрый старт</div>
-      <div class="t-cats" id="quickCats"></div>
+      <!-- Hidden for JS compat -->
+      <div class="t-cats" id="quickCats" style="display:none"></div>
 
-      <!-- League selector row -->
-      <div style="position:relative;margin-bottom:8px">
+      <!-- League selector -->
+      <div style="position:relative;margin-bottom:10px">
         <select id="timerLeagueSel" onchange="selCatFromTimer(this)"
-          style="width:100%;padding:8px 32px 8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--t2);font-size:12px;font-weight:700;cursor:pointer;outline:none;font-family:'DM Sans',sans-serif;appearance:none;-webkit-appearance:none;transition:all .2s;text-transform:uppercase;letter-spacing:.5px">
-          <option value="">🎯 ВЫБРАТЬ ЛИГУ</option>
+          style="width:100%;padding:10px 36px 10px 14px;border-radius:11px;border:1.5px solid var(--border);background:var(--card);color:var(--t2);font-size:13px;font-weight:700;cursor:pointer;outline:none;font-family:'DM Sans',sans-serif;appearance:none;-webkit-appearance:none;transition:all .2s;letter-spacing:.3px">
+          <option value="">🎯 Выбрать лигу</option>
         </select>
-        <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:10px;color:var(--t3)">▾</span>
+        <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:11px;color:var(--t3)">▾</span>
       </div>
 
-      <!-- Mode buttons row — symmetric rectangles -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px" id="pomBtns">
-        <button class="timer-mode-btn active" id="pomFreeBtn" onclick="setPomMode(0,this)">∞ СВОБОДНЫЙ</button>
+      <!-- Режим: Свободный / Таймер -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px" id="pomBtns">
+        <button class="timer-mode-btn active" id="pomFreeBtn" onclick="setPomMode(0,this)">∞ Свободный</button>
         <div style="position:relative">
           <select id="pomTimeSel" onchange="setPomFromSel(this)"
             class="timer-mode-btn"
-            style="width:100%;padding:9px 28px 9px 12px;text-transform:uppercase;letter-spacing:.5px;appearance:none;-webkit-appearance:none;cursor:pointer;font-family:'DM Sans',sans-serif">
-            <option value="0">⏱ ТАЙМЕР</option>
-            <option value="5">5 МИН</option>
-            <option value="10">10 МИН</option>
-            <option value="15">15 МИН</option>
-            <option value="25">25 МИН 🍅</option>
-            <option value="30">30 МИН</option>
-            <option value="45">45 МИН</option>
-            <option value="60">60 МИН</option>
-            <option value="90">90 МИН</option>
-            <option value="120">2 ЧАСА</option>
+            style="width:100%;padding:10px 28px 10px 14px;appearance:none;-webkit-appearance:none;cursor:pointer;font-family:'DM Sans',sans-serif">
+            <option value="0">⏱ Таймер</option>
+            <option value="5">5 мин</option>
+            <option value="10">10 мин</option>
+            <option value="15">15 мин</option>
+            <option value="25">25 мин 🍅</option>
+            <option value="30">30 мин</option>
+            <option value="45">45 мин</option>
+            <option value="60">60 мин</option>
+            <option value="90">90 мин</option>
+            <option value="120">2 часа</option>
           </select>
           <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:9px;color:var(--t3)">▾</span>
         </div>
@@ -2170,10 +2182,10 @@ body.modal-open{overflow:hidden!important;}
     <!-- Daily goal progress card (пункт 18) -->
     <div class="card" style="margin-top:12px">
       <div class="ch">
-        <span class="ct">📈 Дневной прогресс</span>
-        <div style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:12px;font-weight:700;color:#3fb950;text-shadow:0 0 8px rgba(63,185,80,.6),0 0 16px rgba(63,185,80,.3);letter-spacing:.5px">⚡ ЦЕЛЬ</span>
-          <select id="dailyGoalSel" onchange="setDailyGoal(this.value)" style="background:rgba(63,185,80,.08);border:1.5px solid rgba(63,185,80,.5);border-radius:8px;color:#3fb950;font-size:12px;font-weight:700;padding:4px 10px;cursor:pointer;outline:none;font-family:'DM Sans',sans-serif;box-shadow:0 0 8px rgba(63,185,80,.2)">
+        <span class="ct" style="font-size:13px;font-weight:700;letter-spacing:.3px">📈 Дневной прогресс</span>
+        <div style="display:flex;align-items:center;gap:7px">
+          <span style="font-size:11px;font-weight:600;color:var(--t3);letter-spacing:.5px;text-transform:uppercase">Цель</span>
+          <select id="dailyGoalSel" onchange="setDailyGoal(this.value)" style="background:#0d2010;border:1.5px solid #3fb950;border-radius:8px;color:#3fb950;font-size:13px;font-weight:700;padding:4px 10px;cursor:pointer;outline:none;font-family:'Bebas Neue',sans-serif;letter-spacing:1px;box-shadow:0 0 10px rgba(63,185,80,.25);min-width:60px;text-align:center">
             <option value="0.5">30 мин</option>
             <option value="1">1 ч</option>
             <option value="2" selected>2 ч</option>
@@ -2216,11 +2228,14 @@ body.modal-open{overflow:hidden!important;}
     <div class="card">
       <div class="cb">
         <div class="tot-wr">
-          <div class="tot-num" id="totDisp">0</div>
-          <div class="tot-lbl">часов в себя</div>
+          <div style="position:relative;display:inline-block">
+            <div class="tot-num" id="totDisp">0</div>
+            <div id="totGrowthPulse" style="position:absolute;inset:-12px;border-radius:50%;background:radial-gradient(circle,rgba(74,222,128,.08) 0%,transparent 70%);pointer-events:none;animation:growthPulse 3s ease-in-out infinite"></div>
+          </div>
+          <div class="tot-lbl">часов вложено в себя</div>
           <div class="tot-div"></div>
           <div class="tot-streak" id="streakDisp">🔥 0 дней</div>
-          <div class="tot-week" id="weekDisp">↑ +0 ч за 7 дней</div>
+          <div class="tot-week" id="weekDisp" style="color:#4ade80">↑ +0 ч за 7 дней</div>
         </div>
       </div>
     </div>
@@ -2325,12 +2340,12 @@ const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 // ══ CONSTANTS ════════════════════════════════════════════════
 const AVATARS=['🌀','💫','⚡','🔮','🌑','💎','🦋','🫡','🌊','🎯','🏔️','🦅','🐉','🌙','⭐','🔱','🫧','💠','🌐','🦾'];
 let ALL_CATS=[
-  {id:'read',   name:'Чтение',          icon:'📚',color:'#58a6ff',desc:'Книги, статьи, учебники',  members:0},
-  {id:'sport',  name:'Спорт',           icon:'💪',color:'#3fb950',desc:'Тренировки, бег, зал',     members:0},
-  {id:'lang',   name:'Языки',           icon:'🌍',color:'#d1a366',desc:'Английский, испанский...',  members:0},
-  {id:'code',   name:'Программирование',icon:'💻',color:'#bc8cff',desc:'Код, проекты, курсы',      members:0},
-  {id:'trading', name:'Трейдинг', icon:'📈',color:'#f7931a',desc:'Акции, крипта, фьючерсы',   members:0},
-  {id:'cooking', name:'Кулинария', icon:'👨‍🍳',color:'#ff6b6b',desc:'Рецепты, техники, выпечка', members:0},
+  {id:'read',   name:'Чтение',                icon:'📚',color:'#58a6ff',desc:'Книги, статьи, учебники',         members:0},
+  {id:'sport',  name:'Спорт',                 icon:'🏋️',color:'#3fb950',desc:'Тренировки, бег, зал',           members:0},
+  {id:'lang',   name:'Изучение языков',        icon:'🌍',color:'#FBBF24',desc:'Английский, испанский, японский', members:0},
+  {id:'code',   name:'Новая профессия',        icon:'🚀',color:'#bc8cff',desc:'Курсы, навыки, карьера',          members:0},
+  {id:'trading', name:'Повышение квалификации',icon:'📈',color:'#f7931a',desc:'Профессиональный рост',           members:0},
+  {id:'cooking', name:'Ментальность',          icon:'🧠',color:'#ff6b6b',desc:'Психология, медитация, мышление', members:0},
 ];
 // Загружаем реальные счётчики из БД
 async function loadMemberCounts(){
@@ -2403,7 +2418,9 @@ const FNAMES={
   read:['BookWorm99','silent_page','reader_x','litclub','daily_read','nova_lit','pageturner','mindreads'],
   sport:['athlete_k','run4life','gymrat_r','sport_pro','daily_sweat','ironwill','fitnessX','strongmind'],
   lang:['fluent_ru','lingopro','polyglot_x','wordsmith','speakup','babel_fish','langhero','verbmaster'],
-  code:['NightCoder','dev_pro','code_fox','hack_it','pixelcraft','bytewizard','loopmaster','stackking'],
+  code:['career_pro','new_path','reskill_k','pivot_x','upskill99','growth_hub','pro_track','leveler'],
+  trading:['expert_up','qual_pro','skill_max','advance_x','master_it','pro_level','top_grade','high_skill'],
+  cooking:['mind_set','zen_pro','mental_x','growth_m','clarity_k','focus_hub','strong_m','inner_pro'],
 };
 const FAVS=['🌀','💫','🦋','🌑','💎','🦅','🐉','🌊','⭐','🔱','🏔️','🦾','🔮','🌙','💠'];
 
@@ -2968,7 +2985,14 @@ function renderHeader(){
   }
 }
 function renderTotals(){
-  document.getElementById('totDisp').textContent=totalHrs().toLocaleString('ru',{maximumFractionDigits:1});
+  const totEl=document.getElementById('totDisp');
+  const newVal=totalHrs();
+  if(totEl){
+    animCount(totEl,newVal,1200);
+    totEl.classList.remove('updated');
+    void totEl.offsetWidth;
+    totEl.classList.add('updated');
+  }
   document.getElementById('streakDisp').textContent=`🔥 ${P.streak} дней подряд`;
   document.getElementById('weekDisp').textContent=`↑ +${weekHrs().toFixed(1)} ч за 7 дней`;
 }
