@@ -2617,6 +2617,7 @@ async function doLogout(){
   if(timerRunning){ timerRunning=false; setTimerState(null); localStorage.removeItem(MODAL_TIMER_KEY); }
   if(presenceInterval){ clearInterval(presenceInterval); presenceInterval=null; }
   if(msgRealtimeChannel){ sb.removeChannel(msgRealtimeChannel); msgRealtimeChannel=null; }
+  if(usersRealtimeChannel){ sb.removeChannel(usersRealtimeChannel); usersRealtimeChannel=null; }
   if(msgsPolling){ clearInterval(msgsPolling); msgsPolling=null; }
   await sb.auth.signOut();
   P=null;SB_USER=null;lgCache={};activeConvUserId=null;clubsCache=null;
@@ -3576,7 +3577,7 @@ async function renderLeagues(){
           : `⏱ ${isMe?activeCats().find(c=>c.id===cat.id)?.hours?.toFixed(1)||'0':p.hrs} ч всего`;
         return `<div class="lg-row ${isMe?'me':''}" style="${meStyle}${clickable?'cursor:pointer':''}" ${clickable?`onclick="openUserProfile('${p.userId}','${p.name}','${p.av}')"`:''}>
           <div class="lr-rank" style="color:${isMe?'var(--gold)':medal(i)?'var(--orange)':'var(--t3)'};font-weight:${isMe?'700':'400'}">${isMe?'★':medal(i)||i+1}</div>
-          <div class="lr-av" style="border:${isMe?'2px solid var(--gold)':'1px solid var(--border)'};box-shadow:${isMe?'0 0 10px rgba(245,200,66,.4)':'none'}">${isMe?P.avatar:p.av}</div>
+          <div class="lr-av" data-uid="${p.userId||''}" style="border:${isMe?'2px solid var(--gold)':'1px solid var(--border)'};box-shadow:${isMe?'0 0 10px rgba(245,200,66,.4)':'none'}">${isMe?P.avatar:p.av}</div>
           <div class="lr-info">
             <div class="lr-name" style="${isMe?'color:var(--gold);font-weight:700':''}">
               ${isMe?P.name:p.name}
@@ -4660,6 +4661,7 @@ function initPresence() {
 // SUPABASE REALTIME — Messages (WebSocket, no polling)
 // ══════════════════════════════════════════════════════════════
 let msgRealtimeChannel = null;
+let usersRealtimeChannel = null;
 let realtimeMsgPartner = null;
 
 function initRealtimeMessages() {
@@ -4673,12 +4675,40 @@ function initRealtimeMessages() {
       table: 'messages',
       filter: `to_user_id=eq.${SB_USER.id}`
     }, (payload) => {
-      // Append new message if chat is open with sender
       if (payload.new.from_user_id === activeConvUserId) {
         appendMessage(payload.new, false);
       }
-      // Always refresh conversation list for badge
       loadConversations();
+    })
+    .subscribe();
+
+  // ── Realtime: avatar updates from other users ──────────────
+  if (usersRealtimeChannel) { sb.removeChannel(usersRealtimeChannel); }
+  usersRealtimeChannel = sb.channel('dtr-users-avatar')
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'users'
+    }, (payload) => {
+      const updated = payload.new;
+      if (!updated || !updated.id) return;
+      // Update lgCache so next render uses fresh avatar
+      Object.keys(lgCache).forEach(catId => {
+        lgCache[catId] = lgCache[catId].map(p => {
+          if (p.userId === updated.id) {
+            return { ...p, av: updated.avatar || p.av };
+          }
+          return p;
+        });
+      });
+      // Update all avatar elements in league rows without full re-render
+      document.querySelectorAll(`[data-uid="${updated.id}"]`).forEach(el => {
+        if (updated.avatar_url) {
+          el.innerHTML = `<img src="${updated.avatar_url}" style="width:100%;height:100%;border-radius:7px;object-fit:cover" onerror="this.parentNode.textContent='${updated.avatar||'🎯'}'">`;
+        } else {
+          el.textContent = updated.avatar || '🎯';
+        }
+      });
     })
     .subscribe();
 }
