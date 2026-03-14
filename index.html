@@ -2126,6 +2126,16 @@ body.modal-open{overflow:hidden!important;}
       <div class="msg-layout">
         <div class="msg-list" id="msgList">
           <div class="msg-list-head">💬 Сообщения</div>
+          <div style="padding:8px 12px">
+            <input
+              type="text"
+              placeholder="🔍 Поиск по имени..."
+              oninput="filterConvs(this.value)"
+              style="width:100%;padding:7px 12px;background:var(--card);border:1px solid var(--border);border-radius:9px;color:var(--t1);font-size:12px;outline:none;box-sizing:border-box;transition:border-color .2s"
+              onfocus="this.style.borderColor='var(--gold)'"
+              onblur="this.style.borderColor='var(--border)'"
+            >
+          </div>
           <div class="msg-conv-list" id="msgConvList">
             <div class="msg-empty" style="padding:40px;text-align:center;color:var(--t3);font-size:13px">
               <div style="font-size:32px;margin-bottom:8px">💬</div>
@@ -3374,47 +3384,60 @@ function genFakePlayers(catId,offset,count){
 
 async function loadLeagueData(catId){
   if(lgCache[catId])return lgCache[catId];
-  const{data}=await sb.from('user_categories')
-    .select('hours,user:users(id,username,avatar,avatar_url,streak)')
+
+  // Step 1: get user_categories for this league
+  const{data:ucData}=await sb.from('user_categories')
+    .select('user_id,hours')
     .eq('category_id',catId)
     .order('hours',{ascending:false})
     .limit(50);
 
-  // Get week/month/session stats for real users
-  const now=Date.now();
-  const wCut=new Date(now-7*86400000).toISOString();
-  const mCut=new Date(now-30*86400000).toISOString();
+  if(!ucData||!ucData.length){lgCache[catId]=[];return[];}
 
-  const players = await Promise.all((data||[]).map(async uc => {
-    let weekHrs=0, monthHrs=0, bestSession=0;
-    if(uc.user?.id && !SB_USER?.isDemoUser){
-      const{data:sess}=await sb.from('sessions')
-        .select('duration_seconds,created_at')
-        .eq('user_id',uc.user.id)
-        .gte('created_at',mCut);
-      if(sess){
-        sess.forEach(s=>{
-          const h=s.duration_seconds/3600;
-          monthHrs+=h;
-          if(s.created_at>=wCut) weekHrs+=h;
-          if(h>bestSession) bestSession=h;
-        });
-      }
-    }
-    return {
-      name:uc.user?.username||'?',
-      av:uc.user?.avatar||'🎯',
-      avatarUrl:uc.user?.avatar_url||null,
+  // Step 2: get user profiles
+  const userIds=ucData.map(u=>u.user_id);
+  const{data:usersData}=await sb.from('users')
+    .select('id,username,avatar,streak')
+    .in('id',userIds);
+
+  const userMap={};
+  (usersData||[]).forEach(u=>{userMap[u.id]=u;});
+
+  // Step 3: get session stats (week+month) in one query
+  const mCut=new Date(Date.now()-30*86400000).toISOString();
+  const wCut=new Date(Date.now()-7*86400000).toISOString();
+  const{data:sessData}=await sb.from('sessions')
+    .select('user_id,duration_seconds,created_at')
+    .in('user_id',userIds)
+    .gte('created_at',mCut);
+
+  // Build stats map
+  const statsMap={};
+  (sessData||[]).forEach(s=>{
+    if(!statsMap[s.user_id])statsMap[s.user_id]={weekHrs:0,monthHrs:0,bestSession:0};
+    const h=s.duration_seconds/3600;
+    statsMap[s.user_id].monthHrs+=h;
+    if(s.created_at>=wCut)statsMap[s.user_id].weekHrs+=h;
+    if(h>statsMap[s.user_id].bestSession)statsMap[s.user_id].bestSession=h;
+  });
+
+  const players=ucData.map(uc=>{
+    const u=userMap[uc.user_id]||{};
+    const st=statsMap[uc.user_id]||{weekHrs:0,monthHrs:0,bestSession:0};
+    return{
+      name:u.username||'?',
+      av:u.avatar||'🎯',
       hrs:Math.round((uc.hours||0)*10)/10,
-      streak:uc.user?.streak||0,
-      weekHrs:Math.round(weekHrs*10)/10,
-      monthHrs:Math.round(monthHrs*10)/10,
-      bestSession:Math.round(bestSession*10)/10,
+      streak:u.streak||0,
+      weekHrs:Math.round((st.weekHrs||0)*10)/10,
+      monthHrs:Math.round((st.monthHrs||0)*10)/10,
+      bestSession:Math.round((st.bestSession||0)*10)/10,
       fake:false,
-      isMe:uc.user?.id===SB_USER?.id,
-      userId:uc.user?.id||null
+      isMe:uc.user_id===SB_USER?.id,
+      userId:uc.user_id||null
     };
-  }));
+  });
+
   lgCache[catId]=players;
   return players;
 }
@@ -5533,9 +5556,15 @@ async function renderClubs() {
   try {
     if (!clubsCache) {
       const { data } = await sb.from('clubs')
-        .select('*, members:club_members(count)')
+        .select('*')
         .order('created_at', { ascending: false });
-      clubsCache = data || [];
+      if(data){
+        // get member counts separately
+        const ids=data.map(c=>c.id);
+        const{data:mData}=await sb.from('club_members').select('club_id').in('club_id',ids);
+        const cntMap={};(mData||[]).forEach(m=>{cntMap[m.club_id]=(cntMap[m.club_id]||0)+1;});
+        clubsCache=data.map(c=>({...c,memberCount:cntMap[c.id]||0}));
+      } else clubsCache=[];
     }
     const { data: myMemberships } = await sb.from('club_members').select('club_id').eq('user_id', SB_USER?.id || '');
     const myClubIds = new Set((myMemberships || []).map(m => m.club_id));
@@ -5556,7 +5585,7 @@ async function renderClubs() {
       return;
     }
     el.innerHTML = displayClubs.map((club, idx) => {
-      const cnt = club.members?.[0]?.count ?? 0;
+      const cnt = club.memberCount ?? 0;
       const isMember = myClubIds.has(club.id);
       const catDef = ALL_CATS.find(c => c.id === club.category_id);
       const isOwner = club.owner_id === SB_USER?.id;
