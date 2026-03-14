@@ -2073,7 +2073,7 @@ body.modal-open{overflow:hidden!important;}
           <div class="insight-row" id="insightRow"></div>
           <div id="sec_records" style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--gold);margin:16px 0 10px;font-weight:700;text-shadow:0 0 8px rgba(245,200,66,.3)"></div>
           <div class="rec-grid" id="recGrid"></div>
-          <div id="sec_forecast" style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--gold);margin:16px 0 10px;font-weight:700;text-shadow:0 0 8px rgba(245,200,66,.3)">Сравнение со средним</div>
+          <div id="sec_forecast" style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--gold);margin:16px 0 10px;font-weight:700;text-shadow:0 0 8px rgba(245,200,66,.3)">Сравнительный анализ</div>
           <div class="cmp-row" id="forecastRow"></div>
 
           <div id="tab-heatmap-placeholder" style="display:none"></div>
@@ -3069,7 +3069,7 @@ function renderDash(){
   // Update section labels
   const setSec=(id,key)=>{const el=document.getElementById(id);if(el)el.textContent=t(key);};
   setSec('sec_by_cat','by_cat');setSec('sec_kpi','kpi_section');
-  setSec('sec_records','records');setSec('sec_forecast','forecast');
+  setSec('sec_records','records');/* sec_forecast handled statically */
   // Responsive KPI grid — always fill full width
   const kpiEl=document.getElementById('kpiRow');
   // 1 cat=2cols, 2=2cols, 3=3cols, 4+=4cols but wrap nicely
@@ -4868,17 +4868,23 @@ function renderForecast(){
 
   // ── Bar scale helper ──
   const bar=(my,avg,color)=>{
-    const mx=Math.max(my,avg,0.1);
+    const myNum=parseFloat(String(my))||0;
+    const avgNum=parseFloat(String(avg))||0;
+    const mx=Math.max(myNum,avgNum,0.1);
     return `
       <div class="cmp-bar-row">
-        <div class="cmp-bar-lbl" style="color:var(--t2);font-weight:600">Ты</div>
-        <div class="cmp-bar-wr"><div class="cmp-bar-fill" style="width:${Math.round((my/mx)*100)}%;background:${color}"></div></div>
-        <div class="cmp-bar-val" style="color:${color}">${typeof my==='number'&&!Number.isInteger(my)?my.toFixed(1):my}</div>
+        <div class="cmp-bar-lbl" style="color:#4ade80;font-weight:700">ТЫ</div>
+        <div class="cmp-bar-wr" style="height:8px">
+          <div class="cmp-bar-fill" style="width:${Math.round((myNum/mx)*100)}%;background:#4ade80;box-shadow:0 0 6px #4ade8088"></div>
+        </div>
+        <div class="cmp-bar-val" style="color:#4ade80;font-size:11px">${my}</div>
       </div>
       <div class="cmp-bar-row">
-        <div class="cmp-bar-lbl">Среднее</div>
-        <div class="cmp-bar-wr"><div class="cmp-bar-fill" style="width:${Math.round((avg/mx)*100)}%;background:var(--border)"></div></div>
-        <div class="cmp-bar-val" style="color:var(--t3)">${avg}</div>
+        <div class="cmp-bar-lbl" style="color:#f85149;font-size:9px;letter-spacing:.5px;font-weight:700">СРЕДНИЙ</div>
+        <div class="cmp-bar-wr" style="height:8px;background:rgba(255,255,255,.06)">
+          <div style="height:100%;width:${Math.round((avgNum/mx)*100)}%;background:#f85149;border-radius:2px;box-shadow:0 0 6px #f8514988"></div>
+        </div>
+        <div class="cmp-bar-val" style="color:#f85149;font-size:10px">${avg}</div>
       </div>`;
   };
 
