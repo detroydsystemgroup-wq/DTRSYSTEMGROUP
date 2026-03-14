@@ -3554,9 +3554,6 @@ async function renderLeagues(){
           <div class="lg-cat-name" style="color:${cat.color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cat.name}</div>
           <div style="font-size:10px;color:var(--t3)">${rawPlayers.length} участников · ${modeLbl}</div>
         </div>
-        <div class="lg-online-wrap" data-league-online="${cat.id}" style="flex-shrink:0;display:flex;align-items:center;gap:5px;padding:3px 9px;border-radius:6px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);font-size:11px;font-weight:600;color:var(--green);min-width:80px;justify-content:center">
-          <div class="online-dot" style="width:6px;height:6px;flex-shrink:0"></div><span>0 онлайн</span>
-        </div>
         <div class="lg-badge" style="flex-shrink:0;background:${cat.color}18;color:${cat.color}">${myIdx>=0&&myIdx<3?'Топ-3 🔥':myIdx>=0?'#'+(myIdx+1):'—'}</div>
       </div>
       <div class="lg-body">${top8.length===0?`<div class="empty" style="padding:24px;text-align:center">
@@ -3907,9 +3904,36 @@ async function refreshLikeBtn(userId){
 let activeConvUserId = null;
 let msgsPolling = null;
 let _convsLoading = false;
+let _convsCache = null; // instant render cache
 
 async function renderMsgTab(){
-  await loadConversations();
+  // Show cached version instantly, then refresh in background
+  if(_convsCache) _renderConvList(_convsCache);
+  loadConversations();
+}
+
+function _renderConvList(convs){
+  const el = document.getElementById('msgConvList');
+  if(!el) return;
+  if(!convs || convs.length === 0){
+    el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--t3);font-size:13px"><div style="font-size:28px;margin-bottom:8px">💬</div>Нет диалогов.<br>Напиши кому-нибудь из лиги!</div>';
+    return;
+  }
+  el.innerHTML = convs.map(cv => `
+    <div class="msg-conv ${cv.userId===activeConvUserId?'active':''}" onclick="openConv('${cv.userId}','${cv.name.replace(/'/g,"\\'")}','${cv.av}')">
+      <div class="msg-conv-av">${cv.av}</div>
+      <div class="msg-conv-info">
+        <div class="msg-conv-name">${cv.name}</div>
+        <div class="msg-conv-preview">${(cv.lastMsg||'').slice(0,40)}${(cv.lastMsg||'').length>40?'...':''}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+        <div class="msg-conv-time">${fmtMsgTime(cv.lastTime)}</div>
+        ${cv.unread>0?`<div class="msg-conv-badge">${cv.unread}</div>`:''}
+      </div>
+    </div>`).join('');
+  const totalUnread = convs.reduce((s,c)=>s+c.unread,0);
+  const badge = document.getElementById('msgTabBadge');
+  if(badge){ badge.style.display=totalUnread>0?'inline':'none'; badge.textContent=totalUnread; }
 }
 
 async function loadConversations(){
@@ -3917,22 +3941,15 @@ async function loadConversations(){
   if(!el || !SB_USER || _convsLoading) return;
   _convsLoading = true;
   try {
-    // Single efficient query — latest 200 messages only
     const {data} = await sb.from('messages')
       .select('id,from_user_id,to_user_id,content,created_at,read')
       .or(`from_user_id.eq.${SB_USER.id},to_user_id.eq.${SB_USER.id}`)
       .order('created_at',{ascending:false})
       .limit(200);
 
-    if(!data || data.length === 0){
-      el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--t3);font-size:13px"><div style="font-size:28px;margin-bottom:8px">💬</div>Нет диалогов.<br>Напиши кому-нибудь из лиги!</div>';
-      return;
-    }
-
-    // Group by partner — build convMap first (fast, in-memory)
     const partnerIds = new Set();
     const convMap = {};
-    data.forEach(msg => {
+    (data||[]).forEach(msg => {
       const partnerId = msg.from_user_id === SB_USER.id ? msg.to_user_id : msg.from_user_id;
       partnerIds.add(partnerId);
       if(!convMap[partnerId]){
@@ -3941,34 +3958,18 @@ async function loadConversations(){
       if(msg.to_user_id === SB_USER.id && !msg.read) convMap[partnerId].unread++;
     });
 
-    // Fetch partner names (single query)
-    const ids = [...partnerIds];
-    const {data:partnerUsers} = await sb.from('users').select('id,username,avatar').in('id',ids);
-    (partnerUsers||[]).forEach(u=>{ if(convMap[u.id]){ convMap[u.id].name=u.username||'?'; convMap[u.id].av=u.avatar||'🎯'; }});
+    if(partnerIds.size > 0){
+      const ids = [...partnerIds];
+      const {data:partnerUsers} = await sb.from('users').select('id,username,avatar').in('id',ids);
+      (partnerUsers||[]).forEach(u=>{ if(convMap[u.id]){ convMap[u.id].name=u.username||'?'; convMap[u.id].av=u.avatar||'🎯'; }});
+    }
 
     const convs = Object.values(convMap);
     allConvsCache = convs;
-
-    el.innerHTML = convs.map(cv => `
-      <div class="msg-conv ${cv.userId===activeConvUserId?'active':''}" onclick="openConv('${cv.userId}','${cv.name.replace(/'/g,"\\'")}','${cv.av}')">
-        <div class="msg-conv-av">${cv.av}</div>
-        <div class="msg-conv-info">
-          <div class="msg-conv-name">${cv.name}</div>
-          <div class="msg-conv-preview">${(cv.lastMsg||'').slice(0,40)}${(cv.lastMsg||'').length>40?'...':''}</div>
-        </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
-          <div class="msg-conv-time">${fmtMsgTime(cv.lastTime)}</div>
-          ${cv.unread>0?`<div class="msg-conv-badge">${cv.unread}</div>`:''}
-        </div>
-      </div>`).join('');
-
-    // Tab badge
-    const totalUnread = convs.reduce((s,c)=>s+c.unread,0);
-    const badge = document.getElementById('msgTabBadge');
-    if(badge){ badge.style.display=totalUnread>0?'inline':'none'; badge.textContent=totalUnread; }
-  } finally {
-    _convsLoading = false;
-  }
+    _convsCache = convs;
+    _renderConvList(convs);
+  } catch(e){ console.warn('loadConversations:', e); }
+  finally { _convsLoading = false; }
 }
 
 async function openConv(userId, name, av){
@@ -3992,7 +3993,6 @@ async function openConv(userId, name, av){
     </div>
     <div class="msg-messages" id="msgMessages"><div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:13px">Загрузка...</div></div>
     <div class="msg-input-area" style="position:relative">
-      <button onclick="toggleEmojiPicker('msgInput')" title="Эмодзи" style="width:32px;height:32px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--t2);font-size:16px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--t2)'">😊</button>
       <textarea class="msg-input" id="msgInput" placeholder="Написать сообщение..." rows="1"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg('${userId}')}"
         oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
@@ -4003,11 +4003,11 @@ async function openConv(userId, name, av){
     const backBtn = area.querySelector('.msg-back-btn');
     if (backBtn) backBtn.style.display = 'block';
   }
-  // Focus input immediately
-  setTimeout(() => { const inp = document.getElementById('msgInput'); if(inp) inp.focus(); }, 50);
-  // Load messages + mark read in parallel (non-blocking)
-  loadMessages(userId);
-  loadConversations();
+  // Non-blocking: load messages after shell renders
+  requestAnimationFrame(() => {
+    loadMessages(userId);
+    loadConversations();
+  });
 }
 
 async function loadMessages(partnerId){
