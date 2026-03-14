@@ -3260,15 +3260,42 @@ function renderManageGrid(){
   el.innerHTML=ALL_CATS.map(c=>{
     const on=P.activeCatIds.includes(c.id);
     const hrs=P.categories.find(x=>x.id===c.id)?.hours||0;
-    return `<div class="mg-item ${on?'on':''}" style="${on?`color:${c.color};border-color:${c.color}`:'color:var(--t2)'}" onclick="toggleCat('${c.id}')">
-      <div class="mg-check" style="background:${c.color}22">✓</div>
+    const mc=c.members||0;
+    return `<div class="mg-item ${on?'on':''}" style="${on?`color:${c.color};border-color:${c.color};background:${c.color}09`:'color:var(--t2)'};transition:none;cursor:pointer" onclick="toggleCatInstant('${c.id}',this)">
+      <div class="mg-check" style="background:${c.color};color:#09090B">✓</div>
       <div class="mg-emo">${c.icon}</div>
       <div class="mg-txt">
-        <div class="mg-name" style="${on?`color:${c.color}`:'color:var(--t1)'}">${c.name}</div>
-        <div class="mg-members">${c.members.toLocaleString('ru')} в лиге${on?` · ${hrs.toFixed(1)} ч у тебя`:''}</div>
+        <div class="mg-name" style="${on?`color:${c.color};text-transform:uppercase;letter-spacing:.5px;font-weight:800`:'color:var(--t1);text-transform:uppercase;letter-spacing:.5px;font-weight:700'};font-size:13px">${c.name}</div>
+        <div class="mg-members" style="color:#22C55E;font-size:12px;font-weight:700;margin-top:3px">
+          <span style="font-size:14px;font-weight:800">${mc>0?mc.toLocaleString('ru'):'0'}</span> в лиге${on?` · <span style="color:var(--gold)">${hrs.toFixed(1)} ч у тебя</span>`:''}
+        </div>
       </div>
     </div>`;
   }).join('');
+}
+
+// FIX: instant visual toggle — no async delay on UI
+function toggleCatInstant(id, el){
+  const on=P.activeCatIds.includes(id);
+  // Optimistic UI — flip immediately
+  const cat=ALL_CATS.find(c=>c.id===id);
+  if(!cat)return;
+  if(on){
+    if(P.activeCatIds.length<=1){showToast('Нужна хотя бы 1 категория','⚠️');return;}
+    el.classList.remove('on');
+    el.style.color='var(--t2)';el.style.borderColor='var(--border)';el.style.background='var(--card)';
+    const nameEl=el.querySelector('.mg-name');
+    if(nameEl){nameEl.style.color='var(--t1)';nameEl.style.fontWeight='700';}
+    const checkEl=el.querySelector('.mg-check');if(checkEl)checkEl.style.opacity='0';
+  } else {
+    el.classList.add('on');
+    el.style.color=cat.color;el.style.borderColor=cat.color;el.style.background=cat.color+'09';
+    const nameEl=el.querySelector('.mg-name');
+    if(nameEl){nameEl.style.color=cat.color;nameEl.style.fontWeight='800';}
+    const checkEl=el.querySelector('.mg-check');if(checkEl)checkEl.style.opacity='1';
+  }
+  // Then do actual async work in background
+  toggleCat(id);
 }
 
 // ══ ACHIEVEMENTS ════════════════════════════════════════════
@@ -3537,6 +3564,16 @@ async function renderLeagues(){
         const meStyle = isMe
           ? `background:linear-gradient(90deg,rgba(245,200,66,.13),rgba(245,200,66,.06));border-left:3px solid var(--gold);box-shadow:inset 0 0 24px rgba(245,200,66,.05);`
           : '';
+        // FIX 4: each mode shows correct label + secondary info
+        const secInfo = arenaMode==='hours'
+          ? `🔥 ${isMe?P.streak:p.streak} д стрик`
+          : arenaMode==='streak'
+          ? `⏱ ${isMe?activeCats().find(c=>c.id===cat.id)?.hours?.toFixed(1)||'0':p.hrs} ч всего`
+          : arenaMode==='week'
+          ? `📅 ${isMe?(P.sessions.filter(s=>s.ts&&s.ts>Date.now()-7*86400000).reduce((a,s)=>a+s.dur/3600,0).toFixed(1)):p.weekHrs} ч нед`
+          : arenaMode==='month'
+          ? `📅 ${isMe?(P.sessions.filter(s=>s.ts&&s.ts>Date.now()-30*86400000).reduce((a,s)=>a+s.dur/3600,0).toFixed(1)):p.monthHrs} ч мес`
+          : `⏱ ${isMe?activeCats().find(c=>c.id===cat.id)?.hours?.toFixed(1)||'0':p.hrs} ч всего`;
         return `<div class="lg-row ${isMe?'me':''}" style="${meStyle}${clickable?'cursor:pointer':''}" ${clickable?`onclick="openUserProfile('${p.userId}','${p.name}','${p.av}')"`:''}>
           <div class="lr-rank" style="color:${isMe?'var(--gold)':medal(i)?'var(--orange)':'var(--t3)'};font-weight:${isMe?'700':'400'}">${isMe?'★':medal(i)||i+1}</div>
           <div class="lr-av" style="border:${isMe?'2px solid var(--gold)':'1px solid var(--border)'};box-shadow:${isMe?'0 0 10px rgba(245,200,66,.4)':'none'}">${isMe?P.avatar:p.av}</div>
@@ -3547,7 +3584,7 @@ async function renderLeagues(){
             </div>
             <div class="lr-badges">
               <span class="lr-pill lr-pill-hrs" style="${isMe?'border-color:rgba(245,200,66,.35);color:var(--gold);background:rgba(245,200,66,.08)':''}">⚡ ${valStr}</span>
-              <span class="lr-pill lr-pill-streak">🔥 ${isMe?P.streak:p.streak} д</span>
+              <span class="lr-pill lr-pill-streak">${secInfo}</span>
             </div>
           </div>
           <div class="lr-bar-wr"><div class="lr-bar" style="width:${barW}%;background:${isMe?'var(--gold)':cat.color};${isMe?'box-shadow:0 0 6px rgba(245,200,66,.5)':''}"></div></div>
@@ -3666,84 +3703,130 @@ async function openUserProfile(userId, name, av){
   if(!userId){ showToast('Демо-игрок — профиль недоступен','ℹ️'); return; }
   const ov = document.getElementById('userProfileOv');
   ov.classList.add('show');
-  // Show data from cache IMMEDIATELY while loading
+  // Show immediately from cache
   document.getElementById('upAv').textContent = av || '🎯';
   document.getElementById('upName').textContent = name || '—';
   document.getElementById('upMeta').innerHTML = '<span style="color:var(--t3);font-size:12px">Загружаем...</span>';
-  document.getElementById('upLeaguesList').innerHTML = '<div style="color:var(--t3);font-size:13px;padding:8px 0">Загрузка...</div>';
+  document.getElementById('upLeaguesList').innerHTML = '<div style="color:var(--t3);font-size:13px;padding:12px 0;text-align:center">⏳ Загрузка...</div>';
   document.getElementById('userProfileOv').dataset.userId = userId;
   document.getElementById('userProfileOv').dataset.userName = name || '—';
   document.getElementById('userProfileOv').dataset.userAv = av || '🎯';
 
   try {
-    // FIX: use .select() without .single() — avoids 406 error if row missing
-    const [uRes, ucRes] = await Promise.all([
-      sb.from('users').select('id,username,avatar,avatar_url,streak,created_at').eq('id',userId).limit(1),
-      sb.from('user_categories').select('category_id,hours').eq('user_id',userId)
+    const [uRes, ucRes, achRes, clubRes] = await Promise.all([
+      sb.from('users').select('id,username,avatar,avatar_url,streak,total_sessions,created_at').eq('id',userId).limit(1),
+      sb.from('user_categories').select('category_id,hours').eq('user_id',userId),
+      sb.from('user_achievements').select('achievement_id,unlocked').eq('user_id',userId).eq('unlocked',true).limit(20),
+      sb.from('club_members').select('role,clubs(id,name,avatar,category_id)').eq('user_id',userId).limit(5)
     ]);
-    const u = (uRes.data && uRes.data.length > 0) ? uRes.data[0] : null;
+
+    const u = uRes.data?.[0] || null;
     const uc = ucRes.data || [];
+    const achs = achRes.data || [];
+    const clubs = clubRes.data || [];
 
     if(!u){
-      // FIX: don't close modal — show what we know from league cache
-      document.getElementById('upMeta').innerHTML =
-        `<span style="color:var(--t3);font-size:12px">Данные недоступны</span>`;
-      document.getElementById('upLeaguesList').innerHTML =
-        `<div style="color:var(--t3);font-size:13px;padding:8px 0">
-          Профиль этого пользователя скрыт или ещё не завершил регистрацию.
-        </div>`;
-      // Try likes anyway
+      document.getElementById('upMeta').innerHTML = `<span style="color:var(--t3);font-size:12px">Профиль недоступен</span>`;
+      document.getElementById('upLeaguesList').innerHTML = `<div style="color:var(--t3);font-size:13px;padding:8px 0">Пользователь ещё не завершил регистрацию.</div>`;
       await refreshLikeBtn(userId);
       return;
     }
 
-    // Cover gradient based on top cat color
-    const ucSorted = [...uc].sort((a,b)=>b.hours-a.hours);
-    const topCatId = ucSorted[0]?.category_id;
-    const catDef = ALL_CATS.find(c=>c.id===topCatId);
-    document.getElementById('upCover').style.background =
-      catDef ? `linear-gradient(135deg,${catDef.color}33,#12082a)` : 'linear-gradient(135deg,#0d1f35,#12082a)';
+    // ── Level ──
+    const totalH = uc.reduce((s,r)=>s+r.hours,0);
+    const lvlInfo = getLevelInfo(totalH);
 
-    // Avatar — photo or emoji
+    // ── Cover ──
+    const ucSorted = [...uc].sort((a,b)=>b.hours-a.hours);
+    const topCat = ALL_CATS.find(c=>c.id===ucSorted[0]?.category_id);
+    document.getElementById('upCover').style.background =
+      topCat ? `linear-gradient(135deg,${topCat.color}44,#12082a 70%)` : 'linear-gradient(135deg,#0d1f35,#12082a)';
+
+    // ── Avatar ──
     const upAvEl = document.getElementById('upAv');
     if(u.avatar_url){
       upAvEl.innerHTML = `<img src="${u.avatar_url}" style="width:100%;height:100%;border-radius:12px;object-fit:cover" onerror="this.parentNode.textContent='${u.avatar||'🎯'}'">`;
     } else {
       upAvEl.textContent = u.avatar || '🎯';
     }
+    // Level badge on avatar
+    upAvEl.style.border = `2.5px solid ${lvlInfo.color.includes('gradient')?'var(--gold)':lvlInfo.color}`;
+    upAvEl.style.boxShadow = `0 0 14px ${lvlInfo.color.includes('gradient')?'rgba(245,200,66,.4)':lvlInfo.color+'55'}`;
 
     document.getElementById('upName').textContent = u.username;
-    document.getElementById('upMeta').innerHTML =
-      `<span>🔥 ${u.streak||0} дней стрик</span>` +
-      `<span>📅 С ${new Date(u.created_at).toLocaleDateString('ru',{month:'long',year:'numeric'})}</span>`;
+    document.getElementById('upMeta').innerHTML = `
+      <span style="background:${lvlInfo.color.includes('gradient')?'rgba(245,200,66,.12)':lvlInfo.color+'22'};color:${lvlInfo.color.includes('gradient')?'var(--gold)':lvlInfo.color};border:1px solid ${lvlInfo.color.includes('gradient')?'rgba(245,200,66,.3)':lvlInfo.color+'44'};padding:2px 10px;border-radius:8px;font-weight:700;font-size:12px">
+        ⭐ Ур.${lvlInfo.lvl} ${lvlInfo.name}
+      </span>
+      <span>🔥 ${u.streak||0} дней стрик</span>
+      <span>⚡ ${u.total_sessions||0} сессий</span>
+      <span>📅 С ${new Date(u.created_at).toLocaleDateString('ru',{month:'long',year:'numeric'})}</span>`;
 
-    // Likes
     await refreshLikeBtn(userId);
-
-    // Store current viewed user
     document.getElementById('userProfileOv').dataset.userId = userId;
     document.getElementById('userProfileOv').dataset.userName = u.username;
     document.getElementById('userProfileOv').dataset.userAv = u.avatar || '🎯';
 
-    // League hours
+    // ── Build rich content ──
     const maxHrs = Math.max(...uc.map(r=>r.hours), 1);
-    document.getElementById('upLeaguesList').innerHTML = uc.length === 0
+
+    // Leagues section
+    const leagueHTML = uc.length === 0
       ? '<div style="color:var(--t3);font-size:13px">Нет данных по лигам</div>'
-      : ucSorted.map(row => {
-          const cat = ALL_CATS.find(c=>c.id===row.category_id) || {name:row.category_id,icon:'📌',color:'#888'};
+      : ucSorted.map(row=>{
+          const cat = ALL_CATS.find(c=>c.id===row.category_id)||{name:row.category_id,icon:'📌',color:'#888'};
           const pct = Math.round((row.hours/maxHrs)*100);
           return `<div class="up-league-row">
             <div class="up-lcat">${cat.icon}</div>
-            <div class="up-lname">${cat.name}</div>
+            <div class="up-lname" style="color:${cat.color}">${cat.name}</div>
             <div class="up-lbar-wr"><div class="up-lbar" style="width:${pct}%;background:${cat.color}"></div></div>
             <div class="up-lhrs" style="color:${cat.color}">${row.hours.toFixed(1)} ч</div>
           </div>`;
         }).join('');
+
+    // Achievements section (show up to 12)
+    const unlockedIds = new Set(achs.map(a=>a.achievement_id));
+    const achHTML = unlockedIds.size === 0
+      ? `<div style="color:var(--t3);font-size:12px;padding:6px 0">Нет разблокированных достижений</div>`
+      : ACH_DEF.filter(d=>unlockedIds.has(d.id)).slice(0,12).map(def=>
+          `<div title="${def.name}: ${def.desc}" style="width:36px;height:36px;border-radius:8px;background:${def.color||'#333'}22;border:1px solid ${def.color||'#555'}44;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;transition:transform .15s" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" onclick="openAch('${def.id}')">${def.icon}</div>`
+        ).join('') + (unlockedIds.size>12?`<div style="font-size:11px;color:var(--t3);display:flex;align-items:center;padding:0 4px">+${unlockedIds.size-12}</div>`:'');
+
+    // Clubs section
+    const clubHTML = clubs.length === 0
+      ? `<div style="color:var(--t3);font-size:12px">Не состоит в клубах</div>`
+      : clubs.map(m=>{
+          const cl=m.clubs;if(!cl)return'';
+          const catDef=ALL_CATS.find(c=>c.id===cl.category_id);
+          return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--card);border-radius:8px;border:1px solid var(--border-l)">
+            <span style="font-size:18px">${cl.avatar||'🏛️'}</span>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:700">${cl.name}</div>
+              ${catDef?`<div style="font-size:10px;color:${catDef.color}">${catDef.icon} ${catDef.name}</div>`:''}
+            </div>
+            <div style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;background:${m.role==='admin'?'rgba(245,200,66,.12)':'var(--border-l)'};color:${m.role==='admin'?'var(--gold)':'var(--t3)'}">${m.role==='admin'?'👑 Админ':'Участник'}</div>
+          </div>`;
+        }).filter(Boolean).join('');
+
+    document.getElementById('upLeaguesList').innerHTML = `
+      <div style="margin-bottom:16px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin-bottom:8px">Часы по лигам</div>
+        ${leagueHTML}
+      </div>
+
+      <div style="margin-bottom:16px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin-bottom:8px">Достижения · ${unlockedIds.size} / ${ACH_DEF.length}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">${achHTML}</div>
+      </div>
+
+      <div style="margin-bottom:4px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin-bottom:8px">Клубы</div>
+        <div style="display:flex;flex-direction:column;gap:6px">${clubHTML}</div>
+      </div>`;
+
   } catch(e){
     console.error('openUserProfile error:', e);
-    // FIX: don't close — show error inside modal, not as toast that closes modal
-    document.getElementById('upMeta').innerHTML =
-      `<span style="color:var(--red);font-size:12px">Ошибка загрузки — проверь подключение</span>`;
+    document.getElementById('upMeta').innerHTML = `<span style="color:var(--red);font-size:12px">Ошибка загрузки</span>`;
     document.getElementById('upLeaguesList').innerHTML = '';
   }
 }
@@ -4486,77 +4569,89 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSessModal();cl
 
 
 // ══════════════════════════════════════════════════════════════
-// SUPABASE PRESENCE — Live Online Count
+// ONLINE SYSTEM — Pure polling via last_seen (no Realtime Presence)
+// Realtime Presence channels cause DataCloneError (Headers can't postMessage)
 // ══════════════════════════════════════════════════════════════
 let presenceInterval = null;
+const ONLINE_WINDOW_MS = 3 * 60 * 1000; // 3 минуты = онлайн
 
 async function pingOnline(){
-  if(!SB_USER) return;
+  if(!SB_USER || SB_USER.isDemoUser) return;
   try {
-    const { error } = await sb.from('users')
+    await sb.from('users')
       .update({ last_seen: new Date().toISOString() })
       .eq('id', SB_USER.id);
-    if(error) console.warn('ping error:', error.message);
-  } catch(e){ console.warn('ping catch:', e); }
+  } catch(e){ /* silent */ }
 }
 
 async function updateOnlineCount(){
+  if(!SB_USER) return;
   try {
-    const cutoff = new Date(Date.now() - 5*60*1000).toISOString();
-    const res = await sb.from('users')
-      .select('id', { count: 'exact', head: true })
-      .gte('last_seen', cutoff);
-    const cnt = res.count ?? 0;
-    if(res.error){ console.warn('online count error:', res.error.message); return; }
+    const cutoff = new Date(Date.now() - ONLINE_WINDOW_MS).toISOString();
+    // Use a simple count query — extract only the number
+    const { data, error } = await sb.from('users')
+      .select('id')
+      .gte('last_seen', cutoff)
+      .limit(500);
+    if(error) return;
+    const cnt = (data||[]).length;
     const el = document.getElementById('onlineCnt');
-    if(el) el.textContent = Math.max(1, cnt) + ' онлайн';
-  } catch(e){ console.warn('updateOnlineCount:', e); }
+    if(el) el.textContent = Math.max(SB_USER.isDemoUser?1:cnt, 1) + ' онлайн';
+  } catch(e){ /* silent */ }
 }
 
 async function updateLeagueOnlineCounts(){
+  if(!SB_USER || !P) return;
   try {
-    const cutoff = new Date(Date.now() - 5*60*1000).toISOString();
     const cats = activeCats();
     if(!cats.length) return;
     const catIds = cats.map(c=>c.id);
+    const cutoff = new Date(Date.now() - ONLINE_WINDOW_MS).toISOString();
 
-    const { data: activeUC, error: e1 } = await sb.from('user_categories')
-      .select('category_id,user_id').in('category_id', catIds);
-    if(e1){ console.warn('uc error:', e1.message); return; }
+    // Step 1: get recently online users
+    const { data: onlineData } = await sb.from('users')
+      .select('id').gte('last_seen', cutoff).limit(500);
+    if(!onlineData) return;
+    const onlineSet = new Set(onlineData.map(u=>u.id));
 
-    const { data: onlineUsers, error: e2 } = await sb.from('users')
-      .select('id').gte('last_seen', cutoff);
-    if(e2){ console.warn('online users error:', e2.message); return; }
+    // Step 2: get user_categories for our leagues
+    const { data: ucData } = await sb.from('user_categories')
+      .select('user_id,category_id').in('category_id', catIds);
+    if(!ucData) return;
 
-    const onlineSet = new Set((onlineUsers||[]).map(u=>u.id));
+    // Step 3: count per league
     const cntMap = {};
-    (activeUC||[]).forEach(uc => {
+    ucData.forEach(uc => {
       if(onlineSet.has(uc.user_id)){
         cntMap[uc.category_id] = (cntMap[uc.category_id]||0)+1;
       }
     });
+
     document.querySelectorAll('[data-league-online]').forEach(el => {
       const catId = el.dataset.leagueOnline;
       const cnt = cntMap[catId] || 0;
       const span = el.querySelector('span');
-      if(span) span.textContent = cnt + ' онлайн';
-      else el.innerHTML = '<div class="online-dot" style="width:6px;height:6px;flex-shrink:0"></div><span>' + cnt + ' онлайн</span>';
+      const txt = cnt + ' онлайн';
+      if(span) span.textContent = txt;
+      else el.innerHTML = '<div class="online-dot" style="width:6px;height:6px;flex-shrink:0"></div><span>' + txt + '</span>';
     });
-  } catch(e){ console.warn('updateLeagueOnlineCounts:', e); }
+  } catch(e){ /* silent */ }
 }
 
 function initPresence() {
   if(!SB_USER) return;
-  if(presenceInterval) clearInterval(presenceInterval);
-  // Ping immediately
+  if(presenceInterval){ clearInterval(presenceInterval); presenceInterval=null; }
+
+  // Immediate first run
   pingOnline();
   updateOnlineCount();
   updateLeagueOnlineCounts();
-  // Repeat every 30s
-  presenceInterval = setInterval(() => {
-    pingOnline();
-    updateOnlineCount();
-    updateLeagueOnlineCounts();
+
+  // Refresh every 30s
+  presenceInterval = setInterval(async () => {
+    await pingOnline();
+    await updateOnlineCount();
+    await updateLeagueOnlineCounts();
   }, 30000);
 }
 
@@ -4991,8 +5086,9 @@ function renderRecords(){
     </div>`;
 }
 
-// ══ COMPARISON ═══════════════════════════════════════
+// ══ COMPARISON — REAL DATA ════════════════════════════
 let cmpPeriodDays=7;
+let _cmpLeagueCache={};
 
 function setCmpPeriod(days){
   cmpPeriodDays=days;
@@ -5000,87 +5096,145 @@ function setCmpPeriod(days){
   renderForecast();
 }
 
-function renderForecast(){
+async function renderForecast(){
   const el=document.getElementById('forecastRow');if(!el)return;
   const now=Date.now(),dayMs=86400000;
   const periodStart=now-cmpPeriodDays*dayMs;
   const days=cmpPeriodDays;
-
-  // ── 1. Goal ──
-  const goal=dailyGoalHours||2;
-  let totalGoalPct=0,activeDaysG=0;
-  for(let d=0;d<days;d++){
-    const ds=periodStart+d*dayMs,de=Math.min(ds+dayMs,now);
-    const dh=P.sessions.filter(s=>s.ts&&s.ts>=ds&&s.ts<de).reduce((a,s)=>a+(s.dur/3600),0);
-    if(dh>0){totalGoalPct+=Math.min(100,Math.round((dh/goal)*100));activeDaysG++;}
-  }
-  const myGoalPct=activeDaysG>0?Math.round(totalGoalPct/activeDaysG):0;
-  const avgGoalPct=60;
-  const goalDiff=myGoalPct-avgGoalPct;
-  const goalClass=goalDiff>5?'up':goalDiff<-5?'dn':'eq';
-  const goalDiffLbl=goalDiff>0?`+${goalDiff}%`:goalDiff<0?`${goalDiff}%`:'±0%';
-
-  // ── 2. Streak ──
-  const myStreak=P.streak||0;
-  const avgStreak=days<=3?3:days<=7?5:days<=14?6:8;
-  const streakDiff=myStreak-avgStreak;
-  const streakClass=streakDiff>2?'up':streakDiff<-2?'dn':'eq';
-  const streakDiffLbl=streakDiff>0?`+${streakDiff} д`:streakDiff<0?`${streakDiff} д`:'±0 д';
-
-  // ── 3. League auto ──
   const cats=activeCats();
-  const catAct=cats.map(c=>({...c,ph:P.sessions.filter(s=>s.cat===c.id&&s.ts>=periodStart&&s.ts<=now).reduce((a,s)=>a+(s.dur/3600),0)}));
-  const aCat=catAct.filter(c=>c.ph>0).sort((a,b)=>b.ph-a.ph)[0]||cats.reduce((a,b)=>a&&a.hours>b.hours?a:b,cats[0])||null;
-  const myLH=aCat?parseFloat((aCat.ph||aCat.hours).toFixed(1)):0;
-  const avgLH=days<=1?1:days<=3?3:days<=7?8:days<=14?15:30;
-  const hrsDiff=parseFloat((myLH-avgLH).toFixed(1));
-  const hrsClass=hrsDiff>0.5?'up':hrsDiff<-0.5?'dn':'eq';
-  const hrsDiffLbl=hrsDiff>0?`+${hrsDiff}ч`:hrsDiff<0?`${hrsDiff}ч`:'±0ч';
 
-  // ── Bar ──
-  const bar=(myNum,avgNum,myLbl,avgLbl)=>{
+  // ── Bar helper ──
+  const bar=(myNum,avgNum,myLbl,avgLbl,color='#4ade80')=>{
     const mx=Math.max(myNum,avgNum,0.1);
-    const myW=Math.round((myNum/mx)*100),avgW=Math.round((avgNum/mx)*100);
+    const myW=Math.min(100,Math.round((myNum/mx)*100));
+    const avgW=Math.min(100,Math.round((avgNum/mx)*100));
     const iWin=myNum>=avgNum;
     return `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
-        <div style="width:54px;font-size:10px;font-weight:700;color:#4ade80;flex-shrink:0">ТЫ</div>
+        <div style="width:54px;font-size:10px;font-weight:700;color:${color};flex-shrink:0">ТЫ</div>
         <div style="flex:1;height:10px;background:var(--bg);border-radius:5px;overflow:hidden">
-          <div style="height:100%;width:${myW}%;background:#4ade80;border-radius:5px;transition:width 1s cubic-bezier(.34,1.2,.64,1);${iWin?'box-shadow:0 0 8px #4ade8099':'opacity:.45'}"></div>
+          <div style="height:100%;width:${myW}%;background:${color};border-radius:5px;transition:width 1s cubic-bezier(.34,1.2,.64,1);${iWin?`box-shadow:0 0 8px ${color}88`:'opacity:.4'}"></div>
         </div>
-        <div style="width:42px;text-align:right;font-size:11px;font-weight:700;color:${iWin?'#4ade80':'rgba(74,222,128,.4)'}">${myLbl}</div>
+        <div style="width:46px;text-align:right;font-size:11px;font-weight:700;color:${iWin?color:'rgba(255,255,255,.3)'}">${myLbl}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <div style="width:54px;font-size:9px;font-weight:700;color:#f85149;letter-spacing:.4px;flex-shrink:0">СРЕДНИЙ</div>
+        <div style="width:54px;font-size:9px;font-weight:700;color:#f85149;letter-spacing:.3px;flex-shrink:0">СРЕДНИЙ</div>
         <div style="flex:1;height:10px;background:var(--bg);border-radius:5px;overflow:hidden">
-          <div style="height:100%;width:${avgW}%;background:#f85149;border-radius:5px;transition:width 1s cubic-bezier(.34,1.2,.64,1);${!iWin?'box-shadow:0 0 8px #f8514999':'opacity:.45'}"></div>
+          <div style="height:100%;width:${avgW}%;background:#f85149;border-radius:5px;transition:width 1s cubic-bezier(.34,1.2,.64,1);${!iWin?'box-shadow:0 0 8px #f8514988':'opacity:.4'}"></div>
         </div>
-        <div style="width:42px;text-align:right;font-size:10px;font-weight:700;color:${!iWin?'#f85149':'rgba(248,81,73,.4)'}">${avgLbl}</div>
+        <div style="width:46px;text-align:right;font-size:10px;font-weight:700;color:${!iWin?'#f85149':'rgba(248,81,73,.3)'}">${avgLbl}</div>
       </div>`;
   };
 
+  // Show loading state
+  el.innerHTML=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
+    ${[1,3,7,10,14,30].map(d=>`<button class="cmp-period-btn${cmpPeriodDays===d?' active':''}" data-d="${d}" onclick="setCmpPeriod(${d})">${d===1?'1 день':d<=4?d+' дня':d+' дней'}</button>`).join('')}
+  </div><div style="color:var(--t3);font-size:12px;padding:12px 0">⏳ Загружаем данные лиги...</div>`;
+
+  // ── Fetch REAL league data for comparison ──
+  const cutISO=new Date(periodStart).toISOString();
+  let leaguePlayers=[];
+  const cacheKey=cats.map(c=>c.id).join(',')+'-'+days;
+  if(_cmpLeagueCache[cacheKey]){
+    leaguePlayers=_cmpLeagueCache[cacheKey];
+  } else if(!SB_USER?.isDemoUser && cats.length){
+    try{
+      const userIds=new Set();
+      for(const cat of cats){
+        const{data:uc}=await sb.from('user_categories').select('user_id,hours').eq('category_id',cat.id).limit(50);
+        (uc||[]).forEach(r=>r.user_id!==SB_USER.id&&userIds.add(r.user_id));
+      }
+      const ids=[...userIds].slice(0,30);
+      if(ids.length){
+        const{data:sessOthers}=await sb.from('sessions')
+          .select('user_id,duration_seconds,created_at')
+          .in('user_id',ids).gte('created_at',cutISO);
+        const{data:usersOthers}=await sb.from('users').select('id,streak').in('id',ids);
+        const streakMap={};(usersOthers||[]).forEach(u=>streakMap[u.id]=u.streak||0);
+        // group by user
+        const pMap={};
+        (sessOthers||[]).forEach(s=>{
+          if(!pMap[s.user_id])pMap[s.user_id]={hrs:0,days:new Set(),streak:streakMap[s.user_id]||0};
+          pMap[s.user_id].hrs+=s.duration_seconds/3600;
+          pMap[s.user_id].days.add(s.created_at.slice(0,10));
+        });
+        leaguePlayers=Object.values(pMap);
+        _cmpLeagueCache[cacheKey]=leaguePlayers;
+      }
+    } catch(e){ console.warn('cmp fetch error',e); }
+  }
+
+  // ── Compute real averages ──
+  const othersCount=leaguePlayers.length||1;
+  const avgHrs=leaguePlayers.length
+    ? parseFloat((leaguePlayers.reduce((s,p)=>s+p.hrs,0)/othersCount).toFixed(1))
+    : days<=1?1:days<=3?2:days<=7?6:days<=14?12:25;
+  const avgStreakReal=leaguePlayers.length
+    ? Math.round(leaguePlayers.reduce((s,p)=>s+p.streak,0)/othersCount)
+    : days<=3?2:days<=7?4:7;
+  const avgActiveDays=leaguePlayers.length
+    ? parseFloat((leaguePlayers.reduce((s,p)=>s+p.days.size,0)/othersCount).toFixed(1))
+    : Math.round(days*0.5);
+
+  // ── MY stats ──
+  const mySessInPeriod=P.sessions.filter(s=>s.ts&&s.ts>=periodStart);
+  const myHrs=parseFloat(mySessInPeriod.reduce((s,x)=>s+x.dur/3600,0).toFixed(1));
+  const myActiveDays=new Set(mySessInPeriod.map(s=>new Date(s.ts).toISOString().slice(0,10))).size;
+  const myStreak=P.streak||0;
+
+  // ── Per category hours ──
+  const catCards=cats.map(cat=>{
+    const myCatHrs=parseFloat(mySessInPeriod.filter(s=>s.cat===cat.id).reduce((s,x)=>s+x.dur/3600,0).toFixed(1));
+    const avgCatHrs=parseFloat((avgHrs/Math.max(cats.length,1)).toFixed(1));
+    const diff=parseFloat((myCatHrs-avgCatHrs).toFixed(1));
+    const cls=diff>0.1?'up':diff<-0.1?'dn':'eq';
+    const diffLbl=diff>0?`+${diff}ч`:diff<0?`${diff}ч`:'±0ч';
+    return `<div class="cmp-card" style="--cmp-c:${cat.color}">
+      <div class="cmp-title" style="color:${cat.color}">${cat.icon} ${cat.name}</div>
+      <div class="cmp-bars">${bar(myCatHrs,avgCatHrs,myCatHrs+'ч',avgCatHrs+'ч',cat.color)}</div>
+      <div style="margin-top:5px;font-size:10px;color:var(--t3)">Среднее по лиге за ${days} дн.: ${avgCatHrs}ч · ${othersCount} игроков</div>
+      <span class="cmp-diff ${cls}">${diffLbl} ${cls==='up'?'выше среднего':cls==='dn'?'ниже среднего':'на уровне'}</span>
+    </div>`;
+  }).join('');
+
+  // ── Streak diff ──
+  const streakDiff=myStreak-avgStreakReal;
+  const streakCls=streakDiff>0?'up':streakDiff<0?'dn':'eq';
+
+  // ── Active days diff ──
+  const daysDiff=parseFloat((myActiveDays-avgActiveDays).toFixed(1));
+  const daysCls=daysDiff>0?'up':daysDiff<0?'dn':'eq';
+
   el.innerHTML=`
-    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px">
       ${[1,3,7,10,14,30].map(d=>`<button class="cmp-period-btn${cmpPeriodDays===d?' active':''}" data-d="${d}" onclick="setCmpPeriod(${d})">${d===1?'1 день':d<=4?d+' дня':d+' дней'}</button>`).join('')}
     </div>
-    <div class="cmp-card">
-      <div class="cmp-title" style="color:var(--gold)">🎯 Выполнение цели</div>
-      <div class="cmp-bars">${bar(myGoalPct,avgGoalPct,myGoalPct+'%',avgGoalPct+'%')}</div>
-      <div style="margin-top:5px;font-size:10px;color:var(--t3)">Цель: ${goal}ч/день · Активных: ${activeDaysG}/${days} дн.</div>
-      <span class="cmp-diff ${goalClass}">${goalDiffLbl} ${goalClass==='up'?'выше среднего':'ниже среднего'}</span>
+    <div style="font-size:10px;color:var(--t3);margin-bottom:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">
+      Сравнение с ${othersCount} ${othersCount===1?'участником':'участниками'} твоих лиг · за ${days} ${days===1?'день':days<=4?'дня':'дней'}
     </div>
+
     <div class="cmp-card">
-      <div class="cmp-title" style="color:var(--gold)">🔥 Стрик — последовательность</div>
-      <div class="cmp-bars">${bar(myStreak,avgStreak,myStreak+' д',avgStreak+' д')}</div>
-      <div style="margin-top:5px;font-size:10px;color:var(--t3)">Стрик: ${myStreak} дней подряд</div>
-      <span class="cmp-diff ${streakClass}">${streakDiffLbl} ${streakClass==='up'?'выше среднего':'ниже среднего'}</span>
+      <div class="cmp-title" style="color:var(--gold)">⏱ Общие часы за период</div>
+      <div class="cmp-bars">${bar(myHrs,avgHrs,myHrs+'ч',avgHrs+'ч','var(--gold)')}</div>
+      <div style="margin-top:5px;font-size:10px;color:var(--t3)">Среднее по лигам: ${avgHrs}ч</div>
+      <span class="cmp-diff ${myHrs>=avgHrs?'up':'dn'}">${myHrs>=avgHrs?'+':''}${(myHrs-avgHrs).toFixed(1)}ч ${myHrs>=avgHrs?'выше среднего':'ниже среднего'}</span>
     </div>
+
     <div class="cmp-card">
-      <div class="cmp-title" style="color:var(--gold)">${aCat?.icon||'🏆'} Часов в лиге — ${aCat?.name||'—'}</div>
-      <div class="cmp-bars">${bar(myLH,avgLH,myLH+'ч',avgLH+'ч')}</div>
-      <div style="margin-top:5px;font-size:10px;color:var(--t3)">Бенчмарк за ${days} дн.: ${avgLH}ч</div>
-      <span class="cmp-diff ${hrsClass}">${hrsDiffLbl} ${hrsClass==='up'?'выше среднего':'ниже среднего'}</span>
-    </div>`;
+      <div class="cmp-title" style="color:#f85149">🔥 Стрик — последовательность</div>
+      <div class="cmp-bars">${bar(myStreak,avgStreakReal,myStreak+' д',avgStreakReal+' д','#f85149')}</div>
+      <div style="margin-top:5px;font-size:10px;color:var(--t3)">Средний стрик в лиге: ${avgStreakReal} дней</div>
+      <span class="cmp-diff ${streakCls}">${streakDiff>0?'+':''}${streakDiff} д ${streakCls==='up'?'выше среднего':streakCls==='dn'?'ниже среднего':'на уровне'}</span>
+    </div>
+
+    <div class="cmp-card">
+      <div class="cmp-title" style="color:var(--blue)">📅 Активных дней</div>
+      <div class="cmp-bars">${bar(myActiveDays,avgActiveDays,myActiveDays+' д',avgActiveDays+' д','var(--blue)')}</div>
+      <div style="margin-top:5px;font-size:10px;color:var(--t3)">Среднее по лиге: ${avgActiveDays} дней активности</div>
+      <span class="cmp-diff ${daysCls}">${daysDiff>0?'+':''}${daysDiff} д ${daysCls==='up'?'выше среднего':daysCls==='dn'?'ниже среднего':'на уровне'}</span>
+    </div>
+
+    ${catCards}`;
 }
 
 // ══ CONFETTI ═════════════════════════════════════════
@@ -5615,51 +5769,11 @@ function filterConvs(query) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// ONLINE PER LEAGUE — Supabase Presence per category channel
+// ONLINE PER LEAGUE — handled by updateLeagueOnlineCounts() above
+// (Supabase Realtime Presence removed — causes DataCloneError)
 // ══════════════════════════════════════════════════════════════
-const leagueOnlineMap = {};
-
 function updateLeagueOnlineUI() {
-  document.querySelectorAll('[data-league-online]').forEach(el => {
-    const catId = el.dataset.leagueOnline;
-    const cnt = leagueOnlineMap[catId] ? leagueOnlineMap[catId].size : 0;
-    const span = el.querySelector('span');
-    if(span) span.textContent = cnt + ' онлайн';
-    else el.innerHTML = '<div class="online-dot" style="width:6px;height:6px;flex-shrink:0"></div><span>' + cnt + ' онлайн</span>';
-    el.style.display = 'flex';
-  });
-}
-
-function trackLeaguePresence() {
-  if (!SB_USER || !P) return;
-  const catIds = P.activeCatIds || [];
-  catIds.forEach(catId => {
-    if (!leagueOnlineMap[catId]) leagueOnlineMap[catId] = new Set();
-    try {
-      const ch = sb.channel('league-presence-v2-' + catId, {
-        config: { presence: { key: SB_USER.id }, broadcast: { self: true } }
-      });
-      ch.on('presence', { event: 'sync' }, () => {
-        leagueOnlineMap[catId] = new Set(Object.keys(ch.presenceState()));
-        updateLeagueOnlineUI();
-      }).on('presence', { event: 'join' }, ({ key }) => {
-        leagueOnlineMap[catId].add(key);
-        updateLeagueOnlineUI();
-      }).on('presence', { event: 'leave' }, ({ key }) => {
-        leagueOnlineMap[catId].delete(key);
-        updateLeagueOnlineUI();
-      }).subscribe(async status => {
-        if (status === 'SUBSCRIBED') {
-          await ch.track({ user_id: SB_USER.id, cat: catId, ts: Date.now() });
-          leagueOnlineMap[catId].add(SB_USER.id);
-          updateLeagueOnlineUI();
-        }
-      });
-    } catch(e) {
-      leagueOnlineMap[catId].add(SB_USER.id);
-      updateLeagueOnlineUI();
-    }
-  });
+  // No-op: handled by updateLeagueOnlineCounts() directly
 }
 
 // ══════════════════════════════════════════════════════════════
