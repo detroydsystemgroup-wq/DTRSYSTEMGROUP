@@ -1540,6 +1540,27 @@ body { overscroll-behavior: contain; }
 .pom-btn.active{background:rgba(245,200,66,.1);border-color:var(--gold);color:var(--gold);}
 .pom-btn:active{transform:scale(.92);}
 
+
+/* ── Arena mode bar ── */
+.arena-mode-bar{display:flex;gap:5px;padding:12px 0 8px;overflow-x:auto;scrollbar-width:none;flex-wrap:wrap;}
+.arena-mode-bar::-webkit-scrollbar{display:none;}
+.arena-mode-btn{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--t3);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.3px;font-family:'DM Sans',sans-serif;transition:all .18s cubic-bezier(.34,1.56,.64,1);}
+.arena-mode-btn:hover{border-color:var(--gold);color:var(--gold);transform:scale(1.04);}
+.arena-mode-btn.active{background:rgba(245,200,66,.1);border-color:var(--gold);color:var(--gold);}
+.arena-mode-btn:active{transform:scale(.93);}
+
+
+/* ── Sunday banner player cards ── */
+.sw-player-card{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 16px;border-radius:14px;background:var(--card);border:1px solid var(--border);min-width:120px;flex:1;transition:all .2s cubic-bezier(.34,1.56,.64,1);}
+.sw-player-card:hover{transform:translateY(-3px);border-color:var(--gold);}
+.sw-player-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);}
+.sw-player-av{font-size:36px;animation:floatUp 3s ease-in-out infinite;}
+.sw-player-av:nth-child(2){animation-delay:.5s}
+.sw-player-av:nth-child(3){animation-delay:1s}
+.sw-player-name{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:.5px;text-align:center;}
+.sw-player-stat{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;}
+.sw-player-streak{font-size:11px;color:var(--orange);}
+
 </style>
 </head>
 <body>
@@ -1696,20 +1717,15 @@ body { overscroll-behavior: contain; }
   </div>
 
 <!-- ══ SUNDAY TOP PLAYER BANNER ══════════════════════════════ -->
-<div id="sundayBanner" style="display:none;position:fixed;inset:0;z-index:510;align-items:center;justify-content:center;background:rgba(0,0,0,.85);backdrop-filter:blur(10px);">
-  <div class="sw-card">
+<div id="sundayBanner" style="display:none;position:fixed;inset:0;z-index:510;align-items:center;justify-content:center;background:rgba(0,0,0,.88);backdrop-filter:blur(12px);">
+  <div class="sw-card" style="max-width:520px">
     <div class="sw-confetti"></div>
-    <div class="sw-badge">🏆 Лидер недели</div>
-    <div class="sw-cat" id="swCat" style="color:#ffd93d">⚔️ Лига</div>
-    <div class="sw-av" id="swAv">🎯</div>
-    <div class="sw-name" id="swName">—</div>
-    <div class="sw-stat" id="swStat" style="color:#ffd93d">0</div>
-    <div class="sw-stat-lbl">часов вложено</div>
-    <div class="sw-streak" id="swStreak">🔥 — дней подряд</div>
-    <div class="sw-msg" id="swMsg">Этот игрок стал лидером недели. Обгони его!</div>
+    <div class="sw-badge">🏆 Топ недели</div>
+    <div style="font-size:13px;color:var(--t2);margin-bottom:16px">Лидеры твоих лиг за эту неделю</div>
+    <div id="swPlayersWrap" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:20px"></div>
     <div class="sw-btns">
       <button class="sw-btn sw-btn-skip" onclick="closeSundayBanner()">Позже</button>
-      <button class="sw-btn sw-btn-view" id="swViewBtn" onclick="closeSundayBanner();showTab('leagues')">Смотреть лигу →</button>
+      <button class="sw-btn sw-btn-view" onclick="closeSundayBanner();showTab('leagues')">Смотреть арену →</button>
     </div>
   </div>
 </div>
@@ -1783,6 +1799,14 @@ body { overscroll-behavior: contain; }
 
 
     <div id="tab-leagues" class="tc">
+      <!-- Arena mode tabs -->
+      <div class="arena-mode-bar" id="arenaModeBar">
+        <button class="arena-mode-btn active" onclick="setArenaMode('hours',this)">⏳ Всего часов</button>
+        <button class="arena-mode-btn" onclick="setArenaMode('streak',this)">🔥 Стрик</button>
+        <button class="arena-mode-btn" onclick="setArenaMode('week',this)">📅 За неделю</button>
+        <button class="arena-mode-btn" onclick="setArenaMode('month',this)">🗓 За месяц</button>
+        <button class="arena-mode-btn" onclick="setArenaMode('session',this)">⚡ Лучшая сессия</button>
+      </div>
       <div id="leaguesContent"></div>
     </div>
 
@@ -2122,6 +2146,7 @@ let selAv=AVATARS[0], editSelAv=AVATARS[0];
 let regBuf=null, selCatIds=new Set();
 let dashPeriod='week';
 let lgCache={};
+let arenaMode='hours'; // 'hours'|'streak'|'week'|'month'|'session'
 
 // ══ BANNER ═══════════════════════════════════════════════════
 let bIdx=0,bTmr=null;
@@ -2638,16 +2663,38 @@ function renderNav(){
 }
 function renderHeader(){
   const avEl=document.getElementById('profAv');
-  if(P.avatarUrl){const cbUrl2=P.avatarUrl+(P.avatarUrl.includes("blob:")||P.avatarUrl.includes("?")?"":"?v="+Date.now());avEl.innerHTML=`<img src="${cbUrl2}" style="width:100%;height:100%;border-radius:10px;object-fit:cover" onerror="this.parentNode.textContent='${P.avatar}'">`;}else{avEl.textContent=P.avatar;avEl.innerHTML=P.avatar;}
+  if(P.avatarUrl){
+    avEl.innerHTML=`<img src="${P.avatarUrl}" style="width:100%;height:100%;border-radius:10px;object-fit:cover" onerror="this.parentNode.textContent='${P.avatar}'">`;
+  } else {
+    avEl.textContent=P.avatar;
+  }
   document.getElementById('profName').textContent=P.name;
   document.getElementById('mJoined').textContent='📅 '+P.joinedDate;
   document.getElementById('mAch').textContent=`🏆 ${P.achievements.filter(a=>a.unlocked).length}`;
   document.getElementById('mSess').textContent=`⏱ ${P.totalSessions} сессий`;
   document.getElementById('mStreak').textContent=`🔥 ${P.streak} дней`;
+  // Apply level info
   const th=totalHrs();
-  const tits=['⚡ Новичок','📈 Начинающий','🔥 В процессе','🌟 Серьёзный','💎 Опытный','🏆 Легенда'];
-  const ti=[0,10,50,100,200,500].findIndex((v,i,a)=>th<(a[i+1]??Infinity)&&th>=v);
-  document.getElementById('profTitle').textContent=tits[Math.max(0,ti)];
+  const info=getLevelInfo(th);
+  const titleEl=document.getElementById('profTitle');
+  if(titleEl){
+    titleEl.textContent=`Ур. ${info.lvl} · ${info.name}`;
+    titleEl.style.color=info.color.includes('gradient')?'var(--gold)':info.color;
+  }
+  // Apply cover frame
+  const cover=document.getElementById('phCover');
+  if(cover&&info.frame){
+    cover.style.background=info.frame;
+    // Add shimmer overlay for high levels
+    if(info.lvl>=10){
+      cover.style.boxShadow=`inset 0 0 40px ${info.color.includes('gradient')?'rgba(245,200,66,.15)':info.color+'22'}`;
+    }
+  }
+  // Level-based avatar border glow
+  if(avEl&&info.lvl>=6){
+    avEl.style.border=`2.5px solid ${info.color.includes('gradient')?'var(--gold)':info.color}`;
+    avEl.style.boxShadow=`0 0 16px ${info.color.includes('gradient')?'rgba(245,200,66,.4)':info.color+'66'}`;
+  }
 }
 function renderTotals(){
   document.getElementById('totDisp').textContent=totalHrs().toLocaleString('ru',{maximumFractionDigits:1});
@@ -2965,18 +3012,84 @@ function genFakePlayers(catId,offset,count){
 async function loadLeagueData(catId){
   if(lgCache[catId])return lgCache[catId];
   const{data}=await sb.from('user_categories')
-    .select('hours,user:users(id,username,avatar,streak)')
+    .select('hours,user:users(id,username,avatar,avatar_url,streak)')
     .eq('category_id',catId)
     .order('hours',{ascending:false})
     .limit(50);
-  const players=(data||[]).map(uc=>({
-    name:uc.user?.username||'?',av:uc.user?.avatar||'🎯',
-    hrs:Math.round((uc.hours||0)*10)/10,streak:uc.user?.streak||0,
-    fake:false,isMe:uc.user?.id===SB_USER?.id,
-    userId:uc.user?.id||null
+
+  // Get week/month/session stats for real users
+  const now=Date.now();
+  const wCut=new Date(now-7*86400000).toISOString();
+  const mCut=new Date(now-30*86400000).toISOString();
+
+  const players = await Promise.all((data||[]).map(async uc => {
+    let weekHrs=0, monthHrs=0, bestSession=0;
+    if(uc.user?.id && !SB_USER?.isDemoUser){
+      const{data:sess}=await sb.from('sessions')
+        .select('duration_seconds,created_at')
+        .eq('user_id',uc.user.id)
+        .gte('created_at',mCut);
+      if(sess){
+        sess.forEach(s=>{
+          const h=s.duration_seconds/3600;
+          monthHrs+=h;
+          if(s.created_at>=wCut) weekHrs+=h;
+          if(h>bestSession) bestSession=h;
+        });
+      }
+    }
+    return {
+      name:uc.user?.username||'?',
+      av:uc.user?.avatar||'🎯',
+      avatarUrl:uc.user?.avatar_url||null,
+      hrs:Math.round((uc.hours||0)*10)/10,
+      streak:uc.user?.streak||0,
+      weekHrs:Math.round(weekHrs*10)/10,
+      monthHrs:Math.round(monthHrs*10)/10,
+      bestSession:Math.round(bestSession*10)/10,
+      fake:false,
+      isMe:uc.user?.id===SB_USER?.id,
+      userId:uc.user?.id||null
+    };
   }));
   lgCache[catId]=players;
   return players;
+}
+
+
+// ══ ARENA MODE ═══════════════════════════════════════════════
+function setArenaMode(mode, btn) {
+  arenaMode = mode;
+  lgCache = {}; // invalidate cache so data re-sorts
+  document.querySelectorAll('.arena-mode-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderLeagues();
+}
+
+function getArenaValue(player, mode) {
+  switch(mode) {
+    case 'hours':   return player.hrs || 0;
+    case 'streak':  return player.streak || 0;
+    case 'week':    return player.weekHrs || 0;
+    case 'month':   return player.monthHrs || 0;
+    case 'session': return player.bestSession || 0;
+    default:        return player.hrs || 0;
+  }
+}
+
+function formatArenaValue(val, mode) {
+  switch(mode) {
+    case 'hours':   return val.toFixed(1) + ' ч';
+    case 'streak':  return val + ' дн';
+    case 'week':    return val.toFixed(1) + ' ч';
+    case 'month':   return val.toFixed(1) + ' ч';
+    case 'session': return val.toFixed(1) + ' ч';
+    default:        return val.toFixed(1) + ' ч';
+  }
+}
+
+function arenaModeLabel(mode) {
+  return {hours:'Всего часов',streak:'Лучший стрик',week:'За неделю',month:'За месяц',session:'Лучшая сессия'}[mode]||'';
 }
 
 async function renderLeagues(){
@@ -2990,17 +3103,20 @@ async function renderLeagues(){
 
   const results=await Promise.all(cats.map(c=>loadLeagueData(c.id)));
 
+  const modeLbl = arenaModeLabel(arenaMode);
   el.innerHTML=cats.map((cat,ci)=>{
-    const players=results[ci];
-    const myIdx=players.findIndex(p=>p.isMe);
-    const top8=players.slice(0,8);
+    const rawPlayers=results[ci]||[];
+    const sorted=[...rawPlayers].sort((a,b)=>getArenaValue(b,arenaMode)-getArenaValue(a,arenaMode));
+    const myIdx=sorted.findIndex(p=>p.isMe);
+    const top8=sorted.slice(0,8);
+    const maxVal=Math.max(...top8.map(p=>getArenaValue(p,arenaMode)),0.1);
     const medal=i=>i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
     return `<div class="lg-section">
       <div class="lg-head" style="border-color:${cat.color}22">
         <span class="lg-cat-icon">${cat.icon}</span>
         <div>
           <div class="lg-cat-name" style="color:${cat.color}">${cat.name}</div>
-          <div style="font-size:10px;color:var(--t3)">${cat.members.toLocaleString('ru')} участников</div>
+          <div style="font-size:10px;color:var(--t3)">${cat.members.toLocaleString('ru')} · ${modeLbl}</div>
         </div>
         <div class="lg-online-wrap" data-league-online="${cat.id}" style="display:none">
           <div class="online-dot" style="width:6px;height:6px"></div> 0 онлайн
@@ -3088,43 +3204,31 @@ async function checkSundayBanner(){
   const todayKey = today.toISOString().slice(0,10);
   if(!isSunday || lastShown === todayKey) return;
   if(!P || !SB_USER) return;
-
   const cats = activeCats();
   if(!cats.length) return;
 
-  // Find top player across all active leagues
-  let topPlayer = null, topCat = null, topHrs = 0;
-  await Promise.all(cats.map(async cat => {
+  // Collect top player per league (max 3 leagues)
+  const topPlayers = [];
+  const catsToShow = cats.slice(0,3);
+  await Promise.all(catsToShow.map(async cat => {
     const players = await loadLeagueData(cat.id);
     const real = players.filter(p => !p.fake && !p.isMe && p.hrs > 0);
-    if(real[0] && real[0].hrs > topHrs) {
-      topHrs = real[0].hrs;
-      topPlayer = real[0];
-      topCat = cat;
-    }
+    if(real[0]) topPlayers.push({ player:real[0], cat });
   }));
 
-  if(!topPlayer || !topCat) return;
+  if(!topPlayers.length) return;
 
-  sundayBannerUserId = topPlayer.userId || null;
-  document.getElementById('swCat').textContent = topCat.icon + ' Лига ' + topCat.name;
-  document.getElementById('swCat').style.color = topCat.color;
-  document.getElementById('swAv').textContent = topPlayer.av;
-  document.getElementById('swName').textContent = topPlayer.name;
-  document.getElementById('swStat').textContent = topPlayer.hrs;
-  document.getElementById('swStat').style.color = topCat.color;
-  document.getElementById('swStreak').textContent = '🔥 ' + topPlayer.streak + ' дней подряд';
-  document.getElementById('swMsg').textContent =
-    topPlayer.name + ' — лучший в лиге «' + topCat.name + '» на этой неделе. ' +
-    'Вложено ' + topPlayer.hrs + ' ч — твой вызов!';
-
-  const viewBtn = document.getElementById('swViewBtn');
-  if(topPlayer.userId){
-    viewBtn.textContent = 'Открыть профиль →';
-    viewBtn.onclick = () => { closeSundayBanner(); openUserProfile(topPlayer.userId, topPlayer.name, topPlayer.av); };
-  } else {
-    viewBtn.textContent = 'Смотреть лигу →';
-    viewBtn.onclick = () => { closeSundayBanner(); showTab('leagues'); };
+  // Render player cards
+  const wrap = document.getElementById('swPlayersWrap');
+  if(wrap) {
+    wrap.innerHTML = topPlayers.map(({player,cat}) => `
+      <div class="sw-player-card" onclick="closeSundayBanner();${player.userId?`openUserProfile('${player.userId}','${player.name}','${player.av}')`:''}" style="cursor:${player.userId?'pointer':'default'}">
+        <div class="sw-player-lbl">${cat.icon} ${cat.name}</div>
+        <div class="sw-player-av">${player.av}</div>
+        <div class="sw-player-name">${player.name}</div>
+        <div class="sw-player-stat" style="color:${cat.color}">${player.hrs} ч</div>
+        <div class="sw-player-streak">🔥 ${player.streak} дней</div>
+      </div>`).join('');
   }
 
   document.getElementById('sundayBanner').style.display = 'flex';
@@ -3257,6 +3361,7 @@ async function loadConversations(){
   });
 
   const convs = Object.values(convMap);
+  allConvsCache = convs; // cache for search
   el.innerHTML = convs.map(cv => `
     <div class="msg-conv ${cv.userId===activeConvUserId?'active':''}" onclick="openConv('${cv.userId}','${cv.name}','${cv.av}')">
       <div class="msg-conv-av">${cv.av}</div>
@@ -3286,20 +3391,33 @@ async function openConv(userId, name, av){
   }
   activeConvUserId = userId;
   const area = document.getElementById('msgChatArea');
+  // Get avatar URL from cache if available
+  const convData = allConvsCache ? allConvsCache.find(cv => cv.userId === userId) : null;
+  const avUrl = convData?.avatarUrl || '';
+  const avHTML = avUrl ? `<img src="${avUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:7px" onerror="this.parentNode.textContent='${av}'">` : av;
   area.innerHTML = `
     <div class="msg-chat-head">
-      <div class="msg-chat-av">${av}</div>
+      <button class="msg-back-btn" onclick="showMsgListOnMobile()" style="display:none;padding:0 8px;background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer;flex-shrink:0">←</button>
+      <div class="msg-chat-av">${avHTML}</div>
       <div class="msg-chat-name">${name}</div>
       <button class="msg-chat-btn" onclick="openUserProfile('${userId}','${name}','${av}')">Профиль</button>
     </div>
     <div class="msg-messages" id="msgMessages"></div>
-    <div class="msg-input-area">
-      <button onclick="toggleEmojiPicker('msgInput')" style="width:32px;height:32px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--t2);font-size:16px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s" title="Эмодзи">😊</button>
+    <div class="msg-input-area" style="position:relative">
+      <button onclick="toggleEmojiPicker('msgInput')" title="Эмодзи" style="width:32px;height:32px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--t2);font-size:16px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .18s cubic-bezier(.34,1.56,.64,1)" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--t2)'">😊</button>
+      <button onclick="document.getElementById('msgFileInput_${userId}').click()" title="Файл/фото" style="width:32px;height:32px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--t2);font-size:16px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .18s cubic-bezier(.34,1.56,.64,1)" onmouseover="this.style.borderColor='var(--blue)';this.style.color='var(--blue)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--t2)'">📎</button>
+      <input type="file" id="msgFileInput_${userId}" accept="image/*,video/*,*/*" style="display:none" onchange="sendFile(this,'${userId}')">
+      <button id="voiceBtn_${userId}" onclick="toggleVoiceRecord('${userId}')" title="Голосовое" style="width:32px;height:32px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--t2);font-size:16px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .18s cubic-bezier(.34,1.56,.64,1)">🎤</button>
       <textarea class="msg-input" id="msgInput" placeholder="Написать сообщение..." rows="1"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg('${userId}')}"
         oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
       <button class="msg-send" onclick="sendMsg('${userId}')">➤</button>
     </div>`;
+  // Show back button on mobile
+  if (window.innerWidth <= 600) {
+    const backBtn = area.querySelector('.msg-back-btn');
+    if (backBtn) backBtn.style.display = 'block';
+  }
   await loadMessages(userId);
   loadConversations(); // refresh list to clear badge
   // Real-time already active via subscription
@@ -3317,7 +3435,7 @@ async function loadMessages(partnerId){
     .eq('from_user_id',partnerId).eq('to_user_id',SB_USER.id).eq('read',false);
 
   const {data} = await sb.from('messages')
-    .select('id,from_user_id,content,created_at')
+    .select('id,from_user_id,content,content_type,created_at')
     .or(`and(from_user_id.eq.${SB_USER.id},to_user_id.eq.${partnerId}),and(from_user_id.eq.${partnerId},to_user_id.eq.${SB_USER.id})`)
     .order('created_at',{ascending:true})
     .limit(100);
@@ -3898,6 +4016,17 @@ function initRealtimeMessages() {
     .subscribe();
 }
 
+function msgContentHTML(msg) {
+  const ct = msg.content_type || 'text';
+  const txt = msg.content || '';
+  if (ct === 'image') return `<img src="${txt}" style="max-width:220px;border-radius:8px;display:block;margin-bottom:2px" onclick="window.open('${txt}','_blank')">`;
+  if (ct === 'video') return `<video controls style="max-width:220px;border-radius:8px"><source src="${txt}"></video>`;
+  if (ct === 'voice') return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0"><span>🎤</span><audio controls style="max-width:180px;height:32px"><source src="${txt}"></audio></div>`;
+  if (ct === 'file') return `<div style="display:flex;align-items:center;gap:6px;padding:4px;background:rgba(0,0,0,.1);border-radius:6px;font-size:12px"><span>📄</span><span style="word-break:break-word">${txt}</span></div>`;
+  // Default: text — linkify URLs
+  return txt.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline">$1</a>');
+}
+
 function appendMessage(msg, isMine) {
   const el = document.getElementById('msgMessages');
   if (!el) return;
@@ -3990,6 +4119,86 @@ async function sendMsg(toUserId) {
   }
 }
 
+// ══ FILE / VOICE SENDING ══════════════════════════════════════
+async function sendFile(input, toUserId) {
+  const file = input.files[0];
+  if (!file || !SB_USER || SB_USER.isDemoUser) return;
+  input.value = '';
+  const isImage = file.type.startsWith('image/');
+  const isVideo = file.type.startsWith('video/');
+  const MAX_SIZE = 800 * 1024; // 800KB for base64 in DB
+  if (file.size > MAX_SIZE && !isVideo) {
+    showToast('Файл слишком большой (макс 800KB)', '⚠️'); return;
+  }
+  if (isVideo && file.size > 5 * 1024 * 1024) {
+    showToast('Видео слишком большое (макс 5MB)', '⚠️'); return;
+  }
+  showToast('Отправляем...', '⏳');
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const b64 = e.target.result;
+    const ct = isImage ? 'image' : isVideo ? 'video' : 'file';
+    const content = (isImage || isVideo) ? b64 : file.name;
+    // Optimistic
+    appendMessage({ content, content_type: ct, created_at: new Date().toISOString(), from_user_id: SB_USER.id }, true);
+    try {
+      await sb.from('messages').insert({
+        from_user_id: SB_USER.id, to_user_id: toUserId,
+        content: b64, content_type: ct, read: false
+      });
+      await loadConversations();
+      showToast(isImage ? 'Фото отправлено' : isVideo ? 'Видео отправлено' : 'Файл отправлен', '✅');
+    } catch(e) { showToast('Ошибка отправки файла', '❌'); }
+  };
+  if (isImage || isVideo || file.size <= MAX_SIZE) reader.readAsDataURL(file);
+  else reader.readAsDataURL(file);
+}
+
+let voiceRecorder = null, voiceChunks = [], voiceUserId = null;
+async function toggleVoiceRecord(toUserId) {
+  const btn = document.getElementById('voiceBtn_' + toUserId);
+  if (voiceRecorder && voiceRecorder.state === 'recording') {
+    voiceRecorder.stop();
+    if (btn) { btn.textContent = '🎤'; btn.style.borderColor = 'var(--border)'; btn.style.color = 'var(--t2)'; }
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    voiceChunks = []; voiceUserId = toUserId;
+    voiceRecorder = new MediaRecorder(stream);
+    voiceRecorder.ondataavailable = e => voiceChunks.push(e.data);
+    voiceRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(voiceChunks, { type: 'audio/webm' });
+      if (blob.size > 800 * 1024) { showToast('Голосовое слишком длинное', '⚠️'); return; }
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const b64 = e.target.result;
+        appendMessage({ content: b64, content_type: 'voice', created_at: new Date().toISOString(), from_user_id: SB_USER.id }, true);
+        await sb.from('messages').insert({
+          from_user_id: SB_USER.id, to_user_id: voiceUserId,
+          content: b64, content_type: 'voice', read: false
+        }).catch(() => {});
+      };
+      reader.readAsDataURL(blob);
+    };
+    voiceRecorder.start();
+    if (btn) { btn.textContent = '⏹'; btn.style.borderColor = 'var(--red)'; btn.style.color = 'var(--red)'; }
+    showToast('Запись... Нажми ⏹ чтобы остановить', '🎤');
+  } catch(e) { showToast('Микрофон недоступен', '❌'); }
+}
+
+let allConvsCache = null; // cache for avatar URLs in openConv
+
+// Mobile: show/hide msg list
+function showMsgListOnMobile() {
+  const list = document.getElementById('msgList');
+  const chat = document.getElementById('msgChatArea');
+  if (list) list.style.display = 'flex';
+  if (chat) chat.style.display = 'none';
+  activeConvUserId = null;
+}
+
 // ══════════════════════════════════════════════════════════════
 // ODOMETER — Number counter animation
 // ══════════════════════════════════════════════════════════════
@@ -4022,19 +4231,86 @@ function animateKpiValues() {
 // ══ INIT ════════════════════════════════════════════════════
 
 // ══ XP / LEVEL ═══════════════════════════════════════
+// ── LEVEL SYSTEM (CoD-style) ──────────────────────────────
+const LEVEL_THRESHOLDS=[0,5,15,30,50,75,100,150,200,300,500,750,1000,1500,2000,3000];
+const LEVEL_NAMES=['Новичок','Ученик','Практик','Следопыт','Исследователь','Боец','Эксперт','Мастер','Ас','Легенда','Гроссмейстер','Элита','Чемпион','Властелин','Легенда+','DTR God'];
+const LEVEL_COLORS=['#8b949e','#8b949e','#3fb950','#3fb950','#58a6ff','#58a6ff','#bc8cff','#bc8cff','#f7931a','#f7931a','#f5c842','#f5c842','#f85149','#f85149','linear-gradient(135deg,#f5c842,#f7931a)','linear-gradient(135deg,#f85149,#bc8cff,#58a6ff)'];
+const LEVEL_FRAMES=[
+  '','',
+  'linear-gradient(135deg,#0e2318,#091510)',       // lv2 green
+  'linear-gradient(135deg,#0e2318,#091510)',
+  'linear-gradient(135deg,#0d1f35,#12082a)',       // lv4 blue
+  'linear-gradient(135deg,#0d1f35,#12082a)',
+  'linear-gradient(135deg,#1e1428,#120c1a)',       // lv6 purple
+  'linear-gradient(135deg,#1e1428,#120c1a)',
+  'linear-gradient(135deg,#1e1808,#100e00)',       // lv8 orange
+  'linear-gradient(135deg,#1e1808,#100e00)',
+  'linear-gradient(135deg,#1A1200,#2A1F00)',       // lv10 gold
+  'linear-gradient(135deg,#1A1200,#2A1F00)',
+  'linear-gradient(135deg,#200010,#100020,#200010)', // lv12 red-purple
+  'linear-gradient(135deg,#200010,#100020,#200010)',
+  'linear-gradient(135deg,#1A0A00,#200010,#001020)', // lv14 fire
+  'linear-gradient(135deg,#0A0A1A,#1A0A1A,#0A1A1A)', // lv15 god
+];
+const LEVEL_BORDER_ANIM=[
+  '','',
+  '','',
+  '','',
+  '','',
+  '','',
+  'animation:goldPulse 2s ease infinite;', // lv10+
+  'animation:goldPulse 2s ease infinite;',
+  'animation:goldPulse 1.5s ease infinite;',
+  'animation:goldPulse 1.5s ease infinite;',
+  'animation:goldPulse 1s ease infinite;',
+  'animation:gradFlow 2s linear infinite;background:linear-gradient(90deg,var(--gold),var(--red),var(--purple),var(--blue),var(--gold));background-size:300% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;',
+];
+
+function getLevelInfo(totalHours) {
+  let lvl = 0;
+  for(let i=LEVEL_THRESHOLDS.length-1;i>=0;i--){
+    if(totalHours>=LEVEL_THRESHOLDS[i]){lvl=i;break;}
+  }
+  const name = LEVEL_NAMES[lvl]||'DTR God';
+  const color = LEVEL_COLORS[lvl]||'var(--gold)';
+  const frame = LEVEL_FRAMES[Math.min(lvl,LEVEL_FRAMES.length-1)];
+  const anim = LEVEL_BORDER_ANIM[Math.min(lvl,LEVEL_BORDER_ANIM.length-1)]||'';
+  const nextThresh = LEVEL_THRESHOLDS[lvl+1]||LEVEL_THRESHOLDS[lvl]+1000;
+  const curThresh = LEVEL_THRESHOLDS[lvl];
+  const pct = Math.min(100,Math.round(((totalHours-curThresh)/(nextThresh-curThresh))*100));
+  const xpLeft = Math.max(0,(nextThresh-totalHours).toFixed(1));
+  return {lvl:lvl+1, name, color, frame, anim, pct, xpLeft, curThresh, nextThresh};
+}
+
 function calcXP(totalHours){return Math.floor(totalHours*100);}
 function calcLevel(xp){return Math.floor(Math.sqrt(xp/500))+1;}
 function xpForLevel(lvl){return (lvl-1)*(lvl-1)*500;}
+
 function renderXP(){
-  const th=totalHrs(),xp=calcXP(th),lvl=calcLevel(xp);
-  const xpCur=xp-xpForLevel(lvl),xpNext=xpForLevel(lvl+1)-xpForLevel(lvl);
-  const pct=Math.min(100,Math.round((xpCur/xpNext)*100));
+  const th=totalHrs();
+  const info=getLevelInfo(th);
   const el2=document.getElementById('xpLevel');
   const pts=document.getElementById('xpPts');
   const fill=document.getElementById('xpFill');
-  if(el2)el2.textContent=`${t('level')} ${lvl}`;
-  if(pts)pts.textContent=`${xpCur.toLocaleString()} / ${xpNext.toLocaleString()} XP`;
-  if(fill)setTimeout(()=>fill.style.width=pct+'%',100);
+  if(el2){
+    el2.textContent=`Ур. ${info.lvl} · ${info.name}`;
+    el2.style.color=info.color.includes('gradient')?'var(--gold)':info.color;
+  }
+  if(pts)pts.textContent=`Осталось ${info.xpLeft} ч до следующего уровня`;
+  if(fill)setTimeout(()=>fill.style.width=info.pct+'%',100);
+  // Apply frame to profile cover
+  applyLevelFrame(info);
+}
+
+function applyLevelFrame(info){
+  const cover=document.getElementById('phCover');
+  if(cover&&info.frame){cover.style.background=info.frame;}
+  // Avatar border based on level
+  const avEl=document.getElementById('profAv');
+  if(avEl&&info.lvl>=10){
+    avEl.style.borderColor=info.color.includes('gradient')?'var(--gold)':info.color;
+    avEl.style.boxShadow=`0 0 18px ${info.color.includes('gradient')?'rgba(245,200,66,.5)':info.color+'88'}`;
+  }
 }
 
 // ══ ANIMATED COUNTER ═════════════════════════════════
@@ -4627,6 +4903,23 @@ document.addEventListener('click', () => {
   }
 });
 
+function filterConvs(query) {
+  const el = document.getElementById('msgConvList'); if(!el) return;
+  if (!query || !query.trim()) { loadConversations(); return; }
+  const q = query.toLowerCase();
+  const filtered = (allConvsCache||[]).filter(cv => cv.name.toLowerCase().includes(q));
+  if (!filtered.length) { el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px">Ничего не найдено</div>'; return; }
+  el.innerHTML = filtered.map(cv => `
+    <div class="msg-conv ${cv.userId===activeConvUserId?'active':''}" onclick="openConv('${cv.userId}','${cv.name}','${cv.av}')">
+      <div class="msg-conv-av">${cv.av}</div>
+      <div class="msg-conv-info">
+        <div class="msg-conv-name">${cv.name}</div>
+        <div class="msg-conv-preview">${(cv.lastMsg||'').slice(0,40)}</div>
+      </div>
+      <div class="msg-conv-time">${cv.lastTime?new Date(cv.lastTime).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}):''}</div>
+    </div>`).join('');
+}
+
 // ══════════════════════════════════════════════════════════════
 // ONLINE PER LEAGUE — Supabase Presence per category channel
 // ══════════════════════════════════════════════════════════════
@@ -4685,6 +4978,14 @@ function openCreateClub() {
   ov.classList.add('show');
 }
 function closeCreateClub() { document.getElementById('createClubOv')?.classList.remove('show'); }
+
+function setClubFilter(type, btn) {
+  window.clubsFilter = type;
+  document.querySelectorAll('.club-filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  clubsCache = null; // refresh
+  renderClubs();
+}
 function selClubAv(av, el) {
   clubSelAv = av;
   document.querySelectorAll('.ccf-av-opt').forEach(e => e.classList.remove('sel'));
@@ -4734,32 +5035,61 @@ async function renderClubs() {
       return;
     }
     const GRADS = ['linear-gradient(135deg,#1a1809,#2a2012)','linear-gradient(135deg,#0d1f35,#12082a)','linear-gradient(135deg,#0e2318,#091510)','linear-gradient(135deg,#1e1428,#120c1a)'];
-    el.innerHTML = clubsCache.map((club, idx) => {
+    // Apply filter
+    const activeFilter = window.clubsFilter || 'all';
+    let displayClubs = clubsCache;
+    if (activeFilter === 'mine') displayClubs = clubsCache.filter(cl => myClubIds.has(cl.id));
+    else if (activeFilter === 'public') displayClubs = clubsCache.filter(cl => !cl.is_private);
+
+    if (!displayClubs.length) {
+      el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--t3)"><div style="font-size:36px;margin-bottom:8px">🏛️</div>' +
+        (activeFilter==='mine'?'Ты ещё не вступил ни в один клуб':'Нет клубов') + '</div>';
+      return;
+    }
+    el.innerHTML = displayClubs.map((club, idx) => {
       const cnt = club.members?.[0]?.count ?? 0;
       const isMember = myClubIds.has(club.id);
       const catDef = ALL_CATS.find(c => c.id === club.category_id);
-      return '<div class="club-card" onclick="openClubDetail(\'' + club.id + '\')">' +
-        '<div class="club-card-cover" style="background:' + GRADS[idx%GRADS.length] + (catDef?';border-bottom:2px solid '+catDef.color+'33':'') + '">' +
-        '<div class="club-card-av">' + (club.avatar||'🏛️') + '</div></div>' +
-        '<div class="club-card-body">' +
-        '<div class="club-card-name">' + club.name + '</div>' +
-        '<div class="club-card-desc">' + (club.description||'Клуб единомышленников') + '</div>' +
-        '<div class="club-card-stats"><span>👥 ' + cnt + ' чел.</span>' + (catDef?'<span>'+catDef.icon+' '+catDef.name+'</span>':'') + (club.is_private?'<span>🔒</span>':'<span>🌐</span>') + '</div>' +
-        '<button class="club-join-btn ' + (isMember?'joined':'') + '" onclick="event.stopPropagation();toggleClubMember(\'' + club.id + '\',' + isMember + ')">' + (isMember?'✓ Ты в клубе':'+ Вступить') + '</button>' +
-        '</div></div>';
+      const isOwner = club.owner_id === SB_USER?.id;
+      const coverBg = club.avatar_url ? `background:url('${club.avatar_url}') center/cover` : `background:${GRADS[idx%GRADS.length]}`;
+      return `<div class="club-card" onclick="openClubDetail('${club.id}')">
+        <div class="club-card-cover" style="${coverBg}${catDef?`;border-bottom:2px solid ${catDef.color}33`:''}">
+          <div class="club-card-av">${club.avatar_url?'':club.avatar||'🏛️'}</div>
+          ${isOwner?'<div style="position:absolute;top:6px;right:6px;background:rgba(245,200,66,.15);border:1px solid var(--gold);color:var(--gold);font-size:9px;font-weight:700;padding:2px 6px;border-radius:8px">ADMIN</div>':''}
+        </div>
+        <div class="club-card-body">
+          <div class="club-card-name">${club.name}</div>
+          <div class="club-card-desc">${club.description||'Клуб единомышленников'}</div>
+          <div class="club-card-stats">
+            <span>👥 ${cnt} чел.</span>
+            ${catDef?`<span>${catDef.icon} ${catDef.name}</span>`:''}
+            ${club.is_private?'<span>🔒 Закрытый</span>':'<span>🌐 Открытый</span>'}
+          </div>
+          <button class="club-join-btn ${isMember?'joined':''}" onclick="event.stopPropagation();toggleClubMember('${club.id}',${isMember})">
+            ${isMember?'✓ Ты в клубе':'+ Вступить'}
+          </button>
+        </div>
+      </div>`;
     }).join('');
   } catch (e) { el.innerHTML = '<div style="color:var(--red);font-size:13px;padding:16px">Ошибка загрузки</div>'; }
 }
 
 async function toggleClubMember(clubId, isMember) {
   if (!SB_USER) return;
+  // OPTIMISTIC: update cache immediately
+  clubsCache = null; // will re-fetch
   if (isMember) {
-    if (!confirm('Выйти из клуба?')) return;
-    await sb.from('club_members').delete().eq('club_id', clubId).eq('user_id', SB_USER.id);
-    showToast('Ты вышел из клуба', '👋');
+    showToast('Выходим...', '👋');
+    try {
+      await sb.from('club_members').delete().eq('club_id', clubId).eq('user_id', SB_USER.id);
+      showToast('Ты вышел из клуба', '👋');
+    } catch(e) { showToast('Ошибка', '❌'); }
   } else {
-    await sb.from('club_members').insert({ club_id: clubId, user_id: SB_USER.id, role: 'member' });
-    showToast('Добро пожаловать в клуб!', '🏛️');
+    showToast('Вступаем в клуб...', '⏳');
+    try {
+      await sb.from('club_members').insert({ club_id: clubId, user_id: SB_USER.id, role: 'member' });
+      showToast('Добро пожаловать в клуб!', '🏛️');
+    } catch(e) { showToast('Ошибка', '❌'); }
   }
   clubsCache = null;
   renderClubs();
