@@ -3856,6 +3856,7 @@ async function refreshLikeBtn(userId){
 // ══ MESSAGES SYSTEM ════════════════════════════════════════
 let activeConvUserId = null;
 let msgsPolling = null;
+let _convsLoading = false;
 
 async function renderMsgTab(){
   await loadConversations();
@@ -3863,64 +3864,65 @@ async function renderMsgTab(){
 
 async function loadConversations(){
   const el = document.getElementById('msgConvList');
-  if(!el || !SB_USER) return;
+  if(!el || !SB_USER || _convsLoading) return;
+  _convsLoading = true;
+  try {
+    // Single efficient query — latest 200 messages only
+    const {data} = await sb.from('messages')
+      .select('id,from_user_id,to_user_id,content,created_at,read')
+      .or(`from_user_id.eq.${SB_USER.id},to_user_id.eq.${SB_USER.id}`)
+      .order('created_at',{ascending:false})
+      .limit(200);
 
-  const {data} = await sb.from('messages')
-    .select('id,from_user_id,to_user_id,content,created_at,read')
-    .or(`from_user_id.eq.${SB_USER.id},to_user_id.eq.${SB_USER.id}`)
-    .order('created_at',{ascending:false});
-
-  if(!data || data.length === 0){
-    el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--t3);font-size:13px"><div style="font-size:28px;margin-bottom:8px">💬</div>Нет диалогов.<br>Напиши кому-нибудь из лиги!</div>';
-    return;
-  }
-
-  // Get unique partner IDs
-  const partnerIds=[...new Set(data.map(m=>m.from_user_id===SB_USER.id?m.to_user_id:m.from_user_id))];
-  const {data:partnerUsers}=await sb.from('users').select('id,username,avatar').in('id',partnerIds);
-  const pMap={}; (partnerUsers||[]).forEach(u=>{pMap[u.id]=u;});
-
-  // Group by conversation partner
-  const convMap = {};
-  data.forEach(msg => {
-    const partnerId = msg.from_user_id === SB_USER.id ? msg.to_user_id : msg.from_user_id;
-    const partner = pMap[partnerId] || {};
-    if(!convMap[partnerId]){
-      convMap[partnerId] = {
-        userId: partnerId,
-        name: partner.username || '?',
-        av: partner.avatar || '🎯',
-        lastMsg: msg.content,
-        lastTime: msg.created_at,
-        unread: 0
-      };
+    if(!data || data.length === 0){
+      el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--t3);font-size:13px"><div style="font-size:28px;margin-bottom:8px">💬</div>Нет диалогов.<br>Напиши кому-нибудь из лиги!</div>';
+      return;
     }
-    if(msg.to_user_id === SB_USER.id && !msg.read) convMap[partnerId].unread++;
-  });
 
-  const convs = Object.values(convMap);
-  allConvsCache = convs; // cache for search
-  el.innerHTML = convs.map(cv => `
-    <div class="msg-conv ${cv.userId===activeConvUserId?'active':''}" onclick="openConv('${cv.userId}','${cv.name}','${cv.av}')">
-      <div class="msg-conv-av">${cv.av}</div>
-      <div class="msg-conv-info">
-        <div class="msg-conv-name">${cv.name}</div>
-        <div class="msg-conv-preview">${cv.lastMsg.slice(0,40)}${cv.lastMsg.length>40?'...':''}</div>
-      </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-        <div class="msg-conv-time">${fmtMsgTime(cv.lastTime)}</div>
-        ${cv.unread > 0 ? `<div class="msg-conv-badge">${cv.unread}</div>` : ''}
-      </div>
-    </div>`).join('');
+    // Group by partner — build convMap first (fast, in-memory)
+    const partnerIds = new Set();
+    const convMap = {};
+    data.forEach(msg => {
+      const partnerId = msg.from_user_id === SB_USER.id ? msg.to_user_id : msg.from_user_id;
+      partnerIds.add(partnerId);
+      if(!convMap[partnerId]){
+        convMap[partnerId] = { userId:partnerId, name:'?', av:'🎯', lastMsg:msg.content||'', lastTime:msg.created_at, unread:0 };
+      }
+      if(msg.to_user_id === SB_USER.id && !msg.read) convMap[partnerId].unread++;
+    });
 
-  // Update badge in tab
-  const totalUnread = convs.reduce((s,c)=>s+c.unread,0);
-  const badge = document.getElementById('msgTabBadge');
-  if(badge){ badge.style.display = totalUnread>0?'inline':'none'; badge.textContent=totalUnread; }
+    // Fetch partner names (single query)
+    const ids = [...partnerIds];
+    const {data:partnerUsers} = await sb.from('users').select('id,username,avatar').in('id',ids);
+    (partnerUsers||[]).forEach(u=>{ if(convMap[u.id]){ convMap[u.id].name=u.username||'?'; convMap[u.id].av=u.avatar||'🎯'; }});
+
+    const convs = Object.values(convMap);
+    allConvsCache = convs;
+
+    el.innerHTML = convs.map(cv => `
+      <div class="msg-conv ${cv.userId===activeConvUserId?'active':''}" onclick="openConv('${cv.userId}','${cv.name.replace(/'/g,"\\'")}','${cv.av}')">
+        <div class="msg-conv-av">${cv.av}</div>
+        <div class="msg-conv-info">
+          <div class="msg-conv-name">${cv.name}</div>
+          <div class="msg-conv-preview">${(cv.lastMsg||'').slice(0,40)}${(cv.lastMsg||'').length>40?'...':''}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+          <div class="msg-conv-time">${fmtMsgTime(cv.lastTime)}</div>
+          ${cv.unread>0?`<div class="msg-conv-badge">${cv.unread}</div>`:''}
+        </div>
+      </div>`).join('');
+
+    // Tab badge
+    const totalUnread = convs.reduce((s,c)=>s+c.unread,0);
+    const badge = document.getElementById('msgTabBadge');
+    if(badge){ badge.style.display=totalUnread>0?'inline':'none'; badge.textContent=totalUnread; }
+  } finally {
+    _convsLoading = false;
+  }
 }
 
 async function openConv(userId, name, av){
-  // Show chat panel on mobile
+  // Mobile: show chat panel
   if (window.innerWidth <= 600) {
     const chat = document.getElementById('msgChatArea');
     if (chat) { chat.style.display = 'flex'; chat.classList.add('active'); }
@@ -3929,10 +3931,8 @@ async function openConv(userId, name, av){
   }
   activeConvUserId = userId;
   const area = document.getElementById('msgChatArea');
-  // Get avatar URL from cache if available
-  const convData = allConvsCache ? allConvsCache.find(cv => cv.userId === userId) : null;
-  const avUrl = convData?.avatarUrl || '';
-  const avHTML = avUrl ? `<img src="${avUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:7px" onerror="this.parentNode.textContent='${av}'">` : av;
+  const avHTML = av ? av : '🎯';
+  // Render chat shell instantly — no waiting
   area.innerHTML = `
     <div class="msg-chat-head">
       <button class="msg-back-btn" onclick="showMsgListOnMobile()" style="display:none;padding:0 8px;background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer;flex-shrink:0">←</button>
@@ -3940,12 +3940,9 @@ async function openConv(userId, name, av){
       <div class="msg-chat-name">${name}</div>
       <button class="msg-chat-btn" onclick="openUserProfile('${userId}','${name}','${av}')">Профиль</button>
     </div>
-    <div class="msg-messages" id="msgMessages"></div>
+    <div class="msg-messages" id="msgMessages"><div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:13px">Загрузка...</div></div>
     <div class="msg-input-area" style="position:relative">
-      <button onclick="toggleEmojiPicker('msgInput')" title="Эмодзи" style="width:32px;height:32px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--t2);font-size:16px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .18s cubic-bezier(.34,1.56,.64,1)" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--t2)'">😊</button>
-      <button onclick="document.getElementById('msgFileInput_${userId}').click()" title="Файл/фото" style="width:32px;height:32px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--t2);font-size:16px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .18s cubic-bezier(.34,1.56,.64,1)" onmouseover="this.style.borderColor='var(--blue)';this.style.color='var(--blue)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--t2)'">📎</button>
-      <input type="file" id="msgFileInput_${userId}" accept="image/*,video/*,*/*" style="display:none" onchange="sendFile(this,'${userId}')">
-      <button id="voiceBtn_${userId}" onclick="toggleVoiceRecord('${userId}')" title="Голосовое" style="width:32px;height:32px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--t2);font-size:16px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .18s cubic-bezier(.34,1.56,.64,1)">🎤</button>
+      <button onclick="toggleEmojiPicker('msgInput')" title="Эмодзи" style="width:32px;height:32px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--t2);font-size:16px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--t2)'">😊</button>
       <textarea class="msg-input" id="msgInput" placeholder="Написать сообщение..." rows="1"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg('${userId}')}"
         oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
@@ -3956,42 +3953,46 @@ async function openConv(userId, name, av){
     const backBtn = area.querySelector('.msg-back-btn');
     if (backBtn) backBtn.style.display = 'block';
   }
-  await loadMessages(userId);
-  loadConversations(); // refresh list to clear badge
-  // Real-time already active via subscription
-  // Polling as fallback only
-  if(msgsPolling) clearInterval(msgsPolling);
-  msgsPolling = null; // Realtime handles it
+  // Focus input immediately
+  setTimeout(() => { const inp = document.getElementById('msgInput'); if(inp) inp.focus(); }, 50);
+  // Load messages + mark read in parallel (non-blocking)
+  loadMessages(userId);
+  loadConversations();
 }
 
 async function loadMessages(partnerId){
   const el = document.getElementById('msgMessages');
   if(!el || !SB_USER) return;
 
-  // Mark as read
-  await sb.from('messages').update({read:true})
-    .eq('from_user_id',partnerId).eq('to_user_id',SB_USER.id).eq('read',false);
+  // Fetch + mark-read in parallel — no sequential await
+  const [fetchResult] = await Promise.all([
+    sb.from('messages')
+      .select('id,from_user_id,content,created_at')
+      .or(`and(from_user_id.eq.${SB_USER.id},to_user_id.eq.${partnerId}),and(from_user_id.eq.${partnerId},to_user_id.eq.${SB_USER.id})`)
+      .order('created_at',{ascending:true})
+      .limit(100),
+    sb.from('messages').update({read:true})
+      .eq('from_user_id',partnerId).eq('to_user_id',SB_USER.id).eq('read',false)
+  ]);
+  const data = fetchResult.data;
 
-  const {data} = await sb.from('messages')
-    .select('id,from_user_id,content,content_type,created_at')
-    .or(`and(from_user_id.eq.${SB_USER.id},to_user_id.eq.${partnerId}),and(from_user_id.eq.${partnerId},to_user_id.eq.${SB_USER.id})`)
-    .order('created_at',{ascending:true})
-    .limit(100);
+  // Re-check user hasn't switched chat
+  const elNow = document.getElementById('msgMessages');
+  if(!elNow || activeConvUserId !== partnerId) return;
 
   if(!data || data.length===0){
-    el.innerHTML = '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:13px;padding:32px;text-align:center">Начни разговор — напиши первое сообщение!</div>';
+    elNow.innerHTML = '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:13px;padding:32px;text-align:center">Начни разговор — напиши первое сообщение!</div>';
     return;
   }
 
-  const wasAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
-  el.innerHTML = data.map(msg => {
+  elNow.innerHTML = data.map(msg => {
     const mine = msg.from_user_id === SB_USER.id;
     return `<div class="msg-bubble ${mine?'mine':'theirs'}">
       ${msg.content}
       <div class="msg-bubble-time">${fmtMsgTime(msg.created_at)}</div>
     </div>`;
   }).join('');
-  if(wasAtBottom || true) el.scrollTop = el.scrollHeight;
+  elNow.scrollTop = elNow.scrollHeight;
 }
 
 function openChatWithUser(){
@@ -4786,75 +4787,7 @@ async function sendMsg(toUserId) {
 }
 
 // ══ FILE / VOICE SENDING ══════════════════════════════════════
-async function sendFile(input, toUserId) {
-  const file = input.files[0];
-  if (!file || !SB_USER || SB_USER.isDemoUser) return;
-  input.value = '';
-  const isImage = file.type.startsWith('image/');
-  const isVideo = file.type.startsWith('video/');
-  const MAX_SIZE = 800 * 1024; // 800KB for base64 in DB
-  if (file.size > MAX_SIZE && !isVideo) {
-    showToast('Файл слишком большой (макс 800KB)', '⚠️'); return;
-  }
-  if (isVideo && file.size > 5 * 1024 * 1024) {
-    showToast('Видео слишком большое (макс 5MB)', '⚠️'); return;
-  }
-  showToast('Отправляем...', '⏳');
-  const reader = new FileReader();
-  reader.onload = async (e) => {
-    const b64 = e.target.result;
-    const ct = isImage ? 'image' : isVideo ? 'video' : 'file';
-    const content = (isImage || isVideo) ? b64 : file.name;
-    // Optimistic
-    appendMessage({ content, content_type: ct, created_at: new Date().toISOString(), from_user_id: SB_USER.id }, true);
-    try {
-      await sb.from('messages').insert({
-        from_user_id: SB_USER.id, to_user_id: toUserId,
-        content: b64, content_type: ct, read: false
-      });
-      await loadConversations();
-      showToast(isImage ? 'Фото отправлено' : isVideo ? 'Видео отправлено' : 'Файл отправлен', '✅');
-    } catch(e) { showToast('Ошибка отправки файла', '❌'); }
-  };
-  if (isImage || isVideo || file.size <= MAX_SIZE) reader.readAsDataURL(file);
-  else reader.readAsDataURL(file);
-}
-
-let voiceRecorder = null, voiceChunks = [], voiceUserId = null;
-async function toggleVoiceRecord(toUserId) {
-  const btn = document.getElementById('voiceBtn_' + toUserId);
-  if (voiceRecorder && voiceRecorder.state === 'recording') {
-    voiceRecorder.stop();
-    if (btn) { btn.textContent = '🎤'; btn.style.borderColor = 'var(--border)'; btn.style.color = 'var(--t2)'; }
-    return;
-  }
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    voiceChunks = []; voiceUserId = toUserId;
-    voiceRecorder = new MediaRecorder(stream);
-    voiceRecorder.ondataavailable = e => voiceChunks.push(e.data);
-    voiceRecorder.onstop = async () => {
-      stream.getTracks().forEach(t => t.stop());
-      const blob = new Blob(voiceChunks, { type: 'audio/webm' });
-      if (blob.size > 800 * 1024) { showToast('Голосовое слишком длинное', '⚠️'); return; }
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const b64 = e.target.result;
-        appendMessage({ content: b64, content_type: 'voice', created_at: new Date().toISOString(), from_user_id: SB_USER.id }, true);
-        await sb.from('messages').insert({
-          from_user_id: SB_USER.id, to_user_id: voiceUserId,
-          content: b64, content_type: 'voice', read: false
-        }).catch(() => {});
-      };
-      reader.readAsDataURL(blob);
-    };
-    voiceRecorder.start();
-    if (btn) { btn.textContent = '⏹'; btn.style.borderColor = 'var(--red)'; btn.style.color = 'var(--red)'; }
-    showToast('Запись... Нажми ⏹ чтобы остановить', '🎤');
-  } catch(e) { showToast('Микрофон недоступен', '❌'); }
-}
-
-let allConvsCache = null; // cache for avatar URLs in openConv
+let allConvsCache = null;
 
 // Mobile: show/hide msg list
 function showMsgListOnMobile() {
