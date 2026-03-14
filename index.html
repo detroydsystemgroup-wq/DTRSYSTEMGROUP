@@ -180,7 +180,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .av-dot{position:absolute;bottom:2px;right:2px;width:10px;height:10px;background:var(--green);border:2px solid var(--panel);border-radius:50%;box-shadow:0 0 8px rgba(34,197,94,.6);animation:livePulse 2.5s ease infinite;}
 .ph-info{flex:1;padding-bottom:4px;min-width:0;}
 .ph-name{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:1.5px;line-height:1;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.ph-title{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;padding:4px 12px;border-radius:8px;background:rgba(245,200,66,.15);color:var(--gold);border:1.5px solid rgba(245,200,66,.4);margin-bottom:8px;box-shadow:0 0 0 2px rgba(245,200,66,.06),inset 0 1px 0 rgba(245,200,66,.1);}
+.ph-title{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;padding:4px 12px;border-radius:8px;background:transparent;color:var(--gold);border:1.5px solid rgba(245,200,66,.5);margin-bottom:8px;}
 .ph-meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
 .mi{font-size:11px;color:var(--t3);display:flex;align-items:center;gap:3px;}
 .ph-acts{padding-bottom:4px;align-self:flex-end;display:flex;gap:6px;flex-shrink:0;}
@@ -541,7 +541,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 [data-theme="light"] .ph-cover::after{background:none;}
 [data-theme="light"] .avatar{border-color:#fff;background:linear-gradient(135deg,#bfdbfe,#c4b5fd);}
 [data-theme="light"] .av-dot{border-color:#fff;}
-[data-theme="light"] .ph-title{background:rgba(200,159,40,.18);color:#8a6800;border-color:rgba(200,159,40,.4);}
+[data-theme="light"] .ph-title{background:transparent;color:#8a6800;border-color:rgba(180,130,0,.5);}
 [data-theme="light"] .card{box-shadow:0 1px 4px rgba(0,0,0,.08);}
 [data-theme="light"] #onboard{background:var(--bg);}
 [data-theme="light"] .modal{background:#fff;box-shadow:0 8px 32px rgba(0,0,0,.15);}
@@ -1996,13 +1996,13 @@ body.modal-open{overflow:hidden!important;}
         <div class="ch">
           <span class="ct" id="dashTitle">Дашборд</span>
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            <!-- League filter dropdown -->
-            <div style="position:relative">
+            <!-- League filter dropdown styled as dp-btn -->
+            <div class="dash-period" id="leagueSelWrap" style="position:relative">
               <select id="dashLeagueSel" onchange="setDashCatFromSel(this)"
-                style="padding:5px 24px 5px 8px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--t2);font-size:11px;font-weight:700;cursor:pointer;outline:none;font-family:'DM Sans',sans-serif;appearance:none;-webkit-appearance:none;transition:all .18s;max-width:130px">
-                <option value="">Все лиги</option>
+                style="padding:6px 20px 6px 10px;border-radius:6px;border:none;background:transparent;color:var(--t3);font-size:12px;font-weight:700;cursor:pointer;outline:none;font-family:'Rajdhani',sans-serif;letter-spacing:.5px;text-transform:uppercase;appearance:none;-webkit-appearance:none;transition:color .2s;width:100%">
+                <option value="">ВСЕ ЛИГИ</option>
               </select>
-              <span style="position:absolute;right:6px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:9px;color:var(--t3)">▾</span>
+              <span style="position:absolute;right:4px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:8px;color:var(--t3)">▾</span>
             </div>
             <div class="dash-period">
               <button class="dp-btn active" id="dpW" onclick="setPeriod('week')">Неделя</button>
@@ -2012,7 +2012,7 @@ body.modal-open{overflow:hidden!important;}
         </div>
         <div class="cb">
 
-          <div class="cat-filter" id="dashCatFilter"></div>
+          <div class="cat-filter" id="dashCatFilter" style="display:none"></div>
 
           <div class="kpi-row" id="kpiRow"></div>
 
@@ -2141,18 +2141,10 @@ body.modal-open{overflow:hidden!important;}
         </div>
       </div>
 
-      <!-- Pomodoro ring (hidden in free mode) -->
-      <div id="pomRing" style="display:none;justify-content:center;margin-bottom:6px">
-        <div style="position:relative;width:100px;height:100px">
-          <svg width="100" height="100" style="transform:rotate(-90deg)">
-            <circle cx="50" cy="50" r="42" fill="none" stroke="var(--border)" stroke-width="7"/>
-            <circle cx="50" cy="50" r="42" fill="none" stroke="var(--gold)" stroke-width="7"
-              stroke-linecap="round" stroke-dasharray="264" id="pomCircle"
-              style="stroke-dashoffset:264;transition:stroke-dashoffset .8s linear;filter:drop-shadow(0 0 5px rgba(245,200,66,.4))"/>
-          </svg>
-          <div id="pomCountdown" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--gold)">00:00</div>
-        </div>
-      </div>
+      <!-- Pomodoro: same big display, no ring -->
+      <div id="pomRing" style="display:none"></div><!-- kept for JS compat -->
+      <div id="pomCountdown" style="display:none"></div><!-- kept for JS compat -->
+      <circle id="pomCircle" style="display:none"></circle><!-- kept for JS compat -->
 
       <div class="t-disp" id="qDisp">00:00:00</div>
       <button class="t-sbtn idle" id="qBtn" onclick="toggleQuick()">▶ Старт</button>
@@ -2932,9 +2924,9 @@ function renderHeader(){
     titleEl.textContent=`Ур. ${info.lvl} · ${info.name}`;
     const tc = info.color.includes('gradient') ? 'var(--gold)' : info.color;
     titleEl.style.color = tc;
-    titleEl.style.borderColor = tc.replace(')',',0.4)').replace('var(--gold)','rgba(245,200,66,.4)');
-    titleEl.style.background = tc.replace(')',',0.12)').replace('var(--gold)','rgba(245,200,66,.12)');
-    titleEl.style.boxShadow = '0 0 0 2px '+tc.replace(')',',0.07)').replace('var(--gold)','rgba(245,200,66,.07)')+',inset 0 1px 0 rgba(255,255,255,.04)';
+    titleEl.style.borderColor = tc.replace(')',',0.5)').replace('var(--gold)','rgba(245,200,66,.5)');
+    titleEl.style.background = 'transparent';
+    titleEl.style.boxShadow = 'none';
   }
   // Apply cover frame
   const cover=document.getElementById('phCover');
@@ -3764,11 +3756,10 @@ function setPomFromSel(sel) {
     if (freeBtn) freeBtn.classList.remove('active');
     sel.style.borderColor='var(--gold)'; sel.style.color='var(--gold)';
     pomMode = mins;
-    const ring = document.getElementById('pomRing');
     const disp = document.getElementById('qDisp');
-    if (ring) ring.style.display = 'flex';
-    if (disp) disp.style.display = 'none';
-    updatePomRing(mins * 60, mins * 60);
+    const m2 = Math.floor(mins/60), s2 = mins%60;
+    const lbl = s2>0?`${String(m2).padStart(2,'0')}:${String(s2).padStart(2,'0')}:00`:`${String(mins).padStart(2,'0')}:00:00`;
+    if (disp) { disp.textContent=lbl; disp.style.color='var(--gold)'; disp.style.textShadow='0 0 32px rgba(245,200,66,.4)'; }
   }
 }
 
@@ -3780,16 +3771,14 @@ function setPomMode(mins, btn) {
   // Reset dropdown
   const sel = document.getElementById('pomTimeSel');
   if (sel) { sel.value='0'; sel.style.borderColor='var(--border)'; sel.style.color='var(--t3)'; }
-  const ring = document.getElementById('pomRing');
   const disp = document.getElementById('qDisp');
   if (mins === 0) {
-    if (ring) ring.style.display = 'none';
-    if (disp) disp.style.display = '';
-    document.getElementById('qDisp').textContent = '00:00:00';
+    if (disp) { disp.textContent = '00:00:00'; disp.style.color = ''; disp.style.textShadow = ''; }
   } else {
-    if (ring) ring.style.display = 'flex';
-    if (disp) disp.style.display = 'none';
-    updatePomRing(mins * 60, mins * 60);
+    // Show countdown in same big display, gold + pom note
+    const m = Math.floor(mins / 60), s = mins % 60;
+    const label = s > 0 ? `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}:00` : `${String(mins).padStart(2,'0')}:00:00`;
+    if (disp) { disp.textContent = label; disp.style.color = 'var(--gold)'; disp.style.textShadow = '0 0 32px rgba(245,200,66,.4)'; }
   }
 }
 
@@ -3895,9 +3884,10 @@ function timerTick() {
     const disp = document.getElementById('qDisp');
     if (disp) disp.textContent = fmt(secs);
   } else {
-    // Pomodoro: show countdown
+    // Pomodoro: show countdown in same big display
     const remaining = Math.max(0, pomMode * 60 - secs);
-    updatePomRing(remaining, pomMode * 60);
+    const disp2 = document.getElementById('qDisp');
+    if (disp2) disp2.textContent = fmt(remaining);
     if (remaining === 0) {
       // Pomodoro complete!
       const catId = getTimerState()?.catId || quickSel;
@@ -3951,8 +3941,11 @@ function stopTimerPom(){
   timerRunning = false;
   setTimerState(null);
   const disp = document.getElementById('qDisp');
-  if(disp){disp.classList.remove('run');disp.textContent='00:00:00';disp.style.display='';}
-  if(pomMode>0) updatePomRing(pomMode*60, pomMode*60);
+  if(disp){disp.classList.remove('run');disp.textContent='00:00:00';disp.style.display='';disp.style.color='';disp.style.textShadow='';}
+  // reset pom dropdown
+  const selR=document.getElementById('pomTimeSel');
+  if(selR){selR.value='0';selR.style.borderColor='var(--border)';selR.style.color='var(--t3)';}
+  const fBR=document.getElementById('pomFreeBtn');if(fBR)fBR.classList.add('active');
   const btn=document.getElementById('qBtn');
   if(btn){btn.textContent='▶ СТАРТ';btn.className='t-sbtn idle';}
   const note=document.getElementById('qNote');
@@ -3968,14 +3961,14 @@ function restoreTimer() {
   const savedPom = state.pomMode || 0;
   if (savedPom > 0) {
     pomMode = savedPom;
-    const ring = document.getElementById('pomRing');
     const disp = document.getElementById('qDisp');
-    if (ring) ring.style.display = 'flex';
-    if (disp) disp.style.display = 'none';
-    document.querySelectorAll('.pom-btn').forEach(b => {
-      b.classList.remove('active');
-      if (b.textContent.includes(pomMode + ' мин')) b.classList.add('active');
-    });
+    const remaining = Math.max(0, savedPom * 60 - getElapsed());
+    if (disp) { disp.style.color='var(--gold)'; disp.style.textShadow='0 0 32px rgba(245,200,66,.4)'; disp.textContent=fmt(remaining); }
+    // Restore dropdown value
+    const sel = document.getElementById('pomTimeSel');
+    if (sel) { sel.value=String(savedPom); sel.style.borderColor='var(--gold)'; sel.style.color='var(--gold)'; }
+    const freeBtn = document.getElementById('pomFreeBtn');
+    if (freeBtn) freeBtn.classList.remove('active');
   } else {
     const disp = document.getElementById('qDisp');
     if (disp) { disp.classList.add('run'); disp.textContent = fmt(getElapsed()); }
@@ -4949,11 +4942,19 @@ let dashCatFilter = null; // null = all
 
 function setDashCatFromSel(sel) {
   dashCatFilter = sel.value || null;
-  // Sync the old cat-filter buttons if they exist
-  document.querySelectorAll('#dashCatFilter .cf-btn').forEach(b => b.classList.remove('active'));
-  const matchBtn = document.querySelector(`#dashCatFilter .cf-btn[data-cat="${sel.value}"]`);
-  if (matchBtn) matchBtn.classList.add('active');
-  else document.querySelector('#dashCatFilter .cf-btn[data-cat=""]')?.classList.add('active');
+  // Style wrapper like active dp-btn when a league is selected
+  const wrap = document.getElementById('leagueSelWrap');
+  if (wrap) {
+    if (dashCatFilter) {
+      wrap.style.background = 'linear-gradient(135deg,rgba(245,200,66,.12),rgba(245,200,66,.06))';
+      wrap.style.border = '1px solid rgba(245,200,66,.2)';
+      sel.style.color = 'var(--gold)';
+    } else {
+      wrap.style.background = '';
+      wrap.style.border = '';
+      sel.style.color = 'var(--t3)';
+    }
+  }
   renderDash();
 }
 
@@ -4963,8 +4964,8 @@ function renderCatFilter(){
   if (dropSel) {
     const cats = activeCats();
     const currentVal = dashCatFilter || '';
-    dropSel.innerHTML = '<option value="">Все лиги</option>' +
-      cats.map(c => `<option value="${c.id}" ${currentVal===c.id?'selected':''}>${c.icon} ${c.name}</option>`).join('');
+    dropSel.innerHTML = '<option value="">ВСЕ ЛИГИ</option>' +
+      cats.map(c => `<option value="${c.id}" ${currentVal===c.id?'selected':''}>${c.icon} ${c.name.toUpperCase()}</option>`).join('');
     // Style active state
     dropSel.style.borderColor = dashCatFilter ? 'var(--gold)' : 'var(--border)';
     dropSel.style.color = dashCatFilter ? 'var(--gold)' : 'var(--t2)';
