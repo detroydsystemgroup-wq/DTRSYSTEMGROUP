@@ -285,24 +285,26 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .ci-hrs small{display:block;font-size:10px;font-weight:400;color:var(--t3);font-family:'Inter',sans-serif;}
 
 /* ── LEAGUES ── */
-.lg-section{margin-bottom:20px;}
-.lg-head{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--panel);border:1px solid var(--border);border-radius:10px 10px 0 0;border-bottom:none;}
+.lg-section{margin-bottom:16px;}
+.lg-head{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--panel);border:1px solid var(--border);border-radius:12px 12px 0 0;border-bottom:none;background:linear-gradient(180deg,rgba(255,255,255,.025) 0%,transparent 100%);}
 .lg-cat-icon{font-size:26px;}
 .lg-cat-name{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1px;}
 .lg-badge{font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;margin-left:auto;}
-.lg-body{background:var(--panel);border:1px solid var(--border);border-radius:0 0 10px 10px;overflow:hidden;}
-.lg-row{display:flex;align-items:center;gap:11px;padding:11px 14px;border-bottom:1px solid var(--border-l);transition:background .2s;}
+.lg-body{background:var(--panel);border:1px solid var(--border);border-radius:0 0 12px 12px;overflow:hidden;}
+.lg-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border-l);transition:background .15s,transform .18s cubic-bezier(.34,1.56,.64,1);}
 .lg-row:last-child{border-bottom:none;}
-.lg-row:hover{background:var(--hover);}
-.lg-row.me{background:rgba(26,159,255,.05);border-left:3px solid var(--blue);}
-.lr-rank{font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:.5px;width:28px;text-align:center;flex-shrink:0;}
-.lr-av{width:30px;height:30px;border-radius:6px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
-.lr-info{flex:1;}
-.lr-name{font-size:12px;font-weight:600;}
-.lr-streak{font-size:10px;color:var(--t3);}
-.lr-bar-wr{width:70px;height:4px;background:var(--bg);border-radius:2px;overflow:hidden;}
+.lg-row:hover{background:var(--hover);transform:translateX(4px);}
+.lg-row.me{background:rgba(245,200,66,.04);border-left:3px solid var(--gold);}
+.lr-rank{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.5px;width:26px;text-align:center;flex-shrink:0;}
+.lr-av{width:32px;height:32px;border-radius:8px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.lr-info{flex:1;min-width:0;}
+.lr-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lr-badges{display:flex;gap:5px;margin-top:4px;flex-wrap:wrap;}
+.lr-pill{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:6px;font-size:10px;font-weight:700;letter-spacing:.3px;}
+.lr-pill-hrs{background:rgba(245,200,66,.07);border:1px solid rgba(245,200,66,.2);color:var(--gold);}
+.lr-pill-streak{background:rgba(248,81,73,.07);border:1px solid rgba(248,81,73,.2);color:#f85149;}
+.lr-bar-wr{width:52px;height:3px;background:var(--bg);border-radius:2px;overflow:hidden;flex-shrink:0;}
 .lr-bar{height:100%;border-radius:2px;}
-.lr-hrs{font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:.5px;color:var(--t2);min-width:44px;text-align:right;}
 
 /* ── MANAGE ── */
 .mg-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
@@ -1040,7 +1042,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 /* ── League section premium ── */
 .lg-head {
   display: flex; align-items: center; gap: 12px;
-  padding: 16px 18px;
+  padding: 14px 16px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 12px 12px 0 0;
@@ -1054,13 +1056,13 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
   overflow: hidden;
 }
 .lg-row {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 16px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--border-l);
-  transition: background .15s, transform .12s;
+  transition: background .15s, transform .18s cubic-bezier(.34,1.56,.64,1);
 }
 .lg-row:last-child { border-bottom: none; }
-.lg-row:hover { background: var(--hover); }
+.lg-row:hover { background: var(--hover); transform: translateX(4px); }
 .lg-row.me {
   background: rgba(245,200,66,.04);
   border-left: 3px solid var(--gold);
@@ -3472,15 +3474,19 @@ async function renderLeagues(){
       <div class="lg-body">${top8.map((p,i)=>{
         const isMe=p.isMe,maxH=top8[0]?.hrs||1;
         const clickable=!isMe&&!p.fake&&p.userId;
+        const valStr=arenaMode==='streak'?`${getArenaValue(p,arenaMode)} д`:arenaMode==='best_session'?`${getArenaValue(p,arenaMode)} ч`:`${getArenaValue(p,arenaMode)} ч`;
+        const barW=Math.round((getArenaValue(p,arenaMode)/Math.max(...top8.map(x=>getArenaValue(x,arenaMode)),0.1))*100);
         return `<div class="lg-row ${isMe?'me':''}" ${clickable?`onclick="openUserProfile('${p.userId}','${p.name}','${p.av}')" style="cursor:pointer"`:''}>
           <div class="lr-rank" style="color:${medal(i)?'var(--orange)':'var(--t3)'}">${medal(i)||i+1}</div>
           <div class="lr-av" style="${isMe?`border:2px solid ${cat.color}`:''}">${isMe?P.avatar:p.av}</div>
           <div class="lr-info">
             <div class="lr-name">${isMe?P.name:p.name}${isMe?' ← ты':clickable?' 🟢':''}</div>
-            <div class="lr-streak">🔥 ${isMe?P.streak:p.streak} дней</div>
+            <div class="lr-badges">
+              <span class="lr-pill lr-pill-hrs">⚡ ${valStr}</span>
+              <span class="lr-pill lr-pill-streak">🔥 ${isMe?P.streak:p.streak} д</span>
+            </div>
           </div>
-          <div class="lr-bar-wr"><div class="lr-bar" style="width:${Math.round((p.hrs/maxH)*100)}%;background:${cat.color}"></div></div>
-          <div class="lr-hrs" style="color:${isMe?cat.color:'var(--t2)'}">${p.hrs} ч</div>
+          <div class="lr-bar-wr"><div class="lr-bar" style="width:${barW}%;background:${cat.color}"></div></div>
         </div>`;}).join('')}
         ${myIdx>=8?`<div style="padding:9px 14px;font-size:12px;color:var(--t3);border-top:1px solid var(--border-l)">Твоя позиция: <b style="color:${cat.color}">#${myIdx+1}</b> · ${cat.hours.toFixed(1)} ч</div>`:''}
       ${players.length===0?`<div class="empty" style="padding:24px">
