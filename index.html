@@ -452,7 +452,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
   .kpi { padding: 12px; min-height: 85px; }
   .kpi-val { font-size: 22px; }
   .cat-breakdown { grid-template-columns: 1fr; gap: 10px; }
-  .insight-row, .rec-grid, .forecast-row { grid-template-columns: 1fr; gap: 8px; }
+  .insight-row, .rec-grid, .cmp-row { grid-template-columns: 1fr; gap: 8px; }
   .bar-chart { height: 130px; width: 100%; }
   .hm-grid { max-width: 100%; overflow-x: auto; padding-bottom: 12px; }
   
@@ -528,10 +528,21 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .mot-text b{color:var(--t1);}
 
 /* ── FORECAST ── */
-.forecast-row{display:flex;gap:10px;margin-top:12px;}
-.fc-item{flex:1;background:var(--card);border:1px solid var(--border-l);border-radius:10px;padding:12px;text-align:center;}
-.fc-val{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.5px;color:var(--gold);}
-.fc-lbl{font-size:10px;color:var(--t3);margin-top:2px;}
+.cmp-row{display:flex;flex-direction:column;gap:10px;margin-top:4px;}
+.cmp-card{background:var(--card);border:1px solid var(--border-l);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden;}
+.cmp-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--cmp-c,var(--gold))08,transparent 65%);pointer-events:none;}
+.cmp-title{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--t3);margin-bottom:10px;}
+.cmp-bars{display:flex;flex-direction:column;gap:7px;}
+.cmp-bar-row{display:flex;align-items:center;gap:8px;}
+.cmp-bar-lbl{font-size:10px;color:var(--t3);width:52px;flex-shrink:0;white-space:nowrap;}
+.cmp-bar-wr{flex:1;height:6px;background:var(--bg);border-radius:3px;overflow:hidden;}
+.cmp-bar-fill{height:100%;border-radius:3px;transition:width 1s cubic-bezier(.34,1.2,.64,1);}
+.cmp-bar-val{font-size:10px;font-weight:700;width:38px;text-align:right;flex-shrink:0;}
+.cmp-diff{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;margin-top:8px;}
+.cmp-diff.up{background:rgba(63,185,80,.1);color:#3fb950;border:1px solid rgba(63,185,80,.2);}
+.cmp-diff.dn{background:rgba(248,81,73,.08);color:#f85149;border:1px solid rgba(248,81,73,.18);}
+.cmp-diff.eq{background:rgba(245,200,66,.08);color:var(--gold);border:1px solid rgba(245,200,66,.2);}
+.cmp-icon{font-size:22px;margin-bottom:4px;}
 
 /* ── LIGHT THEME ── */
 [data-theme="light"]{
@@ -741,11 +752,11 @@ body { transition:background .28s,color .28s; }
 .cbd-bar { transition:width .9s cubic-bezier(.4,0,.2,1); }
 
 /* ── INSIGHT / REC / FC ── */
-.insight,.rec-card,.fc-item {
+.insight,.rec-card,.cmp-card {
   transition:transform .18s,box-shadow .18s;
   animation:fadeUp .3s ease both;
 }
-.insight:hover,.rec-card:hover,.fc-item:hover {
+.insight:hover,.rec-card:hover,.cmp-card:hover {
   transform:translateY(-3px);
   box-shadow:0 6px 22px rgba(0,0,0,.16);
 }
@@ -1263,7 +1274,7 @@ body { overscroll-behavior: contain; }
 /* ══ WILL-CHANGE: GPU LAYER PROMOTION ══════════════════════ */
 .kpi, .card, .modal, .up-modal, .sw-card, .msg-bubble,
 .ach2, .mg-item, .lg-row, .cat-item, .si, .cbd-item,
-.insight, .rec-card, .fc-item, .stab, .avatar {
+.insight, .rec-card, .cmp-card, .stab, .avatar {
   will-change: transform;
 }
 .xp-fill, .cbd-bar, .lr-bar, .ci-bar, .ach2-prog-fill { will-change: width; }
@@ -2062,8 +2073,8 @@ body.modal-open{overflow:hidden!important;}
           <div class="insight-row" id="insightRow"></div>
           <div id="sec_records" style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--gold);margin:16px 0 10px;font-weight:700;text-shadow:0 0 8px rgba(245,200,66,.3)"></div>
           <div class="rec-grid" id="recGrid"></div>
-          <div id="sec_forecast" style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--gold);margin:16px 0 10px;font-weight:700;text-shadow:0 0 8px rgba(245,200,66,.3)"></div>
-          <div class="forecast-row" id="forecastRow"></div>
+          <div id="sec_forecast" style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--gold);margin:16px 0 10px;font-weight:700;text-shadow:0 0 8px rgba(245,200,66,.3)">Сравнение со средним</div>
+          <div class="cmp-row" id="forecastRow"></div>
 
           <div id="tab-heatmap-placeholder" style="display:none"></div>
         </div>
@@ -4816,27 +4827,85 @@ function renderRecords(){
     </div>`;
 }
 
-// ══ FORECAST ════════════════════════════════════════
+// ══ COMPARISON (replaces Forecast) ═══════════════════
 function renderForecast(){
   const el=document.getElementById('forecastRow');if(!el)return;
-  const avgPerDay=weekHrs()/7||0;
-  const total=totalHrs();
-  const milestones=[50,100,200,500,1000];
-  const next=milestones.find(m=>m>total)||1000;
-  const daysToNext=avgPerDay>0?Math.ceil((next-total)/avgPerDay):null;
-  const projMonth=avgPerDay*30;
+
+  // ── 1. Goal completion % (weekly average vs "good player" benchmark) ──
+  const goal=dailyGoalHours||2;
+  // Calculate each day in last 7 days actual hours
+  const now=Date.now();
+  const dayMs=86400000;
+  let totalGoalPct=0,activeDaysG=0;
+  for(let d=0;d<7;d++){
+    const dayStart=now-(d+1)*dayMs;
+    const dayEnd=now-d*dayMs;
+    const dayHrs=P.sessions.filter(s=>s.ts&&s.ts>dayStart&&s.ts<=dayEnd).reduce((a,s)=>a+(s.dur/3600),0);
+    if(dayHrs>0){totalGoalPct+=Math.min(100,Math.round((dayHrs/goal)*100));activeDaysG++;}
+  }
+  const myGoalPct=activeDaysG>0?Math.round(totalGoalPct/activeDaysG):0;
+  // Benchmark: "среднестатистический" игрок закрывает ~60%
+  const avgGoalPct=60;
+  const goalDiff=myGoalPct-avgGoalPct;
+  const goalClass=goalDiff>5?'up':goalDiff<-5?'dn':'eq';
+  const goalDiffLbl=goalDiff>0?`+${goalDiff}%`:goalDiff<0?`${goalDiff}%`:'±0%';
+
+  // ── 2. Streak comparison (my streak vs avg ~5 days) ──
+  const myStreak=P.streak||0;
+  const avgStreak=5;
+  const streakDiff=myStreak-avgStreak;
+  const streakClass=streakDiff>2?'up':streakDiff<-2?'dn':'eq';
+  const streakDiffLbl=streakDiff>0?`+${streakDiff} д`:streakDiff<0?`${streakDiff} д`:'±0 д';
+
+  // ── 3. Total league hours (my best cat vs avg ~30h) ──
+  const cats=activeCats();
+  const myBestCat=cats.length?cats.reduce((a,b)=>a.hours>b.hours?a:b,cats[0]):null;
+  const myLeagueHrs=myBestCat?myBestCat.hours:0;
+  const avgLeagueHrs=30;
+  const hrsDiff=parseFloat((myLeagueHrs-avgLeagueHrs).toFixed(1));
+  const hrsClass=hrsDiff>5?'up':hrsDiff<-5?'dn':'eq';
+  const hrsDiffLbl=hrsDiff>0?`+${hrsDiff}ч`:hrsDiff<0?`${hrsDiff}ч`:'±0ч';
+
+  // ── Bar scale helper ──
+  const bar=(my,avg,color)=>{
+    const mx=Math.max(my,avg,0.1);
+    return `
+      <div class="cmp-bar-row">
+        <div class="cmp-bar-lbl" style="color:var(--t2);font-weight:600">Ты</div>
+        <div class="cmp-bar-wr"><div class="cmp-bar-fill" style="width:${Math.round((my/mx)*100)}%;background:${color}"></div></div>
+        <div class="cmp-bar-val" style="color:${color}">${typeof my==='number'&&!Number.isInteger(my)?my.toFixed(1):my}</div>
+      </div>
+      <div class="cmp-bar-row">
+        <div class="cmp-bar-lbl">Среднее</div>
+        <div class="cmp-bar-wr"><div class="cmp-bar-fill" style="width:${Math.round((avg/mx)*100)}%;background:var(--border)"></div></div>
+        <div class="cmp-bar-val" style="color:var(--t3)">${avg}</div>
+      </div>`;
+  };
+
   el.innerHTML=`
-    <div class="fc-item">
-      <div class="fc-val">${daysToNext?daysToNext+'д':'∞'}</div>
-      <div class="fc-lbl">${t('days_to')} ${next}${t('hrs')}<br>${t('at_pace')}</div>
+    <div class="cmp-card" style="--cmp-c:#3fb950">
+      <div class="cmp-title">🎯 Выполнение цели — неделя</div>
+      <div class="cmp-bars">
+        ${bar(myGoalPct+'%',avgGoalPct+'%','#3fb950')}
+      </div>
+      <div style="margin-top:6px;font-size:10px;color:var(--t3)">Цель: ${goal}ч/день · Активных дней: ${activeDaysG}/7</div>
+      <span class="cmp-diff ${goalClass}">${goalDiffLbl} ${goalClass==='up'?'выше':'ниже'} среднего</span>
     </div>
-    <div class="fc-item">
-      <div class="fc-val">${projMonth.toFixed(0)}ч</div>
-      <div class="fc-lbl">${t('month_forecast')}</div>
+    <div class="cmp-card" style="--cmp-c:#f85149">
+      <div class="cmp-title">🔥 Стрик — последовательность</div>
+      <div class="cmp-bars">
+        ${bar(myStreak+' д',avgStreak+' д','#f85149')}
+      </div>
+      <div style="margin-top:6px;font-size:10px;color:var(--t3)">Текущий стрик: ${myStreak} дней подряд</div>
+      <span class="cmp-diff ${streakClass}">${streakDiffLbl} ${streakClass==='up'?'выше':'ниже'} среднего</span>
     </div>
-    <div class="fc-item">
-      <div class="fc-val">${avgPerDay.toFixed(1)}ч</div>
-      <div class="fc-lbl">${t('avg_day')}</div>
+    <div class="cmp-card" style="--cmp-c:${myBestCat?.color||'var(--blue)'}">
+      <div class="cmp-title">${myBestCat?.icon||'🏆'} Часов в лиге — ${myBestCat?.name||'лучшая категория'}</div>
+      <div class="cmp-bars">
+        ${bar(parseFloat(myLeagueHrs.toFixed(1)),avgLeagueHrs,myBestCat?.color||'var(--blue)')}
+      </div>
+      <div style="margin-top:6px;font-size:10px;color:var(--t3)">Всего часов в категории</div>
+      <span class="cmp-diff ${hrsClass}">${hrsDiffLbl} ${hrsClass==='up'?'выше':'ниже'} среднего</span>
     </div>`;
 }
 
