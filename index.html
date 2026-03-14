@@ -3971,8 +3971,29 @@ function renderDailyProgress() {
 // ══════════════════════════════════════════════════════════════
 const TIMER_KEY = 'dtr_timer_v2';
 let quickSel = null;
-let timerRAF = null;
+let timerRAF = null; // kept for compatibility
 let timerRunning = false;
+
+// Web Worker — не throttlится браузером в фоновом режиме
+let _timerWorker = null;
+function _getTimerWorker() {
+  if (_timerWorker) return _timerWorker;
+  const code = `
+    let iv = null;
+    self.onmessage = function(e) {
+      if (e.data === 'start') {
+        if (iv) clearInterval(iv);
+        iv = setInterval(() => self.postMessage('tick'), 1000);
+      } else if (e.data === 'stop') {
+        if (iv) { clearInterval(iv); iv = null; }
+      }
+    };
+  `;
+  const blob = new Blob([code], { type: 'application/javascript' });
+  _timerWorker = new Worker(URL.createObjectURL(blob));
+  _timerWorker.onmessage = (e) => { if (e.data === 'tick') timerTick(); };
+  return _timerWorker;
+}
 
 const defCat = () => P.activeCatIds[0] || P.categories[0]?.id;
 
@@ -3989,6 +4010,23 @@ function getElapsed() {
   if (!s || !s.startTime) return 0;
   return Math.floor((Date.now() - s.startTime) / 1000);
 }
+
+// Save session if tab is closed while timer running
+window.addEventListener('beforeunload', () => {
+  if (!timerRunning) return;
+  const state = getTimerState();
+  if (!state || !state.startTime) return;
+  const secs = getElapsed();
+  if (secs >= 60) {
+    const catId = state.catId || quickSel;
+    if (catId && SB_USER && !SB_USER.isDemoUser) {
+      // Fire-and-forget save — best effort
+      const dur = secs;
+      navigator.sendBeacon && navigator.sendBeacon('/ping'); // keep connection alive
+      saveSession(catId, dur);
+    }
+  }
+});
 
 function renderQuickCats() {
   if (!quickSel) quickSel = defCat();
@@ -4021,16 +4059,13 @@ function timerTick() {
   if (!timerRunning) return;
   const secs = getElapsed();
   if (pomMode === 0) {
-    // Free mode: show elapsed
     const disp = document.getElementById('qDisp');
     if (disp) disp.textContent = fmt(secs);
   } else {
-    // Pomodoro: show countdown in same big display
     const remaining = Math.max(0, pomMode * 60 - secs);
     const disp2 = document.getElementById('qDisp');
     if (disp2) disp2.textContent = fmt(remaining);
     if (remaining === 0) {
-      // Pomodoro complete!
       const catId = getTimerState()?.catId || quickSel;
       stopTimerPom();
       saveSession(catId, pomMode * 60);
@@ -4038,7 +4073,14 @@ function timerTick() {
       return;
     }
   }
-  timerRAF = requestAnimationFrame(timerTick);
+}
+
+function startTimerInterval() {
+  timerTick(); // immediate tick
+  _getTimerWorker().postMessage('start');
+}
+function stopTimerInterval() {
+  if (_timerWorker) _timerWorker.postMessage('stop');
 }
 
 function toggleQuick() {
@@ -4054,21 +4096,18 @@ function toggleQuick() {
     if (btn) { btn.textContent = '⏹ Стоп'; btn.className = 't-sbtn active'; }
     const note = document.getElementById('qNote');
     if (note) note.textContent = 'Сессия идёт...';
-    timerRAF = requestAnimationFrame(timerTick);
+    startTimerInterval();
   } else {
     // STOP
     const secs = getElapsed();
     const state = getTimerState();
     const catId = state?.catId || quickSel;
-    cancelAnimationFrame(timerRAF);
+    stopTimerInterval();
     timerRunning = false;
     setTimerState(null);
     const disp = document.getElementById('qDisp');
     if (disp) { disp.classList.remove('run'); disp.textContent = '00:00:00'; disp.style.display=''; }
-    // Reset pomodoro ring
-    if (pomMode > 0) {
-      updatePomRing(pomMode * 60, pomMode * 60);
-    }
+    if (pomMode > 0) updatePomRing(pomMode * 60, pomMode * 60);
     const btn = document.getElementById('qBtn');
     if (btn) { btn.textContent = '▶ СТАРТ'; btn.className = 't-sbtn idle'; }
     const note = document.getElementById('qNote');
@@ -4098,14 +4137,12 @@ function restoreTimer() {
   if (!state || !state.startTime) return;
   timerRunning = true;
   quickSel = state.catId || defCat();
-  // Restore pom mode if was set
   const savedPom = state.pomMode || 0;
   if (savedPom > 0) {
     pomMode = savedPom;
     const disp = document.getElementById('qDisp');
     const remaining = Math.max(0, savedPom * 60 - getElapsed());
     if (disp) { disp.style.color='var(--gold)'; disp.style.textShadow='0 0 32px rgba(245,200,66,.4)'; disp.textContent=fmt(remaining); }
-    // Restore dropdown value
     const sel = document.getElementById('pomTimeSel');
     if (sel) { sel.value=String(savedPom); sel.style.borderColor='var(--gold)'; sel.style.color='var(--gold)'; }
     const freeBtn = document.getElementById('pomFreeBtn');
@@ -4118,14 +4155,14 @@ function restoreTimer() {
   if (btn) { btn.textContent = '⏹ Стоп'; btn.className = 't-sbtn active'; }
   const note = document.getElementById('qNote');
   if (note) note.textContent = 'Сессия идёт...';
-  timerRAF = requestAnimationFrame(timerTick);
+  startTimerInterval();
 }
 
-// visibilitychange: resync after browser wakes
+// Resync display when tab becomes visible again
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && timerRunning) {
-    cancelAnimationFrame(timerRAF);
-    timerRAF = requestAnimationFrame(timerTick);
+    timerTick(); // мгновенное обновление экрана
+    _getTimerWorker().postMessage('start'); // перезапуск воркера на полной скорости
   }
 });
 
@@ -4383,36 +4420,47 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSessModal();cl
 // ══════════════════════════════════════════════════════════════
 // SUPABASE PRESENCE — Live Online Count
 // ══════════════════════════════════════════════════════════════
-let presenceChannel = null;
 let presenceInterval = null;
+
+async function pingOnline(){
+  if(!SB_USER) return;
+  try {
+    const { error } = await sb.from('users')
+      .update({ last_seen: new Date().toISOString() })
+      .eq('id', SB_USER.id);
+    if(error) console.warn('ping error:', error.message);
+  } catch(e){ console.warn('ping catch:', e); }
+}
 
 async function updateOnlineCount(){
   try {
-    // Count users active in last 3 minutes
-    const cutoff = new Date(Date.now() - 3*60*1000).toISOString();
-    const { count } = await sb.from('users')
+    const cutoff = new Date(Date.now() - 5*60*1000).toISOString();
+    const res = await sb.from('users')
       .select('id', { count: 'exact', head: true })
       .gte('last_seen', cutoff);
+    const cnt = res.count ?? 0;
+    if(res.error){ console.warn('online count error:', res.error.message); return; }
     const el = document.getElementById('onlineCnt');
-    if(el) el.textContent = Math.max(1, count||1) + ' онлайн';
-  } catch(e){}
+    if(el) el.textContent = Math.max(1, cnt) + ' онлайн';
+  } catch(e){ console.warn('updateOnlineCount:', e); }
 }
 
 async function updateLeagueOnlineCounts(){
   try {
-    const cutoff = new Date(Date.now() - 3*60*1000).toISOString();
+    const cutoff = new Date(Date.now() - 5*60*1000).toISOString();
     const cats = activeCats();
     if(!cats.length) return;
-    // Get active user_ids in each category
     const catIds = cats.map(c=>c.id);
-    const { data: activeUC } = await sb.from('user_categories')
-      .select('category_id,user_id')
-      .in('category_id', catIds);
-    // Get online users
-    const { data: onlineUsers } = await sb.from('users')
+
+    const { data: activeUC, error: e1 } = await sb.from('user_categories')
+      .select('category_id,user_id').in('category_id', catIds);
+    if(e1){ console.warn('uc error:', e1.message); return; }
+
+    const { data: onlineUsers, error: e2 } = await sb.from('users')
       .select('id').gte('last_seen', cutoff);
+    if(e2){ console.warn('online users error:', e2.message); return; }
+
     const onlineSet = new Set((onlineUsers||[]).map(u=>u.id));
-    // Count per cat
     const cntMap = {};
     (activeUC||[]).forEach(uc => {
       if(onlineSet.has(uc.user_id)){
@@ -4424,23 +4472,22 @@ async function updateLeagueOnlineCounts(){
       const cnt = cntMap[catId] || 0;
       el.innerHTML = '<div class="online-dot" style="width:6px;height:6px;flex-shrink:0"></div> ' + cnt + ' онлайн';
     });
-  } catch(e){}
+  } catch(e){ console.warn('updateLeagueOnlineCounts:', e); }
 }
 
 function initPresence() {
-  if (!SB_USER) return;
-  // Update own last_seen immediately and every 2 minutes
-  const ping = () => sb.from('users').update({ last_seen: new Date().toISOString() }).eq('id', SB_USER.id).catch(()=>{});
-  ping();
+  if(!SB_USER) return;
   if(presenceInterval) clearInterval(presenceInterval);
+  // Ping immediately
+  pingOnline();
+  updateOnlineCount();
+  updateLeagueOnlineCounts();
+  // Repeat every 30s
   presenceInterval = setInterval(() => {
-    ping();
+    pingOnline();
     updateOnlineCount();
     updateLeagueOnlineCounts();
-  }, 30000); // every 30 seconds
-  // Show immediately
-  setTimeout(updateOnlineCount, 500);
-  setTimeout(updateLeagueOnlineCounts, 1000);
+  }, 30000);
 }
 
 // ══════════════════════════════════════════════════════════════
