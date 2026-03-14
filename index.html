@@ -3489,17 +3489,20 @@ async function renderLeagues(){
         <span class="lg-cat-icon">${cat.icon}</span>
         <div>
           <div class="lg-cat-name" style="color:${cat.color}">${cat.name}</div>
-          <div style="font-size:10px;color:var(--t3)">${cat.members.toLocaleString('ru')} · ${modeLbl}</div>
+          <div style="font-size:10px;color:var(--t3)">${rawPlayers.length} участников · ${modeLbl}</div>
         </div>
         <div class="lg-online-wrap" data-league-online="${cat.id}" style="display:flex;align-items:center;gap:5px;margin-left:auto;padding:3px 9px;border-radius:6px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);font-size:11px;font-weight:600;color:var(--green)">
           <div class="online-dot" style="width:6px;height:6px"></div> 0 онлайн
         </div>
         <div class="lg-badge" style="background:${cat.color}18;color:${cat.color}">${myIdx>=0&&myIdx<3?'Топ-3 🔥':myIdx>=0?'#'+(myIdx+1):'—'}</div>
       </div>
-      <div class="lg-body">${top8.map((p,i)=>{
-        const isMe=p.isMe,maxH=top8[0]?.hrs||1;
+      <div class="lg-body">${top8.length===0?`<div class="empty" style="padding:24px;text-align:center">
+        <div style="font-size:28px;margin-bottom:8px">🏁</div>
+        <div style="font-size:13px;color:var(--t3)">Пока нет участников.<br>Будь первым!</div>
+      </div>`:top8.map((p,i)=>{
+        const isMe=p.isMe;
         const clickable=!isMe&&!p.fake&&p.userId;
-        const valStr=arenaMode==='streak'?`${getArenaValue(p,arenaMode)} д`:arenaMode==='best_session'?`${getArenaValue(p,arenaMode)} ч`:`${getArenaValue(p,arenaMode)} ч`;
+        const valStr=arenaMode==='streak'?`${getArenaValue(p,arenaMode)} д`:`${getArenaValue(p,arenaMode)} ч`;
         const barW=Math.round((getArenaValue(p,arenaMode)/Math.max(...top8.map(x=>getArenaValue(x,arenaMode)),0.1))*100);
         return `<div class="lg-row ${isMe?'me':''}" ${clickable?`onclick="openUserProfile('${p.userId}','${p.name}','${p.av}')" style="cursor:pointer"`:''}>
           <div class="lr-rank" style="color:${medal(i)?'var(--orange)':'var(--t3)'}">${medal(i)||i+1}</div>
@@ -3514,10 +3517,6 @@ async function renderLeagues(){
           <div class="lr-bar-wr"><div class="lr-bar" style="width:${barW}%;background:${cat.color}"></div></div>
         </div>`;}).join('')}
         ${myIdx>=8?`<div style="padding:9px 14px;font-size:12px;color:var(--t3);border-top:1px solid var(--border-l)">Твоя позиция: <b style="color:${cat.color}">#${myIdx+1}</b> · ${cat.hours.toFixed(1)} ч</div>`:''}
-      ${players.length===0?`<div class="empty" style="padding:24px">
-        <div style="font-size:28px;margin-bottom:8px">🏁</div>
-        <div style="font-size:13px;color:var(--t3)">Пока нет участников.<br>Будь первым!</div>
-      </div>`:''}
     </div>
     </div>`;
   }).join('');
@@ -3710,7 +3709,7 @@ async function loadConversations(){
   if(!el || !SB_USER) return;
 
   const {data} = await sb.from('messages')
-    .select('id,from_user_id,to_user_id,content,created_at,read,from:users!messages_from_user_id_fkey(username,avatar),to:users!messages_to_user_id_fkey(username,avatar)')
+    .select('id,from_user_id,to_user_id,content,created_at,read')
     .or(`from_user_id.eq.${SB_USER.id},to_user_id.eq.${SB_USER.id}`)
     .order('created_at',{ascending:false});
 
@@ -3719,16 +3718,21 @@ async function loadConversations(){
     return;
   }
 
+  // Get unique partner IDs
+  const partnerIds=[...new Set(data.map(m=>m.from_user_id===SB_USER.id?m.to_user_id:m.from_user_id))];
+  const {data:partnerUsers}=await sb.from('users').select('id,username,avatar').in('id',partnerIds);
+  const pMap={}; (partnerUsers||[]).forEach(u=>{pMap[u.id]=u;});
+
   // Group by conversation partner
   const convMap = {};
   data.forEach(msg => {
     const partnerId = msg.from_user_id === SB_USER.id ? msg.to_user_id : msg.from_user_id;
-    const partner = msg.from_user_id === SB_USER.id ? msg.to : msg.from;
+    const partner = pMap[partnerId] || {};
     if(!convMap[partnerId]){
       convMap[partnerId] = {
         userId: partnerId,
-        name: partner?.username || '?',
-        av: partner?.avatar || '🎯',
+        name: partner.username || '?',
+        av: partner.avatar || '🎯',
         lastMsg: msg.content,
         lastTime: msg.created_at,
         unread: 0
@@ -5518,22 +5522,23 @@ async function submitCreateClub() {
   const catId = document.getElementById('clubCatSelect').value || null;
   const isPrivate = document.querySelector('input[name="clubType"]:checked')?.value === 'private';
   if (!name) { showToast('Введи название клуба', '⚠️'); return; }
-  const clubId = 'club_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   closeCreateClub();
   showToast('Создаём клуб...', '⏳');
   try {
-    const { error: cErr } = await sb.from('clubs').insert({
-      id: clubId, name, description: desc,
+    // Let DB generate UUID — use select to get back the id
+    const { data: clubData, error: cErr } = await sb.from('clubs').insert({
+      name, description: desc,
       avatar: clubSelAv, category_id: catId,
-      owner_id: SB_USER.id, is_private: isPrivate,
-      created_at: new Date().toISOString()
-    });
+      owner_id: SB_USER.id, is_private: isPrivate
+    }).select('id').single();
     if (cErr) throw cErr;
-    await sb.from('club_members').insert({ club_id: clubId, user_id: SB_USER.id, role: 'admin' });
+    const clubId = clubData.id;
+    const { error: mErr } = await sb.from('club_members').insert({ club_id: clubId, user_id: SB_USER.id, role: 'admin' });
+    if (mErr) throw mErr;
     clubsCache = null;
     showToast('Клуб создан!', '🏛️');
     renderClubs();
-  } catch (e) { console.error(e); showToast('Ошибка создания клуба', '❌'); }
+  } catch (e) { console.error(e); showToast('Ошибка: ' + (e?.message||'неизвестная'), '❌'); }
 }
 
 async function renderClubs() {
@@ -5628,7 +5633,15 @@ async function openClubDetail(clubId) {
   el.innerHTML = '<div style="color:var(--t3);font-size:13px;padding:20px 0">Загрузка...</div>';
   try {
     const { data: club } = await sb.from('clubs').select('*').eq('id', clubId).single();
-    const { data: members } = await sb.from('club_members').select('role,user:users(id,username,avatar,streak)').eq('club_id', clubId).order('role');
+    const { data: membersRaw } = await sb.from('club_members').select('role,user_id').eq('club_id', clubId).order('role');
+    // Fetch user profiles separately
+    const memberUserIds = (membersRaw||[]).map(m=>m.user_id);
+    const { data: memberUsers } = memberUserIds.length
+      ? await sb.from('users').select('id,username,avatar,streak').in('id', memberUserIds)
+      : { data: [] };
+    const userMap = {}; (memberUsers||[]).forEach(u=>{userMap[u.id]=u;});
+    const members = (membersRaw||[]).map(m=>({...m, user: userMap[m.user_id]||null}));
+
     const catDef = ALL_CATS.find(c => c.id === club?.category_id);
     const isOwner = club?.owner_id === SB_USER?.id;
     el.innerHTML = '<div class="cd-header">' +
@@ -5643,15 +5656,15 @@ async function openClubDetail(clubId) {
         const isMe = m.user?.id === SB_USER?.id;
         const memberAv = m.user?.avatar || '🎯';
         return '<div class="cd-member"' + (!isMe ? ' onclick="openUserProfile(\'' + (m.user?.id||'') + '\',\'' + (m.user?.username||'') + '\',\'' + memberAv + '\')" style="cursor:pointer"' : '') + '>'
-          + '<div class="cd-member-av">' + (m.user?.avatar||'🎯') + '</div>'
+          + '<div class="cd-member-av">' + memberAv + '</div>'
           + '<div class="cd-member-name">'+(m.user?.username||'?')+(isMe?' ← ты':'')+'</div>'+
           '<div style="font-size:11px;color:var(--t3)">🔥 '+(m.user?.streak||0)+'</div>'+
           '<div class="cd-member-role '+m.role+'">'+(m.role==='admin'?'👑 Админ':'Участник')+'</div>'+
-          (isOwner&&!isMe?'<button onclick="event.stopPropagation();kickClubMember(\''+clubId+'\',\''+m.user?.id+'\')" style="background:transparent;border:none;color:var(--t3);cursor:pointer;font-size:12px;margin-left:4px;transition:color .15s" onmouseover="this.style.color=\'var(--red)\'" onmouseout="this.style.color=\'var(--t3)\'">✕</button>':'') +
+          (isOwner&&!isMe?'<button onclick="event.stopPropagation();kickClubMember(\''+clubId+'\',\''+m.user_id+'\')" style="background:transparent;border:none;color:var(--t3);cursor:pointer;font-size:12px;margin-left:4px;transition:color .15s" onmouseover="this.style.color=\'var(--red)\'" onmouseout="this.style.color=\'var(--t3)\'">✕</button>':'') +
           '</div>';
       }).join('') +
       '</div>';
-  } catch (e) { el.innerHTML = '<div style="color:var(--red);padding:16px">Ошибка загрузки</div>'; }
+  } catch (e) { console.error(e); el.innerHTML = '<div style="color:var(--red);padding:16px">Ошибка загрузки</div>'; }
 }
 
 async function kickClubMember(clubId, userId) {
