@@ -1533,6 +1533,13 @@ body { overscroll-behavior: contain; }
   .msg-chat.active { display:flex !important; }
 }
 
+
+/* ── POMODORO buttons ── */
+.pom-btn{padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--t3);font-size:11px;font-weight:700;cursor:pointer;transition:all .18s cubic-bezier(.34,1.56,.64,1);letter-spacing:.3px;font-family:'DM Sans',sans-serif;}
+.pom-btn:hover{border-color:var(--gold);color:var(--gold);transform:scale(1.06);}
+.pom-btn.active{background:rgba(245,200,66,.1);border-color:var(--gold);color:var(--gold);}
+.pom-btn:active{transform:scale(.92);}
+
 </style>
 </head>
 <body>
@@ -1767,11 +1774,13 @@ body { overscroll-behavior: contain; }
           <div class="rec-grid" id="recGrid"></div>
           <div id="sec_forecast" style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin:16px 0 10px;font-weight:600"></div>
           <div class="forecast-row" id="forecastRow"></div>
+
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin:16px 0 10px;font-weight:600">📅 Активность за год</div>
+          <div id="tab-heatmap-placeholder"></div>
         </div>
       </div>
     </div>
 
-    <div id="tab-heatmap-placeholder"></div>
 
     <div id="tab-leagues" class="tc">
       <div id="leaguesContent"></div>
@@ -1845,9 +1854,80 @@ body { overscroll-behavior: contain; }
     <div class="timer-panel">
       <div class="t-lbl">Быстрый старт</div>
       <div class="t-cats" id="quickCats"></div>
+
+      <!-- Pomodoro mode buttons -->
+      <div style="display:flex;gap:5px;justify-content:center;flex-wrap:wrap;margin-bottom:10px" id="pomBtns">
+        <button class="pom-btn active" onclick="setPomMode(0,this)" title="Без лимита">∞ Свободный</button>
+        <button class="pom-btn" onclick="setPomMode(5,this)">5 мин</button>
+        <button class="pom-btn" onclick="setPomMode(10,this)">10 мин</button>
+        <button class="pom-btn" onclick="setPomMode(15,this)">15 мин</button>
+        <button class="pom-btn" onclick="setPomMode(25,this)">25 мин</button>
+        <button class="pom-btn" onclick="setPomMode(30,this)">30 мин</button>
+        <button class="pom-btn" onclick="setPomMode(60,this)">60 мин</button>
+      </div>
+
+      <!-- Pomodoro ring (hidden in free mode) -->
+      <div id="pomRing" style="display:none;justify-content:center;margin-bottom:6px">
+        <div style="position:relative;width:100px;height:100px">
+          <svg width="100" height="100" style="transform:rotate(-90deg)">
+            <circle cx="50" cy="50" r="42" fill="none" stroke="var(--border)" stroke-width="7"/>
+            <circle cx="50" cy="50" r="42" fill="none" stroke="var(--gold)" stroke-width="7"
+              stroke-linecap="round" stroke-dasharray="264" id="pomCircle"
+              style="stroke-dashoffset:264;transition:stroke-dashoffset .8s linear;filter:drop-shadow(0 0 5px rgba(245,200,66,.4))"/>
+          </svg>
+          <div id="pomCountdown" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--gold)">00:00</div>
+        </div>
+      </div>
+
       <div class="t-disp" id="qDisp">00:00:00</div>
       <button class="t-sbtn idle" id="qBtn" onclick="toggleQuick()">▶ Старт</button>
       <div class="t-note" id="qNote">Выбери активность и нажми Старт</div>
+    </div>
+
+    <!-- Daily goal progress card (пункт 18) -->
+    <div class="card" style="margin-top:12px">
+      <div class="ch">
+        <span class="ct">📈 Дневной прогресс</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:11px;color:var(--t3)">Цель:</span>
+          <select id="dailyGoalSel" onchange="setDailyGoal(this.value)" style="background:var(--card);border:1px solid var(--border);border-radius:7px;color:var(--gold);font-size:12px;font-weight:700;padding:3px 8px;cursor:pointer;outline:none;font-family:'DM Sans',sans-serif">
+            <option value="0.5">30 мин</option>
+            <option value="1">1 ч</option>
+            <option value="2" selected>2 ч</option>
+            <option value="3">3 ч</option>
+            <option value="4">4 ч</option>
+            <option value="5">5 ч</option>
+            <option value="6">6 ч</option>
+            <option value="8">8 ч</option>
+            <option value="10">10 ч</option>
+          </select>
+        </div>
+      </div>
+      <div class="cb">
+        <div style="display:flex;align-items:center;gap:16px">
+          <!-- Ring -->
+          <div style="position:relative;width:72px;height:72px;flex-shrink:0">
+            <svg width="72" height="72" style="transform:rotate(-90deg)">
+              <circle cx="36" cy="36" r="28" fill="none" stroke="var(--border)" stroke-width="6"/>
+              <circle cx="36" cy="36" r="28" fill="none" stroke="var(--gold)" stroke-width="6"
+                stroke-linecap="round" stroke-dasharray="176" id="dailyRingFill"
+                style="stroke-dashoffset:176;transition:stroke-dashoffset 1.2s ease;filter:drop-shadow(0 0 4px rgba(245,200,66,.35))"/>
+            </svg>
+            <div id="dailyRingPct" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:15px;color:var(--gold)">0%</div>
+          </div>
+          <!-- Stats -->
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+              <span id="dailyDoneLabel" style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--t1)">0.0 ч</span>
+              <span id="dailyGoalLabel" style="font-size:12px;color:var(--t3);align-self:flex-end">из 2.0 ч</span>
+            </div>
+            <div style="height:6px;background:var(--card);border-radius:3px;overflow:hidden;margin-bottom:6px">
+              <div id="dailyProgressBar" style="height:100%;background:linear-gradient(90deg,var(--gold-d),var(--gold));border-radius:3px;width:0;transition:width 1.2s ease;box-shadow:0 0 6px rgba(245,200,66,.3)"></div>
+            </div>
+            <div id="dailyProgressMsg" style="font-size:11px;color:var(--t3)">Начни сессию!</div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="card">
@@ -2392,6 +2472,7 @@ async function saveSession(catId,secs){
 
   const newly=await checkAchsSB(secs);
   renderAll();
+  setTimeout(renderDailyProgress, 200);
   showToast(`${cat.icon} +${fmtD(secs)} в "${cat.name}"`, '✅');
   newly.forEach((a,i)=>setTimeout(()=>showToast(`🏆 ${a.name}`,a.icon,true),(i+1)*900));
 }
@@ -2544,6 +2625,7 @@ function renderAll(){
   renderNav();renderHeader();renderCats();renderSessions();
   renderAchMini();renderAchFull();
   renderQuickCats();renderTotals();renderManageGrid();renderDash();
+  setTimeout(renderDailyProgress, 100);
   renderLeagues();renderLgMini();
   renderXP();renderHeatmap();renderRings();renderRecords();renderForecast();renderMotivation();
 }
@@ -2622,11 +2704,11 @@ function renderDash(){
   const kpiEl=document.getElementById('kpiRow');
   kpiEl.style.gridTemplateColumns=catCount<=2?'repeat(2,1fr)':catCount===3?'repeat(2,1fr)':'repeat(4,1fr)';
   kpiEl.innerHTML=`
-    <div class="kpi" style="--kpi-c:var(--blue)"><div class="cb" style="padding:0">
-      <div class="kpi-val" style="color:var(--blue)">${periodHrs.toFixed(1)}</div>
+    <div class="kpi" style="--kpi-c:var(--gold)"><div class="cb" style="padding:0">
+      <div class="kpi-val" id="kpiPeriodHrs" style="color:var(--gold)">${periodHrs.toFixed(1)}</div>
       <div class="kpi-lbl">${isWeek?t('hrs_week'):t('hrs_month')}</div>
-      <div class="kpi-delta up">↑ ${delta}% к прошлому</div>
-    </div><div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--blue);border-radius:10px 10px 0 0"></div></div>
+      <div class="kpi-delta up" style="color:var(--green)">↑ ${delta}% к прошлому</div>
+    </div><div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--gold);border-radius:10px 10px 0 0"></div></div>
     <div class="kpi"><div class="cb" style="padding:0">
       <div class="kpi-val" style="color:var(--orange)">${avgPerDay.toFixed(1)}</div>
       <div class="kpi-lbl">${t('hrs_day')}</div>
@@ -3277,6 +3359,86 @@ function fmtMsgTime(iso){
 
 
 // ══ QUICK TIMER ══════════════════════════════════════════════
+// ══ POMODORO + DAILY GOAL ════════════════════════════════════
+let pomMode = 0; // 0 = free, N = minutes
+let pomEndTime = 0;
+let dailyGoalHours = parseFloat(localStorage.getItem('dtr_daily_goal') || '2');
+
+function setPomMode(mins, btn) {
+  if (timerRunning) return; // can't change mode while running
+  pomMode = mins;
+  document.querySelectorAll('.pom-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const ring = document.getElementById('pomRing');
+  const disp = document.getElementById('qDisp');
+  if (mins === 0) {
+    if (ring) ring.style.display = 'none';
+    if (disp) disp.style.display = '';
+    document.getElementById('qDisp').textContent = '00:00:00';
+  } else {
+    if (ring) ring.style.display = 'flex';
+    if (disp) disp.style.display = 'none';
+    updatePomRing(mins * 60, mins * 60);
+  }
+}
+
+function updatePomRing(remaining, total) {
+  const circle = document.getElementById('pomCircle');
+  const countdown = document.getElementById('pomCountdown');
+  if (!circle) return;
+  const circumference = 264;
+  const filled = (remaining / total) * circumference;
+  circle.style.strokeDashoffset = circumference - filled;
+  if (countdown) {
+    const m = Math.floor(remaining / 60), s = remaining % 60;
+    countdown.textContent = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  }
+}
+
+function setDailyGoal(val) {
+  dailyGoalHours = parseFloat(val);
+  localStorage.setItem('dtr_daily_goal', val);
+  renderDailyProgress();
+}
+
+function renderDailyProgress() {
+  if (!P) return;
+  // Sum hours from today's sessions
+  const todayKey = new Date().toISOString().slice(0,10);
+  const todaySecs = P.sessions
+    .filter(s => s.isoDate && s.isoDate.slice(0,10) === todayKey)
+    .reduce((sum, s) => sum + s.dur, 0);
+  const todayH = Math.round(todaySecs / 3600 * 10) / 10;
+  const goal = dailyGoalHours;
+  const pct = Math.min(100, Math.round((todayH / goal) * 100));
+  const circumference = 176;
+  const fill = document.getElementById('dailyRingFill');
+  if (fill) fill.style.strokeDashoffset = circumference - (circumference * pct / 100);
+  const pctEl = document.getElementById('dailyRingPct');
+  if (pctEl) pctEl.textContent = pct + '%';
+  const doneEl = document.getElementById('dailyDoneLabel');
+  if (doneEl) doneEl.textContent = todayH.toFixed(1) + ' ч';
+  const goalEl = document.getElementById('dailyGoalLabel');
+  if (goalEl) goalEl.textContent = 'из ' + goal + ' ч';
+  const bar = document.getElementById('dailyProgressBar');
+  if (bar) bar.style.width = pct + '%';
+  const msg = document.getElementById('dailyProgressMsg');
+  if (msg) {
+    if (pct >= 100) msg.textContent = '🎉 Цель выполнена! Отличная работа!';
+    else if (pct >= 75) msg.textContent = '💪 Почти готово! Ещё ' + (goal - todayH).toFixed(1) + ' ч';
+    else if (pct >= 50) msg.textContent = '🔥 Половина пути! Ещё ' + (goal - todayH).toFixed(1) + ' ч';
+    else if (pct > 0) msg.textContent = '⏳ В пути. Осталось ' + (goal - todayH).toFixed(1) + ' ч до цели';
+    else msg.textContent = '🚀 Начни сессию чтобы двигаться к цели!';
+  }
+  // Colour ring red when behind schedule
+  const hourOfDay = new Date().getHours();
+  const expectedPct = Math.min(100, Math.round((hourOfDay / 24) * 100));
+  if (fill) fill.style.stroke = pct < expectedPct * 0.5 ? 'var(--red)' : 'var(--gold)';
+  // Set goal selector to current value
+  const sel = document.getElementById('dailyGoalSel');
+  if (sel) sel.value = String(goal);
+}
+
 // ══════════════════════════════════════════════════════════════
 // BULLETPROOF TIMER — requestAnimationFrame + localStorage
 // Survives: tab switching, device sleep, background throttling
@@ -3314,8 +3476,23 @@ function selCat(id) { if (timerRunning) return; quickSel = id; renderQuickCats()
 function timerTick() {
   if (!timerRunning) return;
   const secs = getElapsed();
-  const disp = document.getElementById('qDisp');
-  if (disp) disp.textContent = fmt(secs);
+  if (pomMode === 0) {
+    // Free mode: show elapsed
+    const disp = document.getElementById('qDisp');
+    if (disp) disp.textContent = fmt(secs);
+  } else {
+    // Pomodoro: show countdown
+    const remaining = Math.max(0, pomMode * 60 - secs);
+    updatePomRing(remaining, pomMode * 60);
+    if (remaining === 0) {
+      // Pomodoro complete!
+      const catId = getTimerState()?.catId || quickSel;
+      stopTimerPom();
+      saveSession(catId, pomMode * 60);
+      showToast('🍅 Помодоро завершён! ' + pomMode + ' мин зачтено', '🎉');
+      return;
+    }
+  }
   timerRAF = requestAnimationFrame(timerTick);
 }
 
@@ -3324,7 +3501,7 @@ function toggleQuick() {
 
   if (!timerRunning) {
     // START
-    setTimerState({ startTime: Date.now(), catId: quickSel });
+    setTimerState({ startTime: Date.now(), catId: quickSel, pomMode: pomMode });
     timerRunning = true;
     const disp = document.getElementById('qDisp');
     if (disp) disp.classList.add('run');
@@ -3342,7 +3519,11 @@ function toggleQuick() {
     timerRunning = false;
     setTimerState(null);
     const disp = document.getElementById('qDisp');
-    if (disp) { disp.classList.remove('run'); disp.textContent = '00:00:00'; }
+    if (disp) { disp.classList.remove('run'); disp.textContent = '00:00:00'; disp.style.display=''; }
+    // Reset pomodoro ring
+    if (pomMode > 0) {
+      updatePomRing(pomMode * 60, pomMode * 60);
+    }
     const btn = document.getElementById('qBtn');
     if (btn) { btn.textContent = '▶ СТАРТ'; btn.className = 't-sbtn idle'; }
     const note = document.getElementById('qNote');
@@ -3351,14 +3532,40 @@ function toggleQuick() {
   }
 }
 
+function stopTimerPom(){
+  cancelAnimationFrame(timerRAF);
+  timerRunning = false;
+  setTimerState(null);
+  const disp = document.getElementById('qDisp');
+  if(disp){disp.classList.remove('run');disp.textContent='00:00:00';disp.style.display='';}
+  if(pomMode>0) updatePomRing(pomMode*60, pomMode*60);
+  const btn=document.getElementById('qBtn');
+  if(btn){btn.textContent='▶ СТАРТ';btn.className='t-sbtn idle';}
+  const note=document.getElementById('qNote');
+  if(note) note.textContent='Выбери активность и нажми Старт';
+}
 // Restore timer across page reloads / tab switches
 function restoreTimer() {
   const state = getTimerState();
   if (!state || !state.startTime) return;
   timerRunning = true;
   quickSel = state.catId || defCat();
-  const disp = document.getElementById('qDisp');
-  if (disp) { disp.classList.add('run'); disp.textContent = fmt(getElapsed()); }
+  // Restore pom mode if was set
+  const savedPom = state.pomMode || 0;
+  if (savedPom > 0) {
+    pomMode = savedPom;
+    const ring = document.getElementById('pomRing');
+    const disp = document.getElementById('qDisp');
+    if (ring) ring.style.display = 'flex';
+    if (disp) disp.style.display = 'none';
+    document.querySelectorAll('.pom-btn').forEach(b => {
+      b.classList.remove('active');
+      if (b.textContent.includes(pomMode + ' мин')) b.classList.add('active');
+    });
+  } else {
+    const disp = document.getElementById('qDisp');
+    if (disp) { disp.classList.add('run'); disp.textContent = fmt(getElapsed()); }
+  }
   const btn = document.getElementById('qBtn');
   if (btn) { btn.textContent = '⏹ Стоп'; btn.className = 't-sbtn active'; }
   const note = document.getElementById('qNote');
