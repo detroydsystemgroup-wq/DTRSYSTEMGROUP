@@ -2034,14 +2034,18 @@ body.modal-open{overflow:hidden!important;}
         <div class="ch">
           <span class="ct" id="dashTitle">Дашборд</span>
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            <!-- League filter — epic pill buttons -->
-            <div id="leagueSelWrap" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
-              <button id="lgPill__all" onclick="setDashCatFromSel({value:''})" style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:1.5px;cursor:pointer;transition:all .18s;white-space:nowrap" class="lg-pill-btn active-pill">ВСЕ ЛИГИ</button>
-              <div id="lgPillsContainer" style="display:contents"></div>
-            </div>
             <div class="dash-period">
               <button class="dp-btn active" id="dpW" onclick="setPeriod('week')">Неделя</button>
               <button class="dp-btn" id="dpM" onclick="setPeriod('month')">Месяц</button>
+            </div>
+            <!-- League dropdown -->
+            <div id="leagueSelWrap" style="position:relative">
+              <button onclick="toggleLeagueDrop()" id="lgDropBtn" style="display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--t3);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;transition:all .2s;white-space:nowrap">
+                <span id="lgDropLabel">🏆 Все лиги</span> <span style="font-size:9px">▾</span>
+              </button>
+              <div id="lgDropMenu" style="display:none;position:absolute;top:calc(100% + 4px);right:0;min-width:180px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:6px;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,.4)">
+                <div id="lgDropItems"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -2641,8 +2645,6 @@ initKpiGlow();
 restoreTimer();
 initPresence();
 initRealtimeMessages();
-trackLeaguePresence();
-trackLeaguePresence();
 showTab('dash');
   setTimeout(showLeagueHero,800);
   setTimeout(checkSundayBanner,1500);
@@ -3627,12 +3629,17 @@ async function openUserProfile(userId, name, av){
 
   try {
     const [uRes, ucRes] = await Promise.all([
-      sb.from('users').select('id,username,avatar,streak,created_at').eq('id',userId).single(),
+      sb.from('users').select('id,username,avatar,streak,created_at').eq('id',userId).maybeSingle(),
       sb.from('user_categories').select('category_id,hours').eq('user_id',userId)
     ]);
     const u = uRes.data;
     const uc = ucRes.data || [];
-    if(!u){ closeUserProfile(); showToast('Пользователь не найден','❌'); return; }
+    if(!u){
+      console.warn('User not found, id:', userId, 'error:', uRes.error);
+      closeUserProfile();
+      showToast('Пользователь не найден','❌');
+      return;
+    }
 
     // Cover gradient based on top cat color
     const topCatId = uc.sort((a,b)=>b.hours-a.hours)[0]?.category_id;
@@ -4377,46 +4384,63 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSessModal();cl
 // SUPABASE PRESENCE — Live Online Count
 // ══════════════════════════════════════════════════════════════
 let presenceChannel = null;
+let presenceInterval = null;
+
+async function updateOnlineCount(){
+  try {
+    // Count users active in last 3 minutes
+    const cutoff = new Date(Date.now() - 3*60*1000).toISOString();
+    const { count } = await sb.from('users')
+      .select('id', { count: 'exact', head: true })
+      .gte('last_seen', cutoff);
+    const el = document.getElementById('onlineCnt');
+    if(el) el.textContent = Math.max(1, count||1) + ' онлайн';
+  } catch(e){}
+}
+
+async function updateLeagueOnlineCounts(){
+  try {
+    const cutoff = new Date(Date.now() - 3*60*1000).toISOString();
+    const cats = activeCats();
+    if(!cats.length) return;
+    // Get active user_ids in each category
+    const catIds = cats.map(c=>c.id);
+    const { data: activeUC } = await sb.from('user_categories')
+      .select('category_id,user_id')
+      .in('category_id', catIds);
+    // Get online users
+    const { data: onlineUsers } = await sb.from('users')
+      .select('id').gte('last_seen', cutoff);
+    const onlineSet = new Set((onlineUsers||[]).map(u=>u.id));
+    // Count per cat
+    const cntMap = {};
+    (activeUC||[]).forEach(uc => {
+      if(onlineSet.has(uc.user_id)){
+        cntMap[uc.category_id] = (cntMap[uc.category_id]||0)+1;
+      }
+    });
+    document.querySelectorAll('[data-league-online]').forEach(el => {
+      const catId = el.dataset.leagueOnline;
+      const cnt = cntMap[catId] || 0;
+      el.innerHTML = '<div class="online-dot" style="width:6px;height:6px;flex-shrink:0"></div> ' + cnt + ' онлайн';
+    });
+  } catch(e){}
+}
 
 function initPresence() {
   if (!SB_USER) return;
-  if (presenceChannel) { try{sb.removeChannel(presenceChannel);}catch(e){} }
-
-  presenceChannel = sb.channel('dtr-presence-v2', {
-    config: {
-      presence: { key: SB_USER.id },
-      broadcast: { self: true }
-    }
-  });
-
-  const updateCount = () => {
-    try {
-      const state = presenceChannel.presenceState();
-      const count = Math.max(1, Object.keys(state).length);
-      const el = document.getElementById('onlineCnt');
-      if (el) el.textContent = count + ' онлайн';
-    } catch(e){}
-  };
-
-  presenceChannel
-    .on('presence', { event: 'sync' }, updateCount)
-    .on('presence', { event: 'join' }, updateCount)
-    .on('presence', { event: 'leave' }, updateCount)
-    .subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        await presenceChannel.track({
-          user_id: SB_USER.id,
-          username: P?.name || 'user',
-          online_at: new Date().toISOString()
-        });
-        updateCount();
-      }
-      if (status === 'CHANNEL_ERROR') {
-        // Fallback: just show 1 (self)
-        const el = document.getElementById('onlineCnt');
-        if (el) el.textContent = '1 онлайн';
-      }
-    });
+  // Update own last_seen immediately and every 2 minutes
+  const ping = () => sb.from('users').update({ last_seen: new Date().toISOString() }).eq('id', SB_USER.id).catch(()=>{});
+  ping();
+  if(presenceInterval) clearInterval(presenceInterval);
+  presenceInterval = setInterval(() => {
+    ping();
+    updateOnlineCount();
+    updateLeagueOnlineCounts();
+  }, 30000); // every 30 seconds
+  // Show immediately
+  setTimeout(updateOnlineCount, 500);
+  setTimeout(updateLeagueOnlineCounts, 1000);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -5149,42 +5173,67 @@ let dashCatFilter = null; // null = all
 
 function setDashCatFromSel(sel) {
   dashCatFilter = sel.value || null;
-  // Update active states on pill buttons
-  document.querySelectorAll('.lg-pill-btn').forEach(b => b.classList.remove('active-pill'));
-  const activeId = dashCatFilter ? 'lgPill__' + dashCatFilter : 'lgPill__all';
-  const activeBtn = document.getElementById(activeId);
-  if (activeBtn) activeBtn.classList.add('active-pill');
+  const m=document.getElementById('lgDropMenu');
+  if(m)m.style.display='none';
+  renderCatFilter();
   renderDash();
 }
 
+function toggleLeagueDrop(){
+  const m=document.getElementById('lgDropMenu');
+  if(!m)return;
+  m.style.display=m.style.display==='none'?'block':'none';
+}
+document.addEventListener('click',e=>{
+  const m=document.getElementById('lgDropMenu');
+  if(!m||m.style.display==='none')return;
+  if(!e.target.closest('#leagueSelWrap'))m.style.display='none';
+});
+
 function renderCatFilter(){
-  // Epic pill buttons for league selector
-  const container = document.getElementById('lgPillsContainer');
-  const allBtn = document.getElementById('lgPill__all');
-  if (container) {
-    const cats = activeCats();
-    container.innerHTML = cats.map(c => {
-      // Count members: how many sessions this cat has
-      const memberCount = c.hours > 0 ? Math.max(1, Math.round(c.hours / 3)) : 0;
-      const isActive = dashCatFilter === c.id;
-      return `<button id="lgPill__${c.id}" onclick="setDashCatFromSel({value:'${c.id}'})"
-        class="lg-pill-btn${isActive?' active-pill':''}"
-        style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:7px;border:1px solid ${isActive?'var(--gold)':'var(--border)'};background:${isActive?'rgba(245,200,66,.1)':'transparent'};cursor:pointer;white-space:nowrap;flex-direction:column;gap:1px">
-        <span style="font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:1.5px;color:${isActive?'var(--gold)':'var(--t2)'}">${c.icon} ${c.name.toUpperCase()}</span>
-        <span style="font-size:10px;font-weight:700;color:#4ade80;letter-spacing:.3px">${memberCount > 0 ? memberCount + ' уч.' : '—'}</span>
-      </button>`;
+  const cats=activeCats();
+  // Populate dropdown items
+  const menu=document.getElementById('lgDropItems');
+  const btn=document.getElementById('lgDropBtn');
+  const lbl=document.getElementById('lgDropLabel');
+  if(menu){
+    const allActive=!dashCatFilter;
+    menu.innerHTML=`<div onclick="setDashCatFromSel({value:''})" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:7px;cursor:pointer;background:${allActive?'rgba(245,200,66,.1)':'transparent'};transition:background .15s" onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background='${allActive?'rgba(245,200,66,.1)':'transparent'}'">
+      <span style="font-size:14px">🏆</span>
+      <div style="flex:1">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:1px;color:${allActive?'var(--gold)':'var(--t1)'};text-transform:uppercase">Все лиги</div>
+      </div>
+      ${allActive?'<span style="color:var(--gold);font-size:10px">✓</span>':''}
+    </div>`+cats.map(c=>{
+      const isActive=dashCatFilter===c.id;
+      // member count estimate from hours
+      const mc=c.hours>0?Math.max(1,Math.round(c.hours/3)):0;
+      return `<div onclick="setDashCatFromSel({value:'${c.id}'})" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:7px;cursor:pointer;background:${isActive?'rgba(245,200,66,.08)':'transparent'};transition:background .15s" onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background='${isActive?'rgba(245,200,66,.08)':'transparent'}'">
+        <span style="font-size:14px">${c.icon}</span>
+        <div style="flex:1">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:1px;color:${isActive?'var(--gold)':c.color};text-transform:uppercase">${c.name}</div>
+          <div style="font-size:11px;font-weight:700;color:#4ade80">${mc>0?mc+' участников':'—'}</div>
+        </div>
+        ${isActive?'<span style="color:var(--gold);font-size:10px">✓</span>':''}
+      </div>`;
     }).join('');
-    // Update "all" button state
-    if (allBtn) allBtn.classList.toggle('active-pill', !dashCatFilter);
+    // Update button label
+    if(lbl){
+      const sel=cats.find(c=>c.id===dashCatFilter);
+      lbl.textContent=sel?`${sel.icon} ${sel.name.toUpperCase()}`:'🏆 Все лиги';
+    }
+    if(btn){
+      btn.style.color=dashCatFilter?'var(--gold)':'var(--t3)';
+      btn.style.borderColor=dashCatFilter?'var(--gold)':'var(--border)';
+      btn.style.background=dashCatFilter?'rgba(245,200,66,.08)':'transparent';
+    }
   }
 
-  const el = document.getElementById('dashCatFilter');
-  if(!el) return;
-  const cats = activeCats();
-  el.innerHTML = `<button class="cf-btn ${!dashCatFilter?'active':''}" onclick="setDashCat(null)">${t('cat_filter_all')}</button>`
-    + cats.map(c=>`<button class="cf-btn ${dashCatFilter===c.id?'active':''}" onclick="setDashCat('${c.id}')" style="${dashCatFilter===c.id?`border-color:${c.color};background:${c.color}22;color:${c.color}`:''}">
-      ${c.icon} ${c.name}
-    </button>`).join('');
+  const el=document.getElementById('dashCatFilter');
+  if(!el)return;
+  el.innerHTML=`<button class="cf-btn ${!dashCatFilter?'active':''}" onclick="setDashCat(null)">${t('cat_filter_all')}</button>`
+    +cats.map(c=>`<button class="cf-btn ${dashCatFilter===c.id?'active':''}" onclick="setDashCat('${c.id}')" style="${dashCatFilter===c.id?`border-color:${c.color};background:${c.color}22;color:${c.color}`:''}">
+      ${c.icon} ${c.name}</button>`).join('');
 }
 
 function setDashCat(id){
