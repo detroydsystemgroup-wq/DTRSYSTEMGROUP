@@ -3107,11 +3107,11 @@ function renderDash(){
   document.getElementById('barAxisR').textContent=`${maxVal.toFixed(1)} ч макс.`;
 
   const maxCatH=Math.max(...active.map(c=>data[c.id].reduce((a,v)=>a+v,0)),0.1);
-  // Responsive grid: 1 cat=full width, 2=50/50, 3+=33%, 4+=25%
-  const catGridCols=catCount===1?'1fr':catCount===2?'1fr 1fr':catCount===3?'1fr 1fr 1fr':catCount===4?'1fr 1fr 1fr 1fr':'repeat(auto-fill,minmax(160px,1fr))';
+  // Dynamic cols: no orphan gaps — always fill completely
+  let catCols = catCount<=1?1:catCount===2?2:catCount===3?3:catCount===4?4:catCount<=6?3:4;
   const catEl=document.getElementById('catBreakdown');
   catEl.style.display='grid';
-  catEl.style.gridTemplateColumns=catGridCols;
+  catEl.style.gridTemplateColumns=`repeat(${catCols},1fr)`;
   catEl.style.gap='8px';
 
 
@@ -3148,6 +3148,12 @@ function renderDash(){
       </div>
     </div>`;
   }).join('');
+  // Fill orphan cells in last row with invisible placeholders
+  const catRemainder=catCount%catCols;
+  if(catRemainder!==0){
+    const needed=catCols-catRemainder;
+    catEl.innerHTML+=Array(needed).fill('<div style="visibility:hidden;pointer-events:none"></div>').join('');
+  }
 
   const bestCat=active.slice().sort((a,b)=>data[b.id].reduce((s,v)=>s+v,0)-data[a.id].reduce((s,v)=>s+v,0))[0];
   const goalPct=Math.min(100,Math.round((periodHrs/(isWeek?14:60))*100));
