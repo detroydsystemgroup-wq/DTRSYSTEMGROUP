@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#09090B">
 <title>DTR Progress Club</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{
   /* ── Black Obsidian + Liquid Gold Palette ── */
@@ -2519,7 +2519,17 @@ async function doLogin(){
     email:n.toLowerCase()+'@lifetrack.app',password:p
   });
   btn.textContent='Войти';btn.disabled=false;
-  if(error){err.textContent='Неверный никнейм или пароль';return;}
+  if(error){
+    console.error('Login error:', error);
+    if(error.message?.includes('fetch')||error.message?.includes('network')||error.message?.includes('Failed')){
+      err.textContent='Ошибка соединения с сервером. Проверь интернет.';
+    } else if(error.message?.includes('Invalid')||error.message?.includes('credentials')){
+      err.textContent='Неверный никнейм или пароль';
+    } else {
+      err.textContent='Ошибка: '+error.message;
+    }
+    return;
+  }
   SB_USER=data.user;
   await loadUser(data.user.id);
 }
