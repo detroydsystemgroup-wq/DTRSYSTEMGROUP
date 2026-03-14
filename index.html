@@ -543,6 +543,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .cmp-diff.dn{background:rgba(248,81,73,.08);color:#f85149;border:1px solid rgba(248,81,73,.18);}
 .cmp-diff.eq{background:rgba(245,200,66,.08);color:var(--gold);border:1px solid rgba(245,200,66,.2);}
 .cmp-icon{font-size:22px;margin-bottom:4px;}
+.cmp-period-btn{padding:4px 11px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--t3);font-size:10px;font-weight:700;cursor:pointer;letter-spacing:.5px;text-transform:uppercase;transition:all .18s;}
+.cmp-period-btn:hover{border-color:var(--gold);color:var(--gold);}
+.cmp-period-btn.active{background:rgba(245,200,66,.1);border-color:var(--gold);color:var(--gold);}
+input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.6);cursor:pointer;}
 
 /* ── LIGHT THEME ── */
 [data-theme="light"]{
@@ -4828,90 +4832,153 @@ function renderRecords(){
 }
 
 // ══ COMPARISON (replaces Forecast) ═══════════════════
+let cmpPeriodDays=7; // default period
+let cmpCustomFrom=null,cmpCustomTo=null;
+
+function setCmpPeriod(days,fromEl){
+  cmpPeriodDays=days;
+  cmpCustomFrom=null;cmpCustomTo=null;
+  document.querySelectorAll('.cmp-period-btn').forEach(b=>b.classList.remove('active'));
+  if(fromEl)fromEl.classList.add('active');
+  document.getElementById('cmpCalPop')?.remove();
+  renderForecast();
+}
+
+function openCmpCal(){
+  const existing=document.getElementById('cmpCalPop');
+  if(existing){existing.remove();return;}
+  const wrap=document.getElementById('forecastRow');
+  const pop=document.createElement('div');
+  pop.id='cmpCalPop';
+  pop.style.cssText='position:relative;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:2px;z-index:10;';
+  const today=new Date();
+  const toISO=d=>d.toISOString().slice(0,10);
+  const d7=new Date(today);d7.setDate(today.getDate()-7);
+  pop.innerHTML=`
+    <div style="font-size:11px;font-weight:700;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Выбрать период</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <label style="font-size:9px;color:var(--t3);letter-spacing:.5px;text-transform:uppercase">С</label>
+        <input type="date" id="cmpFromDate" value="${toISO(d7)}" max="${toISO(today)}"
+          style="background:var(--card);border:1px solid var(--border);border-radius:7px;color:var(--t1);padding:5px 9px;font-size:12px;outline:none;cursor:pointer">
+      </div>
+      <div style="font-size:16px;color:var(--t3);margin-top:14px">→</div>
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <label style="font-size:9px;color:var(--t3);letter-spacing:.5px;text-transform:uppercase">По</label>
+        <input type="date" id="cmpToDate" value="${toISO(today)}" max="${toISO(today)}"
+          style="background:var(--card);border:1px solid var(--border);border-radius:7px;color:var(--t1);padding:5px 9px;font-size:12px;outline:none;cursor:pointer">
+      </div>
+      <button onclick="applyCmpCal()" style="margin-top:14px;padding:6px 14px;background:rgba(245,200,66,.12);border:1px solid var(--gold);border-radius:8px;color:var(--gold);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px;text-transform:uppercase">Применить</button>
+      <button onclick="document.getElementById('cmpCalPop')?.remove()" style="margin-top:14px;padding:6px 10px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--t3);font-size:11px;cursor:pointer">✕</button>
+    </div>`;
+  wrap.parentNode.insertBefore(pop,wrap);
+}
+
+function applyCmpCal(){
+  const from=document.getElementById('cmpFromDate')?.value;
+  const to=document.getElementById('cmpToDate')?.value;
+  if(!from||!to)return;
+  cmpCustomFrom=new Date(from).setHours(0,0,0,0);
+  cmpCustomTo=new Date(to).setHours(23,59,59,999);
+  cmpPeriodDays=Math.max(1,Math.round((cmpCustomTo-cmpCustomFrom)/86400000));
+  document.querySelectorAll('.cmp-period-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('cmpCalPop')?.remove();
+  renderForecast();
+}
+
 function renderForecast(){
   const el=document.getElementById('forecastRow');if(!el)return;
-
-  // ── 1. Goal completion % (weekly average vs "good player" benchmark) ──
-  const goal=dailyGoalHours||2;
-  // Calculate each day in last 7 days actual hours
   const now=Date.now();
   const dayMs=86400000;
+  const periodStart=cmpCustomFrom||(now-cmpPeriodDays*dayMs);
+  const periodEnd=cmpCustomTo||now;
+  const days=Math.max(1,Math.round((periodEnd-periodStart)/dayMs));
+  const periodLbl=cmpCustomFrom
+    ? `${new Date(periodStart).toLocaleDateString('ru',{day:'2-digit',month:'short'})} — ${new Date(periodEnd).toLocaleDateString('ru',{day:'2-digit',month:'short'})}`
+    : days===1?'Сегодня':days===7?'7 дней':days===14?'14 дней':days===30?'30 дней':`${days} дн.`;
+
+  // ── 1. Goal completion % ──
+  const goal=dailyGoalHours||2;
   let totalGoalPct=0,activeDaysG=0;
-  for(let d=0;d<7;d++){
-    const dayStart=now-(d+1)*dayMs;
-    const dayEnd=now-d*dayMs;
-    const dayHrs=P.sessions.filter(s=>s.ts&&s.ts>dayStart&&s.ts<=dayEnd).reduce((a,s)=>a+(s.dur/3600),0);
+  for(let d=0;d<days;d++){
+    const ds=periodStart+d*dayMs;
+    const de=Math.min(ds+dayMs,periodEnd);
+    const dayHrs=P.sessions.filter(s=>s.ts&&s.ts>=ds&&s.ts<de).reduce((a,s)=>a+(s.dur/3600),0);
     if(dayHrs>0){totalGoalPct+=Math.min(100,Math.round((dayHrs/goal)*100));activeDaysG++;}
   }
   const myGoalPct=activeDaysG>0?Math.round(totalGoalPct/activeDaysG):0;
-  // Benchmark: "среднестатистический" игрок закрывает ~60%
   const avgGoalPct=60;
   const goalDiff=myGoalPct-avgGoalPct;
   const goalClass=goalDiff>5?'up':goalDiff<-5?'dn':'eq';
   const goalDiffLbl=goalDiff>0?`+${goalDiff}%`:goalDiff<0?`${goalDiff}%`:'±0%';
 
-  // ── 2. Streak comparison (my streak vs avg ~5 days) ──
+  // ── 2. Streak ──
   const myStreak=P.streak||0;
-  const avgStreak=5;
+  const avgStreak=days<=7?5:days<=14?6:8;
   const streakDiff=myStreak-avgStreak;
   const streakClass=streakDiff>2?'up':streakDiff<-2?'dn':'eq';
   const streakDiffLbl=streakDiff>0?`+${streakDiff} д`:streakDiff<0?`${streakDiff} д`:'±0 д';
 
-  // ── 3. Total league hours (my best cat vs avg ~30h) ──
+  // ── 3. League hours — auto-detect selected cat ──
   const cats=activeCats();
-  const myBestCat=cats.length?cats.reduce((a,b)=>a.hours>b.hours?a:b,cats[0]):null;
-  const myLeagueHrs=myBestCat?myBestCat.hours:0;
-  const avgLeagueHrs=30;
+  // Use cat with most sessions in period, fallback to most hours
+  const catActivity=cats.map(c=>({
+    ...c,
+    periodHrs:P.sessions.filter(s=>s.cat===c.id&&s.ts>=periodStart&&s.ts<=periodEnd).reduce((a,s)=>a+(s.dur/3600),0)
+  }));
+  const activePeriodCat=catActivity.filter(c=>c.periodHrs>0).sort((a,b)=>b.periodHrs-a.periodHrs)[0]
+    || cats.reduce((a,b)=>a.hours>b.hours?a:b,cats[0])||null;
+  const myLeagueHrs=activePeriodCat?activePeriodCat.periodHrs||activePeriodCat.hours:0;
+  const avgLeagueHrs=days<=7?8:days<=14?15:30;
   const hrsDiff=parseFloat((myLeagueHrs-avgLeagueHrs).toFixed(1));
-  const hrsClass=hrsDiff>5?'up':hrsDiff<-5?'dn':'eq';
+  const hrsClass=hrsDiff>1?'up':hrsDiff<-1?'dn':'eq';
   const hrsDiffLbl=hrsDiff>0?`+${hrsDiff}ч`:hrsDiff<0?`${hrsDiff}ч`:'±0ч';
 
-  // ── Bar scale helper ──
-  const bar=(my,avg,color)=>{
-    const myNum=parseFloat(String(my))||0;
-    const avgNum=parseFloat(String(avg))||0;
+  // ── Bar helper ──
+  const bar=(myNum,avgNum)=>{
     const mx=Math.max(myNum,avgNum,0.1);
     return `
       <div class="cmp-bar-row">
-        <div class="cmp-bar-lbl" style="color:#4ade80;font-weight:700">ТЫ</div>
+        <div class="cmp-bar-lbl" style="color:#4ade80;font-weight:700;font-size:10px">ТЫ</div>
         <div class="cmp-bar-wr" style="height:8px">
           <div class="cmp-bar-fill" style="width:${Math.round((myNum/mx)*100)}%;background:#4ade80;box-shadow:0 0 6px #4ade8088"></div>
         </div>
-        <div class="cmp-bar-val" style="color:#4ade80;font-size:11px">${my}</div>
+        <div class="cmp-bar-val" style="color:#4ade80;font-size:11px;font-weight:700">${myNum}</div>
       </div>
       <div class="cmp-bar-row">
         <div class="cmp-bar-lbl" style="color:#f85149;font-size:9px;letter-spacing:.5px;font-weight:700">СРЕДНИЙ</div>
         <div class="cmp-bar-wr" style="height:8px;background:rgba(255,255,255,.06)">
           <div style="height:100%;width:${Math.round((avgNum/mx)*100)}%;background:#f85149;border-radius:2px;box-shadow:0 0 6px #f8514988"></div>
         </div>
-        <div class="cmp-bar-val" style="color:#f85149;font-size:10px">${avg}</div>
+        <div class="cmp-bar-val" style="color:#f85149;font-size:10px;font-weight:700">${avgNum}</div>
       </div>`;
   };
 
   el.innerHTML=`
-    <div class="cmp-card" style="--cmp-c:#3fb950">
-      <div class="cmp-title">🎯 Выполнение цели — неделя</div>
-      <div class="cmp-bars">
-        ${bar(myGoalPct+'%',avgGoalPct+'%','#3fb950')}
-      </div>
-      <div style="margin-top:6px;font-size:10px;color:var(--t3)">Цель: ${goal}ч/день · Активных дней: ${activeDaysG}/7</div>
-      <span class="cmp-diff ${goalClass}">${goalDiffLbl} ${goalClass==='up'?'выше':'ниже'} среднего</span>
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+      <button class="cmp-period-btn${cmpPeriodDays===7&&!cmpCustomFrom?' active':''}" onclick="setCmpPeriod(7,this)">7 дней</button>
+      <button class="cmp-period-btn${cmpPeriodDays===14&&!cmpCustomFrom?' active':''}" onclick="setCmpPeriod(14,this)">14 дней</button>
+      <button class="cmp-period-btn${cmpPeriodDays===30&&!cmpCustomFrom?' active':''}" onclick="setCmpPeriod(30,this)">30 дней</button>
+      <button class="cmp-period-btn${cmpCustomFrom?' active':''}" onclick="openCmpCal()" style="display:inline-flex;align-items:center;gap:4px">📅 Период</button>
+      <span style="font-size:10px;color:var(--t3);margin-left:2px">${periodLbl}</span>
     </div>
-    <div class="cmp-card" style="--cmp-c:#f85149">
-      <div class="cmp-title">🔥 Стрик — последовательность</div>
-      <div class="cmp-bars">
-        ${bar(myStreak+' д',avgStreak+' д','#f85149')}
-      </div>
-      <div style="margin-top:6px;font-size:10px;color:var(--t3)">Текущий стрик: ${myStreak} дней подряд</div>
-      <span class="cmp-diff ${streakClass}">${streakDiffLbl} ${streakClass==='up'?'выше':'ниже'} среднего</span>
+    <div class="cmp-card">
+      <div class="cmp-title" style="color:var(--gold)">🎯 Выполнение цели</div>
+      <div class="cmp-bars">${bar(myGoalPct+'%',avgGoalPct+'%')}</div>
+      <div style="margin-top:6px;font-size:10px;color:var(--t3)">Цель: ${goal}ч/день · Активных: ${activeDaysG}/${days} дн.</div>
+      <span class="cmp-diff ${goalClass}">${goalDiffLbl} ${goalClass==='up'?'выше среднего':'ниже среднего'}</span>
     </div>
-    <div class="cmp-card" style="--cmp-c:${myBestCat?.color||'var(--blue)'}">
-      <div class="cmp-title">${myBestCat?.icon||'🏆'} Часов в лиге — ${myBestCat?.name||'лучшая категория'}</div>
-      <div class="cmp-bars">
-        ${bar(parseFloat(myLeagueHrs.toFixed(1)),avgLeagueHrs,myBestCat?.color||'var(--blue)')}
-      </div>
-      <div style="margin-top:6px;font-size:10px;color:var(--t3)">Всего часов в категории</div>
-      <span class="cmp-diff ${hrsClass}">${hrsDiffLbl} ${hrsClass==='up'?'выше':'ниже'} среднего</span>
+    <div class="cmp-card">
+      <div class="cmp-title" style="color:var(--gold)">🔥 Стрик — последовательность</div>
+      <div class="cmp-bars">${bar(myStreak+' д',avgStreak+' д')}</div>
+      <div style="margin-top:6px;font-size:10px;color:var(--t3)">Стрик: ${myStreak} дней подряд · Бенчмарк за ${days} дн.</div>
+      <span class="cmp-diff ${streakClass}">${streakDiffLbl} ${streakClass==='up'?'выше среднего':'ниже среднего'}</span>
+    </div>
+    <div class="cmp-card" style="--cmp-c:${activePeriodCat?.color||'var(--blue)'}">
+      <div class="cmp-title" style="color:var(--gold)">${activePeriodCat?.icon||'🏆'} Часов в лиге — ${activePeriodCat?.name||'—'}</div>
+      <div class="cmp-bars">${bar(parseFloat(myLeagueHrs.toFixed(1))+'ч',avgLeagueHrs+'ч')}</div>
+      <div style="margin-top:6px;font-size:10px;color:var(--t3)">Активная лига за период · Среднее ${avgLeagueHrs}ч</div>
+      <span class="cmp-diff ${hrsClass}">${hrsDiffLbl} ${hrsClass==='up'?'выше среднего':'ниже среднего'}</span>
     </div>`;
 }
 
