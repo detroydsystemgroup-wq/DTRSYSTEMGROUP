@@ -547,6 +547,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .cmp-period-btn:hover{border-color:var(--gold);color:var(--gold);}
 .cmp-period-btn.active{background:rgba(245,200,66,.1);border-color:var(--gold);color:var(--gold);}
 input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.6);cursor:pointer;}
+.lg-pill-btn{transition:all .2s cubic-bezier(.34,1.56,.64,1)!important;}
+.lg-pill-btn:hover{transform:translateY(-1px);border-color:var(--gold)!important;color:var(--gold)!important;}
+.lg-pill-btn.active-pill{background:rgba(245,200,66,.1)!important;border-color:var(--gold)!important;color:var(--gold)!important;box-shadow:0 0 8px rgba(245,200,66,.15);}
 
 /* ── LIGHT THEME ── */
 [data-theme="light"]{
@@ -2031,13 +2034,10 @@ body.modal-open{overflow:hidden!important;}
         <div class="ch">
           <span class="ct" id="dashTitle">Дашборд</span>
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            <!-- League filter dropdown styled as dp-btn -->
-            <div class="dash-period" id="leagueSelWrap" style="position:relative">
-              <select id="dashLeagueSel" onchange="setDashCatFromSel(this)"
-                style="padding:6px 20px 6px 10px;border-radius:6px;border:none;background:transparent;color:var(--t3);font-size:12px;font-weight:700;cursor:pointer;outline:none;font-family:'Rajdhani',sans-serif;letter-spacing:.5px;text-transform:uppercase;appearance:none;-webkit-appearance:none;transition:color .2s;width:100%">
-                <option value="">ВСЕ ЛИГИ</option>
-              </select>
-              <span style="position:absolute;right:4px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:8px;color:var(--t3)">▾</span>
+            <!-- League filter — epic pill buttons -->
+            <div id="leagueSelWrap" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
+              <button id="lgPill__all" onclick="setDashCatFromSel({value:''})" style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:1.5px;cursor:pointer;transition:all .18s;white-space:nowrap" class="lg-pill-btn active-pill">ВСЕ ЛИГИ</button>
+              <div id="lgPillsContainer" style="display:contents"></div>
             </div>
             <div class="dash-period">
               <button class="dp-btn active" id="dpW" onclick="setPeriod('week')">Неделя</button>
@@ -4380,29 +4380,28 @@ let presenceChannel = null;
 
 function initPresence() {
   if (!SB_USER) return;
-  if (presenceChannel) { sb.removeChannel(presenceChannel); }
+  if (presenceChannel) { try{sb.removeChannel(presenceChannel);}catch(e){} }
 
-  presenceChannel = sb.channel('dtr-presence', {
-    config: { presence: { key: SB_USER.id } }
+  presenceChannel = sb.channel('dtr-presence-v2', {
+    config: {
+      presence: { key: SB_USER.id },
+      broadcast: { self: true }
+    }
   });
 
-  presenceChannel
-    .on('presence', { event: 'sync' }, () => {
+  const updateCount = () => {
+    try {
       const state = presenceChannel.presenceState();
-      const count = Object.keys(state).length;
+      const count = Math.max(1, Object.keys(state).length);
       const el = document.getElementById('onlineCnt');
       if (el) el.textContent = count + ' онлайн';
-    })
-    .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-      const state = presenceChannel.presenceState();
-      const el = document.getElementById('onlineCnt');
-      if (el) el.textContent = Object.keys(state).length + ' онлайн';
-    })
-    .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-      const state = presenceChannel.presenceState();
-      const el = document.getElementById('onlineCnt');
-      if (el) el.textContent = Object.keys(state).length + ' онлайн';
-    })
+    } catch(e){}
+  };
+
+  presenceChannel
+    .on('presence', { event: 'sync' }, updateCount)
+    .on('presence', { event: 'join' }, updateCount)
+    .on('presence', { event: 'leave' }, updateCount)
     .subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         await presenceChannel.track({
@@ -4410,6 +4409,12 @@ function initPresence() {
           username: P?.name || 'user',
           online_at: new Date().toISOString()
         });
+        updateCount();
+      }
+      if (status === 'CHANNEL_ERROR') {
+        // Fallback: just show 1 (self)
+        const el = document.getElementById('onlineCnt');
+        if (el) el.textContent = '1 онлайн';
       }
     });
 }
@@ -5144,33 +5149,33 @@ let dashCatFilter = null; // null = all
 
 function setDashCatFromSel(sel) {
   dashCatFilter = sel.value || null;
-  // Style wrapper like active dp-btn when a league is selected
-  const wrap = document.getElementById('leagueSelWrap');
-  if (wrap) {
-    if (dashCatFilter) {
-      wrap.style.background = 'linear-gradient(135deg,rgba(245,200,66,.12),rgba(245,200,66,.06))';
-      wrap.style.border = '1px solid rgba(245,200,66,.2)';
-      sel.style.color = 'var(--gold)';
-    } else {
-      wrap.style.background = '';
-      wrap.style.border = '';
-      sel.style.color = 'var(--t3)';
-    }
-  }
+  // Update active states on pill buttons
+  document.querySelectorAll('.lg-pill-btn').forEach(b => b.classList.remove('active-pill'));
+  const activeId = dashCatFilter ? 'lgPill__' + dashCatFilter : 'lgPill__all';
+  const activeBtn = document.getElementById(activeId);
+  if (activeBtn) activeBtn.classList.add('active-pill');
   renderDash();
 }
 
 function renderCatFilter(){
-  // Populate the league dropdown
-  const dropSel = document.getElementById('dashLeagueSel');
-  if (dropSel) {
+  // Epic pill buttons for league selector
+  const container = document.getElementById('lgPillsContainer');
+  const allBtn = document.getElementById('lgPill__all');
+  if (container) {
     const cats = activeCats();
-    const currentVal = dashCatFilter || '';
-    dropSel.innerHTML = '<option value="">ВСЕ ЛИГИ</option>' +
-      cats.map(c => `<option value="${c.id}" ${currentVal===c.id?'selected':''}>${c.icon} ${c.name.toUpperCase()}</option>`).join('');
-    // Style active state
-    dropSel.style.borderColor = dashCatFilter ? 'var(--gold)' : 'var(--border)';
-    dropSel.style.color = dashCatFilter ? 'var(--gold)' : 'var(--t2)';
+    container.innerHTML = cats.map(c => {
+      // Count members: how many sessions this cat has
+      const memberCount = c.hours > 0 ? Math.max(1, Math.round(c.hours / 3)) : 0;
+      const isActive = dashCatFilter === c.id;
+      return `<button id="lgPill__${c.id}" onclick="setDashCatFromSel({value:'${c.id}'})"
+        class="lg-pill-btn${isActive?' active-pill':''}"
+        style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:7px;border:1px solid ${isActive?'var(--gold)':'var(--border)'};background:${isActive?'rgba(245,200,66,.1)':'transparent'};cursor:pointer;white-space:nowrap;flex-direction:column;gap:1px">
+        <span style="font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:1.5px;color:${isActive?'var(--gold)':'var(--t2)'}">${c.icon} ${c.name.toUpperCase()}</span>
+        <span style="font-size:10px;font-weight:700;color:#4ade80;letter-spacing:.3px">${memberCount > 0 ? memberCount + ' уч.' : '—'}</span>
+      </button>`;
+    }).join('');
+    // Update "all" button state
+    if (allBtn) allBtn.classList.toggle('active-pill', !dashCatFilter);
   }
 
   const el = document.getElementById('dashCatFilter');
@@ -5462,20 +5467,30 @@ function trackLeaguePresence() {
   const catIds = P.activeCatIds || [];
   catIds.forEach(catId => {
     if (!leagueOnlineMap[catId]) leagueOnlineMap[catId] = new Set();
-    const ch = sb.channel('league-presence-' + catId, { config: { presence: { key: SB_USER.id } } });
-    ch.on('presence', { event: 'sync' }, () => {
-      const state = ch.presenceState();
-      leagueOnlineMap[catId] = new Set(Object.keys(state));
+    try {
+      const ch = sb.channel('league-presence-v2-' + catId, {
+        config: { presence: { key: SB_USER.id }, broadcast: { self: true } }
+      });
+      ch.on('presence', { event: 'sync' }, () => {
+        leagueOnlineMap[catId] = new Set(Object.keys(ch.presenceState()));
+        updateLeagueOnlineUI();
+      }).on('presence', { event: 'join' }, ({ key }) => {
+        leagueOnlineMap[catId].add(key);
+        updateLeagueOnlineUI();
+      }).on('presence', { event: 'leave' }, ({ key }) => {
+        leagueOnlineMap[catId].delete(key);
+        updateLeagueOnlineUI();
+      }).subscribe(async status => {
+        if (status === 'SUBSCRIBED') {
+          await ch.track({ user_id: SB_USER.id, cat: catId, ts: Date.now() });
+          leagueOnlineMap[catId].add(SB_USER.id);
+          updateLeagueOnlineUI();
+        }
+      });
+    } catch(e) {
+      leagueOnlineMap[catId].add(SB_USER.id);
       updateLeagueOnlineUI();
-    }).on('presence', { event: 'join' }, ({ key }) => {
-      leagueOnlineMap[catId].add(key);
-      updateLeagueOnlineUI();
-    }).on('presence', { event: 'leave' }, ({ key }) => {
-      leagueOnlineMap[catId].delete(key);
-      updateLeagueOnlineUI();
-    }).subscribe(async status => {
-      if (status === 'SUBSCRIBED') await ch.track({ user_id: SB_USER.id, cat: catId, ts: Date.now() });
-    });
+    }
   });
 }
 
