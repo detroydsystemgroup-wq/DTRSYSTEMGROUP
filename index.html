@@ -872,23 +872,23 @@ body { transition:background .28s,color .28s; }
 /* ══ USER PROFILE MODAL ════════════════════════════════════ */
 #userProfileOv{display:none;position:fixed;inset:0;z-index:600;align-items:center;justify-content:center;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);}
 #userProfileOv.show{display:flex;animation:fadeIn .22s ease both;}
-.up-modal{background:var(--panel);border:1px solid var(--border);border-radius:20px;width:92%;max-width:500px;overflow:hidden;animation:scaleIn .22s cubic-bezier(.34,1.56,.64,1) both;max-height:90vh;overflow-y:auto;}
-.up-cover{height:80px;background:linear-gradient(135deg,#0d1f35,#12082a);position:relative;}
-.up-av{width:80px;height:80px;border-radius:14px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:36px;border:3px solid var(--panel);position:absolute;bottom:-28px;left:24px;box-shadow:0 4px 16px rgba(0,0,0,.4);}
-.up-head{padding:40px 24px 18px;border-bottom:1px solid var(--border-l);}
-.up-name{font-family:'Rajdhani',sans-serif;font-size:24px;font-weight:700;margin-bottom:4px;}
-.up-meta{font-size:12px;color:var(--t3);display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
-.up-actions{display:flex;gap:8px;}
+.up-modal{background:var(--panel);border:1px solid var(--border);border-radius:20px;width:94%;max-width:560px;overflow:hidden;animation:scaleIn .25s cubic-bezier(.34,1.56,.64,1) both;max-height:92vh;overflow-y:auto;display:flex;flex-direction:column;}
+.up-cover{height:130px;background:linear-gradient(135deg,#0d1f35,#12082a);position:relative;flex-shrink:0;}
+.up-av{width:88px;height:88px;border-radius:16px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:42px;border:3px solid var(--panel);position:absolute;bottom:-32px;left:24px;box-shadow:0 4px 24px rgba(0,0,0,.6);overflow:hidden;}
+.up-head{padding:46px 24px 18px;border-bottom:1px solid var(--border-l);}
+.up-name{font-family:'Rajdhani',sans-serif;font-size:26px;font-weight:800;margin-bottom:5px;letter-spacing:.5px;}
+.up-meta{font-size:12px;color:var(--t3);display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+.up-actions{display:flex;gap:8px;flex-wrap:wrap;}
 .up-btn{padding:8px 18px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:6px;}
 .up-btn:hover{border-color:var(--blue);color:var(--blue);background:rgba(26,159,255,.07);}
 .up-btn.liked{border-color:var(--red);color:var(--red);background:rgba(248,81,73,.08);}
 .up-btn.liked:hover{border-color:var(--red);}
 .up-btn-msg{background:linear-gradient(135deg,var(--gold),var(--gold-d));color:#09090B;font-weight:700;border-color:var(--gold);}
 .up-btn-msg:hover{background:linear-gradient(135deg,var(--gold-l),var(--gold));color:#09090B;border-color:var(--gold);}
-.up-leagues{padding:18px 24px;}
-.up-leagues-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin-bottom:12px;}
+.up-body{padding:20px 24px;}
 .up-league-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border-l);}
 .up-league-row:last-child{border-bottom:none;}
+.up-lcat{font-size:20px;flex-shrink:0;}
 .up-lcat{font-size:20px;flex-shrink:0;}
 .up-lname{font-size:13px;font-weight:600;flex:1;}
 .up-lbar-wr{width:80px;height:4px;background:var(--bg);border-radius:2px;overflow:hidden;}
@@ -2004,21 +2004,27 @@ body.modal-open{overflow:hidden!important;}
 <!-- ══ USER PROFILE MODAL ════════════════════════════════════ -->
 <div id="userProfileOv" onclick="if(event.target===this)closeUserProfile()">
   <div class="up-modal" id="upModal">
+    <!-- COVER -->
     <div class="up-cover" id="upCover">
-      <div class="up-av" id="upAv">🎯</div>
       <button class="up-close" onclick="closeUserProfile()">✕</button>
+      <div class="up-av" id="upAv">🎯</div>
     </div>
+    <!-- HEAD -->
     <div class="up-head">
-      <div class="up-name" id="upName">—</div>
-      <div class="up-meta" id="upMeta"></div>
-      <div class="up-actions">
-        <button class="up-btn" id="upLikeBtn" onclick="toggleLikeUser()">♡ Лайк <span id="upLikeCount">0</span></button>
-        <button class="up-btn up-btn-msg" onclick="openChatWithUser()">💬 Написать</button>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
+        <div>
+          <div class="up-name" id="upName">—</div>
+          <div class="up-meta" id="upMeta"></div>
+        </div>
+        <div class="up-actions" id="upActions">
+          <button class="up-btn" id="upLikeBtn" onclick="toggleLikeUser()">♡ Лайк <span id="upLikeCount">0</span></button>
+          <button class="up-btn up-btn-msg" onclick="openChatWithUser()">💬 Написать</button>
+        </div>
       </div>
     </div>
-    <div class="up-leagues">
-      <div class="up-leagues-title">Часы по лигам</div>
-      <div id="upLeaguesList"></div>
+    <!-- BODY -->
+    <div class="up-body" id="upLeaguesList">
+      <div style="padding:32px;text-align:center;color:var(--t3)">⏳ Загружаем профиль...</div>
     </div>
   </div>
 </div>
@@ -3704,134 +3710,177 @@ async function openUserProfile(userId, name, av){
   if(!userId){ showToast('Демо-игрок — профиль недоступен','ℹ️'); return; }
   const ov = document.getElementById('userProfileOv');
   ov.classList.add('show');
-  // Show immediately from cache
-  document.getElementById('upAv').textContent = av || '🎯';
+
+  // Instant skeleton while loading
+  const upAvEl = document.getElementById('upAv');
+  upAvEl.textContent = av || '🎯';
+  upAvEl.style.border = '2.5px solid var(--border)';
+  upAvEl.style.boxShadow = 'none';
   document.getElementById('upName').textContent = name || '—';
-  document.getElementById('upMeta').innerHTML = '<span style="color:var(--t3);font-size:12px">Загружаем...</span>';
-  document.getElementById('upLeaguesList').innerHTML = '<div style="color:var(--t3);font-size:13px;padding:12px 0;text-align:center">⏳ Загрузка...</div>';
-  document.getElementById('userProfileOv').dataset.userId = userId;
-  document.getElementById('userProfileOv').dataset.userName = name || '—';
-  document.getElementById('userProfileOv').dataset.userAv = av || '🎯';
+  document.getElementById('upMeta').innerHTML = '<span style="color:var(--t3)">Загружаем...</span>';
+  document.getElementById('upLeaguesList').innerHTML = '<div style="padding:32px;text-align:center;color:var(--t3)">⏳</div>';
+  ov.dataset.userId = userId;
+  ov.dataset.userName = name || '—';
+  ov.dataset.userAv = av || '🎯';
 
   try {
-    const [uRes, ucRes, achRes, clubRes] = await Promise.all([
+    // All queries in parallel
+    const [uRes, ucRes, achRes, clubRes, likeRes] = await Promise.all([
       sb.from('users').select('id,username,avatar,avatar_url,streak,total_sessions,created_at').eq('id',userId).limit(1),
-      sb.from('user_categories').select('category_id,hours').eq('user_id',userId),
-      sb.from('user_achievements').select('achievement_id,unlocked').eq('user_id',userId).eq('unlocked',true).limit(20),
-      sb.from('club_members').select('role,clubs(id,name,avatar,category_id)').eq('user_id',userId).limit(5)
+      sb.from('user_categories').select('category_id,hours').eq('user_id',userId).order('hours',{ascending:false}),
+      sb.from('user_achievements').select('achievement_id').eq('user_id',userId).eq('unlocked',true).limit(30),
+      sb.from('club_members').select('role,clubs(id,name,avatar,category_id)').eq('user_id',userId).limit(3),
+      sb.from('likes').select('id',{count:'exact',head:true}).eq('to_user_id',userId)
     ]);
 
-    const u = uRes.data?.[0] || null;
-    const uc = ucRes.data || [];
-    const achs = achRes.data || [];
-    const clubs = clubRes.data || [];
+    const u = uRes.data?.[0] ?? null;
+    const uc = ucRes.data ?? [];
+    const achs = achRes.data ?? [];
+    const clubs = clubRes.data ?? [];
+    const totalLikes = likeRes.count ?? 0;
 
-    if(!u){
-      document.getElementById('upMeta').innerHTML = `<span style="color:var(--t3);font-size:12px">Профиль недоступен</span>`;
-      document.getElementById('upLeaguesList').innerHTML = `<div style="color:var(--t3);font-size:13px;padding:8px 0">Пользователь ещё не завершил регистрацию.</div>`;
-      await refreshLikeBtn(userId);
-      return;
-    }
-
-    // ── Level ──
-    const totalH = uc.reduce((s,r)=>s+r.hours,0);
+    // ── Compute stats (works even if u is null) ──
+    const totalH = parseFloat(uc.reduce((s,r)=>s+(r.hours||0),0).toFixed(1));
     const lvlInfo = getLevelInfo(totalH);
+    const lvlColor = lvlInfo.color.includes('gradient') ? 'var(--gold)' : lvlInfo.color;
+    const topCat = ALL_CATS.find(c=>c.id===uc[0]?.category_id);
+    const streak = u?.streak || 0;
+    const sessions = u?.total_sessions || 0;
+    const username = u?.username || name || '—';
+    const achCount = achs.length;
 
     // ── Cover ──
-    const ucSorted = [...uc].sort((a,b)=>b.hours-a.hours);
-    const topCat = ALL_CATS.find(c=>c.id===ucSorted[0]?.category_id);
-    document.getElementById('upCover').style.background =
-      topCat ? `linear-gradient(135deg,${topCat.color}44,#12082a 70%)` : 'linear-gradient(135deg,#0d1f35,#12082a)';
+    const cover = document.getElementById('upCover');
+    cover.style.background = topCat
+      ? `linear-gradient(135deg,${topCat.color}55 0%,#060610 100%)`
+      : `linear-gradient(135deg,${lvlColor}33 0%,#060610 100%)`;
+    // Animated glow orb + level badge
+    cover.innerHTML =
+      `<div style="position:absolute;top:-30px;left:-30px;width:180px;height:180px;border-radius:50%;background:${lvlColor}18;filter:blur(40px);pointer-events:none"></div>`+
+      `<div style="position:absolute;bottom:-32px;left:24px;width:88px;height:88px;border-radius:16px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:42px;border:3px solid var(--panel);box-shadow:0 4px 24px rgba(0,0,0,.6);overflow:hidden;z-index:2" id="upAv">${av||'🎯'}</div>`+
+      `<button class="up-close" onclick="closeUserProfile()">✕</button>`+
+      `<div style="position:absolute;top:12px;right:14px;background:${lvlColor}22;border:1px solid ${lvlColor}55;color:${lvlColor};font-size:11px;font-weight:800;padding:4px 14px;border-radius:20px;letter-spacing:.8px;text-transform:uppercase;backdrop-filter:blur(8px)">⭐ УР.${lvlInfo.lvl} · ${lvlInfo.name}</div>`;
 
-    // ── Avatar ──
-    const upAvEl = document.getElementById('upAv');
-    if(u.avatar_url){
-      upAvEl.innerHTML = `<img src="${u.avatar_url}" style="width:100%;height:100%;border-radius:12px;object-fit:cover" onerror="this.parentNode.textContent='${u.avatar||'🎯'}'">`;
-    } else {
-      upAvEl.textContent = u.avatar || '🎯';
+    // ── Avatar with glow ──
+    const newAvEl = document.getElementById('upAv');
+    if(newAvEl){
+      newAvEl.style.border = `2.5px solid ${lvlColor}`;
+      newAvEl.style.boxShadow = `0 0 20px ${lvlColor}55`;
+      if(u?.avatar_url){
+        newAvEl.innerHTML = `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:13px" onerror="this.parentNode.textContent='${u?.avatar||'🎯'}'">`;
+      } else {
+        newAvEl.textContent = u?.avatar || av || '🎯';
+      }
     }
-    // Level badge on avatar
-    upAvEl.style.border = `2.5px solid ${lvlInfo.color.includes('gradient')?'var(--gold)':lvlInfo.color}`;
-    upAvEl.style.boxShadow = `0 0 14px ${lvlInfo.color.includes('gradient')?'rgba(245,200,66,.4)':lvlInfo.color+'55'}`;
 
-    document.getElementById('upName').textContent = u.username;
-    document.getElementById('upMeta').innerHTML = `
-      <span style="background:${lvlInfo.color.includes('gradient')?'rgba(245,200,66,.12)':lvlInfo.color+'22'};color:${lvlInfo.color.includes('gradient')?'var(--gold)':lvlInfo.color};border:1px solid ${lvlInfo.color.includes('gradient')?'rgba(245,200,66,.3)':lvlInfo.color+'44'};padding:2px 10px;border-radius:8px;font-weight:700;font-size:12px">
-        ⭐ Ур.${lvlInfo.lvl} ${lvlInfo.name}
-      </span>
-      <span>🔥 ${u.streak||0} дней стрик</span>
-      <span>⚡ ${u.total_sessions||0} сессий</span>
-      <span>📅 С ${new Date(u.created_at).toLocaleDateString('ru',{month:'long',year:'numeric'})}</span>`;
+    // ── Name + meta ──
+    document.getElementById('upName').textContent = username;
+    document.getElementById('upMeta').innerHTML =
+      `<span>📅 С ${new Date(u?.created_at||Date.now()).toLocaleDateString('ru',{month:'long',year:'numeric'})}</span>`+
+      `<span style="color:var(--green)">❤️ ${totalLikes}</span>`;
+
+    // Store for write message
+    ov.dataset.userId = userId;
+    ov.dataset.userName = username;
+    ov.dataset.userAv = u?.avatar || av || '🎯';
 
     await refreshLikeBtn(userId);
-    document.getElementById('userProfileOv').dataset.userId = userId;
-    document.getElementById('userProfileOv').dataset.userName = u.username;
-    document.getElementById('userProfileOv').dataset.userAv = u.avatar || '🎯';
 
-    // ── Build rich content ──
-    const maxHrs = Math.max(...uc.map(r=>r.hours), 1);
+    // ── KPI ──
+    const kpis = [
+      {v:totalH.toFixed(0), l:'Часов', i:'⏱', c:'var(--gold)'},
+      {v:streak,            l:'Стрик', i:'🔥', c:'#f85149'},
+      {v:sessions,          l:'Сессий',i:'⚡', c:'var(--blue)'},
+      {v:achCount,          l:'Ачивок', i:'🏅', c:'var(--orange)'},
+    ];
+    const kpiHTML =
+      `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px">`+
+      kpis.map(k=>
+        `<div style="background:linear-gradient(135deg,${k.c}15,var(--card));border:1px solid ${k.c}30;border-radius:12px;padding:12px 6px;text-align:center">`+
+          `<div style="font-size:18px;margin-bottom:2px">${k.i}</div>`+
+          `<div style="font-family:'Bebas Neue',sans-serif;font-size:22px;line-height:1;color:${k.c}">${k.v}</div>`+
+          `<div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">${k.l}</div>`+
+        `</div>`
+      ).join('')+`</div>`;
 
-    // Leagues section
-    const leagueHTML = uc.length === 0
-      ? '<div style="color:var(--t3);font-size:13px">Нет данных по лигам</div>'
-      : ucSorted.map(row=>{
-          const cat = ALL_CATS.find(c=>c.id===row.category_id)||{name:row.category_id,icon:'📌',color:'#888'};
-          const pct = Math.round((row.hours/maxHrs)*100);
-          return `<div class="up-league-row">
-            <div class="up-lcat">${cat.icon}</div>
-            <div class="up-lname" style="color:${cat.color}">${cat.name}</div>
-            <div class="up-lbar-wr"><div class="up-lbar" style="width:${pct}%;background:${cat.color}"></div></div>
-            <div class="up-lhrs" style="color:${cat.color}">${row.hours.toFixed(1)} ч</div>
-          </div>`;
-        }).join('');
+    // ── XP bar ──
+    const xpHTML =
+      `<div style="margin-bottom:18px;background:linear-gradient(135deg,${lvlColor}10,var(--card));border:1px solid ${lvlColor}30;border-radius:12px;padding:14px 16px">`+
+        `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">`+
+          `<span style="font-family:'Bebas Neue',sans-serif;font-size:15px;color:${lvlColor};letter-spacing:1px">УР.${lvlInfo.lvl} · ${lvlInfo.name}</span>`+
+          `<span style="font-size:11px;color:var(--t3)">ещё ${lvlInfo.xpLeft} ч</span>`+
+        `</div>`+
+        `<div style="height:6px;background:var(--bg);border-radius:3px;overflow:hidden">`+
+          `<div style="height:100%;width:${lvlInfo.pct}%;background:${lvlColor};border-radius:3px;box-shadow:0 0 8px ${lvlColor}88;transition:width 1.2s ease"></div>`+
+        `</div>`+
+        `<div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--t3)">`+
+          `<span>${lvlInfo.curThresh}ч</span><span>${lvlInfo.pct}%</span><span>${lvlInfo.nextThresh}ч</span>`+
+        `</div>`+
+      `</div>`;
 
-    // Achievements section (show up to 12)
-    const unlockedIds = new Set(achs.map(a=>a.achievement_id));
-    const achHTML = unlockedIds.size === 0
-      ? `<div style="color:var(--t3);font-size:12px;padding:6px 0">Нет разблокированных достижений</div>`
-      : ACH_DEF.filter(d=>unlockedIds.has(d.id)).slice(0,12).map(def=>
-          `<div title="${def.name}: ${def.desc}" style="width:36px;height:36px;border-radius:8px;background:${def.color||'#333'}22;border:1px solid ${def.color||'#555'}44;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;transition:transform .15s" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" onclick="openAch('${def.id}')">${def.icon}</div>`
-        ).join('') + (unlockedIds.size>12?`<div style="font-size:11px;color:var(--t3);display:flex;align-items:center;padding:0 4px">+${unlockedIds.size-12}</div>`:'');
+    // ── Section divider helper ──
+    const sec = (ico, lbl) =>
+      `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;margin-top:4px">`+
+        `<div style="height:1px;width:20px;background:var(--border-l)"></div>`+
+        `<span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--t3);white-space:nowrap">${ico} ${lbl}</span>`+
+        `<div style="height:1px;flex:1;background:var(--border-l)"></div>`+
+      `</div>`;
 
-    // Clubs section
-    const clubHTML = clubs.length === 0
-      ? `<div style="color:var(--t3);font-size:12px">Не состоит в клубах</div>`
-      : clubs.map(m=>{
-          const cl=m.clubs;if(!cl)return'';
-          const catDef=ALL_CATS.find(c=>c.id===cl.category_id);
-          return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--card);border-radius:8px;border:1px solid var(--border-l)">
-            <span style="font-size:18px">${cl.avatar||'🏛️'}</span>
-            <div style="flex:1">
-              <div style="font-size:12px;font-weight:700">${cl.name}</div>
-              ${catDef?`<div style="font-size:10px;color:${catDef.color}">${catDef.icon} ${catDef.name}</div>`:''}
-            </div>
-            <div style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;background:${m.role==='admin'?'rgba(245,200,66,.12)':'var(--border-l)'};color:${m.role==='admin'?'var(--gold)':'var(--t3)'}">${m.role==='admin'?'👑 Админ':'Участник'}</div>
-          </div>`;
-        }).filter(Boolean).join('');
+    // ── Leagues ──
+    const maxHrs = Math.max(...uc.map(r=>r.hours), 0.1);
+    const leagueHTML = uc.length === 0 ? '' :
+      `<div style="margin-bottom:18px">${sec('⚔️','ЛИГИ')}`+
+      uc.map(row=>{
+        const cat = ALL_CATS.find(c=>c.id===row.category_id) || {name:row.category_id,icon:'📌',color:'#888'};
+        const pct = Math.min(100,Math.round((row.hours/maxHrs)*100));
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:6px;background:${cat.color}0d;border:1px solid ${cat.color}30;border-radius:10px">`+
+          `<span style="font-size:20px">${cat.icon}</span>`+
+          `<div style="flex:1;min-width:0">`+
+            `<div style="font-size:12px;font-weight:700;color:${cat.color}">${cat.name}</div>`+
+            `<div style="height:3px;background:var(--bg);border-radius:2px;overflow:hidden;margin-top:5px">`+
+              `<div style="height:100%;width:${pct}%;background:${cat.color};border-radius:2px"></div>`+
+            `</div>`+
+          `</div>`+
+          `<div style="font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:${cat.color};flex-shrink:0">${row.hours.toFixed(1)}<span style="font-size:10px;color:var(--t3)"> ч</span></div>`+
+        `</div>`;
+      }).join('')+`</div>`;
 
-    document.getElementById('upLeaguesList').innerHTML = `
-      <div style="margin-bottom:16px">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin-bottom:8px">Часы по лигам</div>
-        ${leagueHTML}
-      </div>
+    // ── Achievements ──
+    const unlockedDefs = ACH_DEF.filter(d=>achs.find(a=>a.achievement_id===d.id));
+    const achHTML = unlockedDefs.length === 0 ? '' :
+      `<div style="margin-bottom:18px">${sec('🏅','ДОСТИЖЕНИЯ · '+unlockedDefs.length)}`+
+      `<div style="display:flex;flex-wrap:wrap;gap:6px">`+
+      unlockedDefs.slice(0,16).map(def=>
+        `<div title="${def.name}" style="width:40px;height:40px;border-radius:10px;background:${def.color||'#555'}18;border:1px solid ${def.color||'#555'}44;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;transition:transform .15s" `+
+        `onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform=''" `+
+        `onclick="closeUserProfile();openAch('${def.id}')">${def.icon}</div>`
+      ).join('')+
+      (unlockedDefs.length>16?`<div style="width:40px;height:40px;border-radius:10px;background:var(--card);border:1px solid var(--border-l);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--t3)">+${unlockedDefs.length-16}</div>`:'') +
+      `</div></div>`;
 
-      <div style="margin-bottom:16px">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin-bottom:8px">Достижения · ${unlockedIds.size} / ${ACH_DEF.length}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">${achHTML}</div>
-      </div>
+    // ── Clubs ──
+    const validClubs = clubs.filter(m=>m.clubs);
+    const clubHTML = validClubs.length === 0 ? '' :
+      `<div style="margin-bottom:8px">${sec('🏛️','КЛУБЫ')}`+
+      `<div style="display:flex;flex-direction:column;gap:6px">`+
+      validClubs.map(m=>{
+        const cl = m.clubs;
+        const catDef = ALL_CATS.find(c=>c.id===cl.category_id);
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--card);border-radius:10px;border:1px solid var(--border-l)">`+
+          `<span style="font-size:20px">${cl.avatar||'🏛️'}</span>`+
+          `<div style="flex:1"><div style="font-size:13px;font-weight:700">${cl.name}</div>`+
+          (catDef?`<div style="font-size:10px;color:${catDef.color}">${catDef.icon} ${catDef.name}</div>`:'')+
+          `</div><div style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;background:${m.role==='admin'?'rgba(245,200,66,.12)':'var(--border-l)'};color:${m.role==='admin'?'var(--gold)':'var(--t3)'}">${m.role==='admin'?'👑 Админ':'Участник'}</div></div>`;
+      }).join('')+`</div></div>`;
 
-      <div style="margin-bottom:4px">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin-bottom:8px">Клубы</div>
-        <div style="display:flex;flex-direction:column;gap:6px">${clubHTML}</div>
-      </div>`;
+    document.getElementById('upLeaguesList').innerHTML = kpiHTML + xpHTML + leagueHTML + achHTML + clubHTML;
 
-  } catch(e){
-    console.error('openUserProfile error:', e);
-    document.getElementById('upMeta').innerHTML = `<span style="color:var(--red);font-size:12px">Ошибка загрузки</span>`;
-    document.getElementById('upLeaguesList').innerHTML = '';
+  } catch(err){
+    console.error('openUserProfile error:', err);
+    document.getElementById('upMeta').innerHTML = '<span style="color:var(--red);font-size:12px">Ошибка загрузки</span>';
+    document.getElementById('upLeaguesList').innerHTML = '<div style="padding:16px;color:var(--t3);font-size:13px">Не удалось загрузить данные профиля.</div>';
   }
 }
-
 function closeUserProfile(){
   document.getElementById('userProfileOv').classList.remove('show');
 }
@@ -5665,6 +5714,7 @@ function toggleEmojiPicker(targetInputId) {
     existing.remove(); emojiPickerOpen = false; return;
   }
   if (existing) existing.remove();
+  // Re-find target each time (dynamic textarea from openConv)
   currentEmojiTarget = document.getElementById(targetInputId);
   if (!currentEmojiTarget) return;
 
@@ -5675,35 +5725,59 @@ function toggleEmojiPicker(targetInputId) {
 
   let activeCat = EMOJI_CAT_ICONS[0];
 
-  const renderEmojiGrid = () => (EMOJI_DATA[activeCat] || []).map(e =>
-    `<button class="emoji-item" onclick="insertEmoji(this,'${e}')">${e}</button>`
-  ).join('');
-  const renderCats = () => EMOJI_CAT_ICONS.map(cat =>
-    `<button class="emoji-cat-btn ${cat===activeCat?'active':''}" onclick="setEmojiCat('${cat}')">${cat}</button>`
-  ).join('');
-
-  picker.innerHTML = `<div class="emoji-cats" id="emojiCats">${renderCats()}</div><div class="emoji-grid" id="emojiGrid">${renderEmojiGrid()}</div>`;
-
-  window.setEmojiCat = (cat) => {
-    activeCat = cat;
-    document.getElementById('emojiCats').innerHTML = renderCats();
-    document.getElementById('emojiGrid').innerHTML = renderEmojiGrid();
+  const renderEmojiGrid = () => {
+    const frag = document.createDocumentFragment();
+    (EMOJI_DATA[activeCat] || []).forEach(e => {
+      const btn = document.createElement('button');
+      btn.className = 'emoji-item';
+      btn.textContent = e;
+      // Use dataset instead of onclick attribute — avoids quote issues with emoji
+      btn.dataset.emoji = e;
+      frag.appendChild(btn);
+    });
+    const grid = picker.querySelector('#emojiGrid');
+    if(grid){ grid.innerHTML = ''; grid.appendChild(frag); }
   };
-  window.insertEmoji = (btn, emoji) => {
+
+  const renderCats = () => {
+    const catsEl = picker.querySelector('#emojiCats');
+    if(!catsEl) return;
+    catsEl.innerHTML = '';
+    EMOJI_CAT_ICONS.forEach(cat => {
+      const btn = document.createElement('button');
+      btn.className = 'emoji-cat-btn' + (cat===activeCat?' active':'');
+      btn.textContent = cat;
+      btn.onclick = (e) => { e.stopPropagation(); activeCat=cat; renderCats(); renderEmojiGrid(); };
+      catsEl.appendChild(btn);
+    });
+  };
+
+  picker.innerHTML = `<div class="emoji-cats" id="emojiCats"></div><div class="emoji-grid" id="emojiGrid"></div>`;
+
+  // Delegate emoji clicks via event on grid
+  picker.addEventListener('click', e => {
+    e.stopPropagation();
+    const btn = e.target.closest('.emoji-item');
+    if(!btn || !btn.dataset.emoji) return;
+    const emoji = btn.dataset.emoji;
     if (!currentEmojiTarget) return;
-    const pos = currentEmojiTarget.selectionStart || currentEmojiTarget.value.length;
+    const pos = currentEmojiTarget.selectionStart ?? currentEmojiTarget.value.length;
     const val = currentEmojiTarget.value;
     currentEmojiTarget.value = val.slice(0, pos) + emoji + val.slice(pos);
     currentEmojiTarget.selectionStart = currentEmojiTarget.selectionEnd = pos + emoji.length;
     currentEmojiTarget.focus();
     currentEmojiTarget.style.height = 'auto';
     currentEmojiTarget.style.height = Math.min(currentEmojiTarget.scrollHeight, 100) + 'px';
-  };
+    // Close picker after insert
+    picker.remove(); emojiPickerOpen = false;
+  });
 
   const inputArea = currentEmojiTarget.closest('.msg-input-area') || document.body;
   inputArea.style.position = 'relative';
   inputArea.appendChild(picker);
   emojiPickerOpen = true;
+  renderCats();
+  renderEmojiGrid();
 }
 
 document.addEventListener('click', () => {
