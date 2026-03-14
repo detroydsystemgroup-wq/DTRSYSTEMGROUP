@@ -181,8 +181,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .ph-info{flex:1;padding-bottom:4px;min-width:0;}
 .ph-name{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:1.5px;line-height:1;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .ph-title{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;padding:4px 12px;border-radius:8px;background:transparent;color:var(--gold);border:1.5px solid rgba(245,200,66,.5);margin-bottom:8px;}
-.ph-meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
-.mi{font-size:11px;color:var(--t3);display:flex;align-items:center;gap:3px;}
+.ph-meta{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:6px;}
+.mi{font-size:13px;color:var(--t2);display:flex;align-items:center;gap:5px;font-weight:600;padding:3px 8px;background:rgba(255,255,255,.04);border-radius:8px;border:1px solid var(--border-l);transition:all .18s;}
 .ph-acts{padding-bottom:4px;align-self:flex-end;display:flex;gap:6px;flex-shrink:0;}
 .btn-ol{padding:6px 13px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif;}
 .btn-ol:hover{border-color:var(--blue);color:var(--blue);background:rgba(26,159,255,.07);}
@@ -368,12 +368,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .btn-g:hover{color:var(--t1);}
 
 /* ── ACH ── */
-.ai{display:flex;flex-direction:column;align-items:center;gap:5px;padding:11px 5px;background:var(--card);border:1px solid var(--border-l);border-radius:8px;cursor:pointer;transition:all .2s;text-align:center;position:relative;}
+.ai{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;background:linear-gradient(135deg,rgba(245,200,66,.06),rgba(0,0,0,0));border:1px solid rgba(245,200,66,.15);border-radius:10px;cursor:pointer;transition:all .2s cubic-bezier(.34,1.56,.64,1);text-align:center;position:relative;}
 .ai:hover:not(.locked){background:var(--hover);transform:translateY(-2px);}
-.ai.locked{opacity:.25;filter:grayscale(1);}
+.ai.locked{opacity:.2;filter:grayscale(1);background:rgba(0,0,0,.1);border-color:var(--border-l);}
 .ai-icon{font-size:22px;position:relative;}
 .ai-dot{position:absolute;top:-3px;right:-3px;width:8px;height:8px;background:var(--green);border:1.5px solid var(--card);border-radius:50%;}
-.ai-name{font-size:10px;font-weight:600;color:var(--t2);line-height:1.3;}
+.ai-name{font-size:9px;font-weight:700;color:var(--t2);line-height:1.2;}
 .ai:not(.locked) .ai-name{color:var(--t1);}
 
 /* ── TOAST ── */
@@ -1569,7 +1569,7 @@ body { overscroll-behavior: contain; }
 
 
 /* ── Achievement blocks (4 per row) ── */
-.ach-block{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:5px;padding:5px;background:var(--card);border-radius:10px;border:1px solid var(--border-l);}
+.ach-block{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:6px;padding:0;}
 .ach-block:last-child{margin-bottom:0;}
 
 
@@ -1794,6 +1794,13 @@ body.modal-open{overflow:hidden!important;}
 .modal,.up-modal,.sw-card,.ov{will-change:opacity,transform;}
 .timer-panel::before{will-change:opacity;}
 
+
+/* ── Timer mode buttons — rectangular symmetric ── */
+.timer-mode-btn{padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--t3);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px;font-family:'DM Sans',sans-serif;transition:all .2s cubic-bezier(.34,1.56,.64,1);text-align:center;width:100%;outline:none;}
+.timer-mode-btn:hover{border-color:var(--gold);color:var(--gold);background:rgba(245,200,66,.06);}
+.timer-mode-btn.active{background:rgba(245,200,66,.1);border-color:var(--gold);color:var(--gold);box-shadow:0 0 0 2px rgba(245,200,66,.12);}
+.timer-mode-btn:active{transform:scale(.96);}
+
 </style>
 </head>
 <body>
@@ -1920,10 +1927,10 @@ body.modal-open{overflow:hidden!important;}
         <div class="ph-name" id="profName">username</div>
         <div class="ph-title" id="profTitle">⚡ Новичок</div>
         <div class="ph-meta">
-          <span class="mi" id="mJoined">📅</span>
-          <span class="mi" id="mAch">🏆 0</span>
-          <span class="mi" id="mSess">⏱ 0</span>
-          <span class="mi" id="mStreak">🔥 0 дней</span>
+          <span class="mi" id="mJoined" title="Дата регистрации">🗓️</span>
+          <span class="mi" id="mAch" title="Достижения">🏅</span>
+          <span class="mi" id="mSess" title="Сессии">⚡</span>
+          <span class="mi" id="mStreak" title="Стрик">🔥</span>
         </div>
         <div class="xp-wrap" style="width:100%;max-width:340px;margin:8px 0 0">
           <div class="xp-top">
@@ -2032,8 +2039,7 @@ body.modal-open{overflow:hidden!important;}
           <div id="sec_forecast" style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin:16px 0 10px;font-weight:600"></div>
           <div class="forecast-row" id="forecastRow"></div>
 
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin:16px 0 10px;font-weight:600">📅 Активность за год</div>
-          <div id="tab-heatmap-placeholder"></div>
+          <div id="tab-heatmap-placeholder" style="display:none"></div>
         </div>
       </div>
     </div>
@@ -2120,22 +2126,32 @@ body.modal-open{overflow:hidden!important;}
       <div class="t-lbl">Быстрый старт</div>
       <div class="t-cats" id="quickCats"></div>
 
-      <!-- Pomodoro mode — 2 buttons -->
-      <div style="display:flex;gap:6px;justify-content:center;margin-bottom:12px" id="pomBtns">
-        <button class="pom-btn active" id="pomFreeBtn" onclick="setPomMode(0,this)">∞ Свободный</button>
+      <!-- League selector row -->
+      <div style="position:relative;margin-bottom:8px">
+        <select id="timerLeagueSel" onchange="selCatFromTimer(this)"
+          style="width:100%;padding:8px 32px 8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--t2);font-size:12px;font-weight:700;cursor:pointer;outline:none;font-family:'DM Sans',sans-serif;appearance:none;-webkit-appearance:none;transition:all .2s;text-transform:uppercase;letter-spacing:.5px">
+          <option value="">🎯 ВЫБРАТЬ ЛИГУ</option>
+        </select>
+        <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:10px;color:var(--t3)">▾</span>
+      </div>
+
+      <!-- Mode buttons row — symmetric rectangles -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px" id="pomBtns">
+        <button class="timer-mode-btn active" id="pomFreeBtn" onclick="setPomMode(0,this)">∞ СВОБОДНЫЙ</button>
         <div style="position:relative">
           <select id="pomTimeSel" onchange="setPomFromSel(this)"
-            style="padding:4px 28px 4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--card);color:var(--t3);font-size:11px;font-weight:700;cursor:pointer;outline:none;font-family:'DM Sans',sans-serif;appearance:none;-webkit-appearance:none;transition:all .18s">
-            <option value="0">⏱ По таймеру</option>
-            <option value="5">5 мин</option>
-            <option value="10">10 мин</option>
-            <option value="15">15 мин</option>
-            <option value="25">25 мин 🍅</option>
-            <option value="30">30 мин</option>
-            <option value="45">45 мин</option>
-            <option value="60">60 мин</option>
-            <option value="90">90 мин</option>
-            <option value="120">2 часа</option>
+            class="timer-mode-btn"
+            style="width:100%;padding:9px 28px 9px 12px;text-transform:uppercase;letter-spacing:.5px;appearance:none;-webkit-appearance:none;cursor:pointer;font-family:'DM Sans',sans-serif">
+            <option value="0">⏱ ТАЙМЕР</option>
+            <option value="5">5 МИН</option>
+            <option value="10">10 МИН</option>
+            <option value="15">15 МИН</option>
+            <option value="25">25 МИН 🍅</option>
+            <option value="30">30 МИН</option>
+            <option value="45">45 МИН</option>
+            <option value="60">60 МИН</option>
+            <option value="90">90 МИН</option>
+            <option value="120">2 ЧАСА</option>
           </select>
           <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:9px;color:var(--t3)">▾</span>
         </div>
@@ -2156,8 +2172,8 @@ body.modal-open{overflow:hidden!important;}
       <div class="ch">
         <span class="ct">📈 Дневной прогресс</span>
         <div style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:11px;color:var(--t3)">Цель:</span>
-          <select id="dailyGoalSel" onchange="setDailyGoal(this.value)" style="background:var(--card);border:1px solid var(--border);border-radius:7px;color:var(--gold);font-size:12px;font-weight:700;padding:3px 8px;cursor:pointer;outline:none;font-family:'DM Sans',sans-serif">
+          <span style="font-size:12px;font-weight:700;color:#3fb950;text-shadow:0 0 8px rgba(63,185,80,.6),0 0 16px rgba(63,185,80,.3);letter-spacing:.5px">⚡ ЦЕЛЬ</span>
+          <select id="dailyGoalSel" onchange="setDailyGoal(this.value)" style="background:rgba(63,185,80,.08);border:1.5px solid rgba(63,185,80,.5);border-radius:8px;color:#3fb950;font-size:12px;font-weight:700;padding:4px 10px;cursor:pointer;outline:none;font-family:'DM Sans',sans-serif;box-shadow:0 0 8px rgba(63,185,80,.2)">
             <option value="0.5">30 мин</option>
             <option value="1">1 ч</option>
             <option value="2" selected>2 ч</option>
@@ -2210,8 +2226,16 @@ body.modal-open{overflow:hidden!important;}
     </div>
 
     <div class="card">
-      <div class="ch"><span class="ct">Достижения</span><span style="font-size:12px;cursor:pointer;color:var(--blue)" onclick="showTab('achievements')">Все →</span></div>
-      <div class="cb" style="padding:10px"><div id="achMini" style="max-height:320px;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;padding-right:2px"></div></div>
+      <div class="ch">
+        <span class="ct" style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:16px">🏛️</span>
+          <span style="background:linear-gradient(90deg,var(--gold),var(--gold-l));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;font-weight:800;letter-spacing:.5px">ЗАЛ СЛАВЫ</span>
+        </span>
+        <span style="font-size:12px;cursor:pointer;color:var(--blue)" onclick="showTab('achievements')">Все →</span>
+      </div>
+      <div class="cb" style="padding:8px 10px 10px">
+        <div id="achMini" style="overflow:hidden"></div>
+      </div>
     </div>
 
     <div class="card">
@@ -2912,10 +2936,10 @@ function renderHeader(){
     avEl.textContent=P.avatar;
   }
   document.getElementById('profName').textContent=P.name;
-  document.getElementById('mJoined').textContent='📅 '+P.joinedDate;
-  document.getElementById('mAch').textContent=`🏆 ${P.achievements.filter(a=>a.unlocked).length}`;
-  document.getElementById('mSess').textContent=`⏱ ${P.totalSessions} сессий`;
-  document.getElementById('mStreak').textContent=`🔥 ${P.streak} дней`;
+  document.getElementById('mJoined').innerHTML=`🗓️ <span style="color:var(--t1)">${P.joinedDate}</span>`;
+  document.getElementById('mAch').innerHTML=`🏅 <span style="color:var(--gold)">${P.achievements.filter(a=>a.unlocked).length}</span><span style="color:var(--t3);font-size:10px;font-weight:400"> ачивок</span>`;
+  document.getElementById('mSess').innerHTML=`⚡ <span style="color:var(--blue)">${P.totalSessions}</span><span style="color:var(--t3);font-size:10px;font-weight:400"> сессий</span>`;
+  document.getElementById('mStreak').innerHTML=`🔥 <span style="color:var(--orange)">${P.streak}</span><span style="color:var(--t3);font-size:10px;font-weight:400"> дней</span>`;
   // Apply level info
   const th=totalHrs();
   const info=getLevelInfo(th);
@@ -3171,16 +3195,31 @@ function renderAchMini(){
   const blocks=[];
   for(let i=0;i<allDefs.length;i+=4) blocks.push(allDefs.slice(i,i+4));
 
-  el.innerHTML=`<div style="font-size:11px;color:var(--t3);margin-bottom:8px;display:flex;justify-content:space-between">
-    <span>🏅 Достижения</span>
-    <span style="color:var(--green);font-weight:700">${unlocked.length}/${ACH_DEF.length}</span>
-  </div>` + blocks.map(block=>`
+  // Hall of fame header with XP bar
+  const pct = Math.round((unlocked.length/ACH_DEF.length)*100);
+  const headerHTML = `
+    <div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+        <div style="display:flex;gap:4px;align-items:center">
+          ${unlocked.length>0?'⭐'.repeat(Math.min(unlocked.length,3)):''}
+          <span style="font-size:12px;font-weight:700;color:var(--gold)">${unlocked.length}</span>
+          <span style="font-size:10px;color:var(--t3)">/ ${ACH_DEF.length} разблокировано</span>
+        </div>
+        <span style="font-size:11px;font-weight:700;color:${pct>=100?'#3fb950':pct>=50?'var(--gold)':'var(--t3)'}">${pct}%</span>
+      </div>
+      <div style="height:4px;background:rgba(0,0,0,.2);border-radius:2px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--gold-d),var(--gold));border-radius:2px;box-shadow:0 0 6px rgba(245,200,66,.4);transition:width 1.2s ease"></div>
+      </div>
+    </div>`;
+
+  el.innerHTML = headerHTML + blocks.map((block,bi)=>`
     <div class="ach-block">
       ${block.map(def=>{
         const ua=P.achievements.find(a=>a.id===def.id)||{unlocked:false};
-        return `<div class="ai ${ua.unlocked?'':'locked'}" onclick="openAch('${def.id}')" title="${ua.unlocked?def.name+' — '+def.desc:'???'}">
-          <div class="ai-icon" style="${ua.unlocked?`filter:drop-shadow(0 0 5px ${def.color||'#58a6ff'})`:''}">${ua.unlocked?def.icon:'🔒'}${ua.unlocked?'<div class="ai-dot"></div>':''}</div>
-          <div class="ai-name">${ua.unlocked?def.name:'???'}</div>
+        const glow = ua.unlocked ? `box-shadow:0 0 8px ${def.color||'rgba(245,200,66,.3)'}44,inset 0 0 8px rgba(0,0,0,.1);border-color:${def.color||'rgba(245,200,66,.3)'}55;` : '';
+        return `<div class="ai ${ua.unlocked?'':'locked'}" onclick="openAch('${def.id}')" title="${ua.unlocked?def.name+' — '+def.desc:'???'}" style="${glow}">
+          <div class="ai-icon" style="${ua.unlocked?`filter:drop-shadow(0 0 6px ${def.color||'#f5c842'})`:''}">${ua.unlocked?def.icon:'🔒'}${ua.unlocked?'<div class="ai-dot"></div>':''}</div>
+          <div class="ai-name" style="${ua.unlocked?`color:var(--t1)`:''}">${ua.unlocked?def.name.slice(0,8):'???'}</div>
         </div>`;
       }).join('')}
     </div>`).join('');
@@ -3766,7 +3805,7 @@ function setPomFromSel(sel) {
 function setPomMode(mins, btn) {
   if (timerRunning) return; // can't change mode while running
   pomMode = mins;
-  document.querySelectorAll('.pom-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.pom-btn,.timer-mode-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   // Reset dropdown
   const sel = document.getElementById('pomTimeSel');
@@ -3873,6 +3912,21 @@ function renderQuickCats() {
         <span style="font-size:9px;font-weight:700;color:${c.id===quickSel?'var(--gold)':'var(--t3)'};letter-spacing:.2px;max-width:50px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name.slice(0,6)}</span>
       </button>`
     ).join('');
+  // Populate league selector
+  const tls = document.getElementById('timerLeagueSel');
+  if(tls){
+    const cats = ALL_CATS.filter(c => P.activeCatIds.includes(c.id));
+    tls.innerHTML = '<option value="">🎯 ВЫБРАТЬ ЛИГУ</option>' +
+      cats.map(c=>`<option value="${c.id}" ${c.id===quickSel?'selected':''}>${c.icon} ${c.name.toUpperCase()}</option>`).join('');
+    tls.style.borderColor = quickSel ? 'var(--gold)' : 'var(--border)';
+    tls.style.color = quickSel ? 'var(--gold)' : 'var(--t2)';
+  }
+}
+
+function selCatFromTimer(sel){
+  const val = sel.value;
+  if(val){ selCat(val); sel.style.borderColor='var(--gold)'; sel.style.color='var(--gold)'; }
+  else { quickSel=null; sel.style.borderColor='var(--border)'; sel.style.color='var(--t2)'; }
 }
 function selCat(id) { if (timerRunning) return; quickSel = id; renderQuickCats(); }
 
