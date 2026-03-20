@@ -459,10 +459,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
   .bar-chart { height: 130px; width: 100%; }
   .hm-grid { max-width: 100%; overflow-x: auto; padding-bottom: 12px; }
   
-  /* Достижения в 1 колонку */
+  /* Достижения в 2 колонки на мобиле */
   .ach-summary { flex-direction: column; text-align: center; padding: 16px; gap: 16px; }
-  .ach-grid2 { grid-template-columns: 1fr; gap: 10px; }
-  .ach2 { padding: 16px 14px; }
+  .ach-grid2 { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .ach-section { max-height: 400px; }
+  .ach2 { padding: 12px 10px; }
+  .ach2-icon { font-size: 28px; width: 36px; }
+  .ach2-name { font-size: 12px; }
+  .ach2-desc { font-size: 10px; margin-bottom: 6px; }
   
   /* Арена и управление */
   .csg, .mg-grid { grid-template-columns: 1fr; gap: 10px; }
@@ -631,13 +635,13 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.6);cursor:poi
 .ach-sum-bar { height: 6px; background: var(--card); border-radius: 3px; overflow: hidden; margin-bottom: 6px; }
 .ach-sum-fill { height: 100%; background: linear-gradient(90deg, #1a9fff, #bc8cff); transition: width 1s ease-out; }
 
-.ach-section { margin-bottom: 24px; }
 .ach-sec-hdr { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border-l); }
 .ach-sec-icon { font-size: 22px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2)); }
 .ach-sec-name { font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700; flex: 1; text-transform: uppercase; letter-spacing: 0.5px; }
 .ach-sec-cnt { font-size: 12px; font-weight: 700; color: var(--t2); background: var(--bg); padding: 4px 10px; border-radius: 12px; border: 1px solid var(--border-l); }
 
-.ach-grid2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.ach-grid2 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.ach-section { margin-bottom: 24px; max-height: 480px; overflow-y: auto; padding-right: 4px; }
 .ach2 { display: flex; gap: 14px; padding: 16px; background: var(--card); border: 1px solid var(--border-l); border-radius: 12px; cursor: pointer; transition: all 0.25s; position: relative; overflow: hidden; }
 .ach2:hover { border-color: var(--border); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
 .ach2.unlocked { border-color: var(--ach-color); background: var(--hover); box-shadow: 0 6px 20px rgba(0,0,0,0.15); }
@@ -920,7 +924,7 @@ body { transition:background .28s,color .28s; }
 .msg-chat-name{font-size:14px;font-weight:600;flex:1;}
 .msg-chat-btn{padding:6px 12px;border-radius:7px;background:transparent;border:1px solid var(--border);color:var(--t2);font-size:11px;font-weight:600;cursor:pointer;transition:all .2s;}
 .msg-chat-btn:hover{border-color:var(--blue);color:var(--blue);}
-.msg-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;}
+.msg-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;min-height:0;max-height:calc(100vh - 320px);}
 .msg-empty{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--t3);}
 .msg-bubble{max-width:70%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.5;word-break:break-word;animation:fadeUp .18s ease both;}
 .msg-bubble.mine{background:linear-gradient(135deg,var(--gold-d),var(--gold));color:#09090B;align-self:flex-end;border-radius:12px 12px 4px 12px;font-weight:500;}
@@ -936,10 +940,11 @@ body { transition:background .28s,color .28s; }
 
 /* Mobile messages */
 @media(max-width:600px){
-  .msg-layout{grid-template-columns:1fr;height:auto;}
+  .msg-layout{grid-template-columns:1fr;height:calc(100vh - 200px);}
   .msg-list{display:none;}
   .msg-list.show{display:flex;height:300px;}
-  .msg-chat{min-height:300px;}
+  .msg-chat{min-height:300px;height:calc(100vh - 200px);}
+  .msg-messages{max-height:calc(100vh - 360px);}
 }
 
 /* Light theme */
@@ -3015,9 +3020,20 @@ function relDate(d){
 }
 const fmt=s=>[Math.floor(s/3600),Math.floor((s%3600)/60),s%60].map(x=>String(x).padStart(2,'0')).join(':');
 const fmtD=s=>{const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60;if(h>0)return`${h}ч ${m}м`;if(m>0)return`${m}м ${ss}с`;return`${ss}с`;};
-const totalHrs=()=>P.categories.reduce((a,c)=>a+c.hours,0);
+// ── DATA RECONCILIATION: ensure P.categories hours stay in sync with sessions ──
+function reconcileCategoryHours(){
+  if(!P||!P.sessions||!P.categories)return;
+  const sessHrs={};
+  P.sessions.forEach(s=>{if(s.cat&&s.dur)sessHrs[s.cat]=(sessHrs[s.cat]||0)+s.dur/3600;});
+  P.categories.forEach(c=>{
+    const fromSess=Math.round((sessHrs[c.id]||0)*10)/10;
+    // Use max of DB hours vs session-calculated hours (DB may have older sessions not in the 100 limit)
+    if(fromSess>c.hours)c.hours=fromSess;
+  });
+}
+const totalHrs=()=>{reconcileCategoryHours();return P.categories.reduce((a,c)=>a+c.hours,0);};
 const weekHrs=()=>P.sessions.filter(s=>s.ts&&s.ts>Date.now()-7*86400000).reduce((a,s)=>a+s.dur/3600,0);
-const activeCats=()=>ALL_CATS.filter(c=>P.activeCatIds.includes(c.id)).map(c=>({...c,hours:P.categories.find(x=>x.id===c.id)?.hours||0}));
+const activeCats=()=>{reconcileCategoryHours();return ALL_CATS.filter(c=>P.activeCatIds.includes(c.id)).map(c=>({...c,hours:P.categories.find(x=>x.id===c.id)?.hours||0}));};
 
 // ══ RENDER ALL ═══════════════════════════════════════════════
 function renderAll(){
@@ -3578,8 +3594,8 @@ async function renderLeagues(){
     const rawPlayers=results[ci]||[];
     const sorted=[...rawPlayers].sort((a,b)=>getArenaValue(b,arenaMode)-getArenaValue(a,arenaMode));
     const myIdx=sorted.findIndex(p=>p.isMe);
-    const top8=sorted.slice(0,8);
-    const maxVal=Math.max(...top8.map(p=>getArenaValue(p,arenaMode)),0.1);
+    const allPlayers=sorted;
+    const maxVal=Math.max(...allPlayers.map(p=>getArenaValue(p,arenaMode)),0.1);
     const medal=i=>i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
     return `<div class="lg-section">
       <div class="lg-head" style="border-color:${cat.color}22">
@@ -3590,14 +3606,14 @@ async function renderLeagues(){
         </div>
         <div class="lg-badge" style="flex-shrink:0;background:${cat.color}18;color:${cat.color}">${myIdx>=0&&myIdx<3?'Топ-3 🔥':myIdx>=0?'#'+(myIdx+1):'—'}</div>
       </div>
-      <div class="lg-body">${top8.length===0?`<div class="empty" style="padding:24px;text-align:center">
+      <div class="lg-body" style="max-height:520px;overflow-y:auto">${allPlayers.length===0?`<div class="empty" style="padding:24px;text-align:center">
         <div style="font-size:28px;margin-bottom:8px">🏁</div>
         <div style="font-size:13px;color:var(--t3)">Пока нет участников.<br>Будь первым!</div>
-      </div>`:top8.map((p,i)=>{
+      </div>`:allPlayers.map((p,i)=>{
         const isMe=p.isMe;
         const clickable=!isMe&&!p.fake&&p.userId;
         const valStr=arenaMode==='streak'?`${getArenaValue(p,arenaMode)} д`:`${getArenaValue(p,arenaMode)} ч`;
-        const barW=Math.round((getArenaValue(p,arenaMode)/Math.max(...top8.map(x=>getArenaValue(x,arenaMode)),0.1))*100);
+        const barW=Math.round((getArenaValue(p,arenaMode)/Math.max(...allPlayers.map(x=>getArenaValue(x,arenaMode)),0.1))*100);
         // FIX 1: my row is visually distinct — gold border + glow + bright background
         const meStyle = isMe
           ? `background:linear-gradient(90deg,rgba(245,200,66,.13),rgba(245,200,66,.06));border-left:3px solid var(--gold);box-shadow:inset 0 0 24px rgba(245,200,66,.05);`
@@ -3627,7 +3643,7 @@ async function renderLeagues(){
           </div>
           <div class="lr-bar-wr"><div class="lr-bar" style="width:${barW}%;background:${isMe?'var(--gold)':cat.color};${isMe?'box-shadow:0 0 6px rgba(245,200,66,.5)':''}"></div></div>
         </div>`;}).join('')}
-        ${myIdx>=8?`<div style="padding:9px 14px;font-size:12px;color:var(--t3);border-top:1px solid var(--border-l)">Твоя позиция: <b style="color:${cat.color}">#${myIdx+1}</b> · ${cat.hours.toFixed(1)} ч</div>`:''}
+        ${myIdx>=8?`<div style="padding:9px 14px;font-size:12px;color:var(--t3);border-top:1px solid var(--border-l)">Твоя позиция: <b style="color:${cat.color}">#${myIdx+1}</b></div>`:''}
     </div>
     </div>`;
   }).join('');
@@ -4943,64 +4959,53 @@ function animateKpiValues() {
 // ══ INIT ════════════════════════════════════════════════════
 
 // ══ XP / LEVEL ═══════════════════════════════════════
-// ── LEVEL SYSTEM (CoD-style) ──────────────────────────────
-const LEVEL_THRESHOLDS=[0,5,15,30,50,75,100,150,200,300,500,750,1000,1500,2000,3000];
-const LEVEL_NAMES=['Новичок','Ученик','Практик','Следопыт','Исследователь','Боец','Эксперт','Мастер','Ас','Легенда','Гроссмейстер','Элита','Чемпион','Властелин','Легенда+','DTR God'];
-const LEVEL_COLORS=['#8b949e','#8b949e','#3fb950','#3fb950','#58a6ff','#58a6ff','#bc8cff','#bc8cff','#f7931a','#f7931a','#f5c842','#f5c842','#f85149','#f85149','linear-gradient(135deg,#f5c842,#f7931a)','linear-gradient(135deg,#f85149,#bc8cff,#58a6ff)'];
-const LEVEL_FRAMES=[
-  '','',
-  'linear-gradient(135deg,#0e2318,#091510)',       // lv2 green
-  'linear-gradient(135deg,#0e2318,#091510)',
-  'linear-gradient(135deg,#0d1f35,#12082a)',       // lv4 blue
-  'linear-gradient(135deg,#0d1f35,#12082a)',
-  'linear-gradient(135deg,#1e1428,#120c1a)',       // lv6 purple
-  'linear-gradient(135deg,#1e1428,#120c1a)',
-  'linear-gradient(135deg,#1e1808,#100e00)',       // lv8 orange
-  'linear-gradient(135deg,#1e1808,#100e00)',
-  'linear-gradient(135deg,#1A1200,#2A1F00)',       // lv10 gold
-  'linear-gradient(135deg,#1A1200,#2A1F00)',
-  'linear-gradient(135deg,#200010,#100020,#200010)', // lv12 red-purple
-  'linear-gradient(135deg,#200010,#100020,#200010)',
-  'linear-gradient(135deg,#1A0A00,#200010,#001020)', // lv14 fire
-  'linear-gradient(135deg,#0A0A1A,#1A0A1A,#0A1A1A)', // lv15 god
-];
-const LEVEL_BORDER_ANIM=[
-  '','',
-  '','',
-  '','',
-  '','',
-  '','',
-  'animation:goldPulse 2s ease infinite;', // lv10+
-  'animation:goldPulse 2s ease infinite;',
-  'animation:goldPulse 1.5s ease infinite;',
-  'animation:goldPulse 1.5s ease infinite;',
-  'animation:goldPulse 1s ease infinite;',
-  'animation:gradFlow 2s linear infinite;background:linear-gradient(90deg,var(--gold),var(--red),var(--purple),var(--blue),var(--gold));background-size:300% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;',
-];
-
-function getLevelInfo(totalHours) {
-  let lvl = 0;
-  for(let i=LEVEL_THRESHOLDS.length-1;i>=0;i--){
-    if(totalHours>=LEVEL_THRESHOLDS[i]){lvl=i;break;}
-  }
-  const name = LEVEL_NAMES[lvl]||'DTR God';
-  const color = LEVEL_COLORS[lvl]||'var(--gold)';
-  const frame = LEVEL_FRAMES[Math.min(lvl,LEVEL_FRAMES.length-1)];
-  const anim = LEVEL_BORDER_ANIM[Math.min(lvl,LEVEL_BORDER_ANIM.length-1)]||'';
-  const nextThresh = LEVEL_THRESHOLDS[lvl+1]||LEVEL_THRESHOLDS[lvl]+1000;
-  const curThresh = LEVEL_THRESHOLDS[lvl];
-  const pct = Math.min(100,Math.round(((totalHours-curThresh)/(nextThresh-curThresh))*100));
-  const xpLeft = Math.max(0,(nextThresh-totalHours).toFixed(1));
-  return {lvl:lvl+1, name, color, frame, anim, pct, xpLeft, curThresh, nextThresh};
+// ── LEVEL SYSTEM 1-100 (hours + achievements + streak) ──
+// XP sources: hours×100, unlocked achievements×200, streak×50
+function calcTotalXP(){
+  if(!P)return 0;
+  const hrs=P.categories.reduce((a,c)=>a+c.hours,0);
+  const achCount=P.achievements.filter(a=>a.unlocked).length;
+  const streak=P.streak||0;
+  return Math.floor(hrs*100 + achCount*200 + streak*50);
+}
+function xpForLevel(lvl){return lvl*lvl*10;}
+function getLevelFromXP(xp){
+  let lvl=1;
+  for(let i=1;i<=100;i++){if(xp>=xpForLevel(i))lvl=i;else break;}
+  return Math.min(lvl,100);
 }
 
-function calcXP(totalHours){return Math.floor(totalHours*100);}
-function calcLevel(xp){return Math.floor(Math.sqrt(xp/500))+1;}
-function xpForLevel(lvl){return (lvl-1)*(lvl-1)*500;}
+// Tier names (every 10 levels)
+const TIER_NAMES=['Новичок','Ученик','Практик','Следопыт','Боец','Эксперт','Мастер','Ас','Легенда','Гроссмейстер'];
+const TIER_COLORS=['#8b949e','#3fb950','#58a6ff','#60d9fa','#FBBF24','#f7931a','#bc8cff','#f85149','#f5c842','linear-gradient(135deg,#f85149,#bc8cff,#58a6ff)'];
+const TIER_FRAMES=[
+  '','linear-gradient(135deg,#0e2318,#091510)','linear-gradient(135deg,#0d1f35,#12082a)',
+  'linear-gradient(135deg,#0a1e2e,#091520)','linear-gradient(135deg,#1e1808,#100e00)',
+  'linear-gradient(135deg,#1e1200,#180a00)','linear-gradient(135deg,#1e1428,#120c1a)',
+  'linear-gradient(135deg,#200010,#100020)','linear-gradient(135deg,#1A1200,#2A1F00)',
+  'linear-gradient(135deg,#0A0A1A,#1A0A1A,#0A1A1A)'
+];
+
+function getLevelInfo(totalHoursIgnored) {
+  const xp=calcTotalXP();
+  const lvl=getLevelFromXP(xp);
+  const tierIdx=Math.min(Math.floor((lvl-1)/10),9);
+  const name=TIER_NAMES[tierIdx];
+  const color=TIER_COLORS[tierIdx]||'var(--gold)';
+  const frame=TIER_FRAMES[tierIdx]||'';
+  const anim=lvl>=70?'animation:goldPulse 2s ease infinite;':lvl>=90?'animation:goldPulse 1s ease infinite;':'';
+  const curThresh=xpForLevel(lvl);
+  const nextThresh=lvl>=100?xpForLevel(100)+10000:xpForLevel(lvl+1);
+  const pct=Math.min(100,Math.round(((xp-curThresh)/(nextThresh-curThresh))*100));
+  const xpLeft=Math.max(0,nextThresh-xp);
+  return {lvl, name, color, frame, anim, pct, xpLeft, curThresh, nextThresh, xp};
+}
+
+function calcXP(totalHours){return calcTotalXP();}
+function calcLevel(xp){return getLevelFromXP(xp);}
 
 function renderXP(){
-  const th=totalHrs();
-  const info=getLevelInfo(th);
+  const info=getLevelInfo();
   const el2=document.getElementById('xpLevel');
   const pts=document.getElementById('xpPts');
   const fill=document.getElementById('xpFill');
@@ -5008,7 +5013,7 @@ function renderXP(){
     el2.textContent=`Ур. ${info.lvl} · ${info.name}`;
     el2.style.color=info.color.includes('gradient')?'var(--gold)':info.color;
   }
-  if(pts)pts.textContent=`Осталось ${info.xpLeft} ч до следующего уровня`;
+  if(pts)pts.textContent=`${info.xp} / ${info.nextThresh} XP`;
   if(fill)setTimeout(()=>fill.style.width=info.pct+'%',100);
   // Apply frame to profile cover
   applyLevelFrame(info);
