@@ -2226,63 +2226,20 @@ body.modal-open{overflow:hidden!important;}
 .msg-empty { padding: 40px !important; text-align: center !important; color: var(--t3) !important; }
 
 /* ══ NEON RECORD CARDS ══════════════════════════════════ */
-@keyframes borderRun {
-  0%   { background-position: 0% 0%; }
-  100% { background-position: 200% 0%; }
-}
-@keyframes neonTextGlow {
-  0%,100% { text-shadow: 0 0 6px currentColor; opacity: .9; }
-  50%      { text-shadow: 0 0 14px currentColor, 0 0 28px currentColor; opacity: 1; }
-}
-@keyframes scanLine {
-  0%   { top: -100%; }
-  100% { top: 200%; }
-}
+/* neon animations removed for performance */
 .neon-rec {
   position: relative;
   overflow: hidden;
   border-radius: 12px;
   padding: 14px 12px;
   text-align: center;
-  background: var(--card);
-  cursor: pointer;
+  background: linear-gradient(160deg, var(--nc-bg) 0%, var(--card) 70%);
+  border: 1.5px solid var(--nc);
 }
-/* Running border using pseudo gradient trick */
-.neon-rec::before {
-  content: '';
-  position: absolute;
-  inset: -1.5px;
-  border-radius: 13px;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    transparent 20%,
-    var(--nc) 40%,
-    var(--nc-scan) 50%,
-    var(--nc) 60%,
-    transparent 80%,
-    transparent 100%
-  );
-  background-size: 200% 100%;
-  animation: borderRun 2s linear infinite;
-  z-index: 0;
-  pointer-events: none;
-}
-.neon-rec::after {
-  content: '';
-  position: absolute;
-  inset: 1.5px;
-  border-radius: 11px;
-  background: var(--card);
-  z-index: 1;
-  pointer-events: none;
-}
-.neon-rec > * { position: relative; z-index: 2; }
 .neon-rec-icon {
   font-size: 22px;
   margin-bottom: 6px;
   display: block;
-  animation: floatUp 3s ease-in-out infinite;
-  filter: drop-shadow(0 0 12px var(--nc)) drop-shadow(0 0 24px var(--nc));
 }
 .neon-rec-val {
   font-family: 'Bebas Neue', sans-serif;
@@ -2290,7 +2247,6 @@ body.modal-open{overflow:hidden!important;}
   line-height: 1;
   letter-spacing: 1px;
   color: var(--nc);
-  animation: neonTextGlow 2.5s ease-in-out infinite;
   margin-bottom: 5px;
 }
 .neon-rec-lbl {
@@ -4011,15 +3967,7 @@ function renderDash(){
   const kpiEl=document.getElementById('kpiRow');
   kpiEl.style.gridTemplateColumns='repeat(4,1fr)';
 
-  const makeRing=(pct,color,size=56)=>{
-    const r=22,c=2*Math.PI*r,fill=(Math.max(pct,0)/100)*c;
-    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="flex-shrink:0;opacity:${pct>0?1:0.25}">
-      <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="4"/>
-      <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="4"
-        stroke-dasharray="${fill} ${c}" stroke-dashoffset="${c/4}"
-        stroke-linecap="round" style="filter:drop-shadow(0 0 6px ${color})"/>
-    </svg>`;
-  };
+  const makeRing=(pct,color,size=56)=>""; // removed for performance
 
   const kpis=[
     {val:periodHrs.toFixed(1),unit:'ч',lbl:isWeek?'За неделю':'За месяц',
