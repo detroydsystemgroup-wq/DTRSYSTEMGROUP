@@ -2994,13 +2994,26 @@ function achProgress(def){
 }
 
 // ══ TOGGLE CATEGORY ═════════════════════════════════════════
-async function toggleCatEpic(id){
-  const el = document.getElementById('manageGrid');
-  if(el){ el.style.pointerEvents='none'; el.style.opacity='.7'; }
-  await toggleCat(id);
+function toggleCatEpic(id){
+  // OPTIMISTIC: update UI instantly, sync DB in background
+  const idx = P.activeCatIds.indexOf(id);
+  if(idx > -1){
+    if(P.activeCatIds.length <= 1){ showToast('Нужна хотя бы 1 категория','⚠️'); return; }
+    P.activeCatIds.splice(idx, 1);
+    if(!P.isDemoUser) sb.from('user_categories').delete().eq('user_id',SB_USER.id).eq('category_id',id).then(()=>{});
+    showToast('Убрано из лиг','🗑️');
+  } else {
+    P.activeCatIds.push(id);
+    if(!P.categories.find(c=>c.id===id)){
+      const d=ALL_CATS.find(c=>c.id===id);
+      if(d) P.categories.push({...d,hours:0});
+    }
+    if(!SB_USER?.isDemoUser) sb.from('user_categories').upsert({user_id:SB_USER.id,category_id:id,hours:0}).then(()=>{});
+    showToast(`${ALL_CATS.find(c=>c.id===id)?.icon} Добавлено в лигу!`,'✅');
+  }
+  lgCache = {};
   renderManageGrid();
   renderQuickCats();
-  if(el){ el.style.pointerEvents=''; el.style.opacity='1'; }
 }
 
 async function toggleCat(id){
@@ -3395,31 +3408,23 @@ function renderManageGrid(){
 
       <!-- Stats row -->
       <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
-        <div style="flex:1;padding:8px 12px;border-radius:10px;
+        <div style="flex:1;padding:10px 12px;border-radius:10px;text-align:center;
           background:${on?catColor+'0d':'rgba(255,255,255,.03)'};
-          border:1px solid ${on?catColor+'25':'var(--border-l)'};
-          display:flex;align-items:center;gap:8px">
-          <div style="font-size:16px">👥</div>
-          <div>
-            <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;line-height:1;
-              color:${on?catColor:'var(--t2)'}">
-              ${mc>0?mc.toLocaleString('ru'):'0'}
-            </div>
-            <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-top:1px">участников</div>
+          border:1px solid ${on?catColor+'25':'var(--border-l)'}">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;line-height:1;
+            color:${on?catColor:'var(--t2)'};letter-spacing:1px">
+            ${mc>0?mc.toLocaleString('ru'):'0'}
           </div>
+          <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:4px">участников</div>
         </div>
-        <div style="flex:1;padding:8px 12px;border-radius:10px;
+        <div style="flex:1;padding:10px 12px;border-radius:10px;text-align:center;
           background:${on?catColor+'0d':'rgba(255,255,255,.03)'};
-          border:1px solid ${on?catColor+'25':'var(--border-l)'};
-          display:flex;align-items:center;gap:8px">
-          <div style="font-size:16px">⏱</div>
-          <div>
-            <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;line-height:1;
-              color:${on?catColor:'var(--t2)'}">
-              ${hrs>0?hrs.toFixed(1):'0'}
-            </div>
-            <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-top:1px">твоих часов</div>
+          border:1px solid ${on?catColor+'25':'var(--border-l)'}">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;line-height:1;
+            color:${on?catColor:'var(--t2)'};letter-spacing:1px">
+            ${hrs>0?hrs.toFixed(1):'0'}
           </div>
+          <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:4px">твоих часов</div>
         </div>
         <div style="padding:8px 14px;border-radius:10px;font-size:12px;font-weight:800;
           letter-spacing:.5px;text-align:center;cursor:pointer;
