@@ -2102,21 +2102,17 @@ body.modal-open{overflow:hidden!important;}
 .msg-empty { padding: 40px !important; text-align: center !important; color: var(--t3) !important; }
 
 /* ══ NEON RECORD CARDS ══════════════════════════════════ */
-@keyframes neonPulse {
-  0%,100% { box-shadow: 0 0 8px var(--nc), 0 0 20px var(--nc), 0 0 40px var(--nc), inset 0 0 20px rgba(0,0,0,.5); border-color: var(--nc); }
-  50%      { box-shadow: 0 0 16px var(--nc), 0 0 40px var(--nc), 0 0 80px var(--nc), inset 0 0 30px rgba(0,0,0,.3); border-color: var(--nc); }
+@keyframes borderRun {
+  0%   { background-position: 0% 0%; }
+  100% { background-position: 200% 0%; }
 }
 @keyframes neonTextGlow {
-  0%,100% { text-shadow: 0 0 10px currentColor, 0 0 20px currentColor; }
-  50%      { text-shadow: 0 0 20px currentColor, 0 0 40px currentColor, 0 0 60px currentColor; }
+  0%,100% { text-shadow: 0 0 6px currentColor; opacity: .9; }
+  50%      { text-shadow: 0 0 14px currentColor, 0 0 28px currentColor; opacity: 1; }
 }
 @keyframes scanLine {
   0%   { top: -100%; }
   100% { top: 200%; }
-}
-@keyframes cornerSpin {
-  0%   { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
 }
 .neon-rec {
   position: relative;
@@ -2124,31 +2120,39 @@ body.modal-open{overflow:hidden!important;}
   border-radius: 12px;
   padding: 14px 12px;
   text-align: center;
-  border: 1.5px solid var(--nc);
-  animation: neonPulse 2.5s ease-in-out infinite;
-  background: radial-gradient(ellipse 80% 60% at 50% 0%, var(--nc-bg) 0%, var(--card) 70%);
+  background: var(--card);
   cursor: pointer;
 }
+/* Running border using pseudo gradient trick */
 .neon-rec::before {
   content: '';
   position: absolute;
-  top: -100%;
-  left: 0;
-  right: 0;
-  height: 40%;
-  background: linear-gradient(180deg, transparent, var(--nc-scan), transparent);
-  animation: scanLine 3s linear infinite;
+  inset: -1.5px;
+  border-radius: 13px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    transparent 20%,
+    var(--nc) 40%,
+    var(--nc-scan) 50%,
+    var(--nc) 60%,
+    transparent 80%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: borderRun 2s linear infinite;
+  z-index: 0;
   pointer-events: none;
-  opacity: .4;
 }
 .neon-rec::after {
   content: '';
   position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, var(--nc-edge) 0%, transparent 50%, var(--nc-edge) 100%);
+  inset: 1.5px;
+  border-radius: 11px;
+  background: var(--card);
+  z-index: 1;
   pointer-events: none;
-  opacity: .15;
 }
+.neon-rec > * { position: relative; z-index: 2; }
 .neon-rec-icon {
   font-size: 22px;
   margin-bottom: 6px;
@@ -2178,17 +2182,8 @@ body.modal-open{overflow:hidden!important;}
   font-weight: 600;
   opacity: .7;
 }
-/* Corner decorations */
-.neon-rec .nc-corner {
-  position: absolute;
-  width: 12px; height: 12px;
-  border-color: var(--nc);
-  border-style: solid;
-}
-.neon-rec .nc-tl { top: 6px; left: 6px; border-width: 2px 0 0 2px; }
-.neon-rec .nc-tr { top: 6px; right: 6px; border-width: 2px 2px 0 0; }
-.neon-rec .nc-bl { bottom: 6px; left: 6px; border-width: 0 0 2px 2px; }
-.neon-rec .nc-br { bottom: 6px; right: 6px; border-width: 0 2px 2px 0; }
+/* Corner decorations hidden - border beam replaces */
+.neon-rec .nc-corner { display: none; }
 </style>
 </head>
 <body>
