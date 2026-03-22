@@ -2994,6 +2994,15 @@ function achProgress(def){
 }
 
 // ══ TOGGLE CATEGORY ═════════════════════════════════════════
+async function toggleCatEpic(id){
+  const el = document.getElementById('manageGrid');
+  if(el){ el.style.pointerEvents='none'; el.style.opacity='.7'; }
+  await toggleCat(id);
+  renderManageGrid();
+  renderQuickCats();
+  if(el){ el.style.pointerEvents=''; el.style.opacity='1'; }
+}
+
 async function toggleCat(id){
   const idx=P.activeCatIds.indexOf(id);
   if(idx>-1){
@@ -3385,23 +3394,41 @@ function renderManageGrid(){
       </div>
 
       <!-- Stats row -->
-      <div style="display:flex;align-items:center;justify-content:space-between;
-        padding:10px 12px;border-radius:10px;
-        background:${on?`${catColor}10`:'rgba(255,255,255,.03)'};
-        border:1px solid ${on?catColor+'22':'var(--border-l)'}">
-        <div style="text-align:center">
-          <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:${on?catColor:'var(--t2)'}">${mc>0?mc.toLocaleString('ru'):'0'}</div>
-          <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">в лиге</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+        <div style="flex:1;padding:8px 12px;border-radius:10px;
+          background:${on?catColor+'0d':'rgba(255,255,255,.03)'};
+          border:1px solid ${on?catColor+'25':'var(--border-l)'};
+          display:flex;align-items:center;gap:8px">
+          <div style="font-size:16px">👥</div>
+          <div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;line-height:1;
+              color:${on?catColor:'var(--t2)'}">
+              ${mc>0?mc.toLocaleString('ru'):'0'}
+            </div>
+            <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-top:1px">участников</div>
+          </div>
         </div>
-        <div style="width:1px;height:28px;background:var(--border-l)"></div>
-        <div style="text-align:center">
-          <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:${on?catColor:'var(--t2)'}">${hrs.toFixed(0)}</div>
-          <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">часов</div>
+        <div style="flex:1;padding:8px 12px;border-radius:10px;
+          background:${on?catColor+'0d':'rgba(255,255,255,.03)'};
+          border:1px solid ${on?catColor+'25':'var(--border-l)'};
+          display:flex;align-items:center;gap:8px">
+          <div style="font-size:16px">⏱</div>
+          <div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;line-height:1;
+              color:${on?catColor:'var(--t2)'}">
+              ${hrs>0?hrs.toFixed(1):'0'}
+            </div>
+            <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-top:1px">твоих часов</div>
+          </div>
         </div>
-        <div style="width:1px;height:28px;background:var(--border-l)"></div>
-        <div style="text-align:center">
-          <div style="font-size:13px;font-weight:800;color:${on?catColor:'var(--t3)'}">${on?'✦ АКТИВНА':'+ Войти'}</div>
-          <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">${on?'лига':'нажми'}</div>
+        <div style="padding:8px 14px;border-radius:10px;font-size:12px;font-weight:800;
+          letter-spacing:.5px;text-align:center;cursor:pointer;
+          background:${on?catColor+'22':'rgba(255,255,255,.05)'};
+          border:1.5px solid ${on?catColor+'55':'var(--border)'};
+          color:${on?catColor:'var(--t2)'};
+          box-shadow:${on?`0 0 14px ${catColor}33`:''};
+          white-space:nowrap">
+          ${on?'✦ АКТИВНА':'＋ Войти'}
         </div>
       </div>
 
