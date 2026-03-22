@@ -3154,14 +3154,12 @@ function renderDash(){
   kpiEl.style.gridTemplateColumns='repeat(4,1fr)';
 
   const makeRing=(pct,color,size=56)=>{
-    const r=22,c=2*Math.PI*r,fill=(pct/100)*c;
-    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="flex-shrink:0">
+    const r=22,c=2*Math.PI*r,fill=(Math.max(pct,0)/100)*c;
+    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="flex-shrink:0;opacity:${pct>0?1:0.25}">
       <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="4"/>
       <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="4"
         stroke-dasharray="${fill} ${c}" stroke-dashoffset="${c/4}"
-        stroke-linecap="round" style="filter:drop-shadow(0 0 4px ${color})"/>
-      <text x="${size/2}" y="${size/2+5}" text-anchor="middle" fill="${color}"
-        font-family="Bebas Neue,sans-serif" font-size="13" font-weight="700">${pct}%</text>
+        stroke-linecap="round" style="filter:drop-shadow(0 0 6px ${color})"/>
     </svg>`;
   };
 
@@ -3274,9 +3272,9 @@ function renderDash(){
       <div class="insight-lbl">Топ за период</div>
     </div>
     <div class="insight" style="background:linear-gradient(135deg,rgba(34,197,94,.12),var(--card));border-color:rgba(34,197,94,.3)">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--green);text-shadow:0 0 16px rgba(34,197,94,.5)">${goalPct}%</div>
-      <div class="insight-lbl" style="margin-top:4px">Выполнение цели</div>
-      <div style="height:3px;background:var(--bg);border-radius:2px;overflow:hidden;margin-top:8px"><div style="height:100%;width:${goalPct}%;background:var(--green);border-radius:2px;box-shadow:0 0 6px rgba(34,197,94,.6)"></div></div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--green);text-shadow:0 0 16px rgba(34,197,94,.5)">${totalAllTime.toFixed(0)}<span style="font-size:14px;opacity:.7">ч</span></div>
+      <div class="insight-lbl" style="margin-top:4px">Часов в активных лигах</div>
+      <div style="height:3px;background:var(--bg);border-radius:2px;overflow:hidden;margin-top:8px"><div style="height:100%;width:${Math.min(100,totalAllTime/10*100)}%;background:var(--green);border-radius:2px;box-shadow:0 0 6px rgba(34,197,94,.6)"></div></div>
     </div>
     <div class="insight" style="background:linear-gradient(135deg,rgba(249,115,22,.12),var(--card));border-color:rgba(249,115,22,.3)">
       <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;color:var(--orange);text-shadow:0 0 16px rgba(249,115,22,.5)">${P.streak}🔥</div>
