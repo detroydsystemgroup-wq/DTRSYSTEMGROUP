@@ -689,7 +689,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
     max-height:92vh!important;overflow-y:auto!important;
     -webkit-overflow-scrolling:touch!important;
   }
-  .up-cover{height:110px!important;}
+  .up-cover{height:140px!important;overflow:visible!important;}
   .up-head{padding:14px 16px 10px!important;}
   .up-name{font-size:20px!important;}
   .up-actions{gap:6px!important;flex-wrap:wrap!important;}
@@ -1196,12 +1196,12 @@ body { transition:background .28s,color .28s; }
   box-shadow:0 24px 60px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.04);
 }
 .up-cover{
-  height:140px;
+  height:160px;
   background:linear-gradient(135deg,#0d0a1a 0%,#0a0d14 50%,#100a0d 100%);
-  position:relative;flex-shrink:0;overflow:hidden;
+  position:relative;flex-shrink:0;overflow:visible;
 }
 .up-cover::before{
-  content:'';position:absolute;inset:0;
+  content:'';position:absolute;inset:0;overflow:hidden;border-radius:0;
   background:radial-gradient(ellipse 70% 80% at 20% 50%,rgba(245,200,66,.07),transparent 60%),
              radial-gradient(ellipse 40% 60% at 80% 30%,rgba(168,85,247,.05),transparent 60%);
 }
@@ -1209,8 +1209,22 @@ body { transition:background .28s,color .28s; }
   content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
   background:linear-gradient(90deg,transparent,rgba(245,200,66,.3),rgba(168,85,247,.2),transparent);
 }
-.up-av{width:88px;height:88px;border-radius:18px;background:linear-gradient(135deg,rgba(245,200,66,.1),var(--card));display:flex;align-items:center;justify-content:center;font-size:42px;border:3px solid rgba(245,200,66,.25);position:absolute;bottom:-32px;left:24px;box-shadow:0 8px 32px rgba(0,0,0,.6);overflow:hidden;}
-.up-head{padding:46px 24px 18px;border-bottom:1px solid var(--border-l);}
+.up-av{
+  width:110px;height:110px;border-radius:22px;
+  background:linear-gradient(135deg,rgba(245,200,66,.1),var(--card));
+  display:flex;align-items:center;justify-content:center;
+  font-size:54px;
+  border:3px solid rgba(245,200,66,.4);
+  position:absolute;bottom:-42px;left:24px;
+  box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 0 1px rgba(245,200,66,.15);
+  overflow:hidden;
+  animation:avFloat 4s ease-in-out infinite;
+}
+@keyframes avFloat{
+  0%,100%{transform:translateY(0);box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 0 1px rgba(245,200,66,.15),0 0 20px rgba(245,200,66,.1);}
+  50%{transform:translateY(-6px);box-shadow:0 16px 40px rgba(0,0,0,.7),0 0 0 1px rgba(245,200,66,.25),0 0 32px rgba(245,200,66,.2);}
+}
+.up-head{padding:60px 24px 18px;border-bottom:1px solid var(--border-l);}
 .up-name{font-family:'Rajdhani',sans-serif;font-size:26px;font-weight:800;margin-bottom:5px;letter-spacing:.5px;}
 .up-meta{font-size:12px;color:var(--t3);display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
 .up-actions{display:flex;gap:8px;flex-wrap:wrap;}
@@ -4754,8 +4768,8 @@ async function openUserProfile(userId, name, av){
   // Instant skeleton while loading
   const upAvEl = document.getElementById('upAv');
   upAvEl.textContent = av || '🎯';
-  upAvEl.style.border = '2.5px solid var(--border)';
-  upAvEl.style.boxShadow = 'none';
+  upAvEl.style.border = '3px solid rgba(245,200,66,.25)';
+  upAvEl.style.boxShadow = '0 8px 32px rgba(0,0,0,.5)';
   document.getElementById('upName').textContent = name || '—';
   document.getElementById('upMeta').innerHTML = '<span style="color:var(--t3)">Загружаем...</span>';
   document.getElementById('upLeaguesList').innerHTML = '<div style="padding:32px;text-align:center;color:var(--t3)">⏳</div>';
@@ -4792,20 +4806,20 @@ async function openUserProfile(userId, name, av){
     cover.style.background = topCat
       ? `linear-gradient(135deg,${topCat.color}55 0%,#060610 100%)`
       : `linear-gradient(135deg,${lvlColor}33 0%,#060610 100%)`;
-    // Animated glow orb + level badge
+    // Animated glow orb only — no level badge in cover
     cover.innerHTML =
-      `<div style="position:absolute;top:-30px;left:-30px;width:180px;height:180px;border-radius:50%;background:${lvlColor}18;filter:blur(40px);pointer-events:none"></div>`+
-      `<div style="position:absolute;bottom:-32px;left:24px;width:88px;height:88px;border-radius:16px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:42px;border:3px solid var(--panel);box-shadow:0 4px 24px rgba(0,0,0,.6);overflow:hidden;z-index:2" id="upAv">${av||'🎯'}</div>`+
-      `<button class="up-close" onclick="closeUserProfile()" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:var(--t2);font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2">✕</button>`+
-      `<div style="position:absolute;top:12px;right:14px;background:${lvlColor}22;border:1px solid ${lvlColor}55;color:${lvlColor};font-size:11px;font-weight:800;padding:4px 14px;border-radius:20px;letter-spacing:.8px;text-transform:uppercase;backdrop-filter:blur(8px)">⭐ УР.${lvlInfo.lvl} · ${lvlInfo.name}</div>`;
+      `<div style="position:absolute;top:-40px;left:-40px;width:220px;height:220px;border-radius:50%;background:${lvlColor}14;filter:blur(50px);pointer-events:none"></div>`+
+      `<div style="position:absolute;top:-20px;right:-20px;width:140px;height:140px;border-radius:50%;background:${topCat?topCat.color+'0e':'rgba(168,85,247,.06)'};filter:blur(35px);pointer-events:none"></div>`+
+      `<div style="position:absolute;bottom:-42px;left:24px;width:110px;height:110px;border-radius:22px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:54px;border:3px solid ${lvlColor}55;box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 0 1px ${lvlColor}18,0 0 24px ${lvlColor}22;overflow:hidden;z-index:2;animation:avFloat 4s ease-in-out infinite" id="upAv">${av||'🎯'}</div>`+
+      `<button class="up-close" onclick="closeUserProfile()" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:var(--t2);font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:3">✕</button>`;
 
     // ── Avatar with glow ──
     const newAvEl = document.getElementById('upAv');
     if(newAvEl){
-      newAvEl.style.border = `2.5px solid ${lvlColor}`;
-      newAvEl.style.boxShadow = `0 0 20px ${lvlColor}55`;
+      newAvEl.style.border = `3px solid ${lvlColor}66`;
+      newAvEl.style.boxShadow = `0 8px 32px rgba(0,0,0,.6),0 0 0 1px ${lvlColor}18,0 0 28px ${lvlColor}44`;
       if(u?.avatar_url){
-        newAvEl.innerHTML = `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:13px" onerror="this.parentNode.textContent='${u?.avatar||'🎯'}'">`;
+        newAvEl.innerHTML = `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:19px" onerror="this.parentNode.textContent='${u?.avatar||'🎯'}'">`;
       } else {
         newAvEl.textContent = u?.avatar || av || '🎯';
       }
