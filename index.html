@@ -6,6 +6,19 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#09090B">
+<meta name="description" content="DTR Progress Club — геймифицированный трекер саморазвития. Соревнуйся с людьми с теми же целями, прокачивай уровень, побеждай в лигах.">
+<meta name="keywords" content="саморазвитие, трекер, привычки, продуктивность, лиги, соревнование">
+<meta name="robots" content="index, follow">
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="DTR Progress Club — Трекер саморазвития">
+<meta property="og:description" content="Соревнуйся с людьми с теми же целями. Прокачивай уровень, побеждай в лигах.">
+<meta property="og:url" content="https://dtrsystemgroup.vercel.app">
+<meta property="og:site_name" content="DTR Progress Club">
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="DTR Progress Club">
+<meta name="twitter:description" content="Геймифицированный трекер саморазвития с лигами и соревнованием.">
 <title>DTR Progress Club</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
@@ -3169,7 +3182,7 @@ body {
             <input
               type="text"
               placeholder="🔍 Поиск по имени..." aria-label="Поиск по диалогам"
-              oninput="filterConvs(this.value)"
+              oninput="debouncedFilterConvs(this.value)"
               style="width:100%;padding:7px 12px;background:var(--card);border:1px solid var(--border);border-radius:9px;color:var(--t1);font-size:12px;outline:none;box-sizing:border-box;transition:border-color .2s"
               onfocus="this.style.borderColor='var(--gold)'"
               onblur="this.style.borderColor='var(--border)'"
@@ -4206,6 +4219,7 @@ function getDashData(){
   return{data,buckets,isWeek};
 }
 function renderDash(){
+  try{
   const{data,buckets,isWeek}=getDashData();
   renderCatFilter();
   const allCats=activeCats();
@@ -4423,6 +4437,7 @@ function renderDash(){
       <div style="font-size:10px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.8px;opacity:.7">Стрик</div>
       <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--orange);text-shadow:0 0 16px rgba(249,115,22,.5);line-height:1">${P.streak} <span style="font-size:20px">🔥</span></div>
       <div class="insight-lbl">Дней подряд</div>`);
+  }catch(e){console.error('renderDash:',e);}
 }
 
 
@@ -4804,9 +4819,9 @@ async function loadLeagueData(catId){
 // ══ ARENA MODE ═══════════════════════════════════════════════
 function setArenaMode(mode, btn) {
   arenaMode = mode;
-  lgCache = {}; // invalidate cache so data re-sorts
+  lgCache = {}; lgCacheTime = {}; // invalidate cache so data re-sorts
   document.querySelectorAll('.arena-mode-btn').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
+  if(btn) btn.classList.add('active');
   renderLeagues();
 }
 
@@ -5028,17 +5043,20 @@ async function renderLeagues(){
 
 async function renderLgMini(){
   const el=document.getElementById('lgMini');if(!el)return;
-  const cats=activeCats();
-  const results=await Promise.all(cats.map(c=>loadLeagueData(c.id)));
-  el.innerHTML=cats.map((c,i)=>{
-    const rank=results[i].findIndex(p=>p.isMe)+1||'?';
-    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 5px;border-radius:7px;cursor:pointer;transition:background .2s" onclick="showTab('leagues')" onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
-      ${catIconBox(c.id, c.color, 32)}
-      <div style="flex:1"><div style="font-size:12px;font-weight:600">${c.name}</div>
-        <div style="font-size:10px;color:var(--t3)">${c.hours.toFixed(1)} часов</div></div>
-      <div style="font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:${c.color}">#${rank}</div>
-    </div>`;
-  }).join('');
+  try{
+    const cats=activeCats();
+    if(!cats.length){el.innerHTML='';return;}
+    const results=await Promise.all(cats.map(c=>loadLeagueData(c.id)));
+    el.innerHTML=cats.map((c,i)=>{
+      const rank=results[i].findIndex(p=>p.isMe)+1||'?';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 5px;border-radius:7px;cursor:pointer;transition:background .2s" onclick="showTab('leagues')" onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
+        ${catIconBox(c.id, c.color, 32)}
+        <div style="flex:1"><div style="font-size:12px;font-weight:600">${c.name}</div>
+          <div style="font-size:10px;color:var(--t3)">${c.hours.toFixed(1)} часов</div></div>
+        <div style="font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:${c.color}">#${rank}</div>
+      </div>`;
+    }).join('');
+  }catch(e){console.error('renderLgMini:',e);el.innerHTML='';}
 }
 
 // ══ LEAGUE HERO BANNER ═══════════════════════════════════════
@@ -5100,40 +5118,40 @@ function closeHeroGoLeague(){
 let sundayBannerUserId = null;
 
 async function checkSundayBanner(){
-  const today = new Date();
-  const isSunday = today.getDay() === 0;
-  const lastShown = localStorage.getItem('lt_sunday_shown');
-  const todayKey = today.toISOString().slice(0,10);
-  if(!isSunday || lastShown === todayKey) return;
-  if(!P || !SB_USER) return;
-  const cats = activeCats();
-  if(!cats.length) return;
+  try{
+    const today = new Date();
+    const isSunday = today.getDay() === 0;
+    const lastShown = localStorage.getItem('lt_sunday_shown');
+    const todayKey = today.toISOString().slice(0,10);
+    if(!isSunday || lastShown === todayKey) return;
+    if(!P || !SB_USER) return;
+    const cats = activeCats();
+    if(!cats.length) return;
 
-  // Collect top player per league (max 3 leagues)
-  const topPlayers = [];
-  const catsToShow = cats.slice(0,3);
-  await Promise.all(catsToShow.map(async cat => {
-    const players = await loadLeagueData(cat.id);
-    const real = players.filter(p => !p.fake && !p.isMe && p.hrs > 0);
-    if(real[0]) topPlayers.push({ player:real[0], cat });
-  }));
+    const topPlayers = [];
+    const catsToShow = cats.slice(0,3);
+    await Promise.all(catsToShow.map(async cat => {
+      const players = await loadLeagueData(cat.id);
+      const real = players.filter(p => !p.fake && !p.isMe && p.hrs > 0);
+      if(real[0]) topPlayers.push({ player:real[0], cat });
+    }));
 
-  if(!topPlayers.length) return;
+    if(!topPlayers.length) return;
 
-  // Render player cards
-  const wrap = document.getElementById('swPlayersWrap');
-  if(wrap) {
-    wrap.innerHTML = topPlayers.map(({player,cat}) => `
-      <div class="sw-player-card" onclick="closeSundayBanner();${player.userId?`openUserProfile('${esc(player.userId)}','${escAttr(player.name)}','${escAttr(player.av)}')`:''}" style="cursor:${player.userId?'pointer':'default'}">
-        <div class="sw-player-lbl">${cat.icon} ${cat.name}</div>
-        <div class="sw-player-av">${player.av}</div>
-        <div class="sw-player-name">${esc(player.name)}</div>
-        <div class="sw-player-stat" style="color:${cat.color}">${player.hrs} ч</div>
-        <div class="sw-player-streak">🔥 ${player.streak} дней</div>
-      </div>`).join('');
-  }
+    const wrap = document.getElementById('swPlayersWrap');
+    if(wrap) {
+      wrap.innerHTML = topPlayers.map(({player,cat}) => `
+        <div class="sw-player-card" onclick="closeSundayBanner();${player.userId?`openUserProfile('${esc(player.userId)}','${escAttr(player.name)}','${escAttr(player.av)}')`:''}" style="cursor:${player.userId?'pointer':'default'}">
+          <div class="sw-player-lbl">${cat.icon} ${cat.name}</div>
+          <div class="sw-player-av">${player.av}</div>
+          <div class="sw-player-name">${esc(player.name)}</div>
+          <div class="sw-player-stat" style="color:${cat.color}">${player.hrs} ч</div>
+          <div class="sw-player-streak">🔥 ${player.streak} дней</div>
+        </div>`).join('');
+    }
 
-  document.getElementById('sundayBanner').style.display = 'flex';
+    document.getElementById('sundayBanner').style.display = 'flex';
+  }catch(e){console.error('checkSundayBanner:',e);}
 }
 
 function closeSundayBanner(){
@@ -5423,77 +5441,92 @@ async function loadConversations(){
   finally { _convsLoading = false; }
 }
 
-async function openConv(userId, name, av){
-  // Mobile: show chat panel
-  if (window.innerWidth <= 600) {
-    const chat = document.getElementById('msgChatArea');
-    if (chat) { chat.style.display = 'flex'; chat.classList.add('active'); }
-    const list = document.getElementById('msgList');
-    if (list) list.style.display = 'none';
+async function openConv(userId, name, av, avUrl){
+  try{
+    // Mobile: show chat panel
+    if(window.innerWidth <= 600){
+      const chat = document.getElementById('msgChatArea');
+      if(chat){chat.style.display='flex';chat.classList.add('active');}
+      const list = document.getElementById('msgList');
+      if(list) list.style.display='none';
+    }
+    activeConvUserId = userId;
+    const area = document.getElementById('msgChatArea');
+    if(!area) return;
+
+    // Avatar — photo or emoji
+    const avDisplay = avUrl
+      ? `<img src="${avUrl}" class="img-cover" style="border-radius:10px" onerror="this.parentNode.textContent='${escAttr(av||'🎯')}'">` 
+      : esc(av||'🎯');
+
+    // Render chat shell instantly
+    area.innerHTML = `
+      <div class="msg-chat-head">
+        <button class="msg-back-btn" onclick="showMsgListOnMobile()" style="padding:0 8px;background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer;flex-shrink:0" aria-label="Назад">←</button>
+        <div class="msg-chat-av">${avDisplay}</div>
+        <div class="msg-chat-name">${esc(name)}</div>
+        <button class="msg-chat-btn" onclick="openUserProfile('${esc(userId)}','${escAttr(name)}','${escAttr(av||'')}','${escAttr(avUrl||'')}')">Профиль</button>
+      </div>
+      <div class="msg-messages" id="msgMessages">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:13px">Загрузка...</div>
+      </div>
+      <div class="msg-input-area" style="position:relative">
+        <textarea class="msg-input" id="msgInput" aria-label="Написать сообщение" placeholder="Написать сообщение..." rows="1"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg('${esc(userId)}')}"
+          oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
+        <button class="msg-send" onclick="sendMsg('${esc(userId)}')" aria-label="Отправить">➤</button>
+      </div>`;
+
+    if(window.innerWidth <= 600){
+      const backBtn = area.querySelector('.msg-back-btn');
+      if(backBtn) backBtn.style.display='block';
+    }
+    requestAnimationFrame(()=>{
+      loadMessages(userId);
+      loadConversations();
+    });
+  }catch(e){
+    console.error('openConv:',e);
+    showToast('Не удалось открыть диалог','⚠️');
   }
-  activeConvUserId = userId;
-  const area = document.getElementById('msgChatArea');
-  const avHTML = av ? av : '🎯';
-  // Render chat shell instantly — no waiting
-  area.innerHTML = `
-    <div class="msg-chat-head">
-      <button class="msg-back-btn" onclick="showMsgListOnMobile()" style="padding:0 8px;background:none;border:none;color:var(--t2);font-size:20px;cursor:pointer;flex-shrink:0">←</button>
-      <div class="msg-chat-av">${avHTML}</div>
-      <div class="msg-chat-name">${name}</div>
-      <button class="msg-chat-btn" onclick="openUserProfile('${userId}','${name}','${av}')">Профиль</button>
-    </div>
-    <div class="msg-messages" id="msgMessages"><div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:13px">Загрузка...</div></div>
-    <div class="msg-input-area" style="position:relative">
-      <textarea class="msg-input" id="msgInput" aria-label="Написать сообщение" placeholder="Написать сообщение..." rows="1"
-        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg('${userId}')}"
-        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
-      <button class="msg-send" onclick="sendMsg('${userId}')">➤</button>
-    </div>`;
-  // Show back button on mobile
-  if (window.innerWidth <= 600) {
-    const backBtn = area.querySelector('.msg-back-btn');
-    if (backBtn) backBtn.style.display = 'block';
-  }
-  // Non-blocking: load messages after shell renders
-  requestAnimationFrame(() => {
-    loadMessages(userId);
-    loadConversations();
-  });
 }
 
 async function loadMessages(partnerId){
   const el = document.getElementById('msgMessages');
   if(!el || !SB_USER) return;
+  try{
+    const [fetchResult] = await Promise.all([
+      sb.from('messages')
+        .select('id,from_user_id,content,created_at')
+        .or(`and(from_user_id.eq.${SB_USER.id},to_user_id.eq.${partnerId}),and(from_user_id.eq.${partnerId},to_user_id.eq.${SB_USER.id})`)
+        .order('created_at',{ascending:true})
+        .limit(100),
+      sb.from('messages').update({read:true})
+        .eq('from_user_id',partnerId).eq('to_user_id',SB_USER.id).eq('read',false)
+    ]);
+    const data = fetchResult.data;
 
-  // Fetch + mark-read in parallel — no sequential await
-  const [fetchResult] = await Promise.all([
-    sb.from('messages')
-      .select('id,from_user_id,content,created_at')
-      .or(`and(from_user_id.eq.${SB_USER.id},to_user_id.eq.${partnerId}),and(from_user_id.eq.${partnerId},to_user_id.eq.${SB_USER.id})`)
-      .order('created_at',{ascending:true})
-      .limit(100),
-    sb.from('messages').update({read:true})
-      .eq('from_user_id',partnerId).eq('to_user_id',SB_USER.id).eq('read',false)
-  ]);
-  const data = fetchResult.data;
+    const elNow = document.getElementById('msgMessages');
+    if(!elNow || activeConvUserId !== partnerId) return;
 
-  // Re-check user hasn't switched chat
-  const elNow = document.getElementById('msgMessages');
-  if(!elNow || activeConvUserId !== partnerId) return;
+    if(!data || data.length===0){
+      elNow.innerHTML = '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:13px;padding:32px;text-align:center">Начни разговор — напиши первое сообщение!</div>';
+      return;
+    }
 
-  if(!data || data.length===0){
-    elNow.innerHTML = '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:13px;padding:32px;text-align:center">Начни разговор — напиши первое сообщение!</div>';
-    return;
+    elNow.innerHTML = data.map(msg => {
+      const mine = msg.from_user_id === SB_USER.id;
+      return `<div class="msg-bubble ${mine?'mine':'theirs'}">
+        ${esc(msg.content)}
+        <div class="msg-bubble-time">${fmtMsgTime(msg.created_at)}</div>
+      </div>`;
+    }).join('');
+    elNow.scrollTop = elNow.scrollHeight;
+  }catch(e){
+    console.error('loadMessages:',e);
+    const elNow = document.getElementById('msgMessages');
+    if(elNow) elNow.innerHTML = '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:13px;padding:32px;text-align:center">Не удалось загрузить сообщения</div>';
   }
-
-  elNow.innerHTML = data.map(msg => {
-    const mine = msg.from_user_id === SB_USER.id;
-    return `<div class="msg-bubble ${mine?'mine':'theirs'}">
-      ${msg.content}
-      <div class="msg-bubble-time">${fmtMsgTime(msg.created_at)}</div>
-    </div>`;
-  }).join('');
-  elNow.scrollTop = elNow.scrollHeight;
 }
 
 function openChatWithUser(){
@@ -6035,7 +6068,7 @@ function showToast(msg,icon='✅',isAch=false){
 }
 
 // ══ TABS ════════════════════════════════════════════════════
-function showTab(name,el){
+function showTab(name,el,skipHistory){
   document.querySelectorAll('.tc').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.stab').forEach(b=>b.classList.remove('active'));
   const pane=document.getElementById('tab-'+name);
@@ -6048,13 +6081,23 @@ function showTab(name,el){
     setTimeout(()=>{if(pane)pane.style.animation='';},300);
   }
   if(el)el.classList.add('active');
-  else{const s=document.querySelector('.stab[onclick*="'+name+'"]');if(s)s.classList.add('active');}
+  else{const s=document.querySelector('.stab[onclick*="\''+name+'\'"]');if(s)s.classList.add('active');}
   if(name==='dash'){renderDash();setTimeout(()=>{staggerList('.kpi',40);staggerList('.si',25);initKpiGlow();renderDailyProgress();},60);}
   if(name==='activity'){renderSessions(true);setTimeout(()=>staggerList('.si',25),50);}
   if(name==='achievements'){renderAchFull();setTimeout(()=>staggerList('.ach2',35),50);}
   if(name==='leagues'){renderLeagues();setTimeout(()=>{staggerList('.lg-row',28);staggerList('.lg-section',50);},80);}
   if(name==='messages'){renderMsgTab();}
+  // Push to browser history so back button works
+  if(!skipHistory && P){
+    try{ history.pushState({tab:name},'',`#${name}`); }catch(e){}
+  }
 }
+// Handle browser back/forward button
+window.addEventListener('popstate', e=>{
+  const tab = e.state?.tab || location.hash.replace('#','') || 'dash';
+  const validTabs = ['dash','leagues','activity','achievements','manage','messages'];
+  if(P && validTabs.includes(tab)) showTab(tab, null, true);
+});
 
 function closeAvEdit(){
   avPhotoFile=null;
@@ -7247,6 +7290,13 @@ document.addEventListener('click', () => {
     emojiPickerOpen = false;
   }
 });
+
+// Debounced search — avoids filtering on every keystroke
+let _filterConvsTimer;
+function debouncedFilterConvs(query){
+  clearTimeout(_filterConvsTimer);
+  _filterConvsTimer = setTimeout(()=>filterConvs(query), 200);
+}
 
 function filterConvs(query) {
   const el = document.getElementById('msgConvList'); if(!el) return;
