@@ -4479,6 +4479,18 @@ function genFakePlayers(catId,offset,count){
   }));
 }
 
+// ── Avatar helper — renders photo or emoji consistently ──────
+function renderAvEl(av, avUrl, size=40, radius=10, border='1px solid var(--border)') {
+  const sty = `width:${size}px;height:${size}px;border-radius:${radius}px;` +
+    `background:var(--card);border:${border};` +
+    `display:flex;align-items:center;justify-content:center;` +
+    `font-size:${Math.round(size*0.44)}px;flex-shrink:0;overflow:hidden;`;
+  if (avUrl) {
+    return `<div style="${sty}"><img src="${avUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:${radius}px" onerror="this.parentNode.textContent='${av}'"></div>`;
+  }
+  return `<div style="${sty}">${av||'🎯'}</div>`;
+}
+
 async function loadLeagueData(catId){
   if(lgCache[catId])return lgCache[catId];
 
@@ -4494,7 +4506,7 @@ async function loadLeagueData(catId){
   // Step 2: get user profiles
   const userIds=ucData.map(u=>u.user_id);
   const{data:usersData}=await sb.from('users')
-    .select('id,username,avatar,streak')
+    .select('id,username,avatar,avatar_url,streak')
     .in('id',userIds);
 
   const userMap={};
@@ -4524,6 +4536,7 @@ async function loadLeagueData(catId){
     return{
       name:u.username||'?',
       av:u.avatar||'🎯',
+      avUrl:u.avatar_url||null,
       hrs:Math.round((uc.hours||0)*10)/10,
       streak:u.streak||0,
       weekHrs:Math.round((st.weekHrs||0)*10)/10,
@@ -4698,7 +4711,7 @@ async function renderLeagues(){
                 :i<3?pod.bg:'transparent'};
               ${isMe?`border-left:3px solid ${cat.color};`:''}
               transition:background .15s,transform .15s;cursor:${clickable?'pointer':'default'}"
-            ${clickable?`onclick="openUserProfile('${p.userId}','${p.name}','${p.av}')"`:''}
+            ${clickable?`onclick="openUserProfile('${p.userId}','${p.name}','${p.av}','${p.avUrl||''}')"`:''}
             onmouseover="if(this.dataset.me!=='1')this.style.background='rgba(255,255,255,.04)'"
             onmouseout="this.style.background='${isMe?`linear-gradient(90deg,${cat.color}12,transparent)`:i<3?pod.bg:'transparent'}'"
             data-me="${isMe?1:0}">
@@ -4712,9 +4725,13 @@ async function renderLeagues(){
             <!-- Avatar -->
             <div style="width:40px;height:40px;border-radius:10px;background:${isMe?cat.color+'22':'var(--card)'};
               border:${isMe?`2px solid ${cat.color}`:`1px solid var(--border)`};
-              display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;
-              box-shadow:${isMe?`0 0 12px ${cat.color}55`:i<3?`0 0 8px ${pod.glow}`:'none'}">
-              ${isMe?P.avatar:p.av}
+              display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;overflow:hidden;
+              box-shadow:${isMe?`0 0 12px ${cat.color}55`:i<3?`0 0 8px ${pod.glow}`:'none'}"
+              data-uid="${p.userId||''}">
+              ${isMe
+                ? (P.avatarUrl ? `<img src="${P.avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.textContent='${P.avatar}'">` : P.avatar)
+                : (p.avUrl ? `<img src="${p.avUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.textContent='${p.av}'">` : p.av)
+              }
             </div>
 
             <!-- Name + badges -->
@@ -4793,8 +4810,20 @@ async function showLeagueHero(){
   card.style.borderColor=chosen.color+'44';
   document.getElementById('lhCat').textContent=chosen.icon+' Лига '+chosen.name;
   document.getElementById('lhCat').style.color=chosen.color;
-  document.getElementById('lhAv').textContent=chosenLeader.av;
-  document.getElementById('lhAv').style.textShadow=`0 0 20px ${chosen.color}88`;
+  const lhAvEl = document.getElementById('lhAv');
+  if (chosenLeader.avUrl) {
+    lhAvEl.innerHTML = `<img src="${chosenLeader.avUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentNode.textContent='${chosenLeader.av}'">`;
+    lhAvEl.style.fontSize = '0';
+    lhAvEl.style.width = '80px';
+    lhAvEl.style.height = '80px';
+    lhAvEl.style.borderRadius = '50%';
+    lhAvEl.style.overflow = 'hidden';
+    lhAvEl.style.margin = '0 auto 10px';
+  } else {
+    lhAvEl.textContent = chosenLeader.av;
+    lhAvEl.style.cssText = '';
+  }
+  lhAvEl.style.textShadow = `0 0 20px ${chosen.color}88`;
   document.getElementById('lhName').textContent=chosenLeader.name;
   document.getElementById('lhHrs').textContent=chosenLeader.hrs;
   document.getElementById('lhHrs').style.color=chosen.color;
@@ -4863,14 +4892,18 @@ function closeSundayBanner(){
 }
 
 // ══ LEAGUE ROW CLICK → USER PROFILE ════════════════════════
-async function openUserProfile(userId, name, av){
+async function openUserProfile(userId, name, av, avUrl){
   if(!userId){ showToast('Демо-игрок — профиль недоступен','ℹ️'); return; }
   const ov = document.getElementById('userProfileOv');
   ov.classList.add('show');
 
-  // Instant skeleton while loading
+  // Instant skeleton while loading — show photo immediately if available
   const upAvEl = document.getElementById('upAv');
-  upAvEl.textContent = av || '🎯';
+  if (avUrl) {
+    upAvEl.innerHTML = `<img src="${avUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:19px" onerror="this.parentNode.textContent='${av||'🎯'}'">`;
+  } else {
+    upAvEl.textContent = av || '🎯';
+  }
   upAvEl.style.border = '3px solid rgba(245,200,66,.25)';
   upAvEl.style.boxShadow = '0 8px 32px rgba(0,0,0,.5)';
   document.getElementById('upName').textContent = name || '—';
@@ -5885,15 +5918,15 @@ function initRealtimeMessages() {
       Object.keys(lgCache).forEach(catId => {
         lgCache[catId] = lgCache[catId].map(p => {
           if (p.userId === updated.id) {
-            return { ...p, av: updated.avatar || p.av };
+            return { ...p, av: updated.avatar || p.av, avUrl: updated.avatar_url || null };
           }
           return p;
         });
       });
-      // Update all avatar elements in league rows without full re-render
+      // Update all avatar elements live using data-uid
       document.querySelectorAll(`[data-uid="${updated.id}"]`).forEach(el => {
         if (updated.avatar_url) {
-          el.innerHTML = `<img src="${updated.avatar_url}" style="width:100%;height:100%;border-radius:7px;object-fit:cover" onerror="this.parentNode.textContent='${updated.avatar||'🎯'}'">`;
+          el.innerHTML = `<img src="${updated.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.parentNode.textContent='${updated.avatar||'🎯'}'">`;
         } else {
           el.textContent = updated.avatar || '🎯';
         }
