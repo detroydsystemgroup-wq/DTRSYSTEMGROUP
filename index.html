@@ -230,7 +230,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .kpi-delta.neu{color:var(--t3);}
 
 /* bar chart */
-.bar-chart{display:flex;align-items:flex-end;gap:0;height:160px;margin-top:4px;}
+.bar-chart{display:block;height:auto;margin-top:4px;width:100%;border-radius:8px;overflow:hidden;}
 .bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:0;position:relative;}
 .bar-fill{width:calc(100% - 6px);border-radius:4px 4px 0 0;transition:height .6s cubic-bezier(.4,0,.2,1);min-height:2px;position:relative;cursor:pointer;}
 .bar-fill:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--border);color:var(--t1);font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;white-space:nowrap;z-index:10;pointer-events:none;}
@@ -541,7 +541,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
   .kpi-icon{font-size:14px!important;}
 
   /* ── Dashboard chart ── */
-  .bar-chart{height:110px!important;}
+  .bar-chart svg{height:110px!important;}
   .bar-lbl{font-size:7px!important;}
   .chart-legend{font-size:10px!important;flex-wrap:wrap!important;gap:6px!important;}
 
@@ -4111,28 +4111,87 @@ function renderDash(){
       </div>
     </div>`).join('');
 
-  // ── GLOWING BAR CHART ──
+  // ── SVG AREA CHART ──
   document.getElementById('chartLegend').innerHTML=active.map(c=>
     `<div class="cl-item"><div class="cl-dot" style="background:${c.color};box-shadow:0 0 6px ${c.color}"></div>${c.name}</div>`).join('');
 
   const showEvery=isWeek?1:Math.ceil(buckets/10);
-  document.getElementById('barChart').innerHTML=Array.from({length:buckets},(_,i)=>{
-    const segments=active.map(c=>({color:c.color,val:data[c.id][i]})).filter(s=>s.val>0);
-    const colH=Math.round((totals[i]/maxVal)*140),totalH=colH||2;
-    let segs='';
-    if(segments.length>0){
-      let usedH=0;
-      segments.forEach((s,si)=>{
-        const sh=si===segments.length-1?totalH-usedH:Math.round((s.val/totals[i])*totalH);
-        usedH+=sh;
-        const isTop=si===0;
-        segs+=`<div style="width:100%;height:${sh}px;background:${s.color};${isTop?'border-radius:4px 4px 0 0':''}${totals[i]>0?`;box-shadow:0 0 8px ${s.color}66`:''};"></div>`;
-      });
-    } else segs=`<div style="width:100%;height:2px;background:var(--border-l);border-radius:2px"></div>`;
-    return `<div class="bar-col">
-      <div class="bar-fill" data-tip="${totals[i].toFixed(1)}ч" style="height:${totalH}px;display:flex;flex-direction:column;justify-content:flex-end;width:calc(100% - 4px)">${segs}</div>
-      <div class="bar-lbl">${i%showEvery===0?labels[i]:''}</div></div>`;
+  const svgW=800, svgH=140, padL=0, padR=0, padT=10, padB=28;
+  const plotW=svgW-padL-padR, plotH=svgH-padT-padB;
+
+  // Build points for each category (stacked)
+  const stackedTops=Array(buckets).fill(0);
+  // We'll draw each cat as a filled area from its stack-bottom to stack-top
+  const layers=active.map(c=>{
+    const bottom=[...stackedTops];
+    data[c.id].forEach((v,i)=>{ stackedTops[i]+=v; });
+    const top=[...stackedTops];
+    return{color:c.color, bottom, top};
+  });
+
+  // Smooth SVG path helper using cubic bezier
+  function smoothPath(pts){
+    if(!pts.length) return '';
+    let d=`M ${pts[0][0]} ${pts[0][1]}`;
+    for(let i=1;i<pts.length;i++){
+      const cp1x=(pts[i-1][0]+pts[i][0])/2, cp1y=pts[i-1][1];
+      const cp2x=(pts[i-1][0]+pts[i][0])/2, cp2y=pts[i][1];
+      d+=` C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${pts[i][0]} ${pts[i][1]}`;
+    }
+    return d;
+  }
+
+  function yOf(val){ return padT+plotH-(val/maxVal)*plotH; }
+  function xOf(i){ return padL+i*(plotW/(buckets-1||1)); }
+
+  let svgContent='';
+
+  // Draw each stacked layer (bottom to top = first to last category)
+  // Draw in reverse so first cat is on top visually
+  [...layers].reverse().forEach((layer,ri)=>{
+    const i=layers.length-1-ri;
+    const topPts=layer.top.map((v,j)=>[xOf(j),yOf(v)]);
+    const botPts=layer.bottom.map((v,j)=>[xOf(j),yOf(v)]);
+
+    const topPath=smoothPath(topPts);
+    const botPathRev=smoothPath([...botPts].reverse());
+    // Closed area path
+    const areaPath=`${topPath} L ${xOf(buckets-1)} ${yOf(layer.bottom[buckets-1])} ${botPathRev.replace(/^M/,'L')} Z`;
+
+    const gradId=`ag${i}`;
+    svgContent+=`<defs>
+      <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${layer.color}" stop-opacity="0.55"/>
+        <stop offset="100%" stop-color="${layer.color}" stop-opacity="0.08"/>
+      </linearGradient>
+    </defs>
+    <path d="${areaPath}" fill="url(#${gradId})"/>
+    <path d="${topPath}" fill="none" stroke="${layer.color}" stroke-width="2" stroke-linejoin="round"/>`;
+  });
+
+  // Day labels along bottom
+  const labelEls=Array.from({length:buckets},(_,i)=>{
+    if(i%showEvery!==0)return'';
+    const x=xOf(i);
+    return `<text x="${x}" y="${svgH-4}" text-anchor="middle" font-size="9" fill="rgba(255,255,255,.3)" font-family="DM Sans,sans-serif">${labels[i]}</text>`;
   }).join('');
+
+  // Y-axis grid lines (subtle)
+  const gridLines=[0.25,0.5,0.75,1].map(t=>{
+    const y=padT+plotH-(t*plotH);
+    return `<line x1="${padL}" y1="${y}" x2="${svgW-padR}" y2="${y}" stroke="rgba(255,255,255,.04)" stroke-width="1"/>
+      <text x="${padL}" y="${y-3}" font-size="8" fill="rgba(255,255,255,.2)" font-family="DM Sans,sans-serif">${(maxVal*t).toFixed(1)}</text>`;
+  }).join('');
+
+  const svgEl=`<svg viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:160px;display:block">
+    ${gridLines}
+    ${svgContent}
+    ${labelEls}
+  </svg>`;
+
+  document.getElementById('barChart').style.height='auto';
+  document.getElementById('barChart').style.display='block';
+  document.getElementById('barChart').innerHTML=svgEl;
   document.getElementById('barAxisL').textContent='0';
   document.getElementById('barAxisR').textContent=`${maxVal.toFixed(1)} ч макс.`;
 
