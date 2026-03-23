@@ -4523,25 +4523,41 @@ async function renderLeagues(){
   // Epic arena header
   const totalPlayers=new Set(results.flat().map(p=>p.userId||p.name)).size;
   const arenaHeader=`
-    <div style="position:relative;overflow:hidden;border-radius:16px;margin-bottom:24px;
-      background:linear-gradient(135deg,#0a0a0e 0%,#0d0a1a 40%,#0a0e0a 100%);
-      border:1px solid rgba(245,200,66,.15);padding:28px 32px;
-      box-shadow:0 8px 40px rgba(0,0,0,.5),inset 0 1px 0 rgba(245,200,66,.08)">
-      <div style="position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 20% 50%,rgba(245,200,66,.05),transparent 60%),radial-gradient(ellipse 50% 80% at 80% 50%,rgba(239,68,68,.04),transparent 60%);pointer-events:none"></div>
-      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),rgba(239,68,68,.8),var(--gold),transparent)"></div>
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;position:relative">
+    <div style="position:relative;overflow:hidden;border-radius:20px;margin-bottom:24px;
+      background:linear-gradient(135deg,#07060e 0%,#0d0a1a 50%,#070e07 100%);
+      border:1px solid rgba(245,200,66,.12);padding:28px 32px;
+      box-shadow:0 12px 48px rgba(0,0,0,.6)">
+      <div style="position:absolute;inset:0;background:radial-gradient(ellipse 60% 80% at 10% 50%,rgba(245,200,66,.06),transparent 55%);pointer-events:none"></div>
+      <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(245,200,66,.6),rgba(239,68,68,.4),transparent)"></div>
+      <div style="position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(245,200,66,.15),transparent)"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px;position:relative">
         <div>
-          <div style="font-size:10px;font-weight:800;letter-spacing:3px;color:var(--gold);text-transform:uppercase;margin-bottom:6px;opacity:.7">⚔️ Поле битвы</div>
-          <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px;color:var(--t1);line-height:1">АРЕНА DTR</div>
-          <div style="font-size:12px;color:var(--t2);margin-top:4px">${totalPlayers} бойцов · ${cats.length} лиг · Режим: <b style="color:var(--gold)">${modeLbl}</b></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <div style="width:20px;height:1px;background:rgba(245,200,66,.4)"></div>
+            <span style="font-size:9px;font-weight:800;letter-spacing:4px;color:rgba(245,200,66,.6);text-transform:uppercase">${ICONS.sport?.replace('width="20" height="20"','width="10" height="10"')||''}ПОЛЕ БИТВЫ</span>
+            <div style="width:20px;height:1px;background:rgba(245,200,66,.4)"></div>
+          </div>
+          <div style="line-height:1;margin-bottom:8px">
+            <span style="font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:3px;color:var(--gold);text-shadow:0 0 30px rgba(245,200,66,.3)">АРЕНА </span><span style="font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:3px;background:linear-gradient(135deg,#fff 0%,rgba(255,255,255,.6) 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">DTR</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span style="font-size:11px;color:var(--t3);display:flex;align-items:center;gap:4px"><span style="color:var(--t1);font-weight:700">${totalPlayers}</span> бойцов</span>
+            <span style="color:rgba(255,255,255,.15)">·</span>
+            <span style="font-size:11px;color:var(--t3);display:flex;align-items:center;gap:4px"><span style="color:var(--t1);font-weight:700">${cats.length}</span> лиг</span>
+            <span style="color:rgba(255,255,255,.15)">·</span>
+            <span style="font-size:11px;background:rgba(245,200,66,.08);border:1px solid rgba(245,200,66,.2);color:var(--gold);padding:2px 8px;border-radius:6px;font-weight:700">${modeLbl}</span>
+          </div>
         </div>
-        <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
           ${cats.map((c,i)=>{
             const rank=(results[i]||[]).findIndex(p=>p.isMe)+1||'?';
-            return `<div style="text-align:center;padding:10px 16px;border-radius:10px;background:${c.color}12;border:1px solid ${c.color}30">
-              <div style="font-size:18px">${c.icon}</div>
-              <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:${c.color}">#${rank}</div>
-              <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">${c.name.slice(0,6)}</div>
+            const catKey={read:'read',sport:'sport',lang:'lang',code:'code',trading:'trading',cooking:'cooking',intellect:'intellect'}[c.id];
+            return `<div style="text-align:center;padding:12px 14px;border-radius:14px;
+              background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+              transition:border-color .2s;min-width:56px">
+              <div style="width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;color:${c.color}">${ICONS[catKey]?.replace(/width="20" height="20"/g,'width="18" height="18"')||c.icon}</div>
+              <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:${rank===1?'var(--gold)':rank<=3?'var(--t1)':'var(--t2)'};line-height:1">#${rank}</div>
+              <div style="font-size:8px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-top:3px">${c.name.slice(0,6)}</div>
             </div>`;
           }).join('')}
         </div>
