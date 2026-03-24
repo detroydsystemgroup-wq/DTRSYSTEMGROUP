@@ -5635,47 +5635,68 @@ async function renderLeagues(){
   const results=await Promise.all(cats.map(c=>loadLeagueData(c.id)));
   const modeLbl=arenaModeLabel(arenaMode);
 
-  // Epic arena header
+  // Arena header — Apple style
   const totalPlayers=new Set(results.flat().map(p=>p.userId||p.name)).size;
   const arenaHeader=`
-    <div style="position:relative;overflow:hidden;border-radius:20px;margin-bottom:24px;
-      background:linear-gradient(135deg,#07060e 0%,#0d0a1a 50%,#070e07 100%);
-      border:1px solid rgba(245,200,66,.12);padding:28px 32px;
-      box-shadow:0 12px 48px rgba(0,0,0,.6)">
-      <div style="position:absolute;inset:0;background:radial-gradient(ellipse 60% 80% at 10% 50%,rgba(245,200,66,.06),transparent 55%);pointer-events:none"></div>
-      <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(245,200,66,.6),rgba(239,68,68,.4),transparent)"></div>
-      <div style="position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(245,200,66,.15),transparent)"></div>
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px;position:relative">
+    <div style="
+      position:relative;overflow:hidden;
+      border-radius:18px;margin-bottom:20px;
+      background:var(--panel);
+      border:0.5px solid var(--border);
+      padding:20px 24px;
+    ">
+      <!-- subtle gold top line -->
+      <div style="position:absolute;top:0;left:0;right:0;height:0.5px;background:linear-gradient(90deg,transparent 0%,rgba(245,200,66,.4) 40%,rgba(245,200,66,.4) 60%,transparent 100%)"></div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+
+        <!-- Left: title + meta -->
         <div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-            <div style="width:20px;height:1px;background:rgba(245,200,66,.4)"></div>
-            <span style="font-size:9px;font-weight:800;letter-spacing:4px;color:rgba(245,200,66,.6);text-transform:uppercase">${ICONS.sport?.replace('width="20" height="20"','width="10" height="10"')||''}ПОЛЕ БИТВЫ</span>
-            <div style="width:20px;height:1px;background:rgba(245,200,66,.4)"></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <div style="width:28px;height:28px;border-radius:8px;background:rgba(245,200,66,.1);border:0.5px solid rgba(245,200,66,.2);display:flex;align-items:center;justify-content:center">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            </div>
+            <div>
+              <div style="font-size:18px;font-weight:800;letter-spacing:-.02em;color:var(--t1);line-height:1">Арена</div>
+              <div style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--t2);margin-top:2px">Поле битвы</div>
+            </div>
           </div>
-          <div style="line-height:1;margin-bottom:8px">
-            <span style="font-family:'DM Sans',sans-serif;font-size:40px;font-weight:800;letter-spacing:-.04em;color:var(--gold)">АРЕНА</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-            <span style="font-size:13px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:5px"><span style="color:#4ade80;font-weight:800;font-size:15px">${totalPlayers}</span> бойцов</span>
-            <span style="color:rgba(255,255,255,.2);font-size:16px">·</span>
-            <span style="font-size:13px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:5px"><span style="color:#4ade80;font-weight:800;font-size:15px">${cats.length}</span> лиг</span>
-            <span style="color:rgba(255,255,255,.2);font-size:16px">·</span>
-            <span style="font-size:12px;background:rgba(245,200,66,.1);border:1px solid rgba(245,200,66,.25);color:var(--gold);padding:3px 10px;border-radius:6px;font-weight:700">${modeLbl}</span>
+
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:5px">
+              <span style="width:6px;height:6px;border-radius:50%;background:#4ADE80;display:inline-block;box-shadow:0 0 5px rgba(74,222,128,.5)"></span>
+              <span style="font-size:12px;font-weight:600;color:var(--t2)">${totalPlayers} <span style="color:var(--t1)">игроков</span></span>
+            </div>
+            <span style="color:var(--border);font-size:12px">|</span>
+            <span style="font-size:12px;font-weight:600;color:var(--t2)">${cats.length} <span style="color:var(--t1)">лиги</span></span>
+            <span style="color:var(--border);font-size:12px">|</span>
+            <span style="font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--gold);background:rgba(245,200,66,.08);border:0.5px solid rgba(245,200,66,.2);padding:3px 10px;border-radius:20px">${modeLbl}</span>
           </div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
+
+        <!-- Right: rank chips -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
           ${cats.map((c,i)=>{
             const rank=(results[i]||[]).findIndex(p=>p.isMe)+1||'?';
+            const isTop=rank===1;
             const catKey={read:'read',sport:'sport',lang:'lang',code:'code',trading:'trading',cooking:'cooking',intellect:'intellect'}[c.id];
-            return `<div style="text-align:center;padding:12px 14px;border-radius:14px;
-              background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
-              transition:border-color .2s;min-width:56px">
-              <div style="width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;color:${c.color}">${ICONS[catKey]?.replace(/width="20" height="20"/g,'width="18" height="18"')||c.icon}</div>
-              <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:${rank===1?'var(--gold)':rank<=3?'var(--t1)':'var(--t2)'};line-height:1">#${rank}</div>
-              <div style="font-size:8px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-top:3px">${c.name.slice(0,6)}</div>
+            return `<div style="
+              display:flex;flex-direction:column;align-items:center;gap:5px;
+              padding:10px 12px;border-radius:14px;
+              background:rgba(255,255,255,.03);
+              border:0.5px solid ${isTop?'rgba(245,200,66,.3)':'rgba(255,255,255,.07)'};
+              min-width:52px;
+              transition:border-color .2s;
+            ">
+              <div style="width:32px;height:32px;border-radius:9px;background:${c.color}14;border:0.5px solid ${c.color}30;display:flex;align-items:center;justify-content:center;color:${c.color}">
+                ${ICONS[catKey]?.replace(/width="20" height="20"/g,'width="16" height="16"')||c.icon}
+              </div>
+              <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:${isTop?'var(--gold)':rank<=3?'var(--t1)':'var(--t2)'};line-height:1">#${rank}</div>
+              <div style="font-size:8px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t3)">${c.name.slice(0,5)}</div>
             </div>`;
           }).join('')}
         </div>
+
       </div>
     </div>`;
 
