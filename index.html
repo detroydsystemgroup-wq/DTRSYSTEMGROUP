@@ -7934,12 +7934,11 @@ async function loadLeagueData(catId){
   (usersData||[]).forEach(u=>{userMap[u.id]=u;});
 
   // Step 3: get session stats (week+month) in one query
-  const mCut=new Date(Date.now()-30*86400000).toISOString();
   const wCut=new Date(Date.now()-7*86400000).toISOString();
   const{data:sessData}=await sb.from('sessions')
     .select('user_id,duration_seconds,created_at')
     .in('user_id',userIds)
-    .gte('created_at',mCut);
+    .eq('category_id',catId);
 
   // Build stats map
   const statsMap={};
