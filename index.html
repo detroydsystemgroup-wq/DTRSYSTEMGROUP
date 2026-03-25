@@ -6212,6 +6212,69 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
           <div class="mg-grid" id="manageGrid"></div>
         </div>
       </div>
+
+      <!-- ── REMINDERS CARD ── -->
+      <div class="card" id="remindersCard">
+        <div class="ch" style="display:flex;align-items:center;justify-content:space-between">
+          <span class="ct" style="display:inline-flex;align-items:center;gap:7px">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.6"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            Напоминания
+          </span>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none">
+            <span id="rmdStatusLabel" style="font-size:11px;color:var(--t3)">Выкл</span>
+            <div id="rmdTrackWrap" onclick="rmdToggleMaster()" style="width:38px;height:22px;border-radius:11px;background:var(--border);cursor:pointer;position:relative;transition:background .2s;flex-shrink:0">
+              <div id="rmdThumb" style="position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>
+            </div>
+          </label>
+        </div>
+        <div class="cb" id="rmdBody" style="opacity:.4;pointer-events:none;transition:opacity .25s">
+          <div style="font-size:13px;color:var(--t2);margin-bottom:16px;line-height:1.5">Если к этому времени нет ни одной сессии за день — придёт напоминание.</div>
+
+          <div style="display:flex;align-items:flex-end;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+            <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:110px">
+              <span style="font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--t3)">Время</span>
+              <input type="time" id="rmdTime" value="20:00" onchange="rmdSave()"
+                style="background:var(--card);border:0.5px solid var(--border);border-radius:10px;
+                       color:var(--t1);font-size:15px;font-family:'DM Mono',monospace;
+                       padding:9px 12px;outline:none;width:100%;transition:border-color .2s;cursor:pointer"
+                onfocus="this.style.borderColor='rgba(245,200,66,.5)'"
+                onblur="this.style.borderColor='var(--border)'">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;flex:2;min-width:180px">
+              <span style="font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--t3)">Дни недели</span>
+              <div style="display:flex;gap:4px;flex-wrap:wrap" id="rmdDays"></div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:16px">
+            <span style="font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--t3)">Тон сообщения</span>
+            <div style="display:flex;flex-direction:column;gap:6px" id="rmdPresets"></div>
+          </div>
+
+          <div id="rmdPreview" style="background:var(--bg);border:0.5px solid var(--border-l);border-radius:12px;padding:12px 14px;margin-bottom:14px">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Предпросмотр</div>
+            <div style="display:flex;gap:10px;align-items:flex-start">
+              <div style="width:36px;height:36px;border-radius:9px;background:var(--card);border:0.5px solid rgba(245,200,66,.3);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">⚡</div>
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:2px">DTR Progress Club</div>
+                <div id="rmdPreviewText" style="font-size:12px;color:var(--t2);line-height:1.5"></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <div id="rmdStatus" style="flex:1;font-size:12px;color:var(--t3);min-width:140px"></div>
+            <button onclick="rmdTest()"
+              style="padding:8px 16px;border-radius:9px;border:0.5px solid rgba(245,200,66,.3);
+                     background:rgba(245,200,66,.07);color:var(--gold);font-size:12px;font-weight:600;
+                     cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s"
+              onmouseover="this.style.background='rgba(245,200,66,.14)'"
+              onmouseout="this.style.background='rgba(245,200,66,.07)'">
+              Тест 🔔
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div id="tab-messages" class="tc">
@@ -12057,6 +12120,248 @@ window.renderAll = function(){
     }
     scheduleMidnightRefresh(); // запланировать следующую полночь
   }, msUntilMidnight);
+})();
+
+// ══════════════════════════════════════════════════════════════
+// REMINDER SYSTEM — daily session nudge
+// Stores settings in localStorage under 'dtr_rmd_v1'
+// Never touches Supabase, never modifies P or sessions
+// ══════════════════════════════════════════════════════════════
+(function(){
+
+  const STORAGE_KEY = 'dtr_rmd_v1';
+  const DAY_LABELS = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+  // Sunday=0 in JS Date, we use Mon=0..Sun=6 internally → map
+  const JS_DAY_TO_IDX = [6,0,1,2,3,4,5]; // JS getDay() → our index
+
+  const PRESETS = [
+    { id:'soft',   icon:'🌱', label:'Мягко',    text:'Ты ещё не логировал сессию сегодня. Небольшой прогресс лучше нуля 💪' },
+    { id:'hype',   icon:'⚡', label:'Огонь',    text:'Стрик под угрозой! Запусти таймер прямо сейчас — не сдавайся!' },
+    { id:'rival',  icon:'🏆', label:'Соперник', text:'Пока ты отдыхаешь, кто-то в твоей лиге уже набирает очки. Действуй!' },
+    { id:'stoic',  icon:'🧠', label:'Стоично',  text:'Дисциплина важнее мотивации. Залогируй сессию.' },
+  ];
+
+  function load() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch(e) { return {}; }
+  }
+  function save(obj) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(obj)); } catch(e) {}
+  }
+
+  function defaults() {
+    return { enabled: false, time: '20:00', days: [0,1,2,3,4], preset: 'hype' };
+  }
+
+  // ── Render UI ──────────────────────────────────────────────
+  function rmdRenderUI() {
+    const cfg = Object.assign({}, defaults(), load());
+
+    // Master toggle
+    const track = document.getElementById('rmdTrackWrap');
+    const thumb = document.getElementById('rmdThumb');
+    const body  = document.getElementById('rmdBody');
+    const lbl   = document.getElementById('rmdStatusLabel');
+    if(track && thumb && body && lbl) {
+      if(cfg.enabled) {
+        track.style.background = 'var(--gold)';
+        thumb.style.transform  = 'translateX(16px)';
+        body.style.opacity     = '1';
+        body.style.pointerEvents = 'auto';
+        lbl.textContent = 'Вкл';
+        lbl.style.color = 'var(--gold)';
+      } else {
+        track.style.background = 'var(--border)';
+        thumb.style.transform  = 'translateX(0)';
+        body.style.opacity     = '0.4';
+        body.style.pointerEvents = 'none';
+        lbl.textContent = 'Выкл';
+        lbl.style.color = 'var(--t3)';
+      }
+    }
+
+    // Time
+    const timeEl = document.getElementById('rmdTime');
+    if(timeEl) timeEl.value = cfg.time;
+
+    // Days
+    const daysEl = document.getElementById('rmdDays');
+    if(daysEl) {
+      daysEl.innerHTML = DAY_LABELS.map((d,i) => {
+        const on = cfg.days.includes(i);
+        return `<button onclick="rmdToggleDay(${i})"
+          style="width:32px;height:32px;border-radius:8px;border:0.5px solid ${on?'rgba(245,200,66,.5)':'var(--border)'};
+                 background:${on?'rgba(245,200,66,.12)':'var(--card)'};
+                 color:${on?'var(--gold)':'var(--t3)'};font-size:11px;font-weight:700;
+                 cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .18s;flex-shrink:0">${d}</button>`;
+      }).join('');
+    }
+
+    // Presets
+    const presetsEl = document.getElementById('rmdPresets');
+    if(presetsEl) {
+      presetsEl.innerHTML = PRESETS.map(p => {
+        const on = cfg.preset === p.id;
+        return `<div onclick="rmdPickPreset('${p.id}')"
+          style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;
+                 border:0.5px solid ${on?'rgba(245,200,66,.4)':'var(--border-l)'};
+                 background:${on?'rgba(245,200,66,.06)':'var(--card)'};
+                 cursor:pointer;transition:all .18s">
+          <span style="font-size:18px;flex-shrink:0">${p.icon}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700;color:${on?'var(--gold)':'var(--t1)'};margin-bottom:2px">${p.label}</div>
+            <div style="font-size:11px;color:var(--t2);line-height:1.4;white-space:normal">${p.text}</div>
+          </div>
+          ${on?`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`:''}
+        </div>`;
+      }).join('');
+    }
+
+    // Preview text
+    const preset = PRESETS.find(p => p.id === cfg.preset) || PRESETS[0];
+    const prevEl = document.getElementById('rmdPreviewText');
+    if(prevEl) prevEl.textContent = preset.text;
+
+    // Status line
+    rmdUpdateStatus(cfg);
+  }
+
+  function rmdUpdateStatus(cfg) {
+    const el = document.getElementById('rmdStatus');
+    if(!el) return;
+    if(!cfg.enabled) { el.textContent = 'Напоминания отключены'; return; }
+    if(Notification.permission !== 'granted') {
+      el.innerHTML = '<span style="color:var(--orange)">⚠ Разреши уведомления в браузере</span>';
+      return;
+    }
+    const days = cfg.days.map(i => DAY_LABELS[i]).join(', ') || 'не выбраны';
+    el.textContent = `Напоминание в ${cfg.time} · ${days}`;
+  }
+
+  // ── Public handlers (called from HTML) ────────────────────
+  window.rmdToggleMaster = function() {
+    const cfg = Object.assign({}, defaults(), load());
+    cfg.enabled = !cfg.enabled;
+    save(cfg);
+    if(cfg.enabled && Notification.permission === 'default') {
+      requestNotifPermission && requestNotifPermission();
+    }
+    rmdRenderUI();
+    rmdSchedule();
+    showToast && showToast(cfg.enabled ? 'Напоминания включены 🔔' : 'Напоминания отключены', cfg.enabled ? '🔔' : '🔕');
+  };
+
+  window.rmdToggleDay = function(idx) {
+    const cfg = Object.assign({}, defaults(), load());
+    const pos = cfg.days.indexOf(idx);
+    if(pos >= 0) cfg.days.splice(pos, 1); else cfg.days.push(idx);
+    cfg.days.sort();
+    save(cfg);
+    rmdRenderUI();
+    rmdSchedule();
+  };
+
+  window.rmdPickPreset = function(id) {
+    const cfg = Object.assign({}, defaults(), load());
+    cfg.preset = id;
+    save(cfg);
+    rmdRenderUI();
+  };
+
+  window.rmdSave = function() {
+    const cfg = Object.assign({}, defaults(), load());
+    const t = document.getElementById('rmdTime');
+    if(t) cfg.time = t.value;
+    save(cfg);
+    rmdRenderUI();
+    rmdSchedule();
+  };
+
+  window.rmdTest = function() {
+    if(Notification.permission !== 'granted') {
+      requestNotifPermission && requestNotifPermission();
+      showToast && showToast('Сначала разреши уведомления','⚠️');
+      return;
+    }
+    const cfg = Object.assign({}, defaults(), load());
+    const preset = PRESETS.find(p => p.id === cfg.preset) || PRESETS[0];
+    // Force-send ignoring focus/tab check
+    try {
+      const n = new Notification('DTR Progress Club', {
+        body: preset.text,
+        icon: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23080808%22/><polygon points=%2260,16 40,56 54,56 42,86 64,46 50,46%22 fill=%22%23F5C842%22/></svg>',
+        tag: 'dtr-rmd-test',
+      });
+      n.onclick = () => { window.focus(); n.close(); };
+      setTimeout(() => n.close(), 8000);
+      showToast && showToast('Тестовое уведомление отправлено!','🔔');
+    } catch(e) {
+      showToast && showToast('Ошибка уведомления: ' + e.message, '⚠️');
+    }
+  };
+
+  // ── Scheduler — checks every minute ───────────────────────
+  let _rmdChecked = ''; // tracks 'YYYY-MM-DD HH:MM' to avoid duplicate fire
+
+  function rmdCheck() {
+    const cfg = Object.assign({}, defaults(), load());
+    if(!cfg.enabled) return;
+    if(Notification.permission !== 'granted') return;
+
+    const now = new Date();
+    const hhmm = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+    if(hhmm !== cfg.time) return;
+
+    const dateKey = now.toDateString() + ' ' + hhmm;
+    if(_rmdChecked === dateKey) return; // already fired this minute
+    _rmdChecked = dateKey;
+
+    // Check day of week
+    const dayIdx = JS_DAY_TO_IDX[now.getDay()];
+    if(!cfg.days.includes(dayIdx)) return;
+
+    // Check if user already logged a session today
+    if(window.P && window.P.sessions) {
+      const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+      const hasSession = window.P.sessions.some(s => s.ts && s.ts >= todayStart.getTime());
+      if(hasSession) return; // no need to remind — they already trained
+    }
+
+    // Send reminder
+    const preset = PRESETS.find(p => p.id === cfg.preset) || PRESETS[0];
+    try {
+      const n = new Notification('DTR Progress Club', {
+        body: preset.text,
+        icon: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23080808%22/><polygon points=%2260,16 40,56 54,56 42,86 64,46 50,46%22 fill=%22%23F5C842%22/></svg>',
+        tag: 'dtr-daily-reminder',
+        requireInteraction: true,
+      });
+      n.onclick = () => { window.focus(); n.close(); };
+    } catch(e) {}
+  }
+
+  function rmdSchedule() {
+    // Already runs every 30s — just re-render status
+    rmdUpdateStatus(Object.assign({}, defaults(), load()));
+  }
+
+  // Init: render UI when tab is shown + tick every 30s
+  setInterval(rmdCheck, 30000);
+
+  // Render when tab becomes active
+  document.addEventListener('visibilitychange', () => {
+    if(!document.hidden) rmdRenderUI();
+  });
+
+  // Render after login (P becomes available)
+  const _origRenderAllRmd = window.renderAll;
+  window.renderAll = function() {
+    if(_origRenderAllRmd) _origRenderAllRmd.apply(this, arguments);
+    setTimeout(rmdRenderUI, 300);
+  };
+
+  // Initial render (page load)
+  window.addEventListener('load', () => setTimeout(rmdRenderUI, 600));
+
 })();
 </script>
 
