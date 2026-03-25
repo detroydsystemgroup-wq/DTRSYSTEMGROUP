@@ -6810,69 +6810,81 @@ let _loadUserRetryCount = 0;
 const _LOAD_USER_MAX_RETRIES = 5;
 
 async function loadUser(userId){
-  // Keep onboard/login visible until data is fully loaded — no early app show
   const appEl = document.getElementById('app');
   const onboardEl = document.getElementById('onboard');
 
   try{
-  const[r1,r2,r3,r4]=await Promise.all([
-    sb.from('users').select('*').eq('id',userId).single(),
-    sb.from('user_categories').select('category_id,hours').eq('user_id',userId),
-    sb.from('sessions').select('id,category_id,duration_seconds,created_at').eq('user_id',userId).order('created_at',{ascending:false}).limit(300),
-    sb.from('user_achievements').select('achievement_id,unlocked,unlocked_at').eq('user_id',userId),
-  ]);
-
-  // r2-r4 errors are soft (missing data, not fatal) — log and continue with empty arrays
-  if(r2.error) console.warn('user_categories error:', r2.error);
-  if(r3.error) console.warn('sessions error:', r3.error);
-  if(r4.error) console.warn('user_achievements error:', r4.error);
-
+  // PERF FIX: двухфазная загрузка
+  // Фаза 1 — только данные пользователя (быстро, 1 запрос)
+  // Показываем app сразу, без ожидания сессий/достижений
+  const r1 = await sb.from('users').select('*').eq('id',userId).single();
   const user = r1.data;
-  const userCats = r2.data || [];
-  const sessions = r3.data || [];
-  const userAchs = r4.data || [];
 
-  // ── User missing from public.users (e.g. registered with broken old code) ──
+  // Если пользователя нет — обрабатываем сразу, не ждём остальное
   if(!user){
-    // Only retry a limited number of times to avoid infinite loop
     if(_loadUserRetryCount >= _LOAD_USER_MAX_RETRIES){
       console.error('loadUser: user not found after', _LOAD_USER_MAX_RETRIES, 'retries. Giving up.');
       showToast('Не удалось загрузить профиль. Выйди и войди снова.', '⚠️');
       _loadUserRetryCount = 0;
       return;
     }
-
-    // Safely get username from auth metadata
     let username = 'User_' + userId.slice(0, 6);
     try {
       const authResult = await sb.auth.getUser();
       const meta = authResult?.data?.user?.user_metadata;
       if(meta?.username) username = meta.username;
-    } catch(authErr) {
-      console.warn('auth.getUser failed, using fallback username:', authErr);
-    }
-
-    // Create the missing public.users row
+    } catch(authErr) { console.warn('auth.getUser failed:', authErr); }
     const {error: createErr} = await sb.from('users').upsert({
-      id: userId,
-      username,
-      avatar: '🎯',
-      streak: 0,
-      total_sessions: 0
+      id: userId, username, avatar: '🎯', streak: 0, total_sessions: 0
     }, {onConflict: 'id'});
-
-    if(createErr){
-      console.error('Failed to create user row:', createErr);
-    }
-
+    if(createErr) console.error('Failed to create user row:', createErr);
     _loadUserRetryCount++;
     setTimeout(() => loadUser(userId), 1200);
     return;
   }
 
-  // ── User found — reset retry counter ─────────────────────────
   _loadUserRetryCount = 0;
 
+  // ФАЗА 1: показываем профиль МГНОВЕННО с базовыми данными
+  // Счётчики сессий/часов появятся через ~100мс когда придут данные
+  P = {
+    id: userId, name: user.username, avatar: user.avatar||'🎯',
+    joinedDate: new Date(user.created_at||Date.now()).toLocaleDateString('ru'),
+    activeCatIds: [], categories: [], sessions: [], achievements: [],
+    streak: user.streak||0, lastActiveDate: user.last_active_date,
+    totalSessions: user.total_sessions||0,
+    avatarUrl: user.avatar_url||null,
+    _loading: true  // флаг: данные ещё грузятся
+  };
+
+  onboardEl.style.display='none';
+  document.getElementById('catSel').style.display='none';
+  appEl.style.display='';
+  clearInterval(bTmr);
+  applyTheme(); applyLang();
+  renderAll(); showTab('dash');
+  initRipple(); initKpiGlow();
+  restoreTimer();
+  // Онлайн счётчик сразу
+  initPresence();
+  initRealtimeMessages();
+
+  // ФАЗА 2: грузим все данные параллельно (сессии, категории, достижения)
+  const [r2, r3, r4] = await Promise.all([
+    sb.from('user_categories').select('category_id,hours').eq('user_id',userId),
+    sb.from('sessions').select('id,category_id,duration_seconds,created_at').eq('user_id',userId).order('created_at',{ascending:false}).limit(300),
+    sb.from('user_achievements').select('achievement_id,unlocked,unlocked_at').eq('user_id',userId),
+  ]);
+
+  if(r2.error) console.warn('user_categories error:', r2.error);
+  if(r3.error) console.warn('sessions error:', r3.error);
+  if(r4.error) console.warn('user_achievements error:', r4.error);
+
+  const userCats = r2.data || [];
+  const sessions = r3.data || [];
+  const userAchs = r4.data || [];
+
+  // Phase 2 data ready — build full state
   const ucMap={};userCats.forEach(uc=>{ucMap[uc.category_id]=uc.hours||0;});
   const activeCatIds=Object.keys(ucMap);
   const categories=ALL_CATS.filter(c=>activeCatIds.includes(c.id)).map(c=>({...c,hours:ucMap[c.id]||0}));
@@ -6900,13 +6912,15 @@ async function loadUser(userId){
   const computedStreak = computeStreakFromSessions(sessions);
   const finalStreak = Math.max(user.streak||0, computedStreak);
 
+  // Update P with full data (replaces the skeleton P from Phase 1)
   P={
     id:userId, name:user.username, avatar:user.avatar||'🎯',
     joinedDate: new Date(user.created_at||Date.now()).toLocaleDateString('ru'),
     activeCatIds, categories, sessions:sessFmt, achievements,
     streak:finalStreak, lastActiveDate:user.last_active_date,
     totalSessions:finalTotalSessions,
-    avatarUrl:user.avatar_url||null
+    avatarUrl:user.avatar_url||null,
+    _loading: false
   };
 
   // ── RECONCILE hours: sessions are source of truth ─────────────
@@ -6955,17 +6969,8 @@ async function loadUser(userId){
     })();
   }
 
-  onboardEl.style.display='none';
-  document.getElementById('catSel').style.display='none';
-  appEl.style.display='';
-  clearInterval(bTmr);
-  applyTheme(); applyLang();
-  renderAll(); showTab('dash');
-  initRipple();
-  initKpiGlow();
-  restoreTimer();
-  initPresence();
-  initRealtimeMessages();
+  // Phase 2 complete — re-render with full data (only updates changed elements)
+  renderAll();
   setTimeout(showLeagueHero, 800);
   setTimeout(checkSundayBanner, 1500);
 
@@ -9454,21 +9459,33 @@ async function pingOnline(){
   } catch(e){ /* silent */ }
 }
 
+function _applyOnlineCount(cnt){
+  const el = document.getElementById('onlineCnt');
+  if(el) el.textContent = cnt + ' онлайн';
+}
+
+// PERF: мгновенно показать кэшированное значение при загрузке
+function showCachedOnlineCount(){
+  try{
+    const cached = localStorage.getItem('dtr_online_cnt');
+    if(cached !== null) _applyOnlineCount(parseInt(cached)||0);
+  }catch(e){}
+}
+
 async function updateOnlineCount(){
   if(!SB_USER) return;
   try {
     const cutoff = new Date(Date.now() - ONLINE_WINDOW_MS).toISOString();
-    // Use a simple count query — extract only the number
     const { data, error } = await sb.from('users')
       .select('id')
       .gte('last_seen', cutoff)
       .limit(500);
     if(error) return;
     const cnt = (data||[]).length;
-    const el = document.getElementById('onlineCnt');
-    // FIX: don't force minimum of 1 — show real count (0 is valid)
     const displayCnt = SB_USER.isDemoUser ? Math.max(cnt, 1) : cnt;
-    if(el) el.textContent = displayCnt + ' онлайн';
+    // Кэш для мгновенного показа при следующей загрузке
+    try{ localStorage.setItem('dtr_online_cnt', displayCnt); }catch(e){}
+    _applyOnlineCount(displayCnt);
   } catch(e){ /* silent */ }
 }
 
@@ -9513,6 +9530,9 @@ async function updateLeagueOnlineCounts(){
 function initPresence() {
   if(!SB_USER) return;
   if(presenceInterval){ clearInterval(presenceInterval); presenceInterval=null; }
+
+  // PERF: мгновенно показать кэшированное значение, потом обновить с сервера
+  showCachedOnlineCount();
 
   // Immediate first run
   pingOnline();
@@ -10495,18 +10515,18 @@ window.addEventListener('load',async()=>{
   document.getElementById('lP').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
   document.getElementById('rP').addEventListener('keydown',e=>{if(e.key==='Enter')goToCatSel();});
 
-  // Загружаем реальные счётчики участников
-  await loadMemberCounts();
-
-  // FIX: safe destructuring — sb.auth.getSession can return {data: null} on error
   _loadUserRetryCount = 0;
+
+  // PERF FIX: запускаем getSession и loadMemberCounts ПАРАЛЛЕЛЬНО
+  // getSession — критический путь (нужен для входа)
+  // loadMemberCounts — некритичный (только счётчики участников в регистрации)
   let session = null;
-  try {
-    const sessionResult = await sb.auth.getSession();
-    session = sessionResult?.data?.session || null;
-  } catch(e) {
-    console.warn('getSession failed:', e);
-  }
+  const [sessionResult] = await Promise.all([
+    sb.auth.getSession().catch(e => { console.warn('getSession failed:', e); return null; }),
+    loadMemberCounts()  // фоновая загрузка, не блокирует вход
+  ]);
+
+  session = sessionResult?.data?.session || null;
 
   if(session){
     SB_USER=session.user;
