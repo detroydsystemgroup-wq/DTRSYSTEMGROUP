@@ -5955,40 +5955,7 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
           </div>
 
           <!-- ── HERO TODAY ZONE ── -->
-          <div id="dashHeroZone" style="
-            margin-bottom:28px;
-            padding:20px 24px;
-            background:rgba(245,200,66,.04);
-            border:0.5px solid rgba(245,200,66,.12);
-            border-radius:16px;
-            display:flex;
-            align-items:center;
-            justify-content:space-between;
-            gap:20px;
-            flex-wrap:wrap;
-          ">
-            <div>
-              <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">Сегодня</div>
-              <div style="display:flex;align-items:baseline;gap:6px">
-                <span id="heroTodayHrs" style="font-family:'DM Mono',monospace;font-size:48px;font-weight:400;color:var(--t1);letter-spacing:-.03em;line-height:1">0.0</span>
-              </div>
-              <div id="heroTodayMsg" style="font-size:13px;color:var(--t2);margin-top:4px">Начни первую сессию дня</div>
-            </div>
-            <div style="display:flex;gap:24px;flex-wrap:wrap">
-              <div style="text-align:center">
-                <div id="heroStreakVal" style="font-family:'DM Mono',monospace;font-size:28px;font-weight:400;color:var(--orange);line-height:1">0</div>
-                <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t2);margin-top:3px">Стрик</div>
-              </div>
-              <div style="text-align:center">
-                <div id="heroWeekHrs" style="font-family:'DM Mono',monospace;font-size:28px;font-weight:400;color:var(--blue);line-height:1">0.0</div>
-                <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t2);margin-top:3px">За неделю</div>
-              </div>
-              <div style="text-align:center">
-                <div id="heroTotalHrs" style="font-family:'DM Mono',monospace;font-size:28px;font-weight:400;color:var(--green);line-height:1">0</div>
-                <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t2);margin-top:3px">Всего часов</div>
-              </div>
-            </div>
-          </div>
+          <div id="dashHeroZone"></div>
           <!-- ── end hero zone ── -->
 
           <div class="kpi-row" id="kpiRow"></div>
@@ -7005,10 +6972,10 @@ async function loadUser(userId){
 let _sessionSaving = false;
 async function saveSession(catId,secs){
   if(secs<5)return;
-  if(_sessionSaving){ console.warn('saveSession: already saving, skipped duplicate call'); return; }
+  if(_sessionSaving){ console.warn('saveSession: skipped duplicate call'); return; }
   _sessionSaving = true;
   const cat=P.categories.find(c=>c.id===catId)||ALL_CATS.find(c=>c.id===catId);
-  if(!cat){ _sessionSaving = false; return; }
+  if(!cat){ _sessionSaving=false; return; }
 
   if(SB_USER?.isDemoUser){
     // Demo: local only
@@ -7018,7 +6985,6 @@ async function saveSession(catId,secs){
     const today=new Date().toDateString(),yest=new Date(Date.now()-86400000).toDateString();
     if(P.lastActiveDate!==today){P.streak=P.lastActiveDate===yest?(P.streak||0)+1:1;P.lastActiveDate=today;}
     const nowISO=new Date().toISOString();
-    // FIX: add isoDate so relDate() re-renders correctly; set totalSessions AFTER unshift
     P.sessions.unshift({cat:catId,name:cat.name,icon:cat.icon,color:cat.color,dur:secs,date:'только что',ts:Date.now(),isoDate:nowISO});
     P.totalSessions=P.sessions.length;
     const newly=checkAchsLocal({dur:secs});
@@ -7046,11 +7012,9 @@ async function saveSession(catId,secs){
   const yestISO=new Date(Date.now()-86400000).toISOString().split('T')[0];
   let newStreak=P.streak;
   if(P.lastActiveDate!==todayISO){
-    // New day: check if yesterday had a session (streak continues) or not (reset to 1)
     newStreak=P.lastActiveDate===yestISO?(P.streak||0)+1:1;
     P.lastActiveDate=todayISO;
   }
-  // FIX: use P.totalSessions (authoritative count) not P.sessions.length (capped at 300)
   const newTotalSessions=(P.totalSessions||0)+1;
   await sb.from('users').update({
     streak:newStreak,
@@ -7067,18 +7031,15 @@ async function saveSession(catId,secs){
   P.streak=newStreak;
   P.lastActiveDate=todayISO;
   const nowISO=new Date().toISOString();
-  // FIX: unshift first, then set totalSessions = length (no double-count)
   P.sessions.unshift({cat:catId,name:cat.name,icon:cat.icon,color:cat.color,dur:secs,date:'только что',ts:Date.now(),isoDate:nowISO});
   P.totalSessions=P.sessions.length;
 
   const newly=await checkAchsSB(secs);
-  // Invalidate league cache for this category so arena shows fresh data
   delete lgCache[catId];
   renderAll();
   setTimeout(renderDailyProgress, 200);
   showToast(`${cat.icon} +${fmtD(secs)} в "${esc(cat.name)}"`, '✅');
   newly.forEach((a,i)=>setTimeout(()=>showToast(`🏆 ${esc(a.name)}`,a.icon,true),(i+1)*900));
-  // Update hero cache after session save so next load shows fresh data
   if(typeof renderHeroZone === 'function') renderHeroZone();
   } catch(e) { console.error('saveSession DB error:',e); showToast('Ошибка сохранения сессии','⚠️'); }
   finally { _sessionSaving = false; }
@@ -8904,9 +8865,8 @@ function getElapsed() {
   return _pausedElapsed + Math.floor((Date.now() - s.startTime) / 1000);
 }
 
-// NOTE: beforeunload save removed — it caused duplicate sessions.
-// Timer state is preserved in localStorage; on next open the user
-// sees the running timer and can stop it manually to save.
+// NOTE: beforeunload save removed — caused duplicate sessions on reload.
+// Timer state is preserved in localStorage; user stops it manually.
 
 function renderQuickCats() {
   if (!quickSel) quickSel = defCat();
@@ -9040,7 +9000,7 @@ function pauseTimer(){
 }
 
 function stopTimer(){
-  if(!timerRunning && !timerPaused) return; // nothing to stop
+  if(!timerRunning && !timerPaused) return;
   const secs = getElapsed();
   const state = getTimerState();
   const catId = state?.catId || quickSel;
@@ -9115,8 +9075,7 @@ function restoreTimer() {
 // Resync display when tab becomes visible again
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && timerRunning) {
-    timerTick(); // мгновенное обновление экрана
-    // Clear old interval before restarting to prevent duplicate ticks
+    timerTick();
     if (_timerInterval) { clearInterval(_timerInterval); _timerInterval = null; }
     _getTimerWorker().postMessage('start');
   }
@@ -10966,89 +10925,121 @@ function haptic(type){
 }
 
 // ══ HERO TODAY ZONE ═══════════════════════════════════════════
-const _HERO_CACHE_KEY = 'dtr_hero_cache';
+// ══ HERO TODAY ZONE — полная пересборка ══════════════════════
+// Рендерит панель целиком сам, данные берёт напрямую из Supabase.
+// Не зависит от P.sessions / кэша / порядка вызовов.
 
-function _saveHeroCache(data){
-  try{
-    const today = new Date().toISOString().slice(0,10);
-    localStorage.setItem(_HERO_CACHE_KEY, JSON.stringify({...data, date:today}));
-  }catch(e){}
+let _heroRenderPending = false; // защита от параллельных вызовов
+
+function _heroHTML(today, week, total, streak, msg, msgColor, loading){
+  const mono = "font-family:'DM Mono',monospace;";
+  const dash = loading ? '—' : null;
+  return `
+  <div style="
+    margin-bottom:28px;padding:20px 24px;
+    background:rgba(245,200,66,.04);
+    border:0.5px solid rgba(245,200,66,.12);
+    border-radius:16px;display:flex;
+    align-items:center;justify-content:space-between;
+    gap:20px;flex-wrap:wrap;">
+    <div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">Сегодня</div>
+      <div style="display:flex;align-items:baseline;gap:6px">
+        <span id="heroTodayHrs" style="${mono}font-size:48px;font-weight:400;color:var(--t1);letter-spacing:-.03em;line-height:1">${dash ?? today}</span>
+      </div>
+      <div id="heroTodayMsg" style="font-size:13px;color:${loading?'var(--t3)':msgColor};margin-top:4px">${loading?'':msg}</div>
+    </div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap">
+      <div style="text-align:center">
+        <div id="heroStreakVal" style="${mono}font-size:28px;font-weight:400;color:var(--orange);line-height:1">${dash ?? streak}</div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t2);margin-top:3px">Стрик</div>
+      </div>
+      <div style="text-align:center">
+        <div id="heroWeekHrs" style="${mono}font-size:28px;font-weight:400;color:var(--blue);line-height:1">${dash ?? week}</div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t2);margin-top:3px">За неделю</div>
+      </div>
+      <div style="text-align:center">
+        <div id="heroTotalHrs" style="${mono}font-size:28px;font-weight:400;color:var(--green);line-height:1">${dash ?? total}</div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t2);margin-top:3px">Всего часов</div>
+      </div>
+    </div>
+  </div>`;
 }
 
-function _loadHeroCache(){
-  try{
-    const c = JSON.parse(localStorage.getItem(_HERO_CACHE_KEY)||'null');
-    if(c && c.date===new Date().toISOString().slice(0,10)) return c;
-  }catch(e){}
-  return null;
-}
-
-function renderHeroZone(){
+async function renderHeroZone(){
   if(!window.P) return;
-  const hEl=document.getElementById('heroTodayHrs');
-  const mEl=document.getElementById('heroTodayMsg');
-  const sEl=document.getElementById('heroStreakVal');
-  const wEl=document.getElementById('heroWeekHrs');
-  const tEl=document.getElementById('heroTotalHrs');
+  const el = document.getElementById('dashHeroZone');
+  if(!el) return;
 
-  // Phase 1 (still loading sessions) — show cache or skeleton
-  if(P._loading){
-    const cached = _loadHeroCache();
-    if(cached){
-      if(hEl) hEl.textContent = cached.today;
-      if(wEl) wEl.textContent = cached.week;
-      if(tEl) tEl.textContent = cached.total;
-      if(sEl) sEl.textContent = cached.streak;
-      if(mEl){ mEl.textContent = cached.msg||''; mEl.style.color='var(--t2)'; }
-    } else {
-      // No cache yet — show skeleton dashes
-      if(hEl) hEl.textContent = '—';
-      if(wEl) wEl.textContent = '—';
-      if(tEl) tEl.textContent = '—';
-      if(sEl) sEl.textContent = P.streak||'—';
-      if(mEl){ mEl.textContent = ''; mEl.style.color='var(--t3)'; }
-    }
-    return;
-  }
+  // Если уже выполняется запрос — просто пометим что нужен ещё один проход
+  if(_heroRenderPending){ _heroRenderPending = 'again'; return; }
+  _heroRenderPending = true;
 
-  // Phase 2 complete — compute from real session data
-  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
-  const todayHrs = P.sessions
-    .filter(s=>s.ts && s.ts >= todayStart.getTime())
-    .reduce((a,s)=>a+s.dur/3600, 0);
-  const weekHrs = P.sessions
-    .filter(s=>s.ts && s.ts > Date.now()-7*86400000)
-    .reduce((a,s)=>a+s.dur/3600, 0);
-  const totalHrs = P.categories.reduce((a,c)=>a+c.hours, 0);
+  // Показываем скелет мгновенно
+  el.innerHTML = _heroHTML(null,null,null,null,null,null, true);
 
-  // FIX: use toFixed(1) for all values to avoid showing 0 for 0.2h etc
-  if(hEl) hEl.textContent = todayHrs.toFixed(1);
-  if(sEl) sEl.textContent = P.streak||0;
-  if(wEl) wEl.textContent = weekHrs.toFixed(1);
-  if(tEl) tEl.textContent = totalHrs < 1 ? totalHrs.toFixed(1) : Math.round(totalHrs).toString();
-
-  const msgs=[
-    [0,   'Начни первую сессию дня'],
-    [0.5, 'Хорошее начало — продолжай!'],
-    [1,   'Уже час. Отличный ритм.'],
-    [2,   'Два часа сегодня — выше среднего.'],
-    [4,   'Невероятная продуктивность!'],
+  const MSGS = [
+    [4,   'Невероятная продуктивность!',  'var(--gold)'],
+    [2,   'Два часа — выше среднего.',    'var(--gold)'],
+    [1,   'Уже час. Отличный ритм.',      'var(--green)'],
+    [0.5, 'Хорошее начало — продолжай!', 'var(--green)'],
+    [0,   'Начни первую сессию дня',      'var(--t2)'],
   ];
-  const msg = msgs.slice().reverse().find(([h])=>todayHrs>=h);
-  const txt = msg?msg[1]:'Начни первую сессию дня';
-  if(mEl){
-    mEl.textContent = txt;
-    mEl.style.color = todayHrs>=2?'var(--gold)':todayHrs>=1?'var(--green)':'var(--t2)';
-  }
 
-  // Cache for next load
-  _saveHeroCache({
-    today: todayHrs.toFixed(1),
-    week:  weekHrs.toFixed(1),
-    total: totalHrs < 1 ? totalHrs.toFixed(1) : Math.round(totalHrs).toString(),
-    streak: P.streak||0,
-    msg: txt
-  });
+  try {
+    const uid = P.id;
+    const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+    const weekStart  = new Date(Date.now() - 7*86400000);
+
+    let todayHrs = 0, weekHrs = 0, totalHrs = 0;
+
+    if(uid && window.sb && !SB_USER?.isDemoUser){
+      // Три параллельных запроса
+      const [r1, r2, r3] = await Promise.all([
+        sb.from('sessions').select('duration_seconds')
+          .eq('user_id', uid)
+          .gte('created_at', todayStart.toISOString()),
+        sb.from('sessions').select('duration_seconds')
+          .eq('user_id', uid)
+          .gte('created_at', weekStart.toISOString()),
+        sb.from('user_categories').select('hours')
+          .eq('user_id', uid)
+      ]);
+      if(!r1.error) todayHrs = (r1.data||[]).reduce((a,s)=>a+s.duration_seconds/3600, 0);
+      if(!r2.error) weekHrs  = (r2.data||[]).reduce((a,s)=>a+s.duration_seconds/3600, 0);
+      if(!r3.error) totalHrs = (r3.data||[]).reduce((a,c)=>a+(c.hours||0), 0);
+    } else {
+      // Demo — считаем из памяти
+      const ts = todayStart.getTime();
+      todayHrs = P.sessions.filter(s=>s.ts&&s.ts>=ts).reduce((a,s)=>a+s.dur/3600,0);
+      weekHrs  = P.sessions.filter(s=>s.ts&&s.ts>=weekStart.getTime()).reduce((a,s)=>a+s.dur/3600,0);
+      totalHrs = P.categories.reduce((a,c)=>a+c.hours,0);
+    }
+
+    const streak   = P.streak || 0;
+    const todayFmt = todayHrs.toFixed(1);
+    const weekFmt  = weekHrs.toFixed(1);
+    const totalFmt = totalHrs < 1 ? totalHrs.toFixed(1) : Math.round(totalHrs).toString();
+    const [,msg,msgColor] = MSGS.find(([h])=>todayHrs>=h) || MSGS[MSGS.length-1];
+
+    el.innerHTML = _heroHTML(todayFmt, weekFmt, totalFmt, streak, msg, msgColor, false);
+
+  } catch(e) {
+    console.warn('renderHeroZone error:', e);
+    // Fallback: считаем из памяти при ошибке
+    const ts = (()=>{const d=new Date();d.setHours(0,0,0,0);return d.getTime();})();
+    const th = P.sessions.filter(s=>s.ts&&s.ts>=ts).reduce((a,s)=>a+s.dur/3600,0);
+    const wh = P.sessions.filter(s=>s.ts&&s.ts>Date.now()-7*86400000).reduce((a,s)=>a+s.dur/3600,0);
+    const tt = P.categories.reduce((a,c)=>a+c.hours,0);
+    const [,msg,msgColor] = MSGS.find(([h])=>th>=h) || MSGS[MSGS.length-1];
+    el.innerHTML = _heroHTML(th.toFixed(1), wh.toFixed(1),
+      tt<1?tt.toFixed(1):Math.round(tt).toString(),
+      P.streak||0, msg, msgColor, false);
+  } finally {
+    const again = _heroRenderPending === 'again';
+    _heroRenderPending = false;
+    if(again) renderHeroZone(); // был запрос во время ожидания — выполняем
+  }
 }
 
 // ══ DYNAMIC ISLAND TIMER PILL ═════════════════════════════════
