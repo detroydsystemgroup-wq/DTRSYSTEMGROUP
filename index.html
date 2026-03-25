@@ -4921,6 +4921,157 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
 
 } /* end 601px */
 
+
+/* ══ TIMER BUTTONS — Start / Pause / Stop ══════════════════════ */
+@media(min-width:601px){
+  .timer-btn-row {
+    display: flex; gap: 8px;
+    padding: 0 20px;
+  }
+  @keyframes startBreath {
+    0%,100% { box-shadow: 0 0 0 0 rgba(34,197,94,.0), 0 4px 20px rgba(34,197,94,.25); }
+    50%      { box-shadow: 0 0 0 6px rgba(34,197,94,.06), 0 4px 28px rgba(34,197,94,.4); }
+  }
+  @keyframes startSweep {
+    0%   { transform: translateX(-100%) skewX(-12deg); }
+    100% { transform: translateX(220%) skewX(-12deg); }
+  }
+  .t-btn-start {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    padding: 15px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #1a9e52, #22C55E, #16a34a);
+    background-size: 200% 200%;
+    color: #fff;
+    border: none; cursor: pointer;
+    font-size: 14px; font-weight: 700;
+    font-family: 'DM Sans', sans-serif;
+    letter-spacing: .02em;
+    position: relative; overflow: hidden;
+    transition: transform .22s cubic-bezier(.34,1.56,.64,1), box-shadow .22s;
+    box-shadow: 0 4px 20px rgba(34,197,94,.25), inset 0 1px 0 rgba(255,255,255,.15);
+    animation: startBreath 2.8s ease-in-out infinite;
+  }
+  .t-btn-start::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,.18) 50%, transparent 70%);
+    animation: startSweep 2.4s ease-in-out infinite;
+    pointer-events: none;
+  }
+  .t-btn-start:hover {
+    transform: translateY(-3px) scale(1.01);
+    box-shadow: 0 8px 28px rgba(34,197,94,.45), inset 0 1px 0 rgba(255,255,255,.2);
+    animation: none;
+  }
+  .t-btn-start:active {
+    transform: scale(.96);
+    box-shadow: 0 2px 10px rgba(34,197,94,.3);
+    animation: none;
+  }
+
+  /* Pause + Stop — equal width full row */
+  .t-btn-pause {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 14px;
+    border-radius: 13px;
+    background: rgba(255,255,255,.05);
+    border: 0.5px solid rgba(255,255,255,.1);
+    color: var(--t2); cursor: pointer;
+    font-size: 13px; font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    letter-spacing: .02em;
+    transition: all .18s;
+  }
+  .t-btn-pause:hover { background: rgba(255,255,255,.09); color: var(--t1); border-color: rgba(255,255,255,.16); }
+  .t-btn-pause:active { transform: scale(.97); }
+  .t-btn-pause.paused {
+    background: rgba(245,200,66,.1);
+    border-color: rgba(245,200,66,.28);
+    color: var(--gold);
+  }
+  .t-btn-stop {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 14px;
+    border-radius: 13px;
+    background: rgba(239,68,68,.07);
+    border: 0.5px solid rgba(239,68,68,.18);
+    color: var(--red); cursor: pointer;
+    font-size: 13px; font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    letter-spacing: .02em;
+    transition: all .18s;
+  }
+  .t-btn-stop:hover { background: rgba(239,68,68,.14); border-color: rgba(239,68,68,.3); }
+  .t-btn-stop:active { transform: scale(.97); }
+
+  /* Paused state — display dims */
+  .t-disp.paused {
+    color: var(--t2) !important;
+    text-shadow: none !important;
+    opacity: .55;
+    animation: pauseBlink 1.5s ease infinite;
+  }
+  @keyframes pauseBlink {
+    0%,100% { opacity: .55; }
+    50% { opacity: .3; }
+  }
+}
+
+/* Mobile timer buttons */
+@media(max-width:600px){
+  .timer-btn-row { display: flex; gap: 8px; }
+  .t-btn-start {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px;
+    padding: 15px; border-radius: 14px;
+    background: linear-gradient(135deg, #1a9e52, #22C55E, #16a34a);
+    color: #fff; border: none; cursor: pointer;
+    font-size: 15px; font-weight: 700;
+    font-family: 'DM Sans', sans-serif;
+    letter-spacing: .02em;
+    position: relative; overflow: hidden;
+    box-shadow: 0 4px 20px rgba(34,197,94,.3), inset 0 1px 0 rgba(255,255,255,.15);
+    transition: all .18s;
+    animation: startBreath 2.8s ease-in-out infinite;
+  }
+  .t-btn-start::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,.18) 50%, transparent 70%);
+    animation: startSweep 2.4s ease-in-out infinite;
+    pointer-events: none;
+  }
+  .t-btn-pause {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    padding: 14px;
+    border-radius: 14px;
+    background: rgba(255,255,255,.05);
+    border: 0.5px solid rgba(255,255,255,.1);
+    color: var(--t2); cursor: pointer;
+    font-size: 13px; font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    transition: all .15s;
+  }
+  .t-btn-pause.paused { background: rgba(245,200,66,.1); border-color: rgba(245,200,66,.3); color: var(--gold); }
+  .t-btn-stop {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    padding: 14px;
+    border-radius: 14px;
+    background: rgba(239,68,68,.08);
+    border: 0.5px solid rgba(239,68,68,.2);
+    color: var(--red); cursor: pointer;
+    font-size: 13px; font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    transition: all .15s;
+  }
+  .t-disp.paused { opacity: .5; animation: pauseBlink 1.5s ease infinite; }
+}
+
 </style>
   <link rel="manifest" id="pwaManifest">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23080808'/%3E%3Cpolygon points='58,10 38,52 52,52 42,90 62,46 46,46' fill='%23F5C842'/%3E%3C/svg%3E">
@@ -5525,12 +5676,26 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
       <!-- Timer display -->
       <div class="t-disp" id="qDisp" style="margin:22px 0 22px;padding:0 20px">00:00:00</div>
 
-      <!-- Start/Stop button -->
-      <div style="padding:0 20px">
-        <button class="t-sbtn idle" id="qBtn" onclick="toggleQuick()"
-          style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%">
+      <!-- Timer buttons -->
+      <div class="timer-btn-row" id="timerBtnRow">
+        <!-- IDLE state: just Start -->
+        <button class="t-btn-start" id="qBtn" onclick="toggleQuick()">
           <svg id="qBtnIcon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           <span id="qBtnLabel">Старт</span>
+        </button>
+        <!-- RUNNING/PAUSED state: Pause + Stop (hidden until running) -->
+        <button class="t-btn-pause" id="qPauseBtn" onclick="pauseTimer()" style="display:none">
+          <svg id="qPauseIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <rect x="6" y="4" width="4" height="16" rx="1"/>
+            <rect x="14" y="4" width="4" height="16" rx="1"/>
+          </svg>
+          <span id="qPauseLabel">Пауза</span>
+        </button>
+        <button class="t-btn-stop" id="qStopBtn" onclick="stopTimer()" style="display:none">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+            <rect x="4" y="4" width="16" height="16" rx="2"/>
+          </svg>
+          Сохранить
         </button>
       </div>
 
@@ -7987,6 +8152,8 @@ const TIMER_KEY = 'dtr_timer_v2';
 let quickSel = null;
 let timerRAF = null; // kept for compatibility
 let timerRunning = false;
+let timerPaused = false;
+let _pausedElapsed = 0; // seconds accumulated before pause
 
 // Timer — простой setInterval (Worker заблокирован CSP Vercel)
 let _timerWorker = null;
@@ -8022,9 +8189,10 @@ function setTimerState(state) {
   else localStorage.removeItem(TIMER_KEY);
 }
 function getElapsed() {
+  if (timerPaused) return _pausedElapsed;
   const s = getTimerState();
-  if (!s || !s.startTime) return 0;
-  return Math.floor((Date.now() - s.startTime) / 1000);
+  if (!s || !s.startTime) return _pausedElapsed;
+  return _pausedElapsed + Math.floor((Date.now() - s.startTime) / 1000);
 }
 
 // Save session if tab is closed while timer running
@@ -8099,53 +8267,104 @@ function stopTimerInterval() {
   if (_timerWorker) _timerWorker.postMessage('stop');
 }
 
+function _setTimerUI(state){ // state: 'idle' | 'running' | 'paused'
+  const startBtn = document.getElementById('qBtn');
+  const pauseBtn = document.getElementById('qPauseBtn');
+  const stopBtn  = document.getElementById('qStopBtn');
+  const pauseIco = document.getElementById('qPauseIcon');
+  const disp     = document.getElementById('qDisp');
+  const note     = document.getElementById('qNote');
+  const fab      = document.querySelector('.timer-center-fab');
+
+  if(state === 'idle'){
+    if(startBtn){ startBtn.style.display='flex'; startBtn.querySelector('span').textContent='Старт';
+      startBtn.querySelector('svg').innerHTML='<polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/>';
+      startBtn.style.background='';
+      startBtn.style.animation='startBreath 2.8s ease-in-out infinite'; }
+    if(pauseBtn) pauseBtn.style.display='none';
+    if(stopBtn)  stopBtn.style.display='none';
+    if(disp){ disp.classList.remove('run','paused'); disp.textContent='00:00:00'; }
+    if(note) note.textContent='Выбери активность и нажми Старт';
+    if(fab){ fab.classList.remove('running'); fab.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0A0A0B" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>'; }
+  }
+  else if(state === 'running'){
+    if(startBtn) startBtn.style.display='none';
+    if(pauseBtn){ pauseBtn.style.display='flex'; pauseBtn.classList.remove('paused'); }
+    if(stopBtn)  stopBtn.style.display='flex';
+    if(pauseIco) pauseIco.innerHTML='<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>';
+    const qPL=document.getElementById('qPauseLabel');if(qPL)qPL.textContent='Пауза';
+    if(disp){ disp.classList.add('run'); disp.classList.remove('paused'); }
+    if(note) note.textContent='Сессия идёт... · Нажми ⏸ чтобы сделать паузу';
+    if(fab){ fab.classList.add('running'); fab.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="none"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>'; }
+  }
+  else if(state === 'paused'){
+    if(startBtn){ startBtn.style.display='flex'; startBtn.querySelector('span').textContent='Продолжить';
+      startBtn.querySelector('svg').innerHTML='<polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/>';
+      startBtn.style.background='linear-gradient(135deg,#1a6e3a,#16a34a,#15803d)';
+      startBtn.style.animation='startBreath 2.8s ease-in-out infinite'; }
+    if(pauseBtn) pauseBtn.style.display='none';
+    if(stopBtn)  stopBtn.style.display='flex';
+    if(disp){ disp.classList.remove('run'); disp.classList.add('paused'); }
+    if(note) note.textContent='Пауза · Нажми Продолжить';
+    if(fab){ fab.classList.remove('running'); fab.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0A0A0B" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>'; }
+  }
+}
+
 function toggleQuick() {
   if (!quickSel) quickSel = defCat();
 
-  if (!timerRunning) {
-    // START
+  if (!timerRunning && !timerPaused) {
+    // START (or resume from pause handled separately)
+    _pausedElapsed = 0;
     setTimerState({ startTime: Date.now(), catId: quickSel, pomMode: pomMode });
-    timerRunning = true;
-    const disp = document.getElementById('qDisp');
-    if (disp) disp.classList.add('run');
-    const btn = document.getElementById('qBtn');
-    if (btn) { btn.textContent = '⏹ Стоп'; btn.className = 't-sbtn active'; }
-    const note = document.getElementById('qNote');
-    if (note) note.textContent = 'Сессия идёт...';
+    timerRunning = true; timerPaused = false;
+    _setTimerUI('running');
     startTimerInterval();
-  } else {
-    // STOP
-    const secs = getElapsed();
-    const state = getTimerState();
-    const catId = state?.catId || quickSel;
-    stopTimerInterval();
-    timerRunning = false;
-    setTimerState(null);
-    const disp = document.getElementById('qDisp');
-    if (disp) { disp.classList.remove('run'); disp.textContent = '00:00:00'; disp.style.display=''; }
-    if (pomMode > 0) updatePomRing(pomMode * 60, pomMode * 60);
-    const btn = document.getElementById('qBtn');
-    if (btn) { btn.textContent = '▶ СТАРТ'; btn.className = 't-sbtn idle'; }
-    const note = document.getElementById('qNote');
-    if (note) note.textContent = 'Выбери активность и нажми Старт';
-    if (secs > 5) saveSession(catId, secs);
+    haptic('medium');
+  } else if (timerPaused) {
+    // RESUME
+    setTimerState({ startTime: Date.now(), catId: quickSel, pomMode: pomMode });
+    timerRunning = true; timerPaused = false;
+    _setTimerUI('running');
+    startTimerInterval();
+    haptic('light');
   }
+}
+
+function pauseTimer(){
+  if(!timerRunning) return;
+  _pausedElapsed = getElapsed();
+  stopTimerInterval();
+  timerRunning = false; timerPaused = true;
+  setTimerState(null); // don't restore paused across reload
+  _setTimerUI('paused');
+  haptic('light');
+}
+
+function stopTimer(){
+  const secs = getElapsed();
+  const state = getTimerState();
+  const catId = state?.catId || quickSel;
+  stopTimerInterval();
+  timerRunning = false; timerPaused = false;
+  _pausedElapsed = 0;
+  setTimerState(null);
+  if(pomMode > 0) updatePomRing(pomMode * 60, pomMode * 60);
+  _setTimerUI('idle');
+  if(secs > 5) saveSession(catId, secs);
+  haptic('success');
 }
 
 function stopTimerPom(){
   cancelAnimationFrame(timerRAF);
-  timerRunning = false;
+  timerRunning = false; timerPaused = false; _pausedElapsed = 0;
   setTimerState(null);
   const disp = document.getElementById('qDisp');
-  if(disp){disp.classList.remove('run');disp.textContent='00:00:00';disp.style.display='';disp.style.color='';disp.style.textShadow='';}
-  // reset pom dropdown
+  if(disp){disp.style.color='';disp.style.textShadow='';}
   const selR=document.getElementById('pomTimeSel');
   if(selR){selR.value='0';selR.style.borderColor='var(--border)';selR.style.color='var(--t3)';}
   const fBR=document.getElementById('pomFreeBtn');if(fBR)fBR.classList.add('active');
-  const btn=document.getElementById('qBtn');
-  if(btn){btn.textContent='▶ СТАРТ';btn.className='t-sbtn idle';}
-  const note=document.getElementById('qNote');
-  if(note) note.textContent='Выбери активность и нажми Старт';
+  _setTimerUI('idle');
 }
 // Restore timer across page reloads / tab switches
 function restoreTimer() {
