@@ -6970,7 +6970,9 @@ async function loadUser(userId){
   }
 
   // Phase 2 complete — re-render with full data
-  // Call renderHeroZone() FIRST directly (guaranteed before renderAll's async parts)
+  // Invalidate league cache so arena recomputes with reconciled hours
+  lgCache = {}; lgCacheTime = {};
+  // Call renderHeroZone() FIRST directly
   if(typeof renderHeroZone === 'function') renderHeroZone();
   renderAll();
   setTimeout(showLeagueHero, 800);
@@ -7949,14 +7951,31 @@ async function loadLeagueData(catId){
     if(h>statsMap[s.user_id].bestSession)statsMap[s.user_id].bestSession=h;
   });
 
+  // FIX: some users have hours=0 in user_categories (stale from old bug)
+  // For those, compute total hours from all their sessions in this category
+  const zeroHrsUserIds = ucData.filter(uc=>!(uc.hours>0)).map(uc=>uc.user_id);
+  let allTimeMap = {}; // user_id -> total hours from sessions
+  if(zeroHrsUserIds.length > 0){
+    const{data:allSess} = await sb.from('sessions')
+      .select('user_id,duration_seconds')
+      .in('user_id', zeroHrsUserIds)
+      .eq('category_id', catId);
+    (allSess||[]).forEach(s=>{
+      allTimeMap[s.user_id] = (allTimeMap[s.user_id]||0) + s.duration_seconds/3600;
+    });
+  }
+
   const players=ucData.map(uc=>{
     const u=userMap[uc.user_id]||{};
     const st=statsMap[uc.user_id]||{weekHrs:0,monthHrs:0,bestSession:0};
+    // Use max of stored hours vs computed from sessions (fixes stale 0-hour rows)
+    const computedHrs = allTimeMap[uc.user_id]||0;
+    const totalHrs = Math.max(uc.hours||0, computedHrs);
     return{
       name:u.username||'?',
       av:u.avatar||'🎯',
       avUrl:u.avatar_url||null,
-      hrs:Math.round((uc.hours||0)*10)/10,
+      hrs:Math.round(totalHrs*10)/10,
       streak:u.streak||0,
       weekHrs:Math.round((st.weekHrs||0)*10)/10,
       monthHrs:Math.round((st.monthHrs||0)*10)/10,
@@ -10955,16 +10974,6 @@ function haptic(type){
 // ══ HERO TODAY ZONE ═══════════════════════════════════════════
 const _HERO_CACHE_KEY = 'dtr_hero_cache';
 
-function _loadHeroCache(){
-  try{
-    const c = JSON.parse(localStorage.getItem(_HERO_CACHE_KEY)||'null');
-    // Cache valid for current calendar day only
-    const today = new Date().toISOString().slice(0,10);
-    if(c && c.date===today) return c;
-  }catch(e){}
-  return null;
-}
-
 function _saveHeroCache(data){
   try{
     const today = new Date().toISOString().slice(0,10);
@@ -10972,74 +10981,80 @@ function _saveHeroCache(data){
   }catch(e){}
 }
 
+function _loadHeroCache(){
+  try{
+    const c = JSON.parse(localStorage.getItem(_HERO_CACHE_KEY)||'null');
+    if(c && c.date===new Date().toISOString().slice(0,10)) return c;
+  }catch(e){}
+  return null;
+}
+
 function renderHeroZone(){
   if(!window.P) return;
-
   const hEl=document.getElementById('heroTodayHrs');
   const mEl=document.getElementById('heroTodayMsg');
   const sEl=document.getElementById('heroStreakVal');
   const wEl=document.getElementById('heroWeekHrs');
   const tEl=document.getElementById('heroTotalHrs');
 
-  // If still loading Phase 1 (no sessions yet) — show cached or streak-only
+  // Phase 1 (still loading sessions) — show cache or skeleton
   if(P._loading){
-    // Show streak from users table (always available in Phase 1)
-    if(sEl) sEl.textContent = P.streak||0;
-    // Try to show cached values for hours metrics
     const cached = _loadHeroCache();
     if(cached){
       if(hEl) hEl.textContent = cached.today;
       if(wEl) wEl.textContent = cached.week;
       if(tEl) tEl.textContent = cached.total;
-      if(mEl){ mEl.textContent = cached.msg||'Загрузка...'; mEl.style.color='var(--t2)'; }
+      if(sEl) sEl.textContent = cached.streak;
+      if(mEl){ mEl.textContent = cached.msg||''; mEl.style.color='var(--t2)'; }
     } else {
+      // No cache yet — show skeleton dashes
       if(hEl) hEl.textContent = '—';
       if(wEl) wEl.textContent = '—';
       if(tEl) tEl.textContent = '—';
-      if(mEl){ mEl.textContent = 'Загрузка данных...'; mEl.style.color='var(--t3)'; }
+      if(sEl) sEl.textContent = P.streak||'—';
+      if(mEl){ mEl.textContent = ''; mEl.style.color='var(--t3)'; }
     }
     return;
   }
 
-  // Phase 2 complete — compute from real data
-  const todayStart=new Date(); todayStart.setHours(0,0,0,0);
-  const todayHrs=P.sessions
-    .filter(s=>s.ts&&s.ts>=todayStart.getTime())
-    .reduce((a,s)=>a+s.dur/3600,0);
-  const weekHrs=P.sessions
-    .filter(s=>s.ts&&s.ts>Date.now()-7*86400000)
-    .reduce((a,s)=>a+s.dur/3600,0);
-  const totalHrs=P.categories.reduce((a,c)=>a+c.hours,0);
+  // Phase 2 complete — compute from real session data
+  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+  const todayHrs = P.sessions
+    .filter(s=>s.ts && s.ts >= todayStart.getTime())
+    .reduce((a,s)=>a+s.dur/3600, 0);
+  const weekHrs = P.sessions
+    .filter(s=>s.ts && s.ts > Date.now()-7*86400000)
+    .reduce((a,s)=>a+s.dur/3600, 0);
+  const totalHrs = P.categories.reduce((a,c)=>a+c.hours, 0);
 
-  if(hEl) hEl.textContent=todayHrs.toFixed(1);
-  if(sEl) sEl.textContent=P.streak||0;
-  if(wEl) wEl.textContent=weekHrs.toFixed(1);
-  if(tEl) tEl.textContent=totalHrs.toFixed(0);
+  // FIX: use toFixed(1) for all values to avoid showing 0 for 0.2h etc
+  if(hEl) hEl.textContent = todayHrs.toFixed(1);
+  if(sEl) sEl.textContent = P.streak||0;
+  if(wEl) wEl.textContent = weekHrs.toFixed(1);
+  if(tEl) tEl.textContent = totalHrs < 1 ? totalHrs.toFixed(1) : Math.round(totalHrs).toString();
 
-  // Message for today
+  const msgs=[
+    [0,   'Начни первую сессию дня'],
+    [0.5, 'Хорошее начало — продолжай!'],
+    [1,   'Уже час. Отличный ритм.'],
+    [2,   'Два часа сегодня — выше среднего.'],
+    [4,   'Невероятная продуктивность!'],
+  ];
+  const msg = msgs.slice().reverse().find(([h])=>todayHrs>=h);
+  const txt = msg?msg[1]:'Начни первую сессию дня';
   if(mEl){
-    const msgs=[
-      [0,   'Начни первую сессию дня'],
-      [0.5, 'Хорошее начало — продолжай!'],
-      [1,   'Уже час. Отличный ритм.'],
-      [2,   'Два часа сегодня — выше среднего.'],
-      [4,   'Невероятная продуктивность!'],
-    ];
-    const msg=msgs.slice().reverse().find(([h])=>todayHrs>=h);
-    const txt = msg?msg[1]:'Начни первую сессию дня';
-    mEl.textContent=txt;
-    if(todayHrs>=2) mEl.style.color='var(--gold)';
-    else if(todayHrs>=1) mEl.style.color='var(--green)';
-    else mEl.style.color='var(--t2)';
-    // Save to cache for next load
-    _saveHeroCache({
-      today: todayHrs.toFixed(1),
-      week:  weekHrs.toFixed(1),
-      total: totalHrs.toFixed(0),
-      streak: P.streak||0,
-      msg: txt
-    });
+    mEl.textContent = txt;
+    mEl.style.color = todayHrs>=2?'var(--gold)':todayHrs>=1?'var(--green)':'var(--t2)';
   }
+
+  // Cache for next load
+  _saveHeroCache({
+    today: todayHrs.toFixed(1),
+    week:  weekHrs.toFixed(1),
+    total: totalHrs < 1 ? totalHrs.toFixed(1) : Math.round(totalHrs).toString(),
+    streak: P.streak||0,
+    msg: txt
+  });
 }
 
 // ══ DYNAMIC ISLAND TIMER PILL ═════════════════════════════════
