@@ -6708,10 +6708,15 @@ async function finishReg(){
   // Upsert users (ignore if already exists)
   const{error:uErr}=await sb.from('users').upsert({
     id:userId,username:regBuf.name,avatar:regBuf.avatar,
-    joined_date:new Date().toISOString(),streak:0,total_sessions:0
+    streak:0,total_sessions:0
   },{onConflict:'id'});
   
-  if(uErr){console.error('User insert error:',uErr);}
+  if(uErr){
+    console.error('User insert error:',uErr);
+    btn.textContent='Ошибка — попробуй снова';btn.disabled=false;
+    showToast('Ошибка создания профиля: '+uErr.message,'⚠️');
+    return;
+  }
   
   const catRows=[...selCatIds].map(catId=>({user_id:userId,category_id:catId,hours:0}));
   const{error:cErr}=await sb.from('user_categories').upsert(catRows,{onConflict:'user_id,category_id'});
@@ -6778,22 +6783,22 @@ function computeStreakFromSessions(sessions){
   if(!sessions||!sessions.length) return 0;
   const daySet=new Set();
   sessions.forEach(s=>{
-    const d=s.created_at?s.created_at.slice(0,10):null;
-    if(d) daySet.add(d);
+    // FIX: use local date (via timestamp) to avoid UTC/local timezone mismatch
+    const ts=s.created_at?new Date(s.created_at).getTime():null;
+    if(ts){
+      const d=new Date(ts);
+      const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      daySet.add(key);
+    }
   });
   let streak=0;
   const today=new Date();
   for(let i=0;i<365;i++){
     const d=new Date(today);
     d.setDate(d.getDate()-i);
-    const key=d.toISOString().slice(0,10);
+    const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     if(daySet.has(key)) streak++;
-    else if(i>0) break; // gap found — stop (allow today to be empty, still counting yesterday)
-  }
-  // If today has no session yet, still count yesterday's streak
-  const todayKey=today.toISOString().slice(0,10);
-  if(!daySet.has(todayKey)&&streak>0){
-    // streak is already correct from yesterday
+    else if(i>0) break;
   }
   return streak;
 }
@@ -6816,7 +6821,7 @@ async function loadUser(userId){
     const username=authUser?.user_metadata?.username||'User_'+userId.slice(0,6);
     await sb.from('users').upsert({
       id:userId,username,avatar:'🎯',
-      joined_date:new Date().toISOString(),streak:0,total_sessions:0
+      streak:0,total_sessions:0
     },{onConflict:'id'});
     setTimeout(()=>loadUser(userId),1000);
     return;
@@ -6844,6 +6849,8 @@ async function loadUser(userId){
 
   // Compute real totalSessions from actual sessions data
   const realTotalSessions = (sessions||[]).length;
+  // Use DB value as authoritative (handles >300 sessions), sessions.length as minimum
+  const finalTotalSessions = Math.max(user.total_sessions||0, realTotalSessions);
 
   // Compute correct streak: count consecutive days from today backwards
   const computedStreak = computeStreakFromSessions(sessions||[]);
@@ -6852,12 +6859,47 @@ async function loadUser(userId){
 
   P={
     id:userId,name:user.username,avatar:user.avatar||'🎯',
-    joinedDate:new Date(user.created_at||user.joined_date||Date.now()).toLocaleDateString('ru'),
+    joinedDate:new Date(user.created_at||Date.now()).toLocaleDateString('ru'),
     activeCatIds,categories,sessions:sessFmt,achievements,
     streak:finalStreak,lastActiveDate:user.last_active_date,
-    totalSessions:realTotalSessions,
+    totalSessions:finalTotalSessions,
     avatarUrl:user.avatar_url||null
   };
+
+  // ── RECONCILE: sessions are source of truth for hours ──────────
+  // user_categories.hours can be stale/0 if previous saves failed.
+  // Recompute from loaded sessions and take the maximum.
+  const sessHrsByCat = {};
+  sessFmt.forEach(s => {
+    sessHrsByCat[s.cat] = (sessHrsByCat[s.cat] || 0) + s.dur / 3600;
+  });
+  // For each category: hours = max(db_hours, sessions_computed_hours)
+  P.categories = P.categories.map(c => ({
+    ...c,
+    hours: Math.max(c.hours, Math.round((sessHrsByCat[c.id]||0)*100)/100)
+  }));
+  // Add categories found in sessions but missing from P.categories (edge case)
+  Object.entries(sessHrsByCat).forEach(([catId, hrs]) => {
+    if(!P.categories.find(c=>c.id===catId)){
+      const def=ALL_CATS.find(c=>c.id===catId);
+      if(def){
+        if(!P.activeCatIds.includes(catId)) P.activeCatIds.push(catId);
+        P.categories.push({...def, hours: Math.round(hrs*100)/100});
+      }
+    }
+  });
+  // Background: fix any user_categories rows where hours is 0 but sessions show data
+  if(!SB_USER?.isDemoUser){
+    P.categories.forEach(c => {
+      const dbH = ucMap[c.id]||0;
+      if(dbH===0 && c.hours>0){
+        sb.from('user_categories').upsert(
+          {user_id:userId, category_id:c.id, hours:c.hours},
+          {onConflict:'user_id,category_id'}
+        ).catch(e=>console.warn('hours bg-sync failed:',e));
+      }
+    });
+  }
   // Sync streak to DB if computed differs from stored
   if(finalStreak !== (user.streak||0)){
     sb.from('users').update({streak:finalStreak}).eq('id',userId).catch(()=>{});
@@ -6931,8 +6973,8 @@ async function saveSession(catId,secs){
     newStreak=P.lastActiveDate===yestISO?(P.streak||0)+1:1;
     P.lastActiveDate=todayISO;
   }
-  // FIX: newTotalSessions = current length + 1 (session not yet unshifted when we update DB)
-  const newTotalSessions=P.sessions.length+1;
+  // FIX: use P.totalSessions (authoritative count) not P.sessions.length (capped at 300)
+  const newTotalSessions=(P.totalSessions||0)+1;
   await sb.from('users').update({
     streak:newStreak,
     last_active_date:todayISO,
@@ -8666,9 +8708,10 @@ function setDailyGoal(val) {
 function renderDailyProgress() {
   if (!P) return;
   // Sum hours from today's sessions
-  const todayKey = new Date().toISOString().slice(0,10);
+  // FIX: use local timestamp range instead of UTC string (timezone-safe)
+  const _todayStart=new Date();_todayStart.setHours(0,0,0,0);
   const todaySecs = P.sessions
-    .filter(s => s.isoDate && s.isoDate.slice(0,10) === todayKey)
+    .filter(s => s.ts && s.ts >= _todayStart.getTime())
     .reduce((sum, s) => sum + s.dur, 0);
   const todayH = Math.round(todaySecs / 3600 * 10) / 10;
   const goal = dailyGoalHours;
@@ -10755,11 +10798,14 @@ function haptic(type){
 // ══ HERO TODAY ZONE ═══════════════════════════════════════════
 function renderHeroZone(){
   if(!window.P)return;
-  const todayStr=new Date().toISOString().slice(0,10);
-  const todayHrs=P.sessions.filter(s=>s.isoDate&&s.isoDate.startsWith(todayStr))
+  // FIX: use local timestamp comparison (not UTC string startsWith) to avoid timezone mismatch
+  const todayStart=new Date();todayStart.setHours(0,0,0,0);
+  const todayHrs=P.sessions
+    .filter(s=>s.ts&&s.ts>=todayStart.getTime())
     .reduce((a,s)=>a+s.dur/3600,0);
   const weekHrs=P.sessions.filter(s=>s.ts&&s.ts>Date.now()-7*86400000)
     .reduce((a,s)=>a+s.dur/3600,0);
+  // FIX: totalHrs from categories (already reconciled with sessions in loadUser)
   const totalHrs=P.categories.reduce((a,c)=>a+c.hours,0);
 
   const hEl=document.getElementById('heroTodayHrs');
