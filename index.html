@@ -5538,6 +5538,13 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
   box-shadow: 0 24px 60px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.04) !important;
 }
 
+
+@keyframes heartPop {
+  0%   { transform: scale(0.6); opacity: .5; }
+  60%  { transform: scale(1.35); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 </style>
   <link rel="manifest" id="pwaManifest">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23080808'/%3E%3Cpolygon points='58,10 38,52 52,52 42,90 62,46 46,46' fill='%23F5C842'/%3E%3C/svg%3E">
@@ -9045,15 +9052,27 @@ async function openPub(){
           </div>
           <!-- Like button -->
           <button id="likeBtn" onclick="likeMyProfile()" style="
-            display:inline-flex;align-items:center;gap:6px;
-            padding:6px 12px;margin-bottom:4px;
-            border-radius:20px;cursor:pointer;border:none;
-            background:${iLiked?'rgba(239,68,68,.12)':'rgba(255,255,255,.05)'};
-            border:0.5px solid ${iLiked?'rgba(239,68,68,.25)':'rgba(255,255,255,.1)'};
-            transition:all .18s;
+            display:inline-flex;align-items:center;gap:7px;
+            padding:8px 14px;margin-bottom:4px;
+            border-radius:10px;cursor:pointer;
+            background:${iLiked?'rgba(239,68,68,.12)':'rgba(255,255,255,.06)'};
+            border:0.5px solid ${iLiked?'rgba(239,68,68,.3)':'rgba(255,255,255,.12)'};
+            transition:all .22s cubic-bezier(.34,1.56,.64,1);
+            box-shadow:${iLiked?'0 2px 12px rgba(239,68,68,.2)':'none'};
           ">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="${iLiked?'#ef4444':'none'}" stroke="${iLiked?'#ef4444':'rgba(255,255,255,.4)'}" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-            <span id="likeCnt" style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:${iLiked?'#ef4444':'rgba(255,255,255,.5)'}">${likesCount}</span>
+            <svg width="15" height="15" viewBox="0 0 24 24"
+              fill="${iLiked?'#ef4444':'none'}"
+              stroke="${iLiked?'#ef4444':'rgba(255,255,255,.55)'}"
+              stroke-width="2"
+              style="${iLiked?'animation:heartPop .35s cubic-bezier(.34,1.56,.64,1) both':''}">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+            <span id="likeCnt" style="
+              font-family:'DM Mono',monospace;
+              font-size:14px;font-weight:500;
+              color:${iLiked?'#ef4444':'rgba(255,255,255,.85)'};
+              min-width:16px;text-align:left;
+            ">${likesCount}</span>
           </button>
         </div>
 
@@ -9101,8 +9120,14 @@ async function likeMyProfile(){
     btn.style.background='var(--card)';
   } else {
     await sb.from('likes').insert({from_user_id:SB_USER.id,to_user_id:P.id});
-    btn.innerHTML=`❤️ <span style="font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700" id="likeCnt">${parseInt(cnt.textContent)+1}</span>`;
-    btn.style.background='rgba(248,81,73,.15)';
+    btn.style.background='rgba(239,68,68,.12)';
+    btn.style.borderColor='rgba(239,68,68,.3)';
+    btn.style.boxShadow='0 2px 12px rgba(239,68,68,.2)';
+    btn.innerHTML=`
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="#ef4444" stroke="#ef4444" stroke-width="2" style="animation:heartPop .35s cubic-bezier(.34,1.56,.64,1) both">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+      </svg>
+      <span id="likeCnt" style="font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:#ef4444;min-width:16px">${parseInt(cnt.textContent)+1}</span>`;
   }
 }
 
