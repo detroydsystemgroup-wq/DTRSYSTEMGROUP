@@ -6941,19 +6941,27 @@ async function loadUser(userId){
   });
 
   // Background: heal stale 0-hour rows in DB (fire-and-forget)
+  // Supabase v2 Thenable does NOT support .catch() — use async IIFE
   P.categories.forEach(c=>{
     const dbH=ucMap[c.id]||0;
     if(dbH===0 && c.hours>0){
-      sb.from('user_categories').upsert(
-        {user_id:userId, category_id:c.id, hours:c.hours},
-        {onConflict:'user_id,category_id'}
-      ).catch(e=>console.warn('hours bg-sync failed:',e));
+      (async()=>{
+        try{
+          await sb.from('user_categories').upsert(
+            {user_id:userId, category_id:c.id, hours:c.hours},
+            {onConflict:'user_id,category_id'}
+          );
+        }catch(e){console.warn('hours bg-sync failed:',e);}
+      })();
     }
   });
 
   // Background: sync streak if it diverged from stored value
   if(finalStreak !== (user.streak||0)){
-    sb.from('users').update({streak:finalStreak}).eq('id',userId).catch(()=>{});
+    (async()=>{
+      try{ await sb.from('users').update({streak:finalStreak}).eq('id',userId); }
+      catch(e){ console.warn('streak sync failed:',e); }
+    })();
   }
 
   onboardEl.style.display='none';
