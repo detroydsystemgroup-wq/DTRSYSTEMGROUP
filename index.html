@@ -4775,7 +4775,7 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
 
 </style>
   <link rel="manifest" id="pwaManifest">
-<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23080808'/><text y='.9em' font-size='72' x='14'>⚡</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23080808'/%3E%3Cpolygon points='58,10 38,52 52,52 42,90 62,46 46,46' fill='%23F5C842'/%3E%3C/svg%3E">
 <meta name="apple-mobile-web-app-title" content="DTR">
 <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -10423,8 +10423,7 @@ function sendNotification(title, body, icon='⚡'){
   try {
     const n = new Notification(title, {
       body,
-      icon: `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23080808'/><text y='.9em' font-size='72' x='14'>${icon}</text></svg>`,
-      badge: `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23F5C842'/></svg>`,
+      icon: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23080808%22/><circle cx=%2250%22 cy=%2250%22 r=%2230%22 fill=%22%23F5C842%22/></svg>',
       tag: 'dtr-timer',
       silent: false,
     });
@@ -10532,10 +10531,11 @@ function exportData(format){
         s.id || '',
       ])
     ];
-    const csv = '﻿' + rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('
-');
+    const csvLines = rows.map(function(r){
+      return r.map(function(v){ return '"' + String(v).replace(/"/g,'""') + '"'; }).join(',');
+    }).join('\r\n');
     const bom = '\uFEFF';
-    const blob = new Blob([bom + csv], {type:'text/csv;charset=utf-8'});
+    const blob = new Blob([bom + csvLines], {type:'text/csv;charset=utf-8'});
     downloadBlob(blob, `dtr_${username}_${now}.csv`);
     showToast(`CSV готов — ${P.sessions.length} сессий`, '📊');
   }
@@ -10593,7 +10593,7 @@ function injectPWAManifest(){
     theme_color: '#080808',
     icons: [
       {
-        src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='114' fill='%23080808'/><text y='370' x='60' font-size='380' font-family='sans-serif'>⚡</text></svg>",
+        src: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 512 512%22><rect width=%22512%22 height=%22512%22 rx=%22114%22 fill=%22%23080808%22/><polygon points=%22300,80 200,280 270,280 212,432 320,230 248,230%22 fill=%22%23F5C842%22/></svg>',
         sizes: '512x512',
         type: 'image/svg+xml',
         purpose: 'any maskable'
@@ -10612,27 +10612,7 @@ function injectPWAManifest(){
 // 4. SERVICE WORKER — offline support
 // ══════════════════════════════════════════════════════════════
 function registerServiceWorker(){
-  if(!('serviceWorker' in navigator)) return;
-  // Inline SW as blob
-  const swCode = `
-const CACHE = 'dtr-v1';
-self.addEventListener('install', e=>e.waitUntil(
-  caches.open(CACHE).then(c=>c.addAll([location.pathname]))
-));
-self.addEventListener('fetch', e=>{
-  if(e.request.url.includes('supabase')) return; // never cache API
-  e.respondWith(
-    fetch(e.request).catch(()=>caches.match(e.request))
-  );
-});
-self.addEventListener('push', e=>{
-  const d = e.data?.json()||{};
-  e.waitUntil(self.registration.showNotification(d.title||'DTR', {body:d.body,icon:d.icon}));
-});
-  `;
-  const blob = new Blob([swCode], {type:'application/javascript'});
-  const url = URL.createObjectURL(blob);
-  navigator.serviceWorker.register(url).catch(()=>{});
+  /* SW requires a real file on same origin — skipped for single-file build */
 }
 
 // ══════════════════════════════════════════════════════════════
