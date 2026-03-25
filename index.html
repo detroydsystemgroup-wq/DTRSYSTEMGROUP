@@ -9047,27 +9047,47 @@ function stopTimerPom(){
 function restoreTimer() {
   const state = getTimerState();
   if (!state || !state.startTime) return;
+
   timerRunning = true;
+  timerPaused  = false;
   quickSel = state.catId || defCat();
   const savedPom = state.pomMode || 0;
+
+  // Restore pomodoro selector if needed
   if (savedPom > 0) {
     pomMode = savedPom;
-    const disp = document.getElementById('qDisp');
-    const remaining = Math.max(0, savedPom * 60 - getElapsed());
-    if (disp) { disp.style.color='var(--gold)'; disp.style.textShadow='0 0 32px rgba(245,200,66,.4)'; disp.textContent=fmt(remaining); }
     const sel = document.getElementById('pomTimeSel');
     if (sel) { sel.value=String(savedPom); sel.style.borderColor='var(--gold)'; sel.style.color='var(--gold)'; }
     const freeBtn = document.getElementById('pomFreeBtn');
     if (freeBtn) freeBtn.classList.remove('active');
-  } else {
-    const disp = document.getElementById('qDisp');
-    if (disp) { disp.classList.add('run'); disp.textContent = fmt(getElapsed()); }
   }
-  const btn = document.getElementById('qBtn');
-  if (btn) { btn.textContent = '⏹ Стоп'; btn.className = 't-sbtn active'; }
-  const note = document.getElementById('qNote');
-  if (note) note.textContent = 'Сессия идёт...';
+
+  // Use _setTimerUI so ALL three buttons (Start/Pause/Stop) get correct state
+  // This is the new multi-button UI — old single-btn approach was broken after reload
+  _setTimerUI('running');
+
+  // Set display to current elapsed time immediately
+  const disp = document.getElementById('qDisp');
+  if (disp) {
+    if (savedPom > 0) {
+      const remaining = Math.max(0, savedPom * 60 - getElapsed());
+      disp.textContent = fmt(remaining);
+      disp.style.color = 'var(--gold)';
+      disp.style.textShadow = '0 0 32px rgba(245,200,66,.4)';
+    } else {
+      disp.textContent = fmt(getElapsed());
+    }
+  }
+
   startTimerInterval();
+  // Restart mobile sync interval after reload
+  if(typeof _mTimerSyncInterval !== 'undefined'){
+    clearInterval(_mTimerSyncInterval);
+    _mTimerSyncInterval = setInterval(syncMobileTimerDisplay, 500);
+  }
+  setTimeout(syncMobileTimerDisplay, 100);
+  setTimeout(updateTimerTabState, 100);
+  setTimeout(updateNavTimerPill, 100);
 }
 
 // Resync display when tab becomes visible again
@@ -10780,9 +10800,8 @@ function closeMobileTimerSheet(){
 function toggleMobileTimer(){
   toggleQuick();
   setTimeout(syncMobileTimerDisplay, 60);
-  const btn = document.getElementById('qBtn');
-  const running = btn?.classList.contains('active');
-  if(!running) setTimeout(closeMobileTimerSheet, 400);
+  // FIX: use timerRunning variable, not old .active class on qBtn
+  if(!window.timerRunning) setTimeout(closeMobileTimerSheet, 400);
 }
 function syncMobileTimerDisplay(){
   const disp  = document.getElementById('qDisp');
@@ -10795,7 +10814,8 @@ function syncMobileTimerDisplay(){
   if(disp && mDisp) mDisp.textContent = disp.textContent;
 
   if(btn && mBtn){
-    const running = btn.classList.contains('active');
+    // FIX: use timerRunning variable — qBtn no longer has .active class in new UI
+    const running = window.timerRunning && !window.timerPaused;
     mBtn.className = btn.className;
     mBtn.style.minHeight = '58px';
     mBtn.style.fontSize = '17px';
@@ -10820,10 +10840,10 @@ function syncMobileTimerDisplay(){
   }
 }
 function updateTimerTabState(){
-  const btn    = document.getElementById('qBtn');
-  const fab    = document.getElementById('timerTabBtn');
+  const fab = document.getElementById('timerTabBtn');
   if(!fab) return;
-  const running = btn?.classList.contains('active');
+  // FIX: use timerRunning variable
+  const running = window.timerRunning && !window.timerPaused;
   fab.classList.toggle('running', running);
 }
 function syncTimerSel(sel){
@@ -10837,8 +10857,8 @@ const _origToggleQuick = window.toggleQuick;
 window.toggleQuick = function(){
   if(_origToggleQuick) _origToggleQuick.apply(this, arguments);
   clearInterval(_mTimerSyncInterval);
-  const btn = document.getElementById('qBtn');
-  const running = btn?.classList.contains('active');
+  // FIX: use timerRunning variable
+  const running = window.timerRunning && !window.timerPaused;
   if(running){
     _mTimerSyncInterval = setInterval(syncMobileTimerDisplay, 500);
   }
@@ -10949,7 +10969,8 @@ function updateNavTimerPill(){
   const _orig=window.toggleQuick;
   window.toggleQuick=function(){
     if(_orig) _orig.apply(this,arguments);
-    const running=document.getElementById('qBtn')?.classList.contains('active');
+    // FIX: use timerRunning variable
+    const running=window.timerRunning && !window.timerPaused;
     haptic(running?'medium':'light');
     setTimeout(updateNavTimerPill,80);
   };
