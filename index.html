@@ -7258,6 +7258,8 @@ function renderAll(){
   setTimeout(renderDailyProgress, 100);
   renderLeagues();renderLgMini();
   renderXP();renderHeatmap();renderRings();renderRecords();renderForecast();renderMotivation();
+  // Always update hero zone — called here directly to avoid patch-chain timing issues
+  if(typeof renderHeroZone === 'function') renderHeroZone();
 }
 
 function renderNav(){
@@ -9440,7 +9442,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSessModal();cl
 // Realtime Presence channels cause DataCloneError (Headers can't postMessage)
 // ══════════════════════════════════════════════════════════════
 let presenceInterval = null;
-const ONLINE_WINDOW_MS = 3 * 60 * 1000; // 3 минуты = онлайн
+// FIX: 75 second window + 20s ping = accurate within 1-2 pings after leaving
+const ONLINE_WINDOW_MS = 75 * 1000; // 75 секунд = онлайн
 
 async function pingOnline(){
   if(!SB_USER || SB_USER.isDemoUser) return;
@@ -9463,7 +9466,9 @@ async function updateOnlineCount(){
     if(error) return;
     const cnt = (data||[]).length;
     const el = document.getElementById('onlineCnt');
-    if(el) el.textContent = Math.max(SB_USER.isDemoUser?1:cnt, 1) + ' онлайн';
+    // FIX: don't force minimum of 1 — show real count (0 is valid)
+    const displayCnt = SB_USER.isDemoUser ? Math.max(cnt, 1) : cnt;
+    if(el) el.textContent = displayCnt + ' онлайн';
   } catch(e){ /* silent */ }
 }
 
@@ -9514,13 +9519,37 @@ function initPresence() {
   updateOnlineCount();
   updateLeagueOnlineCounts();
 
-  // Refresh every 30s
+  // Refresh every 20s (must be < ONLINE_WINDOW_MS/2 for accuracy)
   presenceInterval = setInterval(async () => {
     await pingOnline();
     await updateOnlineCount();
     await updateLeagueOnlineCounts();
-  }, 30000);
+  }, 20000);
 }
+
+// FIX: Mark user offline immediately when tab is closed or hidden
+// sendBeacon works in beforeunload/pagehide where async fetch doesn't
+async function markOffline(){
+  if(!SB_USER || SB_USER.isDemoUser) return;
+  try {
+    // Set last_seen to past (beyond the online window) so they drop off immediately
+    const offlineTime = new Date(Date.now() - ONLINE_WINDOW_MS - 5000).toISOString();
+    await sb.from('users').update({ last_seen: offlineTime }).eq('id', SB_USER.id);
+  } catch(e){ /* silent */ }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'hidden'){
+    markOffline();
+  } else if(document.visibilityState === 'visible' && SB_USER && !SB_USER.isDemoUser){
+    // Re-ping immediately when tab becomes visible again
+    pingOnline().then(() => updateOnlineCount());
+  }
+});
+
+window.addEventListener('pagehide', () => {
+  markOffline();
+});
 
 // ══════════════════════════════════════════════════════════════
 // SUPABASE REALTIME — Messages (WebSocket, no polling)
