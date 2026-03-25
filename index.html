@@ -7333,7 +7333,6 @@ function renderHeader(){
 function renderTotals(){
   const totEl=document.getElementById('totDisp');
   const newVal=totalHrs();
-  // FIX: write value immediately so it's visible even if animation skips
   if(totEl) totEl.textContent=Math.round(newVal);
   if(totEl){
     animCount(totEl,newVal,1200);
@@ -7343,6 +7342,32 @@ function renderTotals(){
   }
   document.getElementById('streakDisp').textContent=`🔥 ${P.streak} дней подряд`;
   document.getElementById('weekDisp').textContent=`↑ +${weekHrs().toFixed(1)} ч за 7 дней`;
+
+  // ── Hero zone — те же данные, те же функции ──
+  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+  const todayH = P.sessions
+    .filter(s => s.ts && s.ts >= todayStart.getTime())
+    .reduce((a,s) => a + s.dur/3600, 0);
+  const weekH  = weekHrs();
+  const totalH = totalHrs();
+  const MSGS = [
+    [4,   'Невероятная продуктивность!', 'var(--gold)'],
+    [2,   'Два часа — выше среднего.',   'var(--gold)'],
+    [1,   'Уже час. Отличный ритм.',     'var(--green)'],
+    [0.5, 'Хорошее начало!',             'var(--green)'],
+    [0,   'Начни первую сессию дня',     'var(--t2)'],
+  ];
+  const [,msg,msgColor] = MSGS.find(([h]) => todayH >= h) || MSGS[MSGS.length-1];
+  const hEl = document.getElementById('heroTodayHrs');
+  const mEl = document.getElementById('heroTodayMsg');
+  const sEl = document.getElementById('heroStreakVal');
+  const wEl = document.getElementById('heroWeekHrs');
+  const tEl = document.getElementById('heroTotalHrs');
+  if(hEl){ hEl.textContent = todayH.toFixed(1); hEl.style.color = todayH>0?'var(--gold)':'var(--t1)'; }
+  if(sEl)  sEl.textContent = P.streak || 0;
+  if(wEl)  wEl.textContent = weekH.toFixed(1);
+  if(tEl)  tEl.textContent = totalH < 1 ? totalH.toFixed(1) : Math.round(totalH).toString();
+  if(mEl){ mEl.textContent = msg; mEl.style.color = msgColor; }
 }
 
 // ══ DASHBOARD ════════════════════════════════════════════════
@@ -10953,8 +10978,6 @@ function haptic(type){
 }
 
 // ══ HERO TODAY ZONE ══════════════════════════════════════════
-// Читает данные из P (уже загружены loadUser).
-// Если P ещё грузится — ждёт и повторяет.
 
 let _heroDebounceTimer = null;
 
@@ -10964,12 +10987,10 @@ function renderHeroZone(){
 }
 
 function _doRenderHero(){
-  if(!window.P){ return; }
-
-  // Если данные ещё грузятся — подождать и повторить
-  if(P._loading){
+  if(!window.P || P._loading){
+    // Данные ещё грузятся — повторим через 500мс
     clearTimeout(_heroDebounceTimer);
-    _heroDebounceTimer = setTimeout(_doRenderHero, 400);
+    _heroDebounceTimer = setTimeout(_doRenderHero, 500);
     return;
   }
 
@@ -10980,15 +11001,13 @@ function _doRenderHero(){
   const tEl = document.getElementById('heroTotalHrs');
   if(!hEl) return;
 
+  // Используем те же глобальные функции что и рабочие счётчики
   const todayStart = new Date(); todayStart.setHours(0,0,0,0);
-  const ts = todayStart.getTime();
-
-  const todayHrs = P.sessions.filter(s=>s.ts && s.ts >= ts)
-                              .reduce((a,s)=>a + s.dur/3600, 0);
-  const weekHrs  = P.sessions.filter(s=>s.ts && s.ts > Date.now() - 7*86400000)
-                              .reduce((a,s)=>a + s.dur/3600, 0);
-  const totalHrs = P.categories.reduce((a,c)=>a + (c.hours||0), 0);
-  const streak   = P.streak || 0;
+  const todayH = P.sessions
+    .filter(s => s.ts && s.ts >= todayStart.getTime())
+    .reduce((a,s) => a + s.dur/3600, 0);
+  const weekH  = weekHrs();   // глобальная функция — работает в renderTotals
+  const totalH = totalHrs();  // глобальная функция — работает в renderHeader
 
   const MSGS = [
     [4,   'Невероятная продуктивность!', 'var(--gold)'],
@@ -10997,13 +11016,13 @@ function _doRenderHero(){
     [0.5, 'Хорошее начало!',             'var(--green)'],
     [0,   'Начни первую сессию дня',     'var(--t2)'],
   ];
-  const [,msg,msgColor] = MSGS.find(([h])=>todayHrs>=h) || MSGS[MSGS.length-1];
+  const [,msg,msgColor] = MSGS.find(([h]) => todayH >= h) || MSGS[MSGS.length-1];
 
-  hEl.textContent = todayHrs.toFixed(1);
-  hEl.style.color = todayHrs > 0 ? 'var(--gold)' : 'var(--t1)';
-  if(sEl) sEl.textContent = streak;
-  if(wEl) wEl.textContent = weekHrs.toFixed(1);
-  if(tEl) tEl.textContent = totalHrs < 1 ? totalHrs.toFixed(1) : Math.round(totalHrs).toString();
+  hEl.textContent = todayH.toFixed(1);
+  hEl.style.color = todayH > 0 ? 'var(--gold)' : 'var(--t1)';
+  if(sEl) sEl.textContent = P.streak || 0;
+  if(wEl) wEl.textContent = weekH.toFixed(1);
+  if(tEl) tEl.textContent = totalH < 1 ? totalH.toFixed(1) : Math.round(totalH).toString();
   if(mEl){ mEl.textContent = msg; mEl.style.color = msgColor; }
 }
 
