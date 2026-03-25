@@ -8819,6 +8819,7 @@ function _setTimerUI(state){ // state: 'idle' | 'running' | 'paused'
     if(disp){ disp.classList.remove('run','paused'); disp.textContent='00:00:00'; }
     if(note) note.textContent='Выбери активность и нажми Старт';
     if(fab){ fab.classList.remove('running'); fab.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0A0A0B" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>'; }
+    setTimeout(updateNavTimerPill, 80);
   }
   else if(state === 'running'){
     if(startBtn) startBtn.style.display='none';
@@ -8829,6 +8830,7 @@ function _setTimerUI(state){ // state: 'idle' | 'running' | 'paused'
     if(disp){ disp.classList.add('run'); disp.classList.remove('paused'); }
     if(note) note.textContent='Сессия идёт... · Нажми ⏸ чтобы сделать паузу';
     if(fab){ fab.classList.add('running'); fab.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="none"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>'; }
+    setTimeout(updateNavTimerPill, 80);
   }
   else if(state === 'paused'){
     if(startBtn){ startBtn.style.display='flex'; startBtn.querySelector('span').textContent='Продолжить';
@@ -10768,14 +10770,13 @@ let _diPillInterval=null;
 function updateNavTimerPill(){
   const pill=document.getElementById('navTimerPill');
   const timeEl=document.getElementById('navTimerPillTime');
-  const qBtn=document.getElementById('qBtn');
   const qDisp=document.getElementById('qDisp');
-  if(!pill||!timeEl||!qBtn)return;
-  const running=qBtn.classList.contains('active');
+  if(!pill||!timeEl)return;
+  // Use timerRunning state directly (qBtn no longer has 'active' class in new UI)
+  const running=window.timerRunning && !window.timerPaused;
   if(running){
     pill.style.display='flex';
     const raw=qDisp?qDisp.textContent:'';
-    // Convert HH:MM:SS to MM:SS for pill
     const parts=raw.split(':');
     if(parts.length===3){
       const h=parseInt(parts[0]),m=parseInt(parts[1]),s=parseInt(parts[2]);
