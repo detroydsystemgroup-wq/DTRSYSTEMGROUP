@@ -7002,10 +7002,13 @@ async function loadUser(userId){
 }
 
 // ══ SAVE SESSION ════════════════════════════════════════════
+let _sessionSaving = false;
 async function saveSession(catId,secs){
   if(secs<5)return;
+  if(_sessionSaving){ console.warn('saveSession: already saving, skipped duplicate call'); return; }
+  _sessionSaving = true;
   const cat=P.categories.find(c=>c.id===catId)||ALL_CATS.find(c=>c.id===catId);
-  if(!cat)return;
+  if(!cat){ _sessionSaving = false; return; }
 
   if(SB_USER?.isDemoUser){
     // Demo: local only
@@ -7022,6 +7025,7 @@ async function saveSession(catId,secs){
     renderAll();
     showToast(`${cat.icon} +${fmtD(secs)} в "${cat.name}"`, '✅');
     newly.forEach((a,i)=>setTimeout(()=>showToast(a.name,'🏆',true,'Новая награда разблокирована!'),(i+1)*900));
+    _sessionSaving = false;
     return;
   }
 
@@ -7030,7 +7034,7 @@ async function saveSession(catId,secs){
   const {error}=await sb.from('sessions').insert({
     user_id:SB_USER.id,category_id:catId,duration_seconds:secs
   });
-  if(error){console.error(error);showToast('Ошибка сохранения','⚠️');return;}
+  if(error){console.error(error);showToast('Ошибка сохранения','⚠️');_sessionSaving=false;return;}
 
   // Update hours
   const {data:uc}=await sb.from('user_categories').select('id,hours').eq('user_id',SB_USER.id).eq('category_id',catId).maybeSingle();
@@ -7077,6 +7081,7 @@ async function saveSession(catId,secs){
   // Update hero cache after session save so next load shows fresh data
   if(typeof renderHeroZone === 'function') renderHeroZone();
   } catch(e) { console.error('saveSession DB error:',e); showToast('Ошибка сохранения сессии','⚠️'); }
+  finally { _sessionSaving = false; }
 }
 
 // ══ ACHIEVEMENTS ════════════════════════════════════════════
@@ -8899,22 +8904,9 @@ function getElapsed() {
   return _pausedElapsed + Math.floor((Date.now() - s.startTime) / 1000);
 }
 
-// Save session if tab is closed while timer running
-window.addEventListener('beforeunload', () => {
-  if (!timerRunning) return;
-  const state = getTimerState();
-  if (!state || !state.startTime) return;
-  const secs = getElapsed();
-  if (secs >= 60) {
-    const catId = state.catId || quickSel;
-    if (catId && SB_USER && !SB_USER.isDemoUser) {
-      // Fire-and-forget save — best effort
-      const dur = secs;
-      navigator.sendBeacon && navigator.sendBeacon('/ping'); // keep connection alive
-      saveSession(catId, dur);
-    }
-  }
-});
+// NOTE: beforeunload save removed — it caused duplicate sessions.
+// Timer state is preserved in localStorage; on next open the user
+// sees the running timer and can stop it manually to save.
 
 function renderQuickCats() {
   if (!quickSel) quickSel = defCat();
@@ -9048,6 +9040,7 @@ function pauseTimer(){
 }
 
 function stopTimer(){
+  if(!timerRunning && !timerPaused) return; // nothing to stop
   const secs = getElapsed();
   const state = getTimerState();
   const catId = state?.catId || quickSel;
@@ -9123,7 +9116,9 @@ function restoreTimer() {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && timerRunning) {
     timerTick(); // мгновенное обновление экрана
-    _getTimerWorker().postMessage('start'); // перезапуск воркера на полной скорости
+    // Clear old interval before restarting to prevent duplicate ticks
+    if (_timerInterval) { clearInterval(_timerInterval); _timerInterval = null; }
+    _getTimerWorker().postMessage('start');
   }
 });
 
