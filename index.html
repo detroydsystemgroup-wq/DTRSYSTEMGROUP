@@ -5718,7 +5718,7 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
 
     <div class="nav-user-chip" onclick="showTab('dash')">
       <div class="nav-av" id="navAv">🎯</div>
-      <span class="nav-uname" id="navUname">user</span>
+      <span class="nav-uname" id="navUname"></span>
     </div>
 
     <!-- Logout -->
@@ -5760,7 +5760,7 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
         <div class="av-dot"></div>
       </div>
       <div class="ph-info">
-        <div class="ph-name" id="profName">username</div>
+        <div class="ph-name" id="profName"></div>
         <div class="ph-title" id="profTitle">⚡ Новичок</div>
         <!-- XP bar inline — Apple style -->
         <div style="margin-top:10px;max-width:280px">
@@ -5817,19 +5817,19 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
     <!-- ── STAT BAR ── -->
     <div class="ph-stat-bar" id="phStatBar">
       <div class="ph-stat-cell" onclick="showTab('activity')">
-        <div class="ph-stat-num" id="statTotalHrs" style="color:var(--gold)">0</div>
+        <div class="ph-stat-num" id="statTotalHrs" style="color:var(--gold)">—</div>
         <div class="ph-stat-lbl">Часов</div>
       </div>
       <div class="ph-stat-cell" onclick="showTab('activity')">
-        <div class="ph-stat-num" id="statSessions" style="color:var(--blue)">0</div>
+        <div class="ph-stat-num" id="statSessions" style="color:var(--blue)">—</div>
         <div class="ph-stat-lbl">Сессий</div>
       </div>
       <div class="ph-stat-cell" onclick="showTab('achievements')">
-        <div class="ph-stat-num" id="statAchs" style="color:var(--orange)">0</div>
+        <div class="ph-stat-num" id="statAchs" style="color:var(--orange)">—</div>
         <div class="ph-stat-lbl">Наград</div>
       </div>
       <div class="ph-stat-cell">
-        <div class="ph-stat-num" id="statStreak" style="color:var(--green)">0</div>
+        <div class="ph-stat-num" id="statStreak" style="color:var(--green)">—</div>
         <div class="ph-stat-lbl">Стрик</div>
       </div>
     </div>
@@ -6279,7 +6279,7 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
     <div class="card">
       <div class="cb">
         <div class="tot-wr">
-          <div class="tot-num" id="totDisp">0</div>
+          <div class="tot-num" id="totDisp">—</div>
           <div class="tot-lbl">часов вложено в себя</div>
           <div class="tot-div"></div>
           <div class="tot-streak" id="streakDisp">🔥 0 дней</div>
@@ -6810,18 +6810,9 @@ let _loadUserRetryCount = 0;
 const _LOAD_USER_MAX_RETRIES = 5;
 
 async function loadUser(userId){
-  // ── Loading overlay: show skeleton screen, not blank app ─────
+  // Keep onboard/login visible until data is fully loaded — no early app show
   const appEl = document.getElementById('app');
   const onboardEl = document.getElementById('onboard');
-
-  // If this is the first attempt, show a loading screen (not the empty app)
-  if(_loadUserRetryCount === 0){
-    onboardEl.style.display = 'none';
-    appEl.style.display = '';
-    // Show a loading skeleton in nav username area while real data loads
-    const navUname = document.getElementById('navUname');
-    if(navUname) navUname.textContent = '…';
-  }
 
   try{
   const[r1,r2,r3,r4]=await Promise.all([
@@ -7301,12 +7292,21 @@ function renderHeader(){
     titleEl.style.background = 'transparent';
     titleEl.style.boxShadow = 'none';
   }
-  // Update stat bar
+  // Update stat bar — set values immediately (no flicker) then animate
+  const _th = Math.round(totalHrs());
+  const _ss = P.totalSessions || 0;
+  const _ac = P.achievements ? P.achievements.filter(a=>a.unlocked).length : 0;
+  const _st = P.streak || 0;
   const statTH=document.getElementById('statTotalHrs');
   const statSS=document.getElementById('statSessions');
   const statAC=document.getElementById('statAchs');
   const statST=document.getElementById('statStreak');
-  // Animate stat bar with odometer
+  // Write immediately so user sees real values even if animation doesn't fire
+  if(statTH) statTH.textContent = _th;
+  if(statSS) statSS.textContent = _ss;
+  if(statAC) statAC.textContent = _ac;
+  if(statST) statST.textContent = _st;
+  // Then animate with odometer
   setTimeout(()=>{ if(typeof animStatBar==='function') animStatBar(); }, 120);
   // Apply cover frame
   const cover=document.getElementById('phCover');
@@ -7326,6 +7326,8 @@ function renderHeader(){
 function renderTotals(){
   const totEl=document.getElementById('totDisp');
   const newVal=totalHrs();
+  // FIX: write value immediately so it's visible even if animation skips
+  if(totEl) totEl.textContent=Math.round(newVal);
   if(totEl){
     animCount(totEl,newVal,1200);
     totEl.classList.remove('updated');
