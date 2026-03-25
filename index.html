@@ -4699,8 +4699,85 @@ body.focus-mode #focusModeBtn { background: rgba(245,200,66,.1); border-color: r
 
 } /* end min-width 601px */
 
+
+/* ══ EXPORT + NOTIFICATION + PWA UI ═══════════════════════════ */
+.export-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px;
+  background: rgba(255,255,255,.04);
+  border: 0.5px solid rgba(255,255,255,.1);
+  border-radius: 10px;
+  color: var(--t2); font-size: 12px; font-weight: 500;
+  cursor: pointer; font-family: 'DM Sans', sans-serif;
+  transition: all .18s;
+  backdrop-filter: blur(8px);
+}
+.export-btn:hover { border-color: rgba(26,159,255,.35); color: var(--blue); background: rgba(26,159,255,.06); }
+
+/* Notif permission banner */
+.notif-banner {
+  display: none;
+  align-items: center; gap: 12px;
+  padding: 12px 16px;
+  background: rgba(26,159,255,.08);
+  border: 0.5px solid rgba(26,159,255,.2);
+  border-radius: 12px;
+  margin: 0 0 12px;
+  animation: fadeUp .3s ease both;
+}
+.notif-banner.show { display: flex; }
+.notif-banner-text { flex: 1; font-size: 12px; color: var(--t2); line-height: 1.45; }
+.notif-banner-text strong { color: var(--t1); font-weight: 600; }
+.notif-banner-btn {
+  padding: 6px 12px; border-radius: 8px;
+  background: var(--blue); color: white;
+  border: none; font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: 'DM Sans', sans-serif;
+  white-space: nowrap; flex-shrink: 0;
+  transition: opacity .15s;
+}
+.notif-banner-btn:hover { opacity: .88; }
+.notif-banner-dismiss {
+  color: var(--t3); font-size: 16px; cursor: pointer;
+  padding: 0 4px; flex-shrink: 0; line-height: 1;
+}
+
+/* Timer end flash */
+@keyframes timerEndFlash {
+  0%,100% { background: var(--bg); }
+  15%,45% { background: rgba(245,200,66,.07); }
+  30%,60% { background: var(--bg); }
+}
+body.timer-ended { animation: timerEndFlash .8s ease 2; }
+
+/* Export dropdown */
+.export-menu {
+  position: absolute; right: 0; top: calc(100% + 6px);
+  background: rgba(14,14,20,.97);
+  border: 0.5px solid rgba(255,255,255,.1);
+  border-radius: 12px; overflow: hidden;
+  min-width: 180px; z-index: 200;
+  box-shadow: 0 8px 32px rgba(0,0,0,.5);
+  backdrop-filter: blur(20px);
+  animation: scaleIn .15s cubic-bezier(.34,1.2,.64,1) both;
+  transform-origin: top right;
+}
+.export-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  font-size: 13px; font-weight: 500; color: var(--t1);
+  cursor: pointer; border-bottom: 0.5px solid rgba(255,255,255,.05);
+  transition: background .12s;
+}
+.export-item:last-child { border-bottom: none; }
+.export-item:hover { background: rgba(255,255,255,.06); }
+.export-item svg { color: var(--t2); flex-shrink: 0; }
+
 </style>
-  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" id="pwaManifest">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23080808'/><text y='.9em' font-size='72' x='14'>⚡</text></svg>">
+<meta name="apple-mobile-web-app-title" content="DTR">
+<meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#080808" media="(prefers-color-scheme: dark)"><meta name="theme-color" content="#080808">
@@ -4901,8 +4978,28 @@ body.focus-mode #focusModeBtn { background: rgba(245,200,66,.1); border-color: r
         <div style="display:none"><div class="xp-wrap"><div class="xp-top"><span class="xp-level" id="xpLevelHidden"></span><span class="xp-pts" id="xpPtsHidden"></span></div><div class="xp-track"><div class="xp-fill" id="xpFillHidden" style="width:0%"></div></div></div></div>
       </div>
       <div class="ph-acts">
-        <button class="btn-ol" onclick="openPub()" style="display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 16px;font-size:13px;min-width:100px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Профиль</button>
-        <button class="btn-ol" onclick="showTab('manage')" style="display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 16px;font-size:13px;min-width:100px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> Лиги</button>
+        <button class="btn-ol" onclick="openPub()" style="display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 16px;font-size:13px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Профиль</button>
+        <button class="btn-ol" onclick="showTab('manage')" style="display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 16px;font-size:13px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> Лиги</button>
+        <div style="position:relative">
+          <button class="btn-ol" onclick="toggleExportMenu(event)" style="display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 14px;font-size:13px" title="Экспорт данных">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Экспорт
+          </button>
+          <div id="exportMenu" class="export-menu" style="display:none">
+            <div class="export-item" onclick="exportData('json');closeExportMenu()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Скачать JSON
+            </div>
+            <div class="export-item" onclick="exportData('csv');closeExportMenu()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+              Скачать CSV
+            </div>
+            <div class="export-item" onclick="shareProfileLink();closeExportMenu()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+              Поделиться профилем
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -5037,6 +5134,14 @@ body.focus-mode #focusModeBtn { background: rgba(245,200,66,.1); border-color: r
         <div class="cb">
 
           <div class="cat-filter" id="dashCatFilter" style="display:none"></div>
+
+          <!-- Notification permission banner -->
+          <div class="notif-banner" id="notifBanner">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" style="flex-shrink:0"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <div class="notif-banner-text"><strong>Включи уведомления</strong> — узнавай когда таймер завершается, даже если вкладка свёрнута.</div>
+            <button class="notif-banner-btn" onclick="requestNotifPermission()">Включить</button>
+            <span class="notif-banner-dismiss" onclick="dismissNotifBanner()">✕</span>
+          </div>
 
           <!-- ── HERO TODAY ZONE ── -->
           <div id="dashHeroZone" style="
@@ -10269,6 +10374,283 @@ window.addEventListener('load', ()=>{
     qBtn.style.position = 'relative';
   }
 });
+</script>
+
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// 1. NOTIFICATIONS — Timer end + session complete alerts
+// ══════════════════════════════════════════════════════════════
+let _notifGranted = false;
+
+function checkNotifPermission(){
+  if(!('Notification' in window)) return;
+  if(Notification.permission === 'granted'){
+    _notifGranted = true;
+    document.getElementById('notifBanner')?.classList.remove('show');
+  } else if(Notification.permission === 'default' && !localStorage.getItem('dtr_notif_dismissed')){
+    // Show banner after 10s on dashboard
+    setTimeout(()=>{
+      if(document.getElementById('tab-dash')?.classList.contains('active')){
+        document.getElementById('notifBanner')?.classList.add('show');
+      }
+    }, 10000);
+  }
+}
+
+async function requestNotifPermission(){
+  if(!('Notification' in window)) return;
+  const result = await Notification.requestPermission();
+  _notifGranted = result === 'granted';
+  if(_notifGranted){
+    document.getElementById('notifBanner')?.classList.remove('show');
+    showToast('Уведомления включены!', '🔔');
+    // Send test notification
+    setTimeout(()=>{
+      sendNotification('DTR Progress Club', 'Уведомления работают! Мы сообщим когда таймер завершится.', '⚡');
+    }, 800);
+  }
+}
+
+function dismissNotifBanner(){
+  document.getElementById('notifBanner')?.classList.remove('show');
+  localStorage.setItem('dtr_notif_dismissed', '1');
+}
+
+function sendNotification(title, body, icon='⚡'){
+  if(!_notifGranted || Notification.permission !== 'granted') return;
+  if(document.hasFocus()) return; // don't show if tab is active
+  try {
+    const n = new Notification(title, {
+      body,
+      icon: `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23080808'/><text y='.9em' font-size='72' x='14'>${icon}</text></svg>`,
+      badge: `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23F5C842'/></svg>`,
+      tag: 'dtr-timer',
+      silent: false,
+    });
+    n.onclick = ()=>{ window.focus(); n.close(); };
+    setTimeout(()=>n.close(), 8000);
+  } catch(e){ console.log('Notif error:', e); }
+}
+
+// Hook into timer completion — Pomodoro
+const _origTimerTick = window.timerTick;
+window.timerTick = function(){
+  if(_origTimerTick) {
+    const wasPomRunning = window.timerRunning && window.pomMode > 0;
+    const prevDisp = document.getElementById('qDisp')?.textContent;
+    _origTimerTick.apply(this, arguments);
+    // Detect pomodoro completion (remaining just hit 00:00:00)
+    if(wasPomRunning && !window.timerRunning){
+      const cat = window.P?.categories?.find(c=>c.id===window.quickSel);
+      sendNotification(
+        '🍅 Помодоро завершён!',
+        `${window.pomMode} минут в «${cat?.name || 'активность'}» зачтено.`,
+        cat?.icon || '⚡'
+      );
+      // Flash body
+      document.body.classList.add('timer-ended');
+      setTimeout(()=>document.body.classList.remove('timer-ended'), 2000);
+      haptic('success');
+    }
+  }
+};
+
+// Hook into free timer stop — notify if tab hidden
+const _origToggleQuickBase = window.toggleQuick;
+// Already patched, patch again for notifications
+(function(){
+  const prev = window.toggleQuick;
+  window.toggleQuick = function(){
+    const wasRunning = window.timerRunning;
+    if(prev) prev.apply(this, arguments);
+    const nowRunning = window.timerRunning;
+    // Just stopped
+    if(wasRunning && !nowRunning){
+      const secs = window._lastSavedSecs || 0;
+      if(secs > 30){
+        const cat = window.P?.categories?.find(c=>c.id===window.quickSel);
+        const mins = Math.floor(secs/60);
+        sendNotification(
+          '✅ Сессия сохранена',
+          `${mins} мин в «${cat?.name || 'активность'}» — отличная работа!`,
+          cat?.icon || '✅'
+        );
+      }
+    }
+  };
+})();
+
+// ══════════════════════════════════════════════════════════════
+// 2. DATA EXPORT — JSON + CSV
+// ══════════════════════════════════════════════════════════════
+function exportData(format){
+  if(!window.P){ showToast('Нет данных для экспорта','⚠️'); return; }
+
+  const now = new Date().toISOString().slice(0,10);
+  const username = P.name || 'user';
+
+  if(format === 'json'){
+    const data = {
+      exported_at: new Date().toISOString(),
+      user: {
+        name: P.name,
+        joined: P.joinedDate,
+        streak: P.streak,
+        total_sessions: P.totalSessions,
+      },
+      categories: P.categories.map(c=>({
+        id: c.id, name: c.name, hours: parseFloat(c.hours.toFixed(2))
+      })),
+      sessions: P.sessions.map(s=>({
+        id: s.id,
+        category: s.name,
+        category_id: s.cat,
+        duration_seconds: s.dur,
+        duration_minutes: Math.round(s.dur/60),
+        date: s.isoDate || s.date,
+        timestamp: s.ts,
+      })),
+      achievements: P.achievements.filter(a=>a.unlocked).map(a=>({
+        id: a.id,
+        unlocked_at: a.unlockedAt,
+      })),
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+    downloadBlob(blob, `dtr_${username}_${now}.json`);
+    showToast(`Экспорт готов — ${P.sessions.length} сессий`, '📥');
+  }
+
+  if(format === 'csv'){
+    const rows = [
+      ['Дата','Категория','Минут','Секунд','ID сессии'],
+      ...P.sessions.map(s=>[
+        s.isoDate ? s.isoDate.slice(0,10) : s.date,
+        s.name,
+        Math.round(s.dur/60),
+        s.dur,
+        s.id || '',
+      ])
+    ];
+    const csv = '﻿' + rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('
+');
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + csv], {type:'text/csv;charset=utf-8'});
+    downloadBlob(blob, `dtr_${username}_${now}.csv`);
+    showToast(`CSV готов — ${P.sessions.length} сессий`, '📊');
+  }
+}
+
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+
+function shareProfileLink(){
+  const url = `${location.origin}${location.pathname}?user=${encodeURIComponent(P?.name||'')}`;
+  if(navigator.share){
+    navigator.share({ title:'DTR Progress Club', text:`Мой профиль в DTR: ${P?.name}`, url });
+  } else {
+    navigator.clipboard?.writeText(url);
+    showToast('Ссылка скопирована!','🔗');
+  }
+}
+
+// Export menu toggle
+let _exportMenuOpen = false;
+function toggleExportMenu(e){
+  e.stopPropagation();
+  const menu = document.getElementById('exportMenu');
+  if(!menu) return;
+  _exportMenuOpen = !_exportMenuOpen;
+  menu.style.display = _exportMenuOpen ? 'block' : 'none';
+  if(_exportMenuOpen){
+    setTimeout(()=>document.addEventListener('click', closeExportMenu, {once:true}), 50);
+  }
+}
+function closeExportMenu(){
+  const menu = document.getElementById('exportMenu');
+  if(menu) menu.style.display = 'none';
+  _exportMenuOpen = false;
+}
+
+// ══════════════════════════════════════════════════════════════
+// 3. PWA MANIFEST — inject programmatically
+// ══════════════════════════════════════════════════════════════
+function injectPWAManifest(){
+  const manifest = {
+    name: 'DTR Progress Club',
+    short_name: 'DTR',
+    description: 'Геймифицированный трекер саморазвития с лигами и соревнованием',
+    start_url: '/',
+    display: 'standalone',
+    orientation: 'portrait',
+    background_color: '#080808',
+    theme_color: '#080808',
+    icons: [
+      {
+        src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='114' fill='%23080808'/><text y='370' x='60' font-size='380' font-family='sans-serif'>⚡</text></svg>",
+        sizes: '512x512',
+        type: 'image/svg+xml',
+        purpose: 'any maskable'
+      }
+    ],
+    categories: ['productivity', 'lifestyle', 'health'],
+    lang: 'ru',
+  };
+  const blob = new Blob([JSON.stringify(manifest)], {type:'application/manifest+json'});
+  const url = URL.createObjectURL(blob);
+  const link = document.getElementById('pwaManifest');
+  if(link) link.href = url;
+}
+
+// ══════════════════════════════════════════════════════════════
+// 4. SERVICE WORKER — offline support
+// ══════════════════════════════════════════════════════════════
+function registerServiceWorker(){
+  if(!('serviceWorker' in navigator)) return;
+  // Inline SW as blob
+  const swCode = `
+const CACHE = 'dtr-v1';
+self.addEventListener('install', e=>e.waitUntil(
+  caches.open(CACHE).then(c=>c.addAll([location.pathname]))
+));
+self.addEventListener('fetch', e=>{
+  if(e.request.url.includes('supabase')) return; // never cache API
+  e.respondWith(
+    fetch(e.request).catch(()=>caches.match(e.request))
+  );
+});
+self.addEventListener('push', e=>{
+  const d = e.data?.json()||{};
+  e.waitUntil(self.registration.showNotification(d.title||'DTR', {body:d.body,icon:d.icon}));
+});
+  `;
+  const blob = new Blob([swCode], {type:'application/javascript'});
+  const url = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(url).catch(()=>{});
+}
+
+// ══════════════════════════════════════════════════════════════
+// 5. INIT ON APP LOAD
+// ══════════════════════════════════════════════════════════════
+window.addEventListener('load', ()=>{
+  injectPWAManifest();
+  registerServiceWorker();
+  checkNotifPermission();
+});
+
+// Also init when user logs in
+const _origRenderAll2 = window.renderAll;
+window.renderAll = function(){
+  if(_origRenderAll2) _origRenderAll2.apply(this, arguments);
+  // Show notif banner after first render if needed
+  setTimeout(checkNotifPermission, 5000);
+};
 </script>
 
 </body>
