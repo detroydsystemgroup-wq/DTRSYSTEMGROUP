@@ -6969,7 +6969,9 @@ async function loadUser(userId){
     })();
   }
 
-  // Phase 2 complete — re-render with full data (only updates changed elements)
+  // Phase 2 complete — re-render with full data
+  // Call renderHeroZone() FIRST directly (guaranteed before renderAll's async parts)
+  if(typeof renderHeroZone === 'function') renderHeroZone();
   renderAll();
   setTimeout(showLeagueHero, 800);
   setTimeout(checkSundayBanner, 1500);
@@ -7070,6 +7072,8 @@ async function saveSession(catId,secs){
   setTimeout(renderDailyProgress, 200);
   showToast(`${cat.icon} +${fmtD(secs)} в "${esc(cat.name)}"`, '✅');
   newly.forEach((a,i)=>setTimeout(()=>showToast(`🏆 ${esc(a.name)}`,a.icon,true),(i+1)*900));
+  // Update hero cache after session save so next load shows fresh data
+  if(typeof renderHeroZone === 'function') renderHeroZone();
   } catch(e) { console.error('saveSession DB error:',e); showToast('Ошибка сохранения сессии','⚠️'); }
 }
 
@@ -10949,17 +10953,27 @@ function haptic(type){
 }
 
 // ══ HERO TODAY ZONE ═══════════════════════════════════════════
+const _HERO_CACHE_KEY = 'dtr_hero_cache';
+
+function _loadHeroCache(){
+  try{
+    const c = JSON.parse(localStorage.getItem(_HERO_CACHE_KEY)||'null');
+    // Cache valid for current calendar day only
+    const today = new Date().toISOString().slice(0,10);
+    if(c && c.date===today) return c;
+  }catch(e){}
+  return null;
+}
+
+function _saveHeroCache(data){
+  try{
+    const today = new Date().toISOString().slice(0,10);
+    localStorage.setItem(_HERO_CACHE_KEY, JSON.stringify({...data, date:today}));
+  }catch(e){}
+}
+
 function renderHeroZone(){
-  if(!window.P)return;
-  // FIX: use local timestamp comparison (not UTC string startsWith) to avoid timezone mismatch
-  const todayStart=new Date();todayStart.setHours(0,0,0,0);
-  const todayHrs=P.sessions
-    .filter(s=>s.ts&&s.ts>=todayStart.getTime())
-    .reduce((a,s)=>a+s.dur/3600,0);
-  const weekHrs=P.sessions.filter(s=>s.ts&&s.ts>Date.now()-7*86400000)
-    .reduce((a,s)=>a+s.dur/3600,0);
-  // FIX: totalHrs from categories (already reconciled with sessions in loadUser)
-  const totalHrs=P.categories.reduce((a,c)=>a+c.hours,0);
+  if(!window.P) return;
 
   const hEl=document.getElementById('heroTodayHrs');
   const mEl=document.getElementById('heroTodayMsg');
@@ -10967,11 +10981,42 @@ function renderHeroZone(){
   const wEl=document.getElementById('heroWeekHrs');
   const tEl=document.getElementById('heroTotalHrs');
 
+  // If still loading Phase 1 (no sessions yet) — show cached or streak-only
+  if(P._loading){
+    // Show streak from users table (always available in Phase 1)
+    if(sEl) sEl.textContent = P.streak||0;
+    // Try to show cached values for hours metrics
+    const cached = _loadHeroCache();
+    if(cached){
+      if(hEl) hEl.textContent = cached.today;
+      if(wEl) wEl.textContent = cached.week;
+      if(tEl) tEl.textContent = cached.total;
+      if(mEl){ mEl.textContent = cached.msg||'Загрузка...'; mEl.style.color='var(--t2)'; }
+    } else {
+      if(hEl) hEl.textContent = '—';
+      if(wEl) wEl.textContent = '—';
+      if(tEl) tEl.textContent = '—';
+      if(mEl){ mEl.textContent = 'Загрузка данных...'; mEl.style.color='var(--t3)'; }
+    }
+    return;
+  }
+
+  // Phase 2 complete — compute from real data
+  const todayStart=new Date(); todayStart.setHours(0,0,0,0);
+  const todayHrs=P.sessions
+    .filter(s=>s.ts&&s.ts>=todayStart.getTime())
+    .reduce((a,s)=>a+s.dur/3600,0);
+  const weekHrs=P.sessions
+    .filter(s=>s.ts&&s.ts>Date.now()-7*86400000)
+    .reduce((a,s)=>a+s.dur/3600,0);
+  const totalHrs=P.categories.reduce((a,c)=>a+c.hours,0);
+
   if(hEl) hEl.textContent=todayHrs.toFixed(1);
   if(sEl) sEl.textContent=P.streak||0;
   if(wEl) wEl.textContent=weekHrs.toFixed(1);
   if(tEl) tEl.textContent=totalHrs.toFixed(0);
 
+  // Message for today
   if(mEl){
     const msgs=[
       [0,   'Начни первую сессию дня'],
@@ -10981,10 +11026,19 @@ function renderHeroZone(){
       [4,   'Невероятная продуктивность!'],
     ];
     const msg=msgs.slice().reverse().find(([h])=>todayHrs>=h);
-    mEl.textContent=msg?msg[1]:'Начни первую сессию дня';
+    const txt = msg?msg[1]:'Начни первую сессию дня';
+    mEl.textContent=txt;
     if(todayHrs>=2) mEl.style.color='var(--gold)';
     else if(todayHrs>=1) mEl.style.color='var(--green)';
     else mEl.style.color='var(--t2)';
+    // Save to cache for next load
+    _saveHeroCache({
+      today: todayHrs.toFixed(1),
+      week:  weekHrs.toFixed(1),
+      total: totalHrs.toFixed(0),
+      streak: P.streak||0,
+      msg: txt
+    });
   }
 }
 
