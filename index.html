@@ -7934,12 +7934,11 @@ async function loadLeagueData(catId){
   (usersData||[]).forEach(u=>{userMap[u.id]=u;});
 
   // Step 3: get session stats (week+month) in one query
-  const mCut=new Date(Date.now()-30*86400000).toISOString();
   const wCut=new Date(Date.now()-7*86400000).toISOString();
   const{data:sessData}=await sb.from('sessions')
     .select('user_id,duration_seconds,created_at')
     .in('user_id',userIds)
-    .gte('created_at',mCut);
+    .eq('category_id',catId);
 
   // Build stats map
   const statsMap={};
@@ -9436,7 +9435,7 @@ function showTab(name,el,skipHistory){
   }
   if(el)el.classList.add('active');
   else{const s=document.querySelector('.stab[onclick*="\''+name+'\'"]');if(s)s.classList.add('active');}
-  if(name==='dash'){renderDash();setTimeout(()=>{staggerList('.kpi',40);staggerList('.si',25);initKpiGlow();renderDailyProgress();},60);}
+  if(name==='dash'){renderDash();if(typeof renderHeroZone==='function'&&window.P&&!P._loading)renderHeroZone();setTimeout(()=>{staggerList('.kpi',40);staggerList('.si',25);initKpiGlow();renderDailyProgress();},60);}
   if(name==='activity'){renderSessions(true);setTimeout(()=>staggerList('.si',25),50);}
   if(name==='achievements'){renderAchFull();setTimeout(()=>staggerList('.ach2',35),50);}
   if(name==='leagues'){renderLeagues();setTimeout(()=>{staggerList('.lg-row',28);staggerList('.lg-section',50);},80);}
@@ -10989,7 +10988,7 @@ function _loadHeroCache(){
   return null;
 }
 
-async function renderHeroZone(){
+function renderHeroZone(){
   if(!window.P) return;
   const hEl=document.getElementById('heroTodayHrs');
   const mEl=document.getElementById('heroTodayMsg');
@@ -11007,6 +11006,7 @@ async function renderHeroZone(){
       if(sEl) sEl.textContent = cached.streak;
       if(mEl){ mEl.textContent = cached.msg||''; mEl.style.color='var(--t2)'; }
     } else {
+      // No cache yet — show skeleton dashes
       if(hEl) hEl.textContent = '—';
       if(wEl) wEl.textContent = '—';
       if(tEl) tEl.textContent = '—';
@@ -11016,51 +11016,17 @@ async function renderHeroZone(){
     return;
   }
 
-  // Phase 2 — fetch fresh data directly from Supabase (bypasses 300-row in-memory limit)
-  const uid = P.id;
+  // Phase 2 complete — compute from real session data
   const todayStart = new Date(); todayStart.setHours(0,0,0,0);
-  const weekStart  = new Date(Date.now() - 7*86400000);
+  const todayHrs = P.sessions
+    .filter(s=>s.ts && s.ts >= todayStart.getTime())
+    .reduce((a,s)=>a+s.dur/3600, 0);
+  const weekHrs = P.sessions
+    .filter(s=>s.ts && s.ts > Date.now()-7*86400000)
+    .reduce((a,s)=>a+s.dur/3600, 0);
+  const totalHrs = P.categories.reduce((a,c)=>a+c.hours, 0);
 
-  let todayHrs = 0, weekHrs = 0, totalHrs = 0;
-
-  // First paint: show local values immediately while DB query runs
-  const localToday = P.sessions.filter(s=>s.ts && s.ts >= todayStart.getTime()).reduce((a,s)=>a+s.dur/3600,0);
-  const localWeek  = P.sessions.filter(s=>s.ts && s.ts > weekStart.getTime()).reduce((a,s)=>a+s.dur/3600,0);
-  const localTotal = P.categories.reduce((a,c)=>a+c.hours,0);
-  if(hEl) hEl.textContent = localToday.toFixed(1);
-  if(wEl) wEl.textContent = localWeek.toFixed(1);
-  if(tEl) tEl.textContent = localTotal < 1 ? localTotal.toFixed(1) : Math.round(localTotal).toString();
-  if(sEl) sEl.textContent = P.streak||0;
-
-  // Fetch from DB only for real users (not demo)
-  if(uid && window.sb && !SB_USER?.isDemoUser){
-    try{
-      const [r1, r2, r3] = await Promise.all([
-        sb.from('sessions').select('duration_seconds')
-          .eq('user_id', uid)
-          .gte('created_at', todayStart.toISOString()),
-        sb.from('sessions').select('duration_seconds')
-          .eq('user_id', uid)
-          .gte('created_at', weekStart.toISOString()),
-        sb.from('user_categories').select('hours')
-          .eq('user_id', uid)
-      ]);
-      if(!r1.error) todayHrs = (r1.data||[]).reduce((a,s)=>a+s.duration_seconds/3600, 0);
-      else todayHrs = localToday;
-      if(!r2.error) weekHrs  = (r2.data||[]).reduce((a,s)=>a+s.duration_seconds/3600, 0);
-      else weekHrs = localWeek;
-      if(!r3.error) totalHrs = (r3.data||[]).reduce((a,c)=>a+(c.hours||0), 0);
-      else totalHrs = localTotal;
-    }catch(e){
-      console.warn('renderHeroZone DB fetch failed, using local data:', e);
-      todayHrs = localToday; weekHrs = localWeek; totalHrs = localTotal;
-    }
-  } else {
-    // Demo user — use local in-memory data
-    todayHrs = localToday; weekHrs = localWeek; totalHrs = localTotal;
-  }
-
-  // Update DOM with authoritative values
+  // FIX: use toFixed(1) for all values to avoid showing 0 for 0.2h etc
   if(hEl) hEl.textContent = todayHrs.toFixed(1);
   if(sEl) sEl.textContent = P.streak||0;
   if(wEl) wEl.textContent = weekHrs.toFixed(1);
@@ -11080,7 +11046,7 @@ async function renderHeroZone(){
     mEl.style.color = todayHrs>=2?'var(--gold)':todayHrs>=1?'var(--green)':'var(--t2)';
   }
 
-  // Save to cache
+  // Cache for next load
   _saveHeroCache({
     today: todayHrs.toFixed(1),
     week:  weekHrs.toFixed(1),
