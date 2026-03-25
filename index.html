@@ -5551,6 +5551,22 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
   100% { transform: scale(1); opacity: 1; }
 }
 
+
+/* ══ ODOMETER — stat bar rolling counter ══════════════════════ */
+@keyframes odoRoll {
+  from { transform: translateY(60%); opacity: 0; filter: blur(2px); }
+  to   { transform: translateY(0);   opacity: 1; filter: blur(0); }
+}
+@keyframes odoFadeUp {
+  from { transform: translateY(30%) scale(.92); opacity: 0; }
+  to   { transform: translateY(0)    scale(1);  opacity: 1; }
+}
+.odo-char {
+  display: inline-block;
+  animation: odoRoll .5s cubic-bezier(.22,1,.36,1) both;
+}
+.ph-stat-num { overflow: hidden; display: block; }
+
 </style>
   <link rel="manifest" id="pwaManifest">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23080808'/%3E%3Cpolygon points='58,10 38,52 52,52 42,90 62,46 46,46' fill='%23F5C842'/%3E%3C/svg%3E">
@@ -5784,6 +5800,10 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
             <div class="export-item" onclick="exportData('csv');closeExportMenu()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
               Скачать CSV
+            </div>
+            <div class="export-item" onclick="exportData('pdf');closeExportMenu()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+              Сохранить PDF
             </div>
             <div class="export-item" onclick="shareProfileLink();closeExportMenu()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
@@ -7171,10 +7191,8 @@ function renderHeader(){
   const statSS=document.getElementById('statSessions');
   const statAC=document.getElementById('statAchs');
   const statST=document.getElementById('statStreak');
-  if(statTH) statTH.textContent=totalHrs().toFixed(0);
-  if(statSS) statSS.textContent=P.totalSessions;
-  if(statAC) statAC.textContent=P.achievements.filter(a=>a.unlocked).length;
-  if(statST) statST.textContent=P.streak||0;
+  // Animate stat bar with odometer
+  setTimeout(()=>{ if(typeof animStatBar==='function') animStatBar(); }, 120);
   // Apply cover frame
   const cover=document.getElementById('phCover');
   if(cover&&info.frame){
@@ -11452,51 +11470,41 @@ const _origToggleQuickBase = window.toggleQuick;
 // 2. DATA EXPORT — JSON + CSV
 // ══════════════════════════════════════════════════════════════
 function exportData(format){
-  if(!window.P){ showToast('Нет данных для экспорта','⚠️'); return; }
+  // Robust check — P must exist AND have data
+  if(!window.P || !window.P.name){
+    showToast('Войди в аккаунт перед экспортом','⚠️'); return;
+  }
 
   const now = new Date().toISOString().slice(0,10);
   const username = P.name || 'user';
+  const sessions = P.sessions || [];
+  const categories = P.categories || [];
+  const achievements = P.achievements || [];
+  const totalH = categories.reduce((a,c)=>a+(c.hours||0),0);
 
   if(format === 'json'){
     const data = {
       exported_at: new Date().toISOString(),
-      user: {
-        name: P.name,
-        joined: P.joinedDate,
-        streak: P.streak,
-        total_sessions: P.totalSessions,
-      },
-      categories: P.categories.map(c=>({
-        id: c.id, name: c.name, hours: parseFloat(c.hours.toFixed(2))
+      user: { name: P.name, joined: P.joinedDate, streak: P.streak||0, total_sessions: sessions.length },
+      categories: categories.map(c=>({ id:c.id, name:c.name, hours:parseFloat((c.hours||0).toFixed(2)) })),
+      sessions: sessions.map(s=>({
+        id: s.id, category: s.name, category_id: s.cat,
+        duration_seconds: s.dur, duration_minutes: Math.round(s.dur/60),
+        date: s.isoDate || s.date, timestamp: s.ts,
       })),
-      sessions: P.sessions.map(s=>({
-        id: s.id,
-        category: s.name,
-        category_id: s.cat,
-        duration_seconds: s.dur,
-        duration_minutes: Math.round(s.dur/60),
-        date: s.isoDate || s.date,
-        timestamp: s.ts,
-      })),
-      achievements: P.achievements.filter(a=>a.unlocked).map(a=>({
-        id: a.id,
-        unlocked_at: a.unlockedAt,
-      })),
+      achievements: achievements.filter(a=>a.unlocked).map(a=>({ id:a.id, unlocked_at:a.unlockedAt })),
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
     downloadBlob(blob, `dtr_${username}_${now}.json`);
-    showToast(`Экспорт готов — ${P.sessions.length} сессий`, '📥');
+    showToast('JSON готов — ' + sessions.length + ' сессий', '📥');
   }
 
   if(format === 'csv'){
     const rows = [
       ['Дата','Категория','Минут','Секунд','ID сессии'],
-      ...P.sessions.map(s=>[
-        s.isoDate ? s.isoDate.slice(0,10) : s.date,
-        s.name,
-        Math.round(s.dur/60),
-        s.dur,
-        s.id || '',
+      ...sessions.map(s=>[
+        s.isoDate ? s.isoDate.slice(0,10) : (s.date||''),
+        s.name || '', Math.round(s.dur/60), s.dur, s.id || '',
       ])
     ];
     const csvLines = rows.map(function(r){
@@ -11505,8 +11513,145 @@ function exportData(format){
     const bom = '\uFEFF';
     const blob = new Blob([bom + csvLines], {type:'text/csv;charset=utf-8'});
     downloadBlob(blob, `dtr_${username}_${now}.csv`);
-    showToast(`CSV готов — ${P.sessions.length} сессий`, '📊');
+    showToast('CSV готов — ' + sessions.length + ' сессий', '📊');
   }
+
+  if(format === 'pdf'){
+    exportToPDF(username, now, sessions, categories, achievements, totalH);
+  }
+}
+
+function exportToPDF(username, dateStr, sessions, categories, achievements, totalH){
+  const unl = achievements.filter(a=>a.unlocked).length;
+  const streak = window.P?.streak || 0;
+  // Group sessions by date for summary
+  const byDate = {};
+  sessions.forEach(s=>{
+    const d = (s.isoDate||s.date||'').slice(0,10);
+    if(d) byDate[d] = (byDate[d]||0) + s.dur/3600;
+  });
+  const recentDays = Object.entries(byDate).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,14);
+
+  const html = `<!DOCTYPE html><html lang="ru">
+<head><meta charset="UTF-8"><title>DTR Progress — ${username}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Helvetica Neue',Arial,sans-serif;background:#fff;color:#111;padding:48px;max-width:720px;margin:0 auto}
+  h1{font-size:28px;font-weight:800;letter-spacing:-.03em;margin-bottom:4px}
+  .sub{font-size:13px;color:#888;margin-bottom:32px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:32px}
+  .stat{background:#f5f5f7;border-radius:12px;padding:16px}
+  .stat-n{font-size:28px;font-weight:700;letter-spacing:-.03em}
+  .stat-l{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
+  .sec{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#aaa;margin:24px 0 10px;border-bottom:1px solid #eee;padding-bottom:6px}
+  .cat-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:14px}
+  .cat-name{font-weight:600}
+  .cat-hrs{font-family:monospace;font-size:15px;font-weight:700;color:#333}
+  .bar-bg{height:4px;background:#eee;border-radius:2px;margin-top:6px;overflow:hidden}
+  .bar-fill{height:100%;background:#1C9E52;border-radius:2px}
+  .day-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f5f5f5;font-size:13px}
+  .day-date{color:#888;width:96px;flex-shrink:0}
+  .day-bar-bg{flex:1;height:6px;background:#eee;border-radius:3px;overflow:hidden}
+  .day-bar-fill{height:100%;background:#22C55E;border-radius:3px}
+  .day-hrs{font-family:monospace;font-size:13px;font-weight:600;width:44px;text-align:right;flex-shrink:0}
+  .ach-grid{display:flex;flex-wrap:wrap;gap:6px}
+  .ach-pill{padding:4px 10px;background:#f5f5f7;border-radius:20px;font-size:12px;font-weight:500;color:#333}
+  .footer{margin-top:48px;font-size:11px;color:#bbb;text-align:center}
+</style></head><body>
+  <h1>${username}</h1>
+  <div class="sub">DTR Progress Club · Экспорт ${new Date().toLocaleDateString('ru')} · ${sessions.length} сессий</div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-n" style="color:#1C9E52">${totalH.toFixed(1)}</div><div class="stat-l">Часов всего</div></div>
+    <div class="stat"><div class="stat-n" style="color:#F97316">${streak}</div><div class="stat-l">Стрик (дней)</div></div>
+    <div class="stat"><div class="stat-n" style="color:#EF9F27">${unl}</div><div class="stat-l">Наград</div></div>
+    <div class="stat"><div class="stat-n">${sessions.length}</div><div class="stat-l">Сессий</div></div>
+  </div>
+
+  <div class="sec">По категориям</div>
+  ${categories.filter(c=>c.hours>0).sort((a,b)=>b.hours-a.hours).map(c=>{
+    const pct=Math.round((c.hours/Math.max(totalH,0.1))*100);
+    return `<div class="cat-row">
+      <div><div class="cat-name">${c.icon||''} ${c.name}</div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${pct}%"></div></div></div>
+      <div class="cat-hrs">${c.hours.toFixed(1)} ч</div>
+    </div>`;
+  }).join('')||'<div style="color:#aaa;font-size:13px;padding:12px 0">Нет данных</div>'}
+
+  <div class="sec">Последние 14 дней</div>
+  ${(()=>{
+    const mx=Math.max(...recentDays.map(d=>d[1]),0.1);
+    return recentDays.map(([d,h])=>`
+      <div class="day-row">
+        <div class="day-date">${new Date(d).toLocaleDateString('ru',{day:'numeric',month:'short'})}</div>
+        <div class="day-bar-bg"><div class="day-bar-fill" style="width:${Math.round(h/mx*100)}%"></div></div>
+        <div class="day-hrs">${h.toFixed(1)}ч</div>
+      </div>`).join('') || '<div style="color:#aaa;font-size:13px;padding:12px 0">Нет данных</div>';
+  })()}
+
+  ${unl>0?`<div class="sec">Достижения (${unl})</div>
+  <div class="ach-grid">${achievements.filter(a=>a.unlocked).map(a=>`<span class="ach-pill">${a.id}</span>`).join('')}</div>`:''}
+
+  <div class="footer">Создано в DTR Progress Club · dtrsystemgroup.vercel.app</div>
+
+// ══ ODOMETER COUNTER ══════════════════════════════════════════
+function odoCount(el, target, duration, decimals){
+  if(!el) return;
+  const start = performance.now();
+  const startVal = 0;
+  const isFloat = decimals > 0;
+
+  function easeOut(t){ return 1 - Math.pow(1-t, 3); }
+
+  function tick(now){
+    const elapsed = Math.min(now - start, duration);
+    const progress = easeOut(elapsed / duration);
+    const val = startVal + (target - startVal) * progress;
+    const display = isFloat ? val.toFixed(decimals) : Math.round(val);
+
+    // Render each digit as animated span on first render,
+    // then update text directly once animation is done
+    if(elapsed < duration){
+      el.textContent = String(display);
+      requestAnimationFrame(tick);
+    } else {
+      el.textContent = isFloat ? target.toFixed(decimals) : Math.round(target);
+      // Final pop — scale up slightly
+      el.style.transition = 'transform .2s cubic-bezier(.34,1.56,.64,1)';
+      el.style.transform = 'scale(1.12)';
+      setTimeout(()=>{ el.style.transform = 'scale(1)'; el.style.transition=''; }, 200);
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+// Staggered stat bar animation
+function animStatBar(){
+  if(!window.P) return;
+  const th = parseFloat(totalHrs().toFixed(0));
+  const ss = P.totalSessions || 0;
+  const ac = P.achievements.filter(a=>a.unlocked).length;
+  const st = P.streak || 0;
+
+  const base = 600; // base duration ms
+  const stagger = 80; // delay between each stat
+
+  setTimeout(()=> odoCount(document.getElementById('statTotalHrs'), th, base, 0),        0);
+  setTimeout(()=> odoCount(document.getElementById('statSessions'),  ss, base, 0),        stagger);
+  setTimeout(()=> odoCount(document.getElementById('statAchs'),      ac, base, 0),        stagger*2);
+  setTimeout(()=> odoCount(document.getElementById('statStreak'),    st, base, 0),        stagger*3);
+}
+
+</body></html>`;
+
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, '_blank');
+  if(win){
+    win.onload = ()=>{ setTimeout(()=>{ win.print(); }, 400); };
+  }
+  showToast('PDF готов — откроется диалог печати', '📄');
+  setTimeout(()=>URL.revokeObjectURL(url), 30000);
 }
 
 function downloadBlob(blob, filename){
