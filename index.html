@@ -5373,6 +5373,7 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
   justify-content: space-between !important;
   gap: 0 !important;
   box-shadow: none !important;
+  position: relative !important;
 }
 
 /* Logo */
@@ -5387,16 +5388,19 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
 /* Timer pill — center */
 #navTimerPill {
   display: none;
-  align-items: center; gap: 7px;
+  align-items: center !important; gap: 7px;
   padding: 5px 13px;
-  background: rgba(34,197,94,.08);
-  border: 0.5px solid rgba(34,197,94,.18);
+  background: rgba(34,197,94,.1);
+  border: 0.5px solid rgba(34,197,94,.22);
   border-radius: 20px;
   cursor: pointer;
-  transition: background .2s;
-  position: absolute; left: 50%; transform: translateX(-50%);
+  transition: background .2s, opacity .3s, transform .3s;
+  position: absolute !important; left: 50% !important; transform: translateX(-50%) !important;
+  z-index: 10;
+  white-space: nowrap;
+  animation: none;
 }
-#navTimerPill:hover { background: rgba(34,197,94,.13); }
+#navTimerPill:hover { background: rgba(34,197,94,.16); }
 .nav-timer-dot {
   width: 6px; height: 6px; border-radius: 50%;
   background: #22C55E; flex-shrink: 0;
@@ -10775,7 +10779,7 @@ function updateNavTimerPill(){
   // Use timerRunning state directly (qBtn no longer has 'active' class in new UI)
   const running=window.timerRunning && !window.timerPaused;
   if(running){
-    pill.style.display='flex';
+    pill.style.cssText='display:flex !important;align-items:center;gap:7px;padding:5px 13px;background:rgba(34,197,94,.1);border:0.5px solid rgba(34,197,94,.22);border-radius:20px;cursor:pointer;position:absolute;left:50%;transform:translateX(-50%);z-index:10;white-space:nowrap';
     const raw=qDisp?qDisp.textContent:'';
     const parts=raw.split(':');
     if(parts.length===3){
@@ -10784,7 +10788,7 @@ function updateNavTimerPill(){
     }
     if(!_diPillInterval) _diPillInterval=setInterval(updateNavTimerPill,1000);
   } else {
-    pill.style.display='none';
+    pill.style.cssText='display:none';
     clearInterval(_diPillInterval);
     _diPillInterval=null;
   }
