@@ -3,6 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<!-- Google Analytics 4 — DTR Progress Club -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-W7Z08RQGC6"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-W7Z08RQGC6', {
+    send_page_view: true,
+    cookie_flags: 'SameSite=None;Secure'
+  });
+</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#09090B">
@@ -12205,8 +12216,171 @@ window.renderAll = function(){
   setTimeout(checkNotifPermission, 5000);
 };
 
+// ══════════════════════════════════════════════════════════════
+// GOOGLE ANALYTICS 4 — EVENT TRACKING
+// Все события отправляются через gtag() без изменения логики
+// ══════════════════════════════════════════════════════════════
+(function(){
+  if(typeof gtag !== 'function') return;
+
+  // ── helpers ───────────────────────────────────────────────
+  function track(event, params){
+    try { gtag('event', event, params || {}); } catch(e){}
+  }
+
+  // ── 1. РЕГИСТРАЦИЯ ────────────────────────────────────────
+  // finishReg — вызывается при успешном создании аккаунта
+  const _origFinishReg = window.finishReg;
+  window.finishReg = async function(){
+    const result = _origFinishReg ? await _origFinishReg.apply(this, arguments) : undefined;
+    // Tracking fires after Supabase signup — check user was created
+    if(window.SB_USER || window.P){
+      track('sign_up', { method: 'email' });
+    }
+    return result;
+  };
+
+  // ── 2. ВХОД ───────────────────────────────────────────────
+  const _origDoLogin = window.doLogin;
+  window.doLogin = async function(){
+    await (_origDoLogin ? _origDoLogin.apply(this, arguments) : null);
+    if(window.SB_USER){
+      track('login', { method: 'email' });
+    }
+  };
+
+  // ── 3. СЕССИЯ СОХРАНЕНА ───────────────────────────────────
+  const _origSaveSessionGA = window.saveSession;
+  window.saveSession = async function(catId, secs){
+    const result = _origSaveSessionGA ? await _origSaveSessionGA.apply(this, arguments) : undefined;
+    if(secs > 30){
+      const cat = window.P?.categories?.find(c => c.id === catId);
+      track('session_saved', {
+        category_id:   catId,
+        category_name: cat?.name || catId,
+        duration_min:  Math.round(secs / 60),
+        duration_sec:  secs,
+      });
+    }
+    return result;
+  };
+
+  // ── 4. ВЫБОР / СНЯТИЕ КАТЕГОРИИ ───────────────────────────
+  const _origToggleCatGA = window.toggleCatEpic;
+  window.toggleCatEpic = function(id){
+    const wasBefore = window.P?.activeCatIds?.includes(id);
+    if(_origToggleCatGA) _origToggleCatGA.apply(this, arguments);
+    const isNow = window.P?.activeCatIds?.includes(id);
+    track(isNow ? 'category_selected' : 'category_removed', {
+      category_id: id
+    });
+  };
+
+  // ── 5. ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ───────────────────────────────
+  const _origShowTabGA = window.showTab;
+  window.showTab = function(name, el, skipHistory){
+    if(_origShowTabGA) _origShowTabGA.apply(this, arguments);
+    track('tab_view', { tab_name: name });
+    // Virtual page_view for SPA
+    gtag('event', 'page_view', {
+      page_title:    'DTR — ' + name,
+      page_location: location.href,
+      page_path:     '/' + name
+    });
+  };
+
+  // ── 6. ДОСТИЖЕНИЕ ПРОСМОТРЕНО / РАЗБЛОКИРОВАНО ────────────
+  const _origOpenAchGA = window.openAch;
+  window.openAch = function(id){
+    if(_origOpenAchGA) _origOpenAchGA.apply(this, arguments);
+    const ua = window.P?.achievements?.find(a => a.id === id);
+    track('achievement_viewed', {
+      achievement_id: id,
+      unlocked: ua?.unlocked ? 'yes' : 'no'
+    });
+  };
+
+  // Разблокировка достижения — перехватываем showToast с isAch=true
+  const _origShowToastGA = window.showToast;
+  window.showToast = function(msg, icon, isAch, sub){
+    if(_origShowToastGA) _origShowToastGA.apply(this, arguments);
+    if(isAch){
+      track('achievement_unlocked', { achievement_label: msg });
+    }
+  };
+
+  // ── 7. ЭКСПОРТ ДАННЫХ ─────────────────────────────────────
+  const _origExportDataGA = window.exportData;
+  window.exportData = function(format){
+    if(_origExportDataGA) _origExportDataGA.apply(this, arguments);
+    track('export_data', { format: format });
+  };
+
+  // ── 8. ШЕРИНГ ПРОФИЛЯ ────────────────────────────────────
+  const _origShareGA = window.shareProfileLink;
+  window.shareProfileLink = function(){
+    if(_origShareGA) _origShareGA.apply(this, arguments);
+    track('share', { method: 'profile_link', content_type: 'profile' });
+  };
+
+  // ── 9. ТАЙМЕР — старт / стоп ─────────────────────────────
+  const _origToggleQuickGA = window.toggleQuick;
+  window.toggleQuick = function(){
+    const wasBefore = window.timerRunning;
+    if(_origToggleQuickGA) _origToggleQuickGA.apply(this, arguments);
+    const isNow = window.timerRunning;
+    if(!wasBefore && isNow){
+      track('timer_start', { mode: 'free', category_id: window.quickSel || '' });
+    }
+  };
+
+  // ── 10. НАПОМИНАНИЯ — включение ──────────────────────────
+  const _origToggleMasterGA = window.rmdToggleMaster;
+  window.rmdToggleMaster = function(){
+    if(_origToggleMasterGA) _origToggleMasterGA.apply(this, arguments);
+    const cfg = (() => { try{ return JSON.parse(localStorage.getItem('dtr_rmd_v1'))||{}; }catch(e){return{};} })();
+    track('reminder_toggle', { enabled: cfg.enabled ? 'on' : 'off', time: cfg.time });
+  };
+
+  // ── 11. ONBOARDING — просмотр слайдов ────────────────────
+  // Patch slide auto-advance (nextBSlide called by interval)
+  const _origNextBSlide = window.nextBSlide;
+  let _obStep = 0;
+  window.nextBSlide = function(){
+    if(_origNextBSlide) _origNextBSlide.apply(this, arguments);
+    _obStep++;
+    track('onboarding_step', { step: _obStep });
+  };
+
+  // ── 12. ПРОФИЛЬ ОТКРЫТ ───────────────────────────────────
+  const _origOpenPubGA = window.openPub;
+  window.openPub = async function(){
+    if(_origOpenPubGA) await _origOpenPubGA.apply(this, arguments);
+    track('profile_view', { viewer: window.P?.name || 'unknown' });
+  };
+
+  // ── 13. ЛИГА — просмотр ──────────────────────────────────
+  const _origOpenLeagueGA = window.openLeagueProfile;
+  if(_origOpenLeagueGA){
+    window.openLeagueProfile = function(){
+      if(_origOpenLeagueGA) _origOpenLeagueGA.apply(this, arguments);
+      track('league_profile_view', {});
+    };
+  }
+
+  // ── 14. ОШИБКИ JS — глобальные ───────────────────────────
+  window.addEventListener('error', function(e){
+    track('js_error', {
+      error_message: e.message?.slice(0,100),
+      error_source:  e.filename?.replace(location.origin,'')?.slice(0,100),
+      error_line:    e.lineno
+    });
+  });
+
+})();
+</script>
+
 // ── Авто-обновление в полночь ──────────────────────────────
-// Если страница открыта через полночь — обновляем счётчики
 (function scheduleMidnightRefresh(){
   const now = new Date();
   const next = new Date(now);
