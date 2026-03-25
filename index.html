@@ -11979,9 +11979,25 @@ window.addEventListener('load', ()=>{
 const _origRenderAll2 = window.renderAll;
 window.renderAll = function(){
   if(_origRenderAll2) _origRenderAll2.apply(this, arguments);
-  // Show notif banner after first render if needed
   setTimeout(checkNotifPermission, 5000);
 };
+
+// ── Авто-обновление в полночь ──────────────────────────────
+// Если страница открыта через полночь — обновляем счётчики
+(function scheduleMidnightRefresh(){
+  const now = new Date();
+  const next = new Date(now);
+  next.setDate(next.getDate() + 1);
+  next.setHours(0, 0, 10, 0); // 00:00:10 следующего дня
+  const msUntilMidnight = next - now;
+
+  setTimeout(()=>{
+    if(window.P && !P._loading){
+      renderAll(); // полный перерендер с новым todayStart
+    }
+    scheduleMidnightRefresh(); // запланировать следующую полночь
+  }, msUntilMidnight);
+})();
 </script>
 
 </body>
