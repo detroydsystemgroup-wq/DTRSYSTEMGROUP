@@ -10952,78 +10952,58 @@ function haptic(type){
   navigator.vibrate(p[type]||p.light);
 }
 
-// ══ HERO TODAY ZONE ═══════════════════════════════════════════
 // ══ HERO TODAY ZONE ══════════════════════════════════════════
-// Обновляет только textContent готовых элементов.
-// Прямые запросы в Supabase — не зависит от P.sessions.
+// Читает данные из P (уже загружены loadUser).
+// Если P ещё грузится — ждёт и повторяет.
 
 let _heroDebounceTimer = null;
 
 function renderHeroZone(){
-  // Дебаунс 200мс — гасит серию быстрых вызовов из renderAll
   clearTimeout(_heroDebounceTimer);
-  _heroDebounceTimer = setTimeout(_doRenderHero, 200);
+  _heroDebounceTimer = setTimeout(_doRenderHero, 150);
 }
 
-async function _doRenderHero(){
-  if(!window.P) return;
+function _doRenderHero(){
+  if(!window.P){ return; }
+
+  // Если данные ещё грузятся — подождать и повторить
+  if(P._loading){
+    clearTimeout(_heroDebounceTimer);
+    _heroDebounceTimer = setTimeout(_doRenderHero, 400);
+    return;
+  }
+
   const hEl = document.getElementById('heroTodayHrs');
   const mEl = document.getElementById('heroTodayMsg');
   const sEl = document.getElementById('heroStreakVal');
   const wEl = document.getElementById('heroWeekHrs');
   const tEl = document.getElementById('heroTotalHrs');
-  if(!hEl) return; // DOM ещё не готов
+  if(!hEl) return;
+
+  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+  const ts = todayStart.getTime();
+
+  const todayHrs = P.sessions.filter(s=>s.ts && s.ts >= ts)
+                              .reduce((a,s)=>a + s.dur/3600, 0);
+  const weekHrs  = P.sessions.filter(s=>s.ts && s.ts > Date.now() - 7*86400000)
+                              .reduce((a,s)=>a + s.dur/3600, 0);
+  const totalHrs = P.categories.reduce((a,c)=>a + (c.hours||0), 0);
+  const streak   = P.streak || 0;
 
   const MSGS = [
-    [4,   'Невероятная продуктивность!',  'var(--gold)'],
-    [2,   'Два часа — выше среднего.',    'var(--gold)'],
-    [1,   'Уже час. Отличный ритм.',      'var(--green)'],
-    [0.5, 'Хорошее начало — продолжай!', 'var(--green)'],
-    [0,   'Начни первую сессию дня',      'var(--t2)'],
+    [4,   'Невероятная продуктивность!', 'var(--gold)'],
+    [2,   'Два часа — выше среднего.',   'var(--gold)'],
+    [1,   'Уже час. Отличный ритм.',     'var(--green)'],
+    [0.5, 'Хорошее начало!',             'var(--green)'],
+    [0,   'Начни первую сессию дня',     'var(--t2)'],
   ];
-
-  let todayHrs = 0, weekHrs = 0, totalHrs = 0;
-
-  try {
-    const uid = P.id;
-    const todayStart = new Date(); todayStart.setHours(0,0,0,0);
-    const weekStart  = new Date(Date.now() - 7*86400000);
-
-    if(uid && window.sb && !SB_USER?.isDemoUser){
-      const [r1, r2, r3] = await Promise.all([
-        sb.from('sessions').select('duration_seconds')
-          .eq('user_id', uid).gte('created_at', todayStart.toISOString()),
-        sb.from('sessions').select('duration_seconds')
-          .eq('user_id', uid).gte('created_at', weekStart.toISOString()),
-        sb.from('user_categories').select('hours')
-          .eq('user_id', uid)
-      ]);
-      if(!r1.error) todayHrs = (r1.data||[]).reduce((a,s)=>a+s.duration_seconds/3600, 0);
-      if(!r2.error) weekHrs  = (r2.data||[]).reduce((a,s)=>a+s.duration_seconds/3600, 0);
-      if(!r3.error) totalHrs = (r3.data||[]).reduce((a,c)=>a+(c.hours||0), 0);
-    } else {
-      // Demo или нет uid — берём из памяти
-      const ts = todayStart.getTime();
-      todayHrs = P.sessions.filter(s=>s.ts&&s.ts>=ts).reduce((a,s)=>a+s.dur/3600,0);
-      weekHrs  = P.sessions.filter(s=>s.ts&&s.ts>=weekStart.getTime()).reduce((a,s)=>a+s.dur/3600,0);
-      totalHrs = P.categories.reduce((a,c)=>a+c.hours,0);
-    }
-  } catch(e) {
-    console.warn('renderHeroZone fetch failed, using local data:', e);
-    const ts = (()=>{ const d=new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
-    todayHrs = P.sessions.filter(s=>s.ts&&s.ts>=ts).reduce((a,s)=>a+s.dur/3600,0);
-    weekHrs  = P.sessions.filter(s=>s.ts&&s.ts>Date.now()-7*86400000).reduce((a,s)=>a+s.dur/3600,0);
-    totalHrs = P.categories.reduce((a,c)=>a+c.hours,0);
-  }
-
-  const streak   = P.streak || 0;
-  const totalFmt = totalHrs < 1 ? totalHrs.toFixed(1) : Math.round(totalHrs).toString();
   const [,msg,msgColor] = MSGS.find(([h])=>todayHrs>=h) || MSGS[MSGS.length-1];
 
-  if(hEl){ hEl.textContent = todayHrs.toFixed(1); hEl.style.color = todayHrs>0?'var(--gold)':'var(--t1)'; }
-  if(sEl)  sEl.textContent = streak;
-  if(wEl)  wEl.textContent = weekHrs.toFixed(1);
-  if(tEl)  tEl.textContent = totalFmt;
+  hEl.textContent = todayHrs.toFixed(1);
+  hEl.style.color = todayHrs > 0 ? 'var(--gold)' : 'var(--t1)';
+  if(sEl) sEl.textContent = streak;
+  if(wEl) wEl.textContent = weekHrs.toFixed(1);
+  if(tEl) tEl.textContent = totalHrs < 1 ? totalHrs.toFixed(1) : Math.round(totalHrs).toString();
   if(mEl){ mEl.textContent = msg; mEl.style.color = msgColor; }
 }
 
