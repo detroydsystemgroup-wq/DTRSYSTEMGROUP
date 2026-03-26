@@ -7053,7 +7053,18 @@ async function loadUser(userId){
   }));
 
   const catLookup={};ALL_CATS.forEach(c=>{catLookup[c.id]=c;});
-  const sessFmt=sessions.map(s=>{
+  // ── Deduplicate sessions: remove near-duplicates (same cat+dur within 60s) ──
+  // This fixes legacy duplicate sessions caused by the old double-save bug
+  const _seenSessKey = new Set();
+  const sessionsDeduped = sessions.filter(s => {
+    const bucket = Math.floor(new Date(s.created_at).getTime() / 60000); // 1-min bucket
+    const key = `${s.category_id}_${s.duration_seconds}_${bucket}`;
+    if (_seenSessKey.has(key)) return false;
+    _seenSessKey.add(key);
+    return true;
+  });
+
+  const sessFmt=sessionsDeduped.map(s=>{
     const c=catLookup[s.category_id]||{name:s.category_id,icon:'⏱',color:'var(--t2)'};
     return{id:s.id,cat:s.category_id,name:c.name,icon:c.icon,color:c.color,
       dur:s.duration_seconds,
@@ -7063,11 +7074,12 @@ async function loadUser(userId){
   });
 
   // ── totalSessions: prefer DB value (handles >300 sessions) ───
-  const finalTotalSessions = Math.max(user.total_sessions||0, sessions.length);
+  const finalTotalSessions = Math.max(user.total_sessions||0, sessionsDeduped.length);
 
   // ── Streak: recompute from sessions (local timezone-safe) ─────
-  const computedStreak = computeStreakFromSessions(sessions);
-  const finalStreak = Math.max(user.streak||0, computedStreak);
+  const computedStreak = computeStreakFromSessions(sessionsDeduped);
+  // FIX: use computed only — DB value may be inflated from old duplicate-session bug
+  const finalStreak = computedStreak;
 
   // Update P with full data (replaces the skeleton P from Phase 1)
   P={
@@ -7197,14 +7209,14 @@ async function saveSession(catId,secs){
   if(uc){await sb.from('user_categories').update({hours:(uc.hours||0)+secs/3600}).eq('id',uc.id);}
   else{await sb.from('user_categories').insert({user_id:SB_USER.id,category_id:catId,hours:secs/3600});}
 
-  // Update streak — always recompute from sessions for accuracy
-  const todayISO=new Date().toISOString().split('T')[0];
-  const yestISO=new Date(Date.now()-86400000).toISOString().split('T')[0];
-  let newStreak=P.streak;
-  if(P.lastActiveDate!==todayISO){
-    newStreak=P.lastActiveDate===yestISO?(P.streak||0)+1:1;
-    P.lastActiveDate=todayISO;
-  }
+  // Update streak — recompute from sessions (local timezone, single source of truth)
+  const _now=new Date();
+  const todayISO=`${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
+  // Include this new session in recompute
+  const _prevSessions=P.sessions.map(s=>({created_at:s.isoDate||new Date(s.ts||Date.now()).toISOString()}));
+  const _allSessions=[..._prevSessions,{created_at:new Date().toISOString()}];
+  const newStreak=computeStreakFromSessions(_allSessions);
+  P.lastActiveDate=todayISO;
   const newTotalSessions=(P.totalSessions||0)+1;
   await sb.from('users').update({
     streak:newStreak,
@@ -9114,8 +9126,9 @@ function timerTick() {
     if (disp2) disp2.textContent = fmt(remaining);
     if (remaining === 0) {
       const catId = getTimerState()?.catId || quickSel;
-      stopTimerPom();
-      saveSession(catId, pomMode * 60);
+      const _pomSecs = pomMode * 60; // capture before stopTimerPom resets state
+      stopTimerPom(); // sets timerRunning=false AND stops interval
+      saveSession(catId, _pomSecs);
       showToast('🍅 Помодоро завершён! ' + pomMode + ' мин зачтено', '🎉');
       return;
     }
@@ -9223,6 +9236,7 @@ function stopTimer(){
 
 function stopTimerPom(){
   cancelAnimationFrame(timerRAF);
+  stopTimerInterval(); // FIX: also stop setInterval to prevent extra timerTick calls
   timerRunning = false; timerPaused = false; _pausedElapsed = 0;
   setTimerState(null);
   const disp = document.getElementById('qDisp');
