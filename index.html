@@ -11697,17 +11697,47 @@ function _getBrowserUnblockSteps() {
 
 function notifOpenBrowserSettings() {
   const br = _detectBrowser();
-  let url = null;
-  if (br === 'chrome')  url = 'chrome://settings/content/notifications';
-  else if (br === 'edge') url = 'edge://settings/content/notifications';
-  else if (br === 'firefox') url = 'about:preferences#privacy';
-  if (url) {
-    showToast('Скопируй адрес и вставь в новую вкладку: ' + url, 'ℹ️');
-    // Can't open chrome:// via JS — copy to clipboard
-    if (navigator.clipboard) navigator.clipboard.writeText(url);
-  } else {
-    showToast('Нажми на 🔒 замок в адресной строке → Уведомления → Разрешить', 'ℹ️');
-  }
+
+  // Internal browser URLs can't be opened by window.open — show a visual popup instead
+  const overlayId = 'notifBrowserHelpOv';
+  const existing = document.getElementById(overlayId);
+  if (existing) { existing.remove(); return; }
+
+  const steps = {
+    chrome:  ['Нажми на <b>🔒 замок</b> (или ⓘ) слева от адреса', 'Выбери <b>«Разрешения для сайта»</b>', 'Найди строку <b>«Уведомления»</b>', 'Смени на <b>«Разрешить»</b>', 'Обнови страницу (F5)'],
+    yandex:  ['Нажми на <b>🔒 замок</b> слева от адреса', 'Выбери <b>«Уведомления»</b> из списка', 'Смени на <b>«Разрешить»</b>', 'Нажми <b>«Обновить страницу»</b>'],
+    edge:    ['Нажми на <b>🔒 замок</b> слева от адреса', 'Выбери <b>«Разрешения для этого сайта»</b>', 'Найди <b>«Уведомления»</b>', 'Смени на <b>«Разрешить»</b>', 'Обнови страницу (F5)'],
+    firefox: ['Нажми на <b>🔒 замок</b> слева от адреса', 'Нажми <b>«›»</b> → «Дополнительные сведения»', 'Перейди на вкладку <b>«Разрешения»</b>', 'Найди <b>«Отправлять уведомления»</b>', 'Убери галочку «Блокировать»', 'Обнови страницу (F5)'],
+    safari:  ['Открой меню <b>Safari → Настройки</b>', 'Перейди в раздел <b>«Веб-сайты»</b>', 'Выбери <b>«Уведомления»</b>', 'Найди этот сайт → выбери <b>«Разрешить»</b>'],
+    opera:   ['Нажми на <b>🔒 замок</b> слева от адреса', 'Выбери <b>«Разрешения для сайта»</b>', 'Найди <b>«Уведомления»</b>', 'Смени на <b>«Разрешить»</b>', 'Обнови страницу (F5)'],
+  };
+  const brSteps = steps[br] || steps.chrome;
+  const brNames = { chrome:'Google Chrome', yandex:'Яндекс Браузер', edge:'Microsoft Edge', firefox:'Firefox', safari:'Safari', opera:'Opera' };
+
+  const ov = document.createElement('div');
+  ov.id = overlayId;
+  ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML = `
+    <div style="background:var(--panel);border:0.5px solid rgba(239,68,68,.3);border-radius:18px;padding:22px;max-width:380px;width:100%;box-shadow:0 32px 80px rgba(0,0,0,.7)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="font-size:14px;font-weight:700;color:var(--t1)">Как разрешить в ${brNames[br]||'браузере'}</div>
+        <button onclick="document.getElementById('${overlayId}').remove()" style="background:none;border:none;color:var(--t3);font-size:20px;cursor:pointer;padding:2px">&#x2715;</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px">
+        ${brSteps.map((s,i) => `
+          <div style="display:flex;align-items:flex-start;gap:10px">
+            <div style="width:22px;height:22px;border-radius:50%;background:rgba(239,68,68,.15);border:0.5px solid rgba(239,68,68,.3);color:var(--red);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">${i+1}</div>
+            <div style="font-size:13px;color:var(--t2);line-height:1.5;padding-top:2px">${s}</div>
+          </div>`).join('')}
+      </div>
+      <div style="background:rgba(245,200,66,.06);border:0.5px solid rgba(245,200,66,.2);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+        <span style="font-size:14px">💡</span>
+        <div style="font-size:11px;color:var(--t2);line-height:1.5">Значок замка находится <b>в адресной строке браузера</b> — вверху страницы, слева от адреса сайта</div>
+      </div>
+      <button onclick="document.getElementById('${overlayId}').remove()" style="width:100%;padding:11px;border-radius:10px;background:var(--card);border:0.5px solid var(--border);color:var(--t2);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer">Понятно</button>
+    </div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
 }
 
 function _updateNotifPermUI() {
