@@ -9399,6 +9399,145 @@ function _setTimerUI(state){ // state: 'idle' | 'running' | 'paused'
   }
 }
 
+// ── Haptic feedback (mobile vibration, no-op on desktop) ──
+function haptic(type) {
+  if (!navigator.vibrate) return;
+  switch(type) {
+    case 'light':   navigator.vibrate(10); break;
+    case 'medium':  navigator.vibrate(20); break;
+    case 'heavy':   navigator.vibrate(40); break;
+    case 'success': navigator.vibrate([15, 50, 15]); break;
+    default:        navigator.vibrate(15);
+  }
+}
+
+// ── Sync timer display every 500ms (mobile & tab) ──
+let _mTimerSyncInterval = null;
+function syncMobileTimerDisplay() {
+  if (!timerRunning && !timerPaused) return;
+  const disp = document.getElementById('qDisp');
+  if (!disp) return;
+  const secs = getElapsed();
+  if (pomMode > 0) {
+    const remaining = Math.max(0, pomMode * 60 - secs);
+    disp.textContent = fmt(remaining);
+  } else {
+    disp.textContent = fmt(secs);
+  }
+  updateNavTimerPill();
+}
+
+// ── Update timer tab UI state after restore ──
+function updateTimerTabState() {
+  if (timerRunning) {
+    _setTimerUI('running');
+  } else if (timerPaused) {
+    _setTimerUI('paused');
+  } else {
+    _setTimerUI('idle');
+  }
+}
+
+// ── Open timer on mobile (scroll to timer panel) ──
+function openMobileTimerSheet() {
+  showTab('dash');
+  setTimeout(() => {
+    const el = document.querySelector('.timer-panel') || document.getElementById('qDisp');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 150);
+}
+
+// ── Command Palette ────────────────────────────────────────────
+const CMD_LIST = [
+  { label: '🚀 Старт таймера',       action: () => { showTab('dash'); setTimeout(toggleQuick, 200); } },
+  { label: '⏸ Пауза таймера',        action: () => pauseTimer() },
+  { label: '⏹ Стоп / сохранить',     action: () => stopTimer() },
+  { label: '📊 Дашборд',             action: () => showTab('dash') },
+  { label: '⚔️ Арена',               action: () => showTab('leagues') },
+  { label: '📜 История',             action: () => showTab('activity') },
+  { label: '🏆 Награды',             action: () => showTab('achievements') },
+  { label: '🌟 Лиги',               action: () => showTab('manage') },
+  { label: '💬 Сообщения',           action: () => showTab('messages') },
+  { label: '🚪 Выйти из аккаунта',   action: () => doLogout() },
+];
+let _cmdIdx = -1;
+
+function openCmdPalette() {
+  const pal = document.getElementById('cmdPalette');
+  if (!pal) return;
+  pal.style.display = 'flex';
+  _cmdIdx = -1;
+  filterCmds('');
+  setTimeout(() => {
+    const inp = document.getElementById('cmdInput');
+    if (inp) { inp.value = ''; inp.focus(); }
+  }, 50);
+}
+
+function closeCmdPalette() {
+  const pal = document.getElementById('cmdPalette');
+  if (pal) pal.style.display = 'none';
+  _cmdIdx = -1;
+}
+
+function filterCmds(q) {
+  const list = document.getElementById('cmdList');
+  if (!list) return;
+  const lower = (q || '').toLowerCase();
+  const filtered = CMD_LIST.filter(c => !lower || c.label.toLowerCase().includes(lower));
+  _cmdIdx = -1;
+  list.innerHTML = filtered.map((c, i) =>
+    `<div class="cmd-item" data-idx="${i}"
+       style="padding:11px 16px;cursor:pointer;font-size:13px;color:var(--t1);transition:background .12s;border-radius:0"
+       onmouseenter="this.style.background='rgba(255,255,255,.06)'"
+       onmouseleave="this.style.background=''"
+       onclick="(${JSON.stringify(filtered.map(x=>x.label))})[${i}]; _execCmd(${i}, ${JSON.stringify(filtered.map(x=>x.label))})"
+    >${c.label}</div>`
+  ).join('');
+  // Store filtered for keyNav
+  list._filtered = filtered;
+}
+
+function _execCmd(idx, labels) {
+  const list = document.getElementById('cmdList');
+  const filtered = list?._filtered || CMD_LIST;
+  if (filtered[idx]) {
+    closeCmdPalette();
+    filtered[idx].action();
+  }
+}
+
+function cmdKeyNav(e) {
+  const list = document.getElementById('cmdList');
+  const filtered = list?._filtered || [];
+  const items = list?.querySelectorAll('.cmd-item') || [];
+  if (e.key === 'Escape') { closeCmdPalette(); return; }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _cmdIdx = Math.min(_cmdIdx + 1, items.length - 1);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _cmdIdx = Math.max(_cmdIdx - 1, 0);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (_cmdIdx >= 0 && filtered[_cmdIdx]) {
+      closeCmdPalette();
+      filtered[_cmdIdx].action();
+    }
+    return;
+  } else { return; }
+  items.forEach((el, i) => {
+    el.style.background = i === _cmdIdx ? 'rgba(245,200,66,.12)' : '';
+  });
+  items[_cmdIdx]?.scrollIntoView({ block: 'nearest' });
+}
+
+// Close palette on Escape globally
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeCmdPalette();
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openCmdPalette(); }
+});
+
 // ── Nav timer pill: показываем/скрываем и обновляем время ──
 function updateNavTimerPill() {
   const pill = document.getElementById('navTimerPill');
@@ -9531,10 +9670,8 @@ function restoreTimer() {
 
   startTimerInterval();
   // Restart mobile sync interval after reload
-  if(typeof _mTimerSyncInterval !== 'undefined'){
-    clearInterval(_mTimerSyncInterval);
-    _mTimerSyncInterval = setInterval(syncMobileTimerDisplay, 500);
-  }
+  clearInterval(_mTimerSyncInterval);
+  _mTimerSyncInterval = setInterval(syncMobileTimerDisplay, 500);
   setTimeout(syncMobileTimerDisplay, 100);
   setTimeout(updateTimerTabState, 100);
   setTimeout(updateNavTimerPill, 100);
