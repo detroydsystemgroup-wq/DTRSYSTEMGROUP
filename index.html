@@ -7065,6 +7065,8 @@ async function loadUser(userId){
     avatarUrl:user.avatar_url||null,
     _loading: false
   };
+  // Invalidate league cache so arena shows the correct avatar immediately
+  lgCache = {}; lgCacheTime = {};
 
   // ── RECONCILE hours: sessions are source of truth ─────────────
   // user_categories.hours can be 0 if previous saves failed.
@@ -9330,6 +9332,7 @@ function selCat(id) { if (timerRunning) return; quickSel = id; renderQuickCats()
 function timerTick() {
   if (!timerRunning) return;
   const secs = getElapsed();
+  updateNavTimerPill(); // keep pill in sync every tick
   if (pomMode === 0) {
     const disp = document.getElementById('qDisp');
     if (disp) disp.textContent = fmt(secs);
@@ -10208,6 +10211,7 @@ async function saveAv(){
         } else {
           await sb.from('users').update({avatar_url:b64,avatar:P.avatar}).eq('id',SB_USER.id);
           P.avatarUrl=b64;
+          lgCache = {}; lgCacheTime = {};
           avPhotoFile=null;
           renderNav();renderHeader();
           showToast('Аватар сохранён!','🖼️');
@@ -10219,6 +10223,7 @@ async function saveAv(){
           const url=await uploadAvatarPhoto();
           if(url){
             P.avatarUrl=url;
+            lgCache = {}; lgCacheTime = {};
             await sb.from('users').update({avatar_url:url}).eq('id',SB_USER.id);
             avPhotoFile=null;
             renderNav();renderHeader();
