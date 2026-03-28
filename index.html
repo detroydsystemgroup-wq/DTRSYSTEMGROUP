@@ -7374,7 +7374,12 @@ async function saveSession(catId,secs){
   P.totalActiveDays=newActiveDays;
 
   const newly=await checkAchsSB(secs);
-  delete lgCache[catId];
+
+  // Инвалидируем кеш арены для этой категории
+  // Так как теперь arena берёт часы из P.categories для текущего пользователя,
+  // достаточно просто обновить P в кеше — но удаление кеша надёжнее
+  delete lgCache[catId]; delete lgCacheTime[catId];
+
   renderAll();
   setTimeout(renderDailyProgress, 200);
   showToast(`${cat.icon} +${fmtD(secs)} в "${esc(cat.name)}"`, '✅');
@@ -8399,22 +8404,35 @@ async function _fetchLeagueData(catId){
     if(h>statsMap[s.user_id].bestSession)statsMap[s.user_id].bestSession=h;
   });
 
-  // FIX: для пользователей с hours=0 — берём значение из user_categories.hours
-  // Не делаем доп.запрос к sessions — это экономит время загрузки
   const players=ucData.map(uc=>{
     const u=userMap[uc.user_id]||{};
     const st=statsMap[uc.user_id]||{weekHrs:0,monthHrs:0,bestSession:0};
-    // Используем hours из user_categories как источник истины для общего рейтинга
-    const totalHrs = uc.hours||0;
-    // Подставляем аватарку текущего пользователя из P если это мы
     const isMe = uc.user_id===SB_USER?.id;
+
+    // ── КЛЮЧЕВОЙ ФИЧ: для текущего пользователя берём часы из P.categories ──
+    // P.categories — это reconciled значение (max из БД и вычисленного из сессий)
+    // Это гарантирует что цифра в арене = цифре на дашборде
+    // Для других игроков — берём uc.hours из БД (их P нам недоступен)
+    let totalHrs;
+    if(isMe && window.P && P.categories){
+      const myCat = P.categories.find(c=>c.id===catId);
+      totalHrs = myCat ? myCat.hours : (uc.hours||0);
+    } else {
+      totalHrs = uc.hours||0;
+    }
+
+    // Для текущего пользователя weekHrs тоже берём из реальных P.sessions
+    const myWeekHrs = isMe && window.P
+      ? P.sessions.filter(s=>s.cat===catId&&sessTs(s)>=getWeekStart()).reduce((a,s)=>a+s.dur/3600,0)
+      : (st.weekHrs||0);
+
     return{
-      name:u.username||'?',
+      name:isMe?(P?.name||u.username||'?'):(u.username||'?'),
       av:isMe?(P?.avatar||u.avatar||'🎯'):(u.avatar||'🎯'),
       avUrl:isMe?(P?.avatarUrl||null):null,
       hrs:Math.round(totalHrs*10)/10,
-      streak:u.streak||0,
-      weekHrs:Math.round((st.weekHrs||0)*10)/10,
+      streak:isMe?(P?.streak||0):(u.streak||0),
+      weekHrs:Math.round(myWeekHrs*10)/10,
       monthHrs:Math.round((st.monthHrs||0)*10)/10,
       bestSession:Math.round((st.bestSession||0)*10)/10,
       fake:false,
