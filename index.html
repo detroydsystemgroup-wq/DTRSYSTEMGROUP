@@ -6973,6 +6973,12 @@ async function loadUser(userId){
   // Онлайн счётчик сразу
   initPresence();
   initRealtimeMessages();
+  // Обновляем last_seen при открытии приложения
+  if(!SB_USER.isDemoUser){
+    sb.from('users').update({last_seen:new Date().toISOString()})
+      .eq('id',SB_USER.id)
+      .then(null, e => console.warn('last_seen update failed:', e));
+  }
 
   // ФАЗА 2: грузим все данные параллельно (сессии, категории, достижения)
   const [r2, r3, r4] = await Promise.all([
@@ -7176,7 +7182,7 @@ async function saveSession(catId,secs){
   // Real Supabase save
   try {
   const {error}=await sb.from('sessions').insert({
-    user_id:SB_USER.id,category_id:catId,duration_seconds:secs
+    user_id:SB_USER.id,category_id:catId,duration_seconds:secs,content_type:'manual'
   });
   if(error){console.error(error);showToast('Ошибка сохранения','⚠️');_sessionSaving=false;return;}
 
@@ -7351,7 +7357,17 @@ function toggleCatEpic(id){
   if(idx > -1){
     if(P.activeCatIds.length <= 1){ showToast('Нужна хотя бы 1 категория','⚠️'); return; }
     P.activeCatIds.splice(idx, 1);
-    if(!P.isDemoUser) sb.from('user_categories').delete().eq('user_id',SB_USER.id).eq('category_id',id).then(()=>{});
+    if(!P.isDemoUser){
+      sb.from('user_categories').delete()
+        .eq('user_id',SB_USER.id).eq('category_id',id)
+        .then(null, e => {
+          // Rollback UI on error
+          P.activeCatIds.splice(idx, 0, id);
+          renderAll();
+          showToast('Ошибка удаления категории','⚠️');
+          console.error('toggleCatEpic delete:', e);
+        });
+    }
     showToast('Убрано из лиг','🗑️');
   } else {
     P.activeCatIds.push(id);
@@ -9296,7 +9312,26 @@ function timerTick() {
       const _pomSecs = pomMode * 60; // capture before stopTimerPom resets state
       stopTimerPom(); // sets timerRunning=false AND stops interval
       saveSession(catId, _pomSecs);
-      showToast('🍅 Помодоро завершён! ' + pomMode + ' мин зачтено', '🎉');
+      const _toastMsg = '🍅 Помодоро завершён! ' + pomMode + ' мин зачтено';
+      showToast(_toastMsg, '🎉');
+      // Browser Notification если вкладка не активна
+      if(document.hidden && Notification.permission === 'granted'){
+        new Notification('DTR — Помодоро завершён! 🍅', {
+          body: pomMode + ' мин засчитано. Отличная работа!',
+          icon: '/favicon.ico',
+          tag: 'pom-done'
+        });
+      } else if(Notification.permission === 'default'){
+        Notification.requestPermission().then(p => {
+          if(p === 'granted'){
+            new Notification('DTR — Помодоро завершён! 🍅', {
+              body: pomMode + ' мин засчитано.',
+              icon: '/favicon.ico',
+              tag: 'pom-done'
+            });
+          }
+        });
+      }
       return;
     }
   }
@@ -9987,7 +10022,8 @@ function _checkDayChangeOnResume() {
       P.streak = newStreak;
       // Синхронизируем в БД в фоне
       if(SB_USER && !SB_USER.isDemoUser) {
-        sb.from('users').update({streak:newStreak}).eq('id',SB_USER.id).then(()=>{});
+        sb.from('users').update({streak:newStreak}).eq('id',SB_USER.id)
+          .then(null, e => console.error('streak sync failed:', e));
       }
     }
     renderAll();
@@ -10151,6 +10187,7 @@ async function sendMsg(toUserId) {
       from_user_id: SB_USER.id,
       to_user_id: toUserId,
       content: text,
+      content_type: 'text',
       read: false
     });
     if (error) throw error;
@@ -11102,6 +11139,24 @@ window.addEventListener('load', ()=>{
   }, msUntilMidnight);
 })();
 
+</script>
+
+<script>
+// ── Авто-восстановление сессии при загрузке страницы ──────
+(async function restoreSession(){
+  try {
+    const { data: { session }, error } = await sb.auth.getSession();
+    if (error) { console.warn('getSession error:', error); return; }
+    if (session && session.user) {
+      SB_USER = session.user;
+      _loadUserRetryCount = 0;
+      await loadUser(session.user.id);
+    }
+    // Если сессии нет — onboard уже показан по умолчанию
+  } catch(e) {
+    console.warn('Session restore failed:', e);
+  }
+})();
 </script>
 
 </body>
