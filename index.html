@@ -5984,8 +5984,8 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
         <div class="ph-stat-lbl">Наград</div>
       </div>
       <div class="ph-stat-cell">
-        <div class="ph-stat-num" id="statStreak" style="color:var(--green)">—</div>
-        <div class="ph-stat-lbl">Стрик</div>
+        <div class="ph-stat-num" id="statActiveDays" style="color:var(--green)">—</div>
+        <div class="ph-stat-lbl">Акт. дней</div>
       </div>
     </div>
 
@@ -6440,6 +6440,7 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
           <div class="tot-lbl">часов вложено в себя</div>
           <div class="tot-div"></div>
           <div class="tot-streak" id="streakDisp">🔥 0 дней</div>
+          <div class="tot-week" style="color:var(--t3);font-size:11px;margin-top:2px" id="activeDaysDisp">📅 0 активных дней всего</div>
           <div class="tot-week" id="weekDisp" style="color:#4ade80">↑ +0 ч за 7 дней</div>
         </div>
       </div>
@@ -6723,7 +6724,7 @@ let regBuf=null, selCatIds=new Set();
 let dashPeriod='week';
 let lgCache={};
 let lgCacheTime={}; // TTL: timestamp when each catId was cached
-const LG_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const LG_CACHE_TTL = 10 * 60 * 1000; // 10 минут — дольше кеш = меньше лишних запросов
 let arenaMode='hours'; // 'hours'|'streak'|'week'|'month'|'session'
 
 // ══ BANNER ═══════════════════════════════════════════════════
@@ -6844,21 +6845,39 @@ async function finishReg(){
     alert('Ошибка регистрации: '+authErr.message);return;
   }
 
-  // Email confirmation required?
+  // Email confirmation required — попытаемся войти немедленно через signInWithPassword
+  // Это работает когда Confirm email ВЫКЛЮЧЕН в Supabase
   if(!authData.session){
-    document.getElementById('catSel').innerHTML=`
-      <div style="text-align:center;padding:40px 24px;max-width:440px;color:var(--t1)">
-        <div style="font-size:56px;margin-bottom:16px">📧</div>
-        <div style="font-family:'DM Sans',sans-serif;font-size:26px;font-weight:700;margin-bottom:10px">Подтверди email</div>
-        <div style="font-size:14px;color:var(--t2);line-height:1.7">
-          Supabase отправил письмо на <b>${regBuf.name.toLowerCase()}@lifetrack.app</b>.<br><br>
-          <b>Чтобы убрать этот шаг:</b><br>
-          Supabase → Authentication → Settings →<br>
-          выключи <b>"Confirm email"</b> → Save
-        </div>
-        <button onclick="location.reload()" style="margin-top:22px;padding:13px 28px;border-radius:10px;border:none;background:var(--blue);color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:1px">Обновить страницу</button>
-      </div>`;
-    return;
+    // Пытаемся сразу залогиниться (если подтверждение не нужно, сессия откроется)
+    const {data:loginData, error:loginErr} = await sb.auth.signInWithPassword({
+      email: regBuf.name.toLowerCase()+'@lifetrack.app',
+      password: regBuf.pass
+    });
+    if(loginData?.session){
+      // Успешно — продолжаем регистрацию как обычно
+      authData.session = loginData.session;
+      authData.user = loginData.user;
+    } else {
+      // Email confirmation всё ещё требуется — показываем инструкцию
+      btn.textContent='Начать';btn.disabled=false;
+      document.getElementById('catSel').innerHTML=`
+        <div style="text-align:center;padding:40px 24px;max-width:460px;color:var(--t1)">
+          <div style="font-size:56px;margin-bottom:16px">⚙️</div>
+          <div style="font-family:'DM Sans',sans-serif;font-size:22px;font-weight:700;margin-bottom:12px">Нужна настройка</div>
+          <div style="font-size:14px;color:var(--t2);line-height:1.8;text-align:left;background:var(--card);border-radius:12px;padding:16px 20px;border:0.5px solid var(--border)">
+            Для работы регистрации нужно отключить email-подтверждение в Supabase:<br><br>
+            <b style="color:var(--t1)">1.</b> Открой <b style="color:var(--gold)">Supabase Dashboard</b><br>
+            <b style="color:var(--t1)">2.</b> Authentication → Providers → Email<br>
+            <b style="color:var(--t1)">3.</b> Выключи <b style="color:var(--gold)">"Confirm email"</b><br>
+            <b style="color:var(--t1)">4.</b> Нажми Save → вернись и попробуй снова
+          </div>
+          <div style="display:flex;gap:10px;margin-top:20px;justify-content:center">
+            <button onclick="document.getElementById('catSel').style.display='none';document.getElementById('onboard').style.display='flex';initBanner();" style="padding:12px 24px;border-radius:10px;border:0.5px solid var(--border);background:var(--card);color:var(--t2);font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">← Назад</button>
+            <button onclick="location.reload()" style="padding:12px 24px;border-radius:10px;border:none;background:var(--gold);color:#0A0A0B;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Попробовать снова</button>
+          </div>
+        </div>`;
+      return;
+    }
   }
 
   const userId=authData.user.id;
@@ -6919,7 +6938,7 @@ function doDemo(){
       {cat:'lang',name:'Языки',icon:'🌍',color:'#d1a366',dur:1800,date:'3 дня назад',ts:Date.now()-270000000},
     ],
     achievements:ACH_DEF.map((a,i)=>({id:a.id,unlocked:i<3,unlockedAt:i<3?'01.03.2025':null})),
-    streak:5,lastActiveDate:new Date().toDateString(),totalSessions:4
+    streak:5,lastActiveDate:new Date().toDateString(),totalSessions:4,totalActiveDays:12
   };
   document.getElementById('onboard').style.display='none';
   document.getElementById('app').style.display='';
@@ -7010,6 +7029,7 @@ async function loadUser(userId){
     activeCatIds: [], categories: [], sessions: [], achievements: [],
     streak: user.streak||0, lastActiveDate: user.last_active_date,
     totalSessions: user.total_sessions||0,
+    totalActiveDays: user.active_days||0,
     avatarUrl: user.avatar_url||null,
     _loading: true  // флаг: данные ещё грузятся
   };
@@ -7081,6 +7101,17 @@ async function loadUser(userId){
   // FIX: use computed only — DB value may be inflated from old duplicate-session bug
   const finalStreak = computedStreak;
 
+  // ── Активные дни: уникальные дни с сессиями за всё время ─────
+  // ВАЖНО: это НЕ стрик — это общее число дней когда были занятия
+  const computedActiveDays = new Set(
+    sessionsDeduped.map(s=>{
+      const d = new Date(s.created_at);
+      return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    })
+  ).size;
+  // Берём максимум: данные из БД (могут включать сессии старше 300) vs пересчёт
+  const totalActiveDays = Math.max(user.active_days||0, computedActiveDays);
+
   // Update P with full data (replaces the skeleton P from Phase 1)
   P={
     id:userId, name:user.username, avatar:user.avatar||'🎯',
@@ -7088,6 +7119,7 @@ async function loadUser(userId){
     activeCatIds, categories, sessions:sessFmt, achievements,
     streak:finalStreak, lastActiveDate:user.last_active_date,
     totalSessions:finalTotalSessions,
+    totalActiveDays,
     avatarUrl:user.avatar_url||null,
     _loading: false
   };
@@ -7135,6 +7167,14 @@ async function loadUser(userId){
     (async()=>{
       try{ await sb.from('users').update({streak:finalStreak}).eq('id',userId); }
       catch(e){ console.warn('streak sync failed:',e); }
+    })();
+  }
+
+  // Background: sync active_days if it diverged from stored value
+  if(totalActiveDays !== (user.active_days||0)){
+    (async()=>{
+      try{ await sb.from('users').update({active_days:totalActiveDays}).eq('id',userId); }
+      catch(e){ console.warn('active_days sync failed:',e); }
     })();
   }
 
@@ -7218,10 +7258,15 @@ async function saveSession(catId,secs){
   const newStreak=computeStreakFromSessions(_allSessions);
   P.lastActiveDate=todayISO;
   const newTotalSessions=(P.totalSessions||0)+1;
+  // Считаем обновлённое число активных дней (локально)
+  const _nowKey=`${new Date().getFullYear()}-${new Date().getMonth()}-${new Date().getDate()}`;
+  const _existDayKeys=new Set(P.sessions.map(s=>{const d=new Date(s.ts||0);return`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;}));
+  const newActiveDays = (_existDayKeys.has(_nowKey)) ? (P.totalActiveDays||0) : (P.totalActiveDays||0)+1;
   await sb.from('users').update({
     streak:newStreak,
     last_active_date:todayISO,
     total_sessions:newTotalSessions,
+    active_days:newActiveDays,
     last_seen:new Date().toISOString()
   }).eq('id',SB_USER.id);
 
@@ -7234,7 +7279,10 @@ async function saveSession(catId,secs){
   P.lastActiveDate=todayISO;
   const nowISO=new Date().toISOString();
   P.sessions.unshift({cat:catId,name:cat.name,icon:cat.icon,color:cat.color,dur:secs,date:'только что',ts:Date.now(),isoDate:nowISO});
-  P.totalSessions=P.sessions.length;
+  // ВАЖНО: используем newTotalSessions из БД, а не P.sessions.length
+  // P.sessions ограничен 300 записями, реальное значение может быть больше
+  P.totalSessions=newTotalSessions;
+  P.totalActiveDays=newActiveDays;
 
   const newly=await checkAchsSB(secs);
   delete lgCache[catId];
@@ -7373,7 +7421,8 @@ function toggleCatEpic(id){
     if(!SB_USER?.isDemoUser) sb.from('user_categories').upsert({user_id:SB_USER.id,category_id:id,hours:0}).then(()=>{});
     showToast(`${ALL_CATS.find(c=>c.id===id)?.icon} Добавлено в лигу!`,'✅');
   }
-  lgCache = {};
+  // Инвалидируем только эту категорию, а не весь кеш
+  delete lgCache[id]; delete lgCacheTime[id];
   renderManageGrid();
   renderQuickCats();
 }
@@ -7393,7 +7442,9 @@ async function toggleCat(id){
     }
     showToast(`${ALL_CATS.find(c=>c.id===id)?.icon} Добавлено в лигу!`,'✅');
   }
-  lgCache={};renderAll();
+  // Инвалидируем только эту категорию
+  delete lgCache[id]; delete lgCacheTime[id];
+  renderAll();
 }
 
 // ══ HELPERS ═════════════════════════════════════════════════
@@ -7477,16 +7528,16 @@ function renderHeader(){
   const _th = Math.round(totalHrs());
   const _ss = P.totalSessions || 0;
   const _ac = P.achievements ? P.achievements.filter(a=>a.unlocked).length : 0;
-  const _st = P.streak || 0;
+  const _ad = P.totalActiveDays || 0; // активные дни — уникальные дни с сессиями за всё время
   const statTH=document.getElementById('statTotalHrs');
   const statSS=document.getElementById('statSessions');
   const statAC=document.getElementById('statAchs');
-  const statST=document.getElementById('statStreak');
+  const statAD=document.getElementById('statActiveDays');
   // Write immediately so user sees real values even if animation doesn't fire
   if(statTH) statTH.textContent = _th;
   if(statSS) statSS.textContent = _ss;
   if(statAC) statAC.textContent = _ac;
-  if(statST) statST.textContent = _st;
+  if(statAD) statAD.textContent = _ad;
   // Then animate with odometer
   setTimeout(()=>{ if(typeof animStatBar==='function') animStatBar(); }, 120);
   // Apply cover frame
@@ -7515,6 +7566,9 @@ function renderTotals(){
     totEl.classList.add('updated');
   }
   document.getElementById('streakDisp').textContent=`🔥 ${P.streak} дней подряд`;
+  // Показываем общее число активных дней отдельно от стрика
+  const activeDaysEl=document.getElementById('activeDaysDisp');
+  if(activeDaysEl) activeDaysEl.textContent=`📅 ${P.totalActiveDays||0} активных дней всего`;
   document.getElementById('weekDisp').textContent=`↑ +${weekHrs().toFixed(1)} ч за 7 дней`;
 
   // ── Hero zone — те же данные, те же функции ──
@@ -8109,21 +8163,25 @@ async function loadLeagueData(catId){
 
   if(!ucData||!ucData.length){lgCache[catId]=[];return[];}
 
-  // Step 2: get user profiles
+  // Step 2: get user profiles — НЕ грузим avatar_url (base64, до 800KB на игрока)
+  // Аватарки грузятся отдельно только для своего профиля
   const userIds=ucData.map(u=>u.user_id);
   const{data:usersData}=await sb.from('users')
-    .select('id,username,avatar,avatar_url,streak')
+    .select('id,username,avatar,streak')
     .in('id',userIds);
 
   const userMap={};
   (usersData||[]).forEach(u=>{userMap[u.id]=u;});
 
-  // Step 3: get session stats (week+month) in one query
+  // Step 3: get session stats за последние 35 дней (неделя + месяц с запасом)
+  // ВАЖНО: фильтр по дате — не грузим всю историю с начала времён
   const wCut=new Date(Date.now()-7*86400000).toISOString();
+  const mCut=new Date(Date.now()-35*86400000).toISOString();
   const{data:sessData}=await sb.from('sessions')
     .select('user_id,duration_seconds,created_at')
     .in('user_id',userIds)
-    .eq('category_id',catId);
+    .eq('category_id',catId)
+    .gte('created_at',mCut);
 
   // Build stats map
   const statsMap={};
@@ -8135,37 +8193,26 @@ async function loadLeagueData(catId){
     if(h>statsMap[s.user_id].bestSession)statsMap[s.user_id].bestSession=h;
   });
 
-  // FIX: some users have hours=0 in user_categories (stale from old bug)
-  // For those, compute total hours from all their sessions in this category
-  const zeroHrsUserIds = ucData.filter(uc=>!(uc.hours>0)).map(uc=>uc.user_id);
-  let allTimeMap = {}; // user_id -> total hours from sessions
-  if(zeroHrsUserIds.length > 0){
-    const{data:allSess} = await sb.from('sessions')
-      .select('user_id,duration_seconds')
-      .in('user_id', zeroHrsUserIds)
-      .eq('category_id', catId);
-    (allSess||[]).forEach(s=>{
-      allTimeMap[s.user_id] = (allTimeMap[s.user_id]||0) + s.duration_seconds/3600;
-    });
-  }
-
+  // FIX: для пользователей с hours=0 — берём значение из user_categories.hours
+  // Не делаем доп.запрос к sessions — это экономит время загрузки
   const players=ucData.map(uc=>{
     const u=userMap[uc.user_id]||{};
     const st=statsMap[uc.user_id]||{weekHrs:0,monthHrs:0,bestSession:0};
-    // Use max of stored hours vs computed from sessions (fixes stale 0-hour rows)
-    const computedHrs = allTimeMap[uc.user_id]||0;
-    const totalHrs = Math.max(uc.hours||0, computedHrs);
+    // Используем hours из user_categories как источник истины для общего рейтинга
+    const totalHrs = uc.hours||0;
+    // Подставляем аватарку текущего пользователя из P если это мы
+    const isMe = uc.user_id===SB_USER?.id;
     return{
       name:u.username||'?',
-      av:u.avatar||'🎯',
-      avUrl:u.avatar_url||null,
+      av:isMe?(P?.avatar||u.avatar||'🎯'):(u.avatar||'🎯'),
+      avUrl:isMe?(P?.avatarUrl||null):null,
       hrs:Math.round(totalHrs*10)/10,
       streak:u.streak||0,
       weekHrs:Math.round((st.weekHrs||0)*10)/10,
       monthHrs:Math.round((st.monthHrs||0)*10)/10,
       bestSession:Math.round((st.bestSession||0)*10)/10,
       fake:false,
-      isMe:uc.user_id===SB_USER?.id,
+      isMe,
       userId:uc.user_id||null
     };
   });
@@ -8180,7 +8227,8 @@ async function loadLeagueData(catId){
 // ══ ARENA MODE ═══════════════════════════════════════════════
 function setArenaMode(mode, btn) {
   arenaMode = mode;
-  lgCache = {}; lgCacheTime = {}; // invalidate cache so data re-sorts
+  // НЕ инвалидируем кэш — данные те же, меняется только сортировка
+  // Это позволяет мгновенно переключаться между режимами без новых запросов к БД
   document.querySelectorAll('.arena-mode-btn').forEach(b => b.classList.remove('active'));
   if(btn) btn.classList.add('active');
   renderLeagues();
@@ -8218,7 +8266,13 @@ async function renderLeagues(){
   const cats=activeCats();
   if(!cats.length){el.innerHTML=`<div class="empty" style="padding:40px">Нет активных категорий</div>`;return;}
 
-  el.innerHTML=`<div style="text-align:center;padding:32px;color:var(--t3)"><div style="font-size:36px;margin-bottom:8px;animation:floatUp 2s ease-in-out infinite">⚔️</div>Загрузка арены...</div>`;
+  // ── STALE-WHILE-REVALIDATE ────────────────────────────────────
+  // Есть кеш → рисуем мгновенно, грузим свежие данные тихо в фоне
+  // Нет кеша → показываем минимальный скелетон, потом данные
+  const hasSomeCache = cats.some(c => lgCache[c.id] && lgCache[c.id].length >= 0);
+  if(!hasSomeCache){
+    el.innerHTML=`<div style="text-align:center;padding:32px;color:var(--t3)"><div style="font-size:36px;margin-bottom:8px;animation:floatUp 2s ease-in-out infinite">⚔️</div>Загрузка арены...</div>`;
+  }
 
   const results=await Promise.all(cats.map(c=>loadLeagueData(c.id)));
   const modeLbl=arenaModeLabel(arenaMode);
@@ -9742,6 +9796,29 @@ function initPresence() {
     await updateOnlineCount();
     await updateLeagueOnlineCounts();
   }, 20000);
+
+  // Тихое фоновое обновление арены каждые 10 минут
+  // Если арена открыта — обновляем данные без spinner
+  setInterval(async () => {
+    if(!window.P || P._loading || !SB_USER || SB_USER.isDemoUser) return;
+    const cats = activeCats ? activeCats() : [];
+    if(!cats.length) return;
+    // Проверяем какие категории протухли
+    const stale = cats.filter(c => !lgCacheTime[c.id] || (Date.now()-lgCacheTime[c.id]) >= LG_CACHE_TTL);
+    if(!stale.length) return;
+    // Инвалидируем только протухшие и грузим тихо в фоне
+    stale.forEach(c => { delete lgCache[c.id]; delete lgCacheTime[c.id]; });
+    try {
+      await Promise.all(stale.map(c => loadLeagueData(c.id)));
+      // Если вкладка арены активна — перерисовываем
+      const leaguesTab = document.getElementById('tab-leagues');
+      if(leaguesTab && leaguesTab.classList.contains('active')) {
+        renderLeagues();
+      }
+      // Мини-виджет арены на дашборде тоже обновляем
+      renderLgMini();
+    } catch(e){ /* silent */ }
+  }, LG_CACHE_TTL);
 }
 
 // FIX: Mark user offline immediately when tab is closed or hidden
@@ -9761,8 +9838,33 @@ document.addEventListener('visibilitychange', () => {
   } else if(document.visibilityState === 'visible' && SB_USER && !SB_USER.isDemoUser){
     // Re-ping immediately when tab becomes visible again
     pingOnline().then(() => updateOnlineCount());
+    // Проверяем изменился ли день пока вкладка была скрыта
+    // Если да — пересчитываем стрик и активные дни (без полной перезагрузки)
+    _checkDayChangeOnResume();
   }
 });
+
+// Отслеживаем дату последнего рендера для обнаружения смены дня
+let _lastRenderedDateStr = new Date().toDateString();
+
+function _checkDayChangeOnResume() {
+  const today = new Date().toDateString();
+  if(today === _lastRenderedDateStr) return; // день не изменился
+  _lastRenderedDateStr = today;
+  // День изменился — пересчитываем стрик из локальных сессий
+  if(window.P && P.sessions && !P._loading) {
+    const rawSessions = P.sessions.map(s=>({created_at:s.isoDate||new Date(s.ts||0).toISOString()}));
+    const newStreak = computeStreakFromSessions(rawSessions);
+    if(newStreak !== P.streak) {
+      P.streak = newStreak;
+      // Синхронизируем в БД в фоне
+      if(SB_USER && !SB_USER.isDemoUser) {
+        sb.from('users').update({streak:newStreak}).eq('id',SB_USER.id).then(()=>{});
+      }
+    }
+    renderAll();
+  }
+}
 
 window.addEventListener('pagehide', () => {
   markOffline();
@@ -10604,32 +10706,35 @@ function setDashCat(id){
 // ══ WEEKLY / MONTHLY REPORT ═══════════════════════════
 function openReport(){
   const{data,buckets,isWeek}=getDashData();
-  const active=activeCats();
-  const allCats=activeCats();
-  const period=isWeek?7:30;
+  // Используем отфильтрованные категории (если выбрана конкретная лига)
+  const allCats=dashCatFilter
+    ? activeCats().filter(c=>c.id===dashCatFilter)
+    : activeCats();
 
   // Stats
   const periodHrs=allCats.reduce((a,c)=>a+data[c.id].reduce((x,v)=>x+v,0),0);
   const totals=Array(buckets).fill(0);
   allCats.forEach(c=>{data[c.id].forEach((v,i)=>totals[i]+=v);});
   const activeDays=totals.filter(v=>v>0).length;
-  const bestDay=Math.max(...totals);
+  const bestDay=Math.max(...totals,0);
   const avgDay=periodHrs/buckets;
-  const prevPeriodEst=periodHrs*0.85; // estimate
+  const prevPeriodEst=periodHrs*0.85;
   const delta=((periodHrs-prevPeriodEst)/Math.max(prevPeriodEst,0.1)*100);
   const sortedCats=allCats.slice().sort((a,b)=>
     data[b.id].reduce((s,v)=>s+v,0)-data[a.id].reduce((s,v)=>s+v,0)
   );
   const maxCatH=data[sortedCats[0]?.id||'']?.reduce((a,v)=>a+v,0)||0.1;
   const streak=P.streak||0;
-  const totalAllTime=allCats.reduce((a,c)=>a+c.hours,0);
+  const activeDaysTotal=P.totalActiveDays||0;
+  const totalAllTime=activeCats().reduce((a,c)=>a+c.hours,0);
 
-  // Emoji grade
   const grade=periodHrs>=14?'🔥':periodHrs>=7?'⚡':periodHrs>=3?'📈':periodHrs>=1?'🌱':'💤';
   const gradeTxt=periodHrs>=14?'Отличная неделя':periodHrs>=7?'Хорошая неделя':periodHrs>=3?'Есть прогресс':periodHrs>=1?'Начало положено':'Неактивная неделя';
 
   const label=isWeek?'неделю':'месяц';
-  const title=`Отчёт за ${label}`;
+  // Заголовок включает название лиги если выбрана конкретная
+  const catName = dashCatFilter ? (activeCats().find(c=>c.id===dashCatFilter)?.name||'') : '';
+  const title = catName ? `Отчёт: ${catName} — за ${label}` : `Отчёт за ${label}`;
   document.getElementById('reportTitle').textContent=title;
 
   const catRows=sortedCats.map(c=>{
@@ -10643,7 +10748,6 @@ function openReport(){
     </div>`;
   }).join('');
 
-  // Verdict text
   let verdict='';
   if(streak>=5) verdict=`🔥 Стрик ${streak} дней — продолжай в том же духе!`;
   else if(delta>20) verdict=`📈 На ${Math.abs(delta.toFixed(0))}% лучше прошлого периода. Рост очевиден.`;
@@ -10684,27 +10788,57 @@ function openReport(){
     </div>
 
     <div style="margin-top:12px;font-size:11px;color:var(--t3);text-align:center">
-      Всего за всё время: <b style="color:var(--t1)">${totalAllTime.toFixed(0)} ч</b> · Стрик: <b style="color:var(--orange)">${streak} дней</b>
+      Всего за всё время: <b style="color:var(--t1)">${totalAllTime.toFixed(0)} ч</b> · Стрик: <b style="color:var(--orange)">${streak} дней</b> · Активных дней: <b style="color:var(--green)">${activeDaysTotal}</b>
     </div>`;
 
   document.getElementById('reportOv').classList.add('show');
 }
 
-function copyReport(){
+// Надёжное копирование в буфер с fallback для Safari и старых браузеров
+async function _copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch(e) {
+    // Fallback: создаём скрытый textarea и копируем через execCommand
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch(e2) { return false; }
+  }
+}
+
+async function copyReport(){
   const{data,buckets,isWeek}=getDashData();
-  const active=activeCats();
+  const active=dashCatFilter
+    ? activeCats().filter(c=>c.id===dashCatFilter)
+    : activeCats();
   const periodHrs=active.reduce((a,c)=>a+data[c.id].reduce((x,v)=>x+v,0),0);
   const totals=Array(buckets).fill(0);
   active.forEach(c=>{data[c.id].forEach((v,i)=>totals[i]+=v);});
   const activeDays=totals.filter(v=>v>0).length;
   const label=isWeek?'неделю':'месяц';
+  const catName = dashCatFilter ? (activeCats().find(c=>c.id===dashCatFilter)?.name||'') : '';
   const sorted=active.slice().sort((a,b)=>data[b.id].reduce((s,v)=>s+v,0)-data[a.id].reduce((s,v)=>s+v,0));
   const catLines=sorted.map(c=>{
     const h=data[c.id].reduce((a,v)=>a+v,0);
     return `  ${c.icon} ${c.name}: ${h.toFixed(1)}ч`;
   }).join('\n');
-  const text=`📊 Мой отчёт за ${label} — LifeTrack\n\n⏱ Часов: ${periodHrs.toFixed(1)}\n📅 Активных дней: ${activeDays}/${buckets}\n🔥 Стрик: ${P.streak} дней\n\nПо направлениям:\n${catLines}\n\n🚀 lifetrack.app`;
-  navigator.clipboard.writeText(text).then(()=>showToast('Скопировано!','📋'));
+  const catLabel = catName ? ` (${catName})` : '';
+  const text=`📊 Мой отчёт за ${label}${catLabel} — DTR Progress Club\n\n⏱ Часов: ${periodHrs.toFixed(1)}\n📅 Активных дней: ${activeDays}/${buckets}\n🔥 Стрик: ${P.streak} дней\n📆 Всего активных дней: ${P.totalActiveDays||0}\n\nПо направлениям:\n${catLines}\n\n🚀 dtrsystemgroup.vercel.app`;
+  const ok = await _copyToClipboard(text);
+  if(ok) {
+    showToast('Отчёт скопирован в буфер!','📋');
+  } else {
+    showToast('Не удалось скопировать — попробуй вручную','⚠️');
+  }
 }
 
 window.addEventListener('load',async()=>{
@@ -11891,7 +12025,7 @@ function exportData(format){
   if(format === 'json'){
     const data = {
       exported_at: new Date().toISOString(),
-      user: { name: P.name, joined: P.joinedDate, streak: P.streak||0, total_sessions: sessions.length },
+      user: { name: P.name, joined: P.joinedDate, streak: P.streak||0, total_sessions: P.totalSessions||sessions.length, total_active_days: P.totalActiveDays||0 },
       categories: categories.map(c=>({ id:c.id, name:c.name, hours:parseFloat((c.hours||0).toFixed(2)) })),
       sessions: sessions.map(s=>({
         id: s.id, category: s.name, category_id: s.cat,
@@ -11930,6 +12064,8 @@ function exportData(format){
 function exportToPDF(username, dateStr, sessions, categories, achievements, totalH){
   const unl = achievements.filter(a=>a.unlocked).length;
   const streak = window.P?.streak || 0;
+  const activeDaysTotal = window.P?.totalActiveDays || 0;
+  const totalSessions = window.P?.totalSessions || sessions.length;
   const byDate = {};
   sessions.forEach(s=>{
     const d = (s.isoDate||s.date||'').slice(0,10);
@@ -11982,8 +12118,8 @@ function exportToPDF(username, dateStr, sessions, categories, achievements, tota
     + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:32px">'
     + '<div style="background:#f5f5f7;border-radius:12px;padding:16px"><div style="font-size:28px;font-weight:700;color:#1C9E52">' + totalH.toFixed(1) + '</div><div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-top:4px">Часов</div></div>'
     + '<div style="background:#f5f5f7;border-radius:12px;padding:16px"><div style="font-size:28px;font-weight:700;color:#F97316">' + streak + '</div><div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-top:4px">Стрик</div></div>'
-    + '<div style="background:#f5f5f7;border-radius:12px;padding:16px"><div style="font-size:28px;font-weight:700;color:#EF9F27">' + unl + '</div><div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-top:4px">Наград</div></div>'
-    + '<div style="background:#f5f5f7;border-radius:12px;padding:16px"><div style="font-size:28px;font-weight:700">' + sessions.length + '</div><div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-top:4px">Сессий</div></div>'
+    + '<div style="background:#f5f5f7;border-radius:12px;padding:16px"><div style="font-size:28px;font-weight:700;color:#4ade80">' + activeDaysTotal + '</div><div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-top:4px">Акт. дней</div></div>'
+    + '<div style="background:#f5f5f7;border-radius:12px;padding:16px"><div style="font-size:28px;font-weight:700">' + totalSessions + '</div><div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-top:4px">Сессий</div></div>'
     + '</div>'
     + '<div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#aaa;margin:0 0 10px;border-bottom:0.5px solid #eee;padding-bottom:6px">По категориям</div>'
     + catRows
@@ -12008,8 +12144,10 @@ function shareProfileLink(){
   if(navigator.share){
     navigator.share({ title:'DTR Progress Club', text:`Мой профиль в DTR: ${P?.name}`, url });
   } else {
-    navigator.clipboard?.writeText(url);
-    showToast('Ссылка скопирована!','🔗');
+    _copyToClipboard(url).then(ok=>{
+      if(ok) showToast('Ссылка скопирована!','🔗');
+      else showToast('Не удалось скопировать: ' + url,'⚠️');
+    });
   }
 }
 
@@ -12257,9 +12395,18 @@ window.renderAll = function(){
   next.setHours(0, 0, 10, 0); // 00:00:10 следующего дня
   const msUntilMidnight = next - now;
 
-  setTimeout(()=>{
-    if(window.P && !P._loading){
-      renderAll(); // полный перерендер с новым todayStart
+  setTimeout(async ()=>{
+    if(window.P && !P._loading && window.SB_USER && !SB_USER.isDemoUser){
+      // Перезагружаем актуальные данные с сервера (пересчитывает стрик, активные дни и т.д.)
+      lgCache = {}; lgCacheTime = {};
+      try {
+        await loadUser(SB_USER.id);
+      } catch(e) {
+        // Если сервер недоступен — просто перерендерим что есть
+        renderAll();
+      }
+    } else if(window.P && !P._loading) {
+      renderAll();
     }
     scheduleMidnightRefresh(); // запланировать следующую полночь
   }, msUntilMidnight);
@@ -12372,12 +12519,17 @@ window.renderAll = function(){
     const el = document.getElementById('rmdStatus');
     if(!el) return;
     if(!cfg.enabled) { el.textContent = 'Напоминания отключены'; return; }
-    if(Notification.permission !== 'granted') {
-      el.innerHTML = '<span style="color:var(--orange)">⚠ Разреши уведомления в браузере</span>';
+    const perm = ('Notification' in window) ? Notification.permission : 'denied';
+    if(perm === 'denied') {
+      el.innerHTML = '<span style="color:var(--red)">🚫 Браузер заблокировал уведомления.</span><br><span style="font-size:10px;color:var(--t3)">Нажми на замочек в адресной строке → Уведомления → Разрешить → обнови страницу</span>';
+      return;
+    }
+    if(perm !== 'granted') {
+      el.innerHTML = '<span style="color:var(--orange)">⚠ Нажми кнопку ниже чтобы разрешить уведомления</span>';
       return;
     }
     const days = cfg.days.map(i => DAY_LABELS[i]).join(', ') || 'не выбраны';
-    el.textContent = `Напоминание в ${cfg.time} · ${days}`;
+    el.textContent = `✅ Напоминание в ${cfg.time} · ${days}`;
   }
 
   // ── Public handlers (called from HTML) ────────────────────
