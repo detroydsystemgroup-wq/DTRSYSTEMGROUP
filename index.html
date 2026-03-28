@@ -6403,6 +6403,12 @@ body, input, select, textarea, button {
         </div>
         <span>База знаний</span>
     </div>
+      <div class="stab" onclick="showTab('habits',this)" data-tab="habits" role="tab" aria-selected="false" aria-label="Треккер привычек">
+        <div class="tab-icon-wrap">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </div>
+        <span>Привычки</span>
+      </div>
   </div>
 
 <!-- ══ SUNDAY TOP PLAYER BANNER ══════════════════════════════ -->
@@ -6656,6 +6662,9 @@ body, input, select, textarea, button {
 
     <div id="tab-knowledge" class="tc">
       <div id="kb-root" style="width:100%;padding:16px 20px;box-sizing:border-box"></div>
+    </div>
+    <div id="tab-habits" class="tc">
+      <div id="hab-root"></div>
     </div>
 
 
@@ -13110,5 +13119,963 @@ function _kbFmtDate(ts) {
 </div>
 
 
+
+<!-- ═══════════════════════════════════════════════════════════
+     ТРЕККЕР ПРИВЫЧЕК — DTR Progress Club  (full engine)
+════════════════════════════════════════════════════════════ -->
+<style>
+/* ── layout ── */
+#tab-habits{width:100%;}
+@media(min-width:601px){#tab-habits{grid-column:1/-1;width:100%;}}
+#hab-root{padding:0 0 40px;}
+
+/* ── TODAY HERO BANNER ── */
+.hab-hero{position:relative;border-radius:20px;overflow:hidden;padding:24px 28px;margin-bottom:20px;display:flex;align-items:center;gap:28px;flex-wrap:wrap;}
+.hab-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 80% at 10% 50%,rgba(245,200,66,.08),transparent 65%),radial-gradient(ellipse 40% 60% at 90% 20%,rgba(168,85,247,.05),transparent 60%);pointer-events:none;}
+.hab-score-arc{position:relative;flex-shrink:0;}
+.hab-score-num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.hab-score-pct{font-family:'DM Mono',monospace;font-size:22px;font-weight:400;color:var(--gold);line-height:1;}
+.hab-score-lbl{font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-top:2px;}
+.hab-hero-stats{display:flex;gap:20px;flex-wrap:wrap;}
+.hab-hstat{text-align:center;}
+.hab-hstat-val{font-family:'DM Mono',monospace;font-size:26px;font-weight:400;line-height:1;margin-bottom:3px;}
+.hab-hstat-lbl{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);}
+
+/* ── STREAK FLAME ── */
+.hab-flame{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;}
+.hab-flame.hot{background:rgba(249,115,22,.12);border:0.5px solid rgba(249,115,22,.3);color:var(--orange);}
+.hab-flame.cold{background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.08);color:var(--t3);}
+@keyframes flamePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+.hab-flame.hot .flame-icon{animation:flamePulse 1.5s ease infinite;}
+
+/* ── MATRIX GRID ── */
+.hab-matrix{background:linear-gradient(135deg,rgba(255,255,255,.018),rgba(255,255,255,.008));border:0.5px solid rgba(255,255,255,.07);border-radius:18px;overflow:hidden;margin-bottom:16px;}
+.hab-matrix-head{display:grid;padding:10px 16px 8px;align-items:center;gap:6px;}
+.hab-matrix-head-left{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t3);}
+.hab-col-lbl{text-align:center;}
+.hab-col-day{font-size:8px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px;}
+.hab-col-date{width:26px;height:26px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;}
+.hab-col-date.is-today{background:rgba(245,200,66,.15);color:var(--gold);outline:1.5px solid rgba(245,200,66,.45);outline-offset:1px;}
+.hab-col-date.is-past{color:var(--t2);}
+.hab-col-date.is-future{color:var(--t3);opacity:.45;}
+
+/* ── HABIT ROW ── */
+.hab-row{display:grid;align-items:center;gap:6px;padding:9px 16px;border-top:0.5px solid rgba(255,255,255,.04);transition:background .15s;}
+.hab-row:hover{background:rgba(255,255,255,.02);}
+.hab-row.at-risk{border-left:2.5px solid rgba(249,115,22,.6);background:rgba(249,115,22,.025);}
+.hab-row.perfect{border-left:2.5px solid rgba(245,200,66,.5);background:rgba(245,200,66,.025);}
+.hab-row-name{display:flex;align-items:center;gap:9px;min-width:0;}
+.hab-row-icon{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;transition:transform .2s cubic-bezier(.34,1.56,.64,1);}
+.hab-row:hover .hab-row-icon{transform:scale(1.1);}
+.hab-row-label{min-width:0;}
+.hab-row-title{font-size:13px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;}
+.hab-row-sub{font-size:10px;color:var(--t3);margin-top:1px;display:flex;align-items:center;gap:5px;}
+
+/* ── CHECK CELL ── */
+.hab-cell{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:0.5px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);transition:all .18s cubic-bezier(.34,1.56,.64,1);position:relative;overflow:hidden;flex-shrink:0;}
+.hab-cell:hover:not(.cell-future):not(.cell-off){background:rgba(245,200,66,.08);border-color:rgba(245,200,66,.22);transform:scale(1.08);}
+.hab-cell.cell-done{border-color:rgba(245,200,66,.5);box-shadow:0 2px 12px rgba(245,200,66,.22);}
+.hab-cell.cell-future{opacity:.25;pointer-events:none;}
+.hab-cell.cell-off{opacity:.12;pointer-events:none;}
+.hab-cell.cell-today{outline:1.5px solid rgba(245,200,66,.4);outline-offset:2px;}
+@keyframes cellPop{0%{transform:scale(.5) rotate(-15deg);opacity:0}55%{transform:scale(1.2) rotate(5deg)}80%{transform:scale(.95)}100%{transform:scale(1);opacity:1}}
+.hab-cell.cell-done .cell-check{animation:cellPop .32s cubic-bezier(.34,1.56,.64,1) both;}
+.cell-check{width:100%;height:100%;display:flex;align-items:center;justify-content:center;}
+@keyframes rippleCell{to{transform:scale(3);opacity:0}}
+.hab-cell::after{content:'';position:absolute;inset:0;border-radius:50%;background:rgba(245,200,66,.3);transform:scale(0);opacity:0;}
+.hab-cell.cell-done::after{animation:rippleCell .4s ease;}
+
+/* ── WEEKLY RING ── */
+.hab-wring{position:relative;width:34px;height:34px;flex-shrink:0;}
+.hab-wring svg{transform:rotate(-90deg);}
+.hab-wring-pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:8px;font-weight:500;}
+
+/* ── ACTIONS ── */
+.hab-del-btn{width:26px;height:26px;border-radius:7px;background:transparent;border:none;color:rgba(255,255,255,.15);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;}
+.hab-del-btn:hover{background:rgba(239,68,68,.1);color:var(--red);}
+
+/* ── ADD HABIT BUTTON ── */
+.hab-add-row{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;border-top:0.5px solid rgba(255,255,255,.04);color:var(--t3);transition:all .2s;}
+.hab-add-row:hover{background:rgba(245,200,66,.03);color:var(--gold);}
+.hab-add-row:hover .hab-add-circle{background:rgba(245,200,66,.12);border-color:rgba(245,200,66,.3);}
+.hab-add-circle{width:32px;height:32px;border-radius:9px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;}
+
+/* ── EMPTY STATE ── */
+.hab-empty-state{padding:52px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;}
+.hab-es-icon{font-size:52px;animation:floatIcon 3s ease-in-out infinite;}
+.hab-es-title{font-size:18px;font-weight:800;color:var(--t1);letter-spacing:-.025em;}
+.hab-es-sub{font-size:13px;color:var(--t2);line-height:1.6;max-width:260px;}
+.hab-template-row{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;margin-top:8px;}
+.hab-tpl{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:20px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);font-size:12px;font-weight:500;cursor:pointer;color:var(--t2);transition:all .2s;font-family:'DM Sans',sans-serif;}
+.hab-tpl:hover{border-color:rgba(245,200,66,.3);background:rgba(245,200,66,.06);color:var(--gold);}
+
+/* ── AT-RISK BANNER ── */
+.hab-risk-banner{display:flex;align-items:center;gap:12px;padding:11px 16px;background:rgba(249,115,22,.06);border:0.5px solid rgba(249,115,22,.2);border-radius:12px;margin-bottom:12px;animation:fadeUp .3s ease both;}
+.hab-risk-banner svg{flex-shrink:0;color:var(--orange);}
+
+/* ── PERFECT DAY ── */
+.hab-perfect-banner{display:flex;align-items:center;gap:12px;padding:11px 16px;background:rgba(245,200,66,.06);border:0.5px solid rgba(245,200,66,.2);border-radius:12px;margin-bottom:12px;animation:fadeUp .3s ease both;}
+
+/* ── MODAL ── */
+#habAddOv{display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.78);backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:20px;}
+#habAddOv.open{display:flex;}
+.hab-modal{background:linear-gradient(160deg,#0f0f18 0%,#0a0a10 100%);border:0.5px solid rgba(245,200,66,.14);border-radius:22px;width:100%;max-width:440px;overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.04);animation:springIn .3s cubic-bezier(.34,1.2,.64,1) both;}
+.hab-mh{padding:20px 24px 16px;border-bottom:0.5px solid rgba(255,255,255,.06);background:linear-gradient(90deg,rgba(245,200,66,.06),transparent 50%);display:flex;align-items:center;justify-content:space-between;}
+.hab-mh-title{font-size:16px;font-weight:700;color:var(--t1);letter-spacing:-.02em;}
+.hab-mb{padding:22px 24px;}
+.hab-field{margin-bottom:18px;}
+.hab-field:last-child{margin-bottom:0;}
+.hab-flbl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t2);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.hab-inp{width:100%;padding:12px 16px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.1);border-radius:12px;color:var(--t1);font-size:15px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s,box-shadow .2s;}
+.hab-inp:focus{border-color:rgba(245,200,66,.45);box-shadow:0 0 0 3px rgba(245,200,66,.07);}
+.hab-inp::placeholder{color:var(--t3);}
+
+/* emoji picker */
+.hab-emoji-scroll{display:flex;gap:5px;flex-wrap:wrap;}
+.hab-ep{width:36px;height:36px;border-radius:9px;border:0.5px solid rgba(255,255,255,.07);background:rgba(255,255,255,.03);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .16s cubic-bezier(.34,1.56,.64,1);}
+.hab-ep:hover{background:rgba(245,200,66,.08);border-color:rgba(245,200,66,.25);transform:scale(1.1);}
+.hab-ep.s{background:rgba(245,200,66,.14);border-color:rgba(245,200,66,.5);transform:scale(1.08);box-shadow:0 0 10px rgba(245,200,66,.2);}
+
+/* color picker */
+.hab-cp-row{display:flex;gap:8px;flex-wrap:wrap;}
+.hab-cp{width:30px;height:30px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .18s cubic-bezier(.34,1.56,.64,1),box-shadow .18s;}
+.hab-cp:hover{transform:scale(1.2);}
+.hab-cp.s{border-color:rgba(255,255,255,.8);box-shadow:0 0 12px currentColor;transform:scale(1.18);}
+
+/* freq + time picker */
+.hab-seg{display:flex;gap:5px;}
+.hab-seg-btn{flex:1;padding:9px 6px;border-radius:10px;border:0.5px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);color:var(--t2);font-size:11px;font-weight:600;cursor:pointer;text-align:center;transition:all .16s;font-family:'DM Sans',sans-serif;}
+.hab-seg-btn:hover{border-color:rgba(245,200,66,.2);color:var(--t1);}
+.hab-seg-btn.s{background:rgba(245,200,66,.1);border-color:rgba(245,200,66,.4);color:var(--gold);}
+
+/* time of day */
+.hab-tod-row{display:flex;gap:6px;}
+.hab-tod-btn{flex:1;padding:8px 4px;border-radius:10px;border:0.5px solid rgba(255,255,255,.07);background:rgba(255,255,255,.03);color:var(--t3);font-size:11px;font-weight:600;cursor:pointer;text-align:center;transition:all .16s;font-family:'DM Sans',sans-serif;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.hab-tod-btn:hover{border-color:rgba(245,200,66,.2);color:var(--t1);}
+.hab-tod-btn.s{background:rgba(245,200,66,.09);border-color:rgba(245,200,66,.35);color:var(--gold);}
+.hab-tod-btn span:first-child{font-size:14px;}
+
+/* save button */
+.hab-save-btn{width:100%;padding:14px;border-radius:13px;border:none;cursor:pointer;background:linear-gradient(135deg,#c89f28,#f5c842,#fde68a,#f5c842);background-size:200% 100%;color:#0A0A0B;font-size:15px;font-weight:700;font-family:'DM Sans',sans-serif;letter-spacing:.01em;transition:transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .2s;position:relative;overflow:hidden;}
+.hab-save-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,.2) 50%,transparent 70%);transform:translateX(-100%);transition:transform .5s ease;}
+.hab-save-btn:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(245,200,66,.4);}
+.hab-save-btn:hover::before{transform:translateX(100%);}
+.hab-save-btn:active{transform:scale(.97);}
+
+/* ── REPORTS ── */
+.hab-rep-tabs{display:flex;gap:5px;}
+.hab-rt{padding:6px 16px;border-radius:20px;border:0.5px solid rgba(255,255,255,.08);background:transparent;color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .18s;}
+.hab-rt:hover{border-color:rgba(245,200,66,.25);color:var(--t1);}
+.hab-rt.a{background:rgba(245,200,66,.1);border-color:rgba(245,200,66,.35);color:var(--gold);}
+.hab-rp{display:none;animation:fadeUp .24s ease both;}
+.hab-rp.a{display:block;}
+
+/* weekly bar chart */
+.hab-barchart{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:22px;}
+.hab-bc-col{display:flex;flex-direction:column;align-items:center;gap:4px;}
+.hab-bc-bars{height:90px;display:flex;align-items:flex-end;gap:2px;width:100%;justify-content:center;}
+.hab-bc-bar{flex:1;max-width:16px;border-radius:3px 3px 0 0;transition:height .7s cubic-bezier(.4,0,.2,1);min-height:2px;}
+.hab-bc-bar.td{box-shadow:0 -4px 14px rgba(245,200,66,.4);}
+.hab-bc-lbl{font-size:8.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);}
+.hab-bc-val{font-family:'DM Mono',monospace;font-size:10px;color:var(--t2);}
+
+/* KPI strip */
+.hab-kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px;}
+.hab-kpi{background:rgba(255,255,255,.025);border:0.5px solid rgba(255,255,255,.07);border-radius:12px;padding:12px 10px;text-align:center;}
+.hab-kpi-v{font-family:'DM Mono',monospace;font-size:24px;font-weight:400;line-height:1;margin-bottom:3px;}
+.hab-kpi-l{font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);}
+@media(max-width:600px){.hab-kpi-strip{grid-template-columns:repeat(2,1fr);}.hab-kpi-v{font-size:20px;}}
+
+/* consistency table */
+.hab-consist-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:0.5px solid rgba(255,255,255,.04);}
+.hab-consist-row:last-child{border-bottom:none;}
+.hab-consist-icon{font-size:18px;width:28px;text-align:center;flex-shrink:0;}
+.hab-consist-info{flex:1;min-width:0;}
+.hab-consist-name{font-size:13px;font-weight:600;color:var(--t1);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hab-consist-bar-wr{height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;}
+.hab-consist-bar{height:100%;border-radius:2px;transition:width .8s ease;}
+.hab-consist-right{text-align:right;flex-shrink:0;}
+.hab-consist-pct{font-family:'DM Mono',monospace;font-size:14px;font-weight:500;}
+.hab-consist-sub{font-size:9.5px;color:var(--t3);margin-top:1px;}
+
+/* heatmap */
+.hab-heatmap{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:18px;}
+.hab-hm-lbl{font-size:8px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);text-align:center;padding:3px 0;}
+.hab-hm-cell{aspect-ratio:1;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;cursor:default;transition:transform .12s;position:relative;}
+.hab-hm-cell:hover{transform:scale(1.3);z-index:5;}
+.hab-hm-0{background:rgba(255,255,255,.03);color:var(--t3);}
+.hab-hm-1{background:rgba(245,200,66,.18);color:var(--gold);}
+.hab-hm-2{background:rgba(245,200,66,.32);color:var(--gold);}
+.hab-hm-3{background:rgba(245,200,66,.52);color:#0A0A0B;}
+.hab-hm-4{background:linear-gradient(135deg,var(--gold-d),var(--gold));color:#0A0A0B;box-shadow:0 2px 8px rgba(245,200,66,.3);}
+.hab-hm-empty{background:transparent;}
+.hab-hm-today{outline:1.5px solid rgba(245,200,66,.65);outline-offset:1px;}
+
+/* month nav */
+.hab-month-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.hab-mnav-btn{width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.09);color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.hab-mnav-btn:hover{border-color:rgba(245,200,66,.3);color:var(--gold);}
+
+/* trend badge */
+.hab-trend{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;}
+.hab-trend.up{background:rgba(34,197,94,.1);color:var(--green);border:0.5px solid rgba(34,197,94,.2);}
+.hab-trend.dn{background:rgba(239,68,68,.08);color:var(--red);border:0.5px solid rgba(239,68,68,.15);}
+.hab-trend.eq{background:rgba(245,200,66,.07);color:var(--gold);border:0.5px solid rgba(245,200,66,.18);}
+
+/* section label */
+.hab-sec-lbl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;display:flex;align-items:center;gap:7px;}
+.hab-sec-lbl::before{content:'';display:inline-block;width:3px;height:11px;border-radius:2px;background:var(--gold);opacity:.6;flex-shrink:0;}
+
+/* sort bar */
+.hab-sort-bar{display:flex;gap:5px;margin-bottom:14px;}
+.hab-sort-btn{padding:5px 11px;border-radius:7px;border:0.5px solid rgba(255,255,255,.07);background:transparent;color:var(--t3);font-size:10px;font-weight:700;letter-spacing:.04em;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;text-transform:uppercase;}
+.hab-sort-btn:hover{border-color:rgba(245,200,66,.2);color:var(--t2);}
+.hab-sort-btn.a{background:rgba(245,200,66,.08);border-color:rgba(245,200,66,.3);color:var(--gold);}
+
+/* motivation quote */
+.hab-quote{padding:12px 16px;background:rgba(255,255,255,.02);border-left:2px solid rgba(245,200,66,.3);border-radius:0 8px 8px 0;font-size:13px;font-style:italic;color:var(--t2);line-height:1.6;margin-bottom:16px;}
+
+/* mobile */
+@media(max-width:600px){
+  .hab-hero{padding:16px;gap:16px;}
+  .hab-matrix-head,.hab-row{padding:8px 12px;}
+  .hab-cell{width:30px;height:30px;border-radius:7px;}
+  .hab-row-icon{width:28px;height:28px;font-size:14px;border-radius:7px;}
+  .hab-wring{display:none;}
+  .hab-hm-cell{border-radius:4px;}
+  .hab-barchart{gap:4px;}
+  .hab-bc-bars{height:70px;}
+  .hab-row{grid-template-columns:1fr repeat(7,30px) 30px !important;}
+}
+</style>
+
+<!-- Modal -->
+<div id="habAddOv" onclick="if(event.target===this)_hClose()">
+  <div class="hab-modal">
+    <div class="hab-mh">
+      <span class="hab-mh-title" id="habMTitle">Новая привычка</span>
+      <button onclick="_hClose()" style="background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.09);color:var(--t3);width:30px;height:30px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all .15s" onmouseover="this.style.background='rgba(255,255,255,.1)';this.style.color='var(--t1)'" onmouseout="this.style.background='rgba(255,255,255,.05)';this.style.color=''">✕</button>
+    </div>
+    <div class="hab-mb">
+      <div class="hab-field">
+        <div class="hab-flbl">Название</div>
+        <input class="hab-inp" id="habNameIn" placeholder="Например: Читать 30 минут" maxlength="42" autocomplete="off">
+      </div>
+      <div class="hab-field">
+        <div class="hab-flbl">Иконка</div>
+        <div class="hab-emoji-scroll" id="habEmojiPicker"></div>
+      </div>
+      <div class="hab-field">
+        <div class="hab-flbl">Цвет</div>
+        <div class="hab-cp-row" id="habColorPicker"></div>
+      </div>
+      <div class="hab-field">
+        <div class="hab-flbl">Частота</div>
+        <div class="hab-seg" id="habFreqSeg">
+          <button class="hab-seg-btn s" data-v="daily"    onclick="_hFreq(this)">Каждый день</button>
+          <button class="hab-seg-btn"   data-v="weekdays" onclick="_hFreq(this)">Будни</button>
+          <button class="hab-seg-btn"   data-v="weekend"  onclick="_hFreq(this)">Выходные</button>
+        </div>
+      </div>
+      <div class="hab-field">
+        <div class="hab-flbl">Время дня</div>
+        <div class="hab-tod-row" id="habTodSeg">
+          <button class="hab-tod-btn s" data-v="any"      onclick="_hTod(this)"><span>🕐</span><span>Любое</span></button>
+          <button class="hab-tod-btn"   data-v="morning"  onclick="_hTod(this)"><span>🌅</span><span>Утро</span></button>
+          <button class="hab-tod-btn"   data-v="evening"  onclick="_hTod(this)"><span>🌙</span><span>Вечер</span></button>
+        </div>
+      </div>
+      <div class="hab-field">
+        <button class="hab-save-btn" onclick="_hSave()">Создать привычку</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   HABIT TRACKER ENGINE  v3 — DTR Progress Club
+   Self-contained IIFE — touches only #hab-root + #habAddOv
+══════════════════════════════════════════════════════════════ */
+(function HabTracker(){
+'use strict';
+
+// ── Constants ───────────────────────────────────────────────
+const HK='dtr_h3', LK='dtr_l3';
+const EMOJIS=['📚','🏃','🧘','💪','🍎','💧','🎯','✍️','🎨','🎸','🧠','😴','🌿','🚴','🏊','🤸','🧹','💊','☀️','🌙','📝','🎓','🔥','⚡','🌸','🎮','🍵','🌊','🏋️','🚶','🧩','💡','🎵','🥗','🫀','📿','🦷','💻','🧪','🪴'];
+const COLORS=['#F5C842','#22C55E','#3B82F6','#EF4444','#A855F7','#F97316','#06B6D4','#EC4899','#8B5CF6','#14B8A6','#84CC16','#F59E0B'];
+const DLBL=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+const MLBL=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const QUOTES=['Маленькие привычки — большие результаты.','Дисциплина — это свобода.','Побеждает тот, кто не останавливается.','Каждый день — это новый шанс.','Прогресс важнее совершенства.'];
+const TEMPLATES=[
+  {name:'Читать 30 мин',icon:'📚',color:'#3B82F6',freq:'daily',tod:'evening'},
+  {name:'Спорт',icon:'🏃',color:'#22C55E',freq:'daily',tod:'morning'},
+  {name:'Медитация',icon:'🧘',color:'#A855F7',freq:'daily',tod:'morning'},
+  {name:'Пить воду',icon:'💧',color:'#06B6D4',freq:'daily',tod:'any'},
+  {name:'Без соцсетей',icon:'🎯',color:'#F97316',freq:'weekdays',tod:'any'},
+  {name:'Ранний подъём',icon:'☀️',color:'#F5C842',freq:'daily',tod:'morning'},
+];
+
+let _emoji=EMOJIS[0],_color=COLORS[0],_freq='daily',_tod='any',_sort='order',_mOff=0,_editId=null;
+
+// ── Storage ──────────────────────────────────────────────────
+const hLoad=()=>{try{return JSON.parse(localStorage.getItem(HK)||'[]');}catch{return[];}};
+const lLoad=()=>{try{return JSON.parse(localStorage.getItem(LK)||'{}');}catch{return{};}};
+const hSave=d=>localStorage.setItem(HK,JSON.stringify(d));
+const lSave=d=>localStorage.setItem(LK,JSON.stringify(d));
+
+// ── Date utils ───────────────────────────────────────────────
+const pad=n=>String(n).padStart(2,'0');
+const dk=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const today=()=>dk(new Date());
+function weekDates(){
+  const d=new Date(),dow=d.getDay()||7;
+  d.setDate(d.getDate()-dow+1);d.setHours(0,0,0,0);
+  return Array.from({length:7},(_,i)=>{const x=new Date(d);x.setDate(x.getDate()+i);return x;});
+}
+function isActive(freq,d){
+  const w=d.getDay();
+  if(freq==='daily')return true;
+  if(freq==='weekdays')return w>=1&&w<=5;
+  if(freq==='weekend')return w===0||w===6;
+  return true;
+}
+const isDone=(hid,key)=>{const l=lLoad();return !!(l[hid]&&l[hid][key]);};
+
+// ── Streak ───────────────────────────────────────────────────
+function calcStreak(hid,freq){
+  const l=lLoad()[hid]||{};let s=0;
+  const d=new Date();d.setHours(12,0,0,0);
+  for(let i=0;i<400;i++){
+    if(!isActive(freq,d)){d.setDate(d.getDate()-1);continue;}
+    if(l[dk(d)])s++;else if(i>0)break;
+    d.setDate(d.getDate()-1);
+  }
+  return s;
+}
+function bestStreak(hid,freq){
+  const l=lLoad()[hid]||{};const keys=Object.keys(l).sort();
+  if(!keys.length)return 0;
+  let best=0,cur=0;
+  const s=new Date(keys[0]);s.setHours(12,0,0,0);
+  const e=new Date();e.setHours(12,0,0,0);
+  const x=new Date(s);
+  while(x<=e){if(isActive(freq,x)){if(l[dk(x)]){cur++;best=Math.max(best,cur);}else cur=0;}x.setDate(x.getDate()+1);}
+  return best;
+}
+
+// ── Consistency % (last 30 days) ─────────────────────────────
+function consist30(hid,freq){
+  const l=lLoad()[hid]||{};let done=0,poss=0;
+  const d=new Date();d.setHours(12,0,0,0);
+  for(let i=0;i<30;i++){if(isActive(freq,d)){poss++;if(l[dk(d)])done++;}d.setDate(d.getDate()-1);}
+  return poss?Math.round(done/poss*100):0;
+}
+
+// ── Ring SVG ─────────────────────────────────────────────────
+function mkRing(pct,color,size=34){
+  const r=12,c=2*Math.PI*r,dash=c*pct/100;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="2.5"/>
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="2.5"
+      stroke-dasharray="${dash.toFixed(1)} ${(c-dash).toFixed(1)}" stroke-linecap="round"
+      style="transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dasharray .8s cubic-bezier(.4,0,.2,1)"/>
+  </svg>`;
+}
+
+// ── Arc SVG (hero score) ─────────────────────────────────────
+function mkArc(pct,size=90){
+  const r=36,cx=size/2,cy=size/2;
+  const startAngle=-200,sweepAngle=220;
+  function polarToCartesian(angle){
+    const rad=angle*Math.PI/180;
+    return{x:cx+r*Math.cos(rad),y:cy+r*Math.sin(rad)};
+  }
+  const s=polarToCartesian(startAngle),e=polarToCartesian(startAngle+sweepAngle);
+  const bg=`M ${s.x} ${s.y} A ${r} ${r} 0 1 1 ${e.x} ${e.y}`;
+  const prog=polarToCartesian(startAngle+sweepAngle*(pct/100));
+  const largeArc=sweepAngle*(pct/100)>180?1:0;
+  const fg=`M ${s.x} ${s.y} A ${r} ${r} 0 ${largeArc} 1 ${prog.x} ${prog.y}`;
+  const color=pct===100?'#22C55E':pct>=70?'#F5C842':pct>=40?'#F97316':'#EF4444';
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+    <path d="${bg}" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="5" stroke-linecap="round"/>
+    <path d="${fg}" fill="none" stroke="${color}" stroke-width="5" stroke-linecap="round"
+      style="transition:stroke-dashoffset 1s ease;filter:drop-shadow(0 0 6px ${color}88)"/>
+  </svg>`;
+}
+
+// ── Escape ────────────────────────────────────────────────────
+const esc=s=>{const d=document.createElement('div');d.textContent=s;return d.innerHTML;};
+
+// ── Sort habits ───────────────────────────────────────────────
+function sorted(habits){
+  const h=[...habits];
+  if(_sort==='streak') return h.sort((a,b)=>calcStreak(b.id,b.freq)-calcStreak(a.id,a.freq));
+  if(_sort==='consist') return h.sort((a,b)=>consist30(b.id,b.freq)-consist30(a.id,a.freq));
+  if(_sort==='alpha') return h.sort((a,b)=>a.name.localeCompare(b.name,'ru'));
+  return h; // 'order' = creation order
+}
+
+// ══ MAIN RENDER ══════════════════════════════════════════════
+function render(){
+  const root=document.getElementById('hab-root');if(!root)return;
+  const habits=hLoad();const days=weekDates();const td=today();const now=new Date();
+
+  // Compute today stats
+  let doneToday=0,totalToday=0;
+  habits.forEach(h=>{if(isActive(h.freq,now)){totalToday++;if(isDone(h.id,td))doneToday++;}});
+  const todayPct=totalToday?Math.round(doneToday/totalToday*100):0;
+
+  // Compute global streak (consecutive days any habit done)
+  const log=lLoad();
+  let globalStreak=0;
+  {const d=new Date();d.setHours(12,0,0,0);
+   for(let i=0;i<400;i++){
+     const key=dk(d);
+     const anyDone=habits.some(h=>isActive(h.freq,d)&&log[h.id]&&log[h.id][key]);
+     if(anyDone)globalStreak++;else if(i>0)break;
+     d.setDate(d.getDate()-1);
+   }}
+
+  // Total completions ever
+  let totalEver=0;
+  Object.values(log).forEach(h=>totalEver+=Object.keys(h).length);
+
+  const heroColor=todayPct===100?'var(--green)':todayPct>=70?'var(--gold)':todayPct>=40?'var(--orange)':'var(--red)';
+  const todLabel=totalToday?`${doneToday} из ${totalToday}`:'Нет задач';
+
+  // ── at-risk banners ──
+  const atRisk=habits.filter(h=>{
+    if(!isActive(h.freq,now))return false;
+    if(isDone(h.id,td))return false;
+    return calcStreak(h.id,h.freq)>=3;
+  });
+
+  const perfectAll=totalToday>0&&doneToday===totalToday;
+
+  // ── sort bar (standalone, outside matrix) ──
+  const sortBar=`<div style="display:flex;align-items:center;gap:6px;padding:0 2px;margin-bottom:12px">
+    <span style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t3);margin-right:4px">Сортировка:</span>
+    <button class="hab-sort-btn${_sort==='order'?' a':''}"   onclick="_hSort('order',this)">По порядку</button>
+    <button class="hab-sort-btn${_sort==='streak'?' a':''}"  onclick="_hSort('streak',this)">🔥 Стрик</button>
+    <button class="hab-sort-btn${_sort==='consist'?' a':''}" onclick="_hSort('consist',this)">% Успеха</button>
+    <button class="hab-sort-btn${_sort==='alpha'?' a':''}"   onclick="_hSort('alpha',this)">А—Я</button>
+  </div>`;
+
+  // ── grid columns: name col | 7 day cells | ring | del ──
+  const NCOL='180px';
+  const colsDesktop=`${NCOL} repeat(7,38px) 40px 30px`;
+
+  // ── column day headers ──
+  const colHead=days.map((d,i)=>{
+    const isToday=dk(d)===td;const isPast=d<now&&!isToday;
+    return `<div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px">
+      <div style="font-size:8px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:${isToday?'var(--gold)':'var(--t3)'}">${DLBL[i]}</div>
+      <div style="width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;
+        background:${isToday?'rgba(245,200,66,.15)':'transparent'};
+        color:${isToday?'var(--gold)':isPast?'var(--t1)':'var(--t3)'};
+        ${isToday?'outline:1.5px solid rgba(245,200,66,.4);outline-offset:1px':''}">${d.getDate()}</div>
+    </div>`;
+  }).join('');
+
+  // ── habit rows ──
+  const habList=sorted(habits).map(h=>{
+    const s=calcStreak(h.id,h.freq);const color=h.color||'#F5C842';
+    let wDone=0,wActive=0;
+    const cells=days.map((d,i)=>{
+      const key=dk(d);const isToday=key===td;const active=isActive(h.freq,d);
+      const done=isDone(h.id,key);const future=d>now&&!isToday;
+      if(active)wActive++;if(active&&done)wDone++;
+      let cls='hab-cell';
+      if(done)cls+=' cell-done';
+      if(isToday)cls+=' cell-today';
+      if(future)cls+=' cell-future';
+      if(!active)cls+=' cell-off';
+      return `<div class="${cls}" style="${done?`background:${color}20;border-color:${color}55`:''}"
+        onclick="habToggle('${h.id}','${key}')" title="${d.toLocaleDateString('ru',{day:'numeric',month:'short'})}">
+        ${done
+          ?`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>`
+          :active&&!future
+            ?`<div style="width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.1)"></div>`
+            :`<div style="width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.04)"></div>`
+        }
+      </div>`;
+    }).join('');
+    const weekPct=wActive?Math.round(wDone/wActive*100):0;
+    const atRiskRow=s>=3&&isActive(h.freq,now)&&!isDone(h.id,td);
+    const perfectRow=wActive>0&&wDone===wActive;
+    const rowAccent=atRiskRow?'border-left:2.5px solid rgba(249,115,22,.55);background:rgba(249,115,22,.02)':
+                   perfectRow?'border-left:2.5px solid rgba(245,200,66,.45);background:rgba(245,200,66,.02)':'';
+    const todLabel={any:'',morning:'🌅',evening:'🌙'}[h.tod||'any']||'';
+    return `<div class="hab-row" style="grid-template-columns:${colsDesktop};${rowAccent}">
+      <div class="hab-row-name">
+        <div class="hab-row-icon" style="background:${color}15;border:0.5px solid ${color}30">${h.icon||'🎯'}</div>
+        <div class="hab-row-label" style="min-width:0">
+          <div class="hab-row-title">${esc(h.name)}</div>
+          <div class="hab-row-sub">
+            ${s>0?`<span style="color:var(--orange);font-weight:700;font-size:10px">🔥 ${s}</span>`:'<span style="color:var(--t3);font-size:10px">— стрик</span>'}
+            ${todLabel?`<span style="font-size:10px">${todLabel}</span>`:''}
+          </div>
+        </div>
+      </div>
+      ${cells}
+      <div class="hab-wring">${mkRing(weekPct,color)}<div class="hab-wring-pct" style="color:${color}">${weekPct}%</div></div>
+      <button class="hab-del-btn" onclick="habDel('${h.id}')" title="Удалить">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+      </button>
+    </div>`;
+  }).join('');
+
+  root.innerHTML=`
+  <!-- ═══ HERO BANNER ═══ -->
+  <div style="display:flex;align-items:stretch;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+
+    <!-- Arc score -->
+    <div style="background:linear-gradient(135deg,rgba(245,200,66,.05),rgba(255,255,255,.01));border:0.5px solid rgba(245,200,66,.12);border-radius:18px;padding:20px 22px;display:flex;align-items:center;gap:16px;flex:1;min-width:280px">
+      <div style="position:relative;flex-shrink:0">
+        ${mkArc(todayPct,84)}
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+          <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:500;line-height:1;color:${heroColor}">${todayPct}%</div>
+          <div style="font-size:7px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:2px">Сегодня</div>
+        </div>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:16px;font-weight:800;color:var(--t1);letter-spacing:-.02em;line-height:1.2;margin-bottom:4px">${
+          todayPct===100?'🏆 Идеальный день!':
+          todayPct>=70?'💪 Отличный прогресс':
+          todayPct>=40?'⚡ Продолжай!':
+          totalToday>0?'🎯 Начни сейчас':'Добавь привычки'
+        }</div>
+        <div style="font-size:12px;color:var(--t2);margin-bottom:12px">${doneToday} из ${totalToday} привычек выполнено</div>
+        <div style="display:flex;gap:18px">
+          <div style="text-align:center"><div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:400;color:var(--orange);line-height:1">🔥 ${globalStreak}</div><div style="font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-top:3px">Стрик</div></div>
+          <div style="text-align:center"><div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:400;color:var(--blue);line-height:1">${habits.length}</div><div style="font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-top:3px">Привычек</div></div>
+          <div style="text-align:center"><div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:400;color:var(--green);line-height:1">${totalEver}</div><div style="font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-top:3px">Выполнено</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add button (vertical card) -->
+    <button onclick="_hOpenModal()" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:20px 22px;background:rgba(245,200,66,.06);border:0.5px solid rgba(245,200,66,.2);border-radius:18px;cursor:pointer;transition:all .22s cubic-bezier(.34,1.56,.64,1);font-family:'DM Sans',sans-serif;min-width:100px"
+      onmouseover="this.style.background='rgba(245,200,66,.12)';this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(245,200,66,.15)'"
+      onmouseout="this.style.background='rgba(245,200,66,.06)';this.style.transform='';this.style.boxShadow=''">
+      <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--gold-d),var(--gold));display:flex;align-items:center;justify-content:center">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0A0A0B" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </div>
+      <span style="font-size:12px;font-weight:700;color:var(--gold);letter-spacing:.01em">Привычка</span>
+    </button>
+
+  </div>
+
+  <!-- ═══ ALERTS ═══ -->
+  ${perfectAll&&!atRisk.length?`<div style="display:flex;align-items:center;gap:12px;padding:12px 18px;background:rgba(245,200,66,.06);border:0.5px solid rgba(245,200,66,.18);border-radius:12px;margin-bottom:12px;animation:fadeUp .3s ease both">
+    <span style="font-size:18px">🏆</span>
+    <div>
+      <div style="font-size:13px;font-weight:700;color:var(--gold)">Идеальный день!</div>
+      <div style="font-size:11px;color:var(--t2);margin-top:1px">Все привычки выполнены — ты в ударе!</div>
+    </div>
+  </div>`:''}
+  ${atRisk.map(h=>`<div style="display:flex;align-items:center;gap:12px;padding:11px 16px;background:rgba(249,115,22,.06);border:0.5px solid rgba(249,115,22,.2);border-radius:12px;margin-bottom:8px;animation:fadeUp .3s ease both">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <div style="flex:1;min-width:0"><span style="font-size:12px;font-weight:700;color:var(--orange)">Стрик под угрозой! </span><span style="font-size:12px;color:var(--t2)">«${esc(h.name)}» · 🔥 ${calcStreak(h.id,h.freq)} дней</span></div>
+    <button onclick="habToggle('${h.id}','${today()}')" style="flex-shrink:0;padding:6px 14px;border-radius:8px;background:rgba(249,115,22,.15);border:0.5px solid rgba(249,115,22,.35);color:var(--orange);font-size:11px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all .15s" onmouseover="this.style.background='rgba(249,115,22,.28)'" onmouseout="this.style.background='rgba(249,115,22,.15)'">Отметить ✓</button>
+  </div>`).join('')}
+
+  <!-- ═══ HABIT MATRIX ═══ -->
+  ${habits.length?`
+  ${sortBar}
+  <div class="hab-matrix">
+    <!-- Column headers -->
+    <div style="display:grid;grid-template-columns:${colsDesktop};align-items:center;gap:4px;padding:10px 16px 8px;border-bottom:0.5px solid rgba(255,255,255,.05)">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)">ПРИВЫЧКА</div>
+      ${colHead}
+      <div style="text-align:center;font-size:8px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--t3)">НЕД</div>
+      <div></div>
+    </div>
+    <!-- Rows -->
+    ${habList}
+    <!-- Add row -->
+    <div class="hab-add-row" onclick="_hOpenModal()">
+      <div class="hab-add-circle">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </div>
+      <span style="font-size:13px;font-weight:500">Добавить привычку</span>
+    </div>
+  </div>`:`
+  <div class="hab-matrix">
+    <div class="hab-empty-state">
+      <div class="hab-es-icon">✅</div>
+      <div class="hab-es-title">Начни прямо сейчас</div>
+      <div class="hab-es-sub">Выбери из шаблонов или создай свою привычку</div>
+      <div class="hab-template-row">${TEMPLATES.map(t=>`<div class="hab-tpl" onclick="_hFromTpl(${JSON.stringify(t).replace(/"/g,'&quot;')})">${t.icon} ${t.name}</div>`).join('')}</div>
+      <button onclick="_hOpenModal()" style="margin-top:12px;padding:12px 28px;background:linear-gradient(135deg,var(--gold-d),var(--gold));color:#0A0A0B;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:transform .18s,box-shadow .18s" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 24px rgba(245,200,66,.4)'" onmouseout="this.style.transform='';this.style.boxShadow=''">+ Создать привычку</button>
+    </div>
+  </div>`}
+
+  <!-- ═══ REPORTS ═══ -->
+  <div class="card" style="margin-bottom:0;margin-top:16px">
+    <div class="ch">
+      <span class="ct" style="display:inline-flex;align-items:center;gap:7px">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Аналитика
+      </span>
+      <div class="hab-rep-tabs">
+        <button class="hab-rt a" id="habRtW" onclick="_hRepTab('W',this)">Неделя</button>
+        <button class="hab-rt"   id="habRtM" onclick="_hRepTab('M',this)">Месяц</button>
+      </div>
+    </div>
+    <div class="cb">
+      <div class="hab-rp a" id="habRpW"></div>
+      <div class="hab-rp"   id="habRpM"></div>
+    </div>
+  </div>`;
+
+  renderWeekRep();
+}
+
+// ══ TOGGLE ═══════════════════════════════════════════════════
+window.habToggle=function(hid,key){
+  const l=lLoad();if(!l[hid])l[hid]={};
+  const wasDone=!!l[hid][key];
+  if(wasDone)delete l[hid][key];else l[hid][key]=1;
+  lSave(l);render();
+  if(!wasDone&&key===today()){
+    try{window.showToast&&showToast('Выполнено!','✅');}catch{}
+    // Check perfect day
+    const habits=hLoad();const now=new Date();
+    let d=0,t=0;
+    habits.forEach(h=>{if(isActive(h.freq,now)){t++;if(isDone(h.id,today()))d++;}});
+    if(d===t&&t>0)try{window.triggerConfetti&&triggerConfetti();}catch{}
+  }
+};
+
+// ══ DELETE ════════════════════════════════════════════════════
+window.habDel=function(hid){
+  const h=hLoad();const name=h.find(x=>x.id===hid)?.name||'привычку';
+  if(!confirm(`Удалить «${name}»?\nВся история будет потеряна.`))return;
+  hSave(h.filter(x=>x.id!==hid));
+  const l=lLoad();delete l[hid];lSave(l);
+  render();try{window.showToast&&showToast('Удалено','🗑️');}catch{}
+};
+
+// ══ SORT ═════════════════════════════════════════════════════
+window._hSort=function(s,btn){
+  _sort=s;
+  document.querySelectorAll('.hab-sort-btn').forEach(b=>b.classList.remove('a'));
+  btn.classList.add('a');
+  render();
+};
+
+// ══ MODAL ════════════════════════════════════════════════════
+function buildPickers(){
+  const ep=document.getElementById('habEmojiPicker');
+  const cp=document.getElementById('habColorPicker');
+  if(ep)ep.innerHTML=EMOJIS.map(e=>`<button class="hab-ep${e===_emoji?' s':''}" onclick="_hEmoji('${e}',this)">${e}</button>`).join('');
+  if(cp)cp.innerHTML=COLORS.map(c=>`<div class="hab-cp${c===_color?' s':''}" style="background:${c}" onclick="_hColor('${c}',this)"></div>`).join('');
+  document.querySelectorAll('.hab-seg-btn').forEach(b=>b.classList.toggle('s',b.dataset.v===_freq));
+  document.querySelectorAll('.hab-tod-btn').forEach(b=>b.classList.toggle('s',b.dataset.v===_tod));
+}
+window._hOpenModal=function(id){
+  _editId=id||null;_emoji=EMOJIS[0];_color=COLORS[0];_freq='daily';_tod='any';
+  if(id){const h=hLoad().find(x=>x.id===id);if(h){_emoji=h.icon;_color=h.color;_freq=h.freq;_tod=h.tod||'any';document.getElementById('habNameIn').value=h.name;}document.getElementById('habMTitle').textContent='Редактировать';}
+  else{document.getElementById('habNameIn').value='';document.getElementById('habMTitle').textContent='Новая привычка';}
+  buildPickers();
+  const ov=document.getElementById('habAddOv');ov.classList.add('open');ov.style.display='flex';
+  setTimeout(()=>document.getElementById('habNameIn').focus(),100);
+};
+window._hClose=function(){const ov=document.getElementById('habAddOv');ov.classList.remove('open');ov.style.display='none';};
+window._hEmoji=function(e,btn){_emoji=e;document.querySelectorAll('.hab-ep').forEach(b=>b.classList.remove('s'));btn.classList.add('s');};
+window._hColor=function(c,dot){_color=c;document.querySelectorAll('.hab-cp').forEach(d=>d.classList.remove('s'));dot.classList.add('s');};
+window._hFreq=function(btn){_freq=btn.dataset.v;document.querySelectorAll('.hab-seg-btn').forEach(b=>b.classList.toggle('s',b.dataset.v===_freq));};
+window._hTod=function(btn){_tod=btn.dataset.v;document.querySelectorAll('.hab-tod-btn').forEach(b=>b.classList.toggle('s',b.dataset.v===_tod));};
+window._hFromTpl=function(tpl){
+  _emoji=tpl.icon;_color=tpl.color;_freq=tpl.freq;_tod=tpl.tod;
+  const h=hLoad();h.push({id:'h'+Date.now(),name:tpl.name,icon:_emoji,color:_color,freq:_freq,tod:_tod,created:Date.now()});
+  hSave(h);render();try{window.showToast&&showToast('Добавлено: '+tpl.name,tpl.icon);}catch{}
+};
+window._hSave=function(){
+  const name=document.getElementById('habNameIn').value.trim();
+  if(!name){const inp=document.getElementById('habNameIn');inp.style.borderColor='rgba(239,68,68,.5)';inp.focus();setTimeout(()=>inp.style.borderColor='',1500);return;}
+  const h=hLoad();
+  if(_editId){const i=h.findIndex(x=>x.id===_editId);if(i>=0){h[i]={...h[i],name,icon:_emoji,color:_color,freq:_freq,tod:_tod};}}
+  else h.push({id:'h'+Date.now(),name,icon:_emoji,color:_color,freq:_freq,tod:_tod,created:Date.now()});
+  hSave(h);_hClose();render();try{window.showToast&&showToast(_editId?'Обновлено':'Добавлено',_emoji);}catch{}
+};
+
+// ══ REPORT TABS ═══════════════════════════════════════════════
+window._hRepTab=function(t,btn){
+  document.querySelectorAll('.hab-rt').forEach(b=>b.classList.remove('a'));btn.classList.add('a');
+  ['W','M'].forEach(x=>{const el=document.getElementById('habRp'+x);if(el)el.classList.toggle('a',x===t);});
+  if(t==='M')renderMonthRep();
+};
+
+// ══ WEEKLY REPORT ════════════════════════════════════════════
+function renderWeekRep(){
+  const el=document.getElementById('habRpW');if(!el)return;
+  const habits=hLoad();const days=weekDates();const td=today();const now=new Date();const l=lLoad();
+  if(!habits.length){el.innerHTML='<div class="empty" style="text-align:center;padding:32px;color:var(--t3)">Добавь привычки чтобы видеть статистику</div>';return;}
+
+  let totalDone=0,totalPoss=0;
+  const dayData=days.map(d=>{
+    let done=0,poss=0;
+    habits.forEach(h=>{if(isActive(h.freq,d)){poss++;if(l[h.id]&&l[h.id][dk(d)])done++;}});
+    totalDone+=done;totalPoss+=poss;
+    return{done,poss,d};
+  });
+  const maxP=Math.max(...dayData.map(x=>x.poss),1);
+  const rate=totalPoss?Math.round(totalDone/totalPoss*100):0;
+  const bst=habits.reduce((b,h)=>Math.max(b,bestStreak(h.id,h.freq)),0);
+  const avgConsist=habits.length?Math.round(habits.reduce((s,h)=>s+consist30(h.id,h.freq),0)/habits.length):0;
+
+  // bar chart with per-habit stacked bars
+  const bars=dayData.map((x,i)=>{
+    const h=maxP?Math.max(Math.round(x.done/maxP*90),x.done>0?5:2):2;
+    const isToday=dk(x.d)===td;
+    const pct=x.poss?Math.round(x.done/x.poss*100):0;
+    const barColor=isToday?'linear-gradient(180deg,var(--gold),var(--gold-d))':'rgba(245,200,66,.35)';
+    const best=x.done===x.poss&&x.poss>0;
+    return `<div class="hab-bc-col">
+      <div class="hab-bc-bars">
+        <div class="hab-bc-bar${isToday?' td':''}" style="height:${h}px;background:${barColor};${best?'box-shadow:0 -3px 10px rgba(245,200,66,.5)':''}"></div>
+      </div>
+      <div class="hab-bc-lbl" style="color:${isToday?'var(--gold)':'var(--t3)'}">${DLBL[i]}</div>
+      <div class="hab-bc-val">${x.done}${x.poss?`/<span style="opacity:.5">${x.poss}</span>`:''}</div>
+    </div>`;
+  }).join('');
+
+  // Consistency table
+  const bestDay=dayData.reduce((b,x)=>x.done>b.done?x:b,dayData[0]);
+  const consistRows=[...habits].sort((a,b)=>consist30(b.id,b.freq)-consist30(a.id,a.freq)).map(h=>{
+    const c=consist30(h.id,h.freq);const s=calcStreak(h.id,h.freq);const bs=bestStreak(h.id,h.freq);
+    const color=h.color||'var(--gold)';
+    return `<div class="hab-consist-row">
+      <div class="hab-consist-icon">${h.icon}</div>
+      <div class="hab-consist-info">
+        <div class="hab-consist-name">${esc(h.name)}</div>
+        <div class="hab-consist-bar-wr" style="max-width:180px"><div class="hab-consist-bar" style="width:${c}%;background:${color}"></div></div>
+      </div>
+      <div class="hab-consist-right">
+        <div class="hab-consist-pct" style="color:${color}">${c}%</div>
+        <div class="hab-consist-sub">🔥${s} · рек.${bs}дн</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML=`
+    <div class="hab-kpi-strip">
+      <div class="hab-kpi"><div class="hab-kpi-v">${totalDone}</div><div class="hab-kpi-l">Выполнено</div></div>
+      <div class="hab-kpi"><div class="hab-kpi-v" style="color:var(--green)">${rate}%</div><div class="hab-kpi-l">Успех недели</div></div>
+      <div class="hab-kpi"><div class="hab-kpi-v" style="color:var(--orange)">🔥${bst}</div><div class="hab-kpi-l">Лучший стрик</div></div>
+      <div class="hab-kpi"><div class="hab-kpi-v" style="color:var(--blue)">${avgConsist}%</div><div class="hab-kpi-l">Постоянство</div></div>
+    </div>
+    <div class="hab-sec-lbl">Выполнение по дням</div>
+    <div class="hab-barchart">${bars}</div>
+    ${bestDay.poss>0?`<div style="margin-bottom:18px;padding:10px 14px;background:rgba(245,200,66,.04);border:0.5px solid rgba(245,200,66,.12);border-radius:10px;font-size:12px;color:var(--t2)">
+      🏅 Лучший день недели: <span style="color:var(--gold);font-weight:700">${bestDay.d.toLocaleDateString('ru',{weekday:'long'})}</span> — ${bestDay.done} привычек
+    </div>`:''}
+    <div class="hab-sec-lbl">Постоянство за 30 дней</div>
+    ${consistRows}
+    <div class="hab-quote" style="margin-top:16px">"${QUOTES[new Date().getDay()%QUOTES.length]}"</div>
+  `;
+}
+
+// ══ MONTHLY REPORT ════════════════════════════════════════════
+window.habMonthNav=function(d){_mOff+=d;renderMonthRep();};
+function renderMonthRep(){
+  const el=document.getElementById('habRpM');if(!el)return;
+  const now=new Date();
+  const ref=new Date(now.getFullYear(),now.getMonth()+_mOff,1);
+  const yr=ref.getFullYear(),mo=ref.getMonth();
+  const dim=new Date(yr,mo+1,0).getDate();
+  const fdow=(new Date(yr,mo,1).getDay()||7)-1;
+  const habits=hLoad();const l=lLoad();const td=today();
+  if(!habits.length){el.innerHTML='<div style="text-align:center;padding:32px;color:var(--t3)">Добавь привычки</div>';return;}
+
+  // build day data
+  let totalDone=0,totalPoss=0;
+  const dDone=[],dPoss=[];
+  for(let d=1;d<=dim;d++){
+    const dt=new Date(yr,mo,d,12);const key=dk(dt);
+    let dn=0,ps=0;
+    habits.forEach(h=>{if(isActive(h.freq,dt)){ps++;if(l[h.id]&&l[h.id][key])dn++;}});
+    dDone.push(dn);dPoss.push(ps);totalDone+=dn;totalPoss+=ps;
+  }
+  const bestDay=Math.max(...dDone,0);
+  const rate=totalPoss?Math.round(totalDone/totalPoss*100):0;
+  const activeDays=dDone.filter(x=>x>0).length;
+
+  // ── COMPACT DOT CALENDAR ──────────────────────────────────
+  // Fixed 30px cells, centered, not 1fr
+  const dayLblRow=DLBL.map(d=>`<div style="width:30px;height:20px;display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)">${d}</div>`).join('');
+  let calCells='';
+  for(let i=0;i<fdow;i++) calCells+=`<div style="width:30px;height:30px"></div>`;
+  for(let d=1;d<=dim;d++){
+    const dn=dDone[d-1],ps=dPoss[d-1];
+    const key=`${yr}-${pad(mo+1)}-${pad(d)}`;
+    const isToday=key===td;
+    const ratio=ps>0?dn/ps:0;
+    // Color & style by intensity
+    let bg,color,border='transparent',shadow='';
+    if(ps===0){
+      bg='rgba(255,255,255,.03)';color='rgba(255,255,255,.15)';
+    } else if(ratio===0){
+      bg='rgba(255,255,255,.04)';color='rgba(255,255,255,.2)';
+    } else if(ratio<0.34){
+      bg='rgba(245,200,66,.12)';color='rgba(245,200,66,.6)';
+    } else if(ratio<0.67){
+      bg='rgba(245,200,66,.28)';color='rgba(245,200,66,.85)';
+    } else if(ratio<1){
+      bg='rgba(245,200,66,.52)';color='#F5C842';
+    } else {
+      bg='linear-gradient(135deg,#C89F28,#F5C842)';color='#0A0A0B';shadow='0 2px 8px rgba(245,200,66,.35)';
+    }
+    const todayStyle=isToday?`outline:2px solid rgba(245,200,66,.7);outline-offset:1px;`:'';
+    calCells+=`<div title="${d} ${MLBL[mo]}: ${dn}/${ps}" style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;background:${bg};color:${color};box-shadow:${shadow};${todayStyle}cursor:default;transition:transform .12s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform=''">${d}</div>`;
+  }
+
+  // ── WEEK BARS ──────────────────────────────────────────────
+  // Group days into weeks (Mon–Sun)
+  const weeks=[];let week=[];
+  const totalCells=fdow+dim;
+  for(let i=0;i<totalCells;i++){
+    const day=i-fdow+1;
+    week.push(day>0&&day<=dim?day:null);
+    if(week.length===7||(i===totalCells-1&&week.length)){
+      if(week.length<7) while(week.length<7) week.push(null);
+      weeks.push(week);week=[];
+    }
+  }
+  const weekBars=weeks.map((wk,wi)=>{
+    const validDays=wk.filter(d=>d!==null);
+    if(!validDays.length) return '';
+    const first=validDays[0],last=validDays[validDays.length-1];
+    let wDone=0,wPoss=0;
+    validDays.forEach(d=>{wDone+=dDone[d-1]||0;wPoss+=dPoss[d-1]||0;});
+    const wPct=wPoss?Math.round(wDone/wPoss*100):0;
+    const wColor=wPct===100?'var(--green)':wPct>=70?'var(--gold)':wPct>=40?'var(--orange)':'rgba(255,255,255,.15)';
+    const isCurrentWeek=validDays.some(d=>`${yr}-${pad(mo+1)}-${pad(d)}`===td);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;${isCurrentWeek?'':''}">
+      <div style="font-size:10px;font-weight:700;color:var(--t3);width:42px;flex-shrink:0;font-family:'DM Mono',monospace">${pad(first)}.${pad(mo+1)}</div>
+      <div style="flex:1;height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${wPct}%;background:${wColor};border-radius:3px;transition:width .8s cubic-bezier(.4,0,.2,1);box-shadow:${wPct>0?`0 0 8px ${wColor}55`:'none'}"></div>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:${wColor};width:36px;text-align:right;flex-shrink:0;font-family:'DM Mono',monospace">${wPct}%</div>
+      <div style="font-size:10px;color:var(--t3);width:28px;text-align:right;flex-shrink:0">${wDone}/${wPoss}</div>
+    </div>`;
+  }).join('');
+
+  // Legend
+  const legend=[
+    {bg:'rgba(255,255,255,.04)',label:'0%'},
+    {bg:'rgba(245,200,66,.12)',label:'<34%'},
+    {bg:'rgba(245,200,66,.28)',label:'<67%'},
+    {bg:'rgba(245,200,66,.52)',label:'<100%'},
+    {bg:'linear-gradient(135deg,#C89F28,#F5C842)',label:'100%'},
+  ];
+
+  // per-habit month breakdown
+  const prevRef=new Date(yr,mo-1,1);const pyr=prevRef.getFullYear(),pmo=prevRef.getMonth();
+  const pdim=new Date(pyr,pmo+1,0).getDate();
+  const breakdown=habits.map(h=>{
+    let hd=0,hp=0,pd=0,pp=0;
+    for(let d=1;d<=dim;d++){const dt=new Date(yr,mo,d,12);if(isActive(h.freq,dt)){hp++;if(l[h.id]&&l[h.id][dk(dt)])hd++;}}
+    for(let d=1;d<=pdim;d++){const dt=new Date(pyr,pmo,d,12);if(isActive(h.freq,dt)){pp++;if(l[h.id]&&l[h.id][dk(dt)])pd++;}}
+    const p=hp?Math.round(hd/hp*100):0;const pp2=pp?Math.round(pd/pp*100):0;
+    const diff=p-pp2;const color=h.color||'var(--gold)';
+    const trendCls=diff>0?'up':diff<0?'dn':'eq';
+    const trendLbl=diff>0?`+${diff}%`:diff<0?`${diff}%`:'=';
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:0.5px solid rgba(255,255,255,.04)">
+      <div style="font-size:18px;flex-shrink:0">${h.icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;gap:6px">
+          <span style="font-size:13px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(h.name)}</span>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <span class="hab-trend ${trendCls}">${trendLbl}</span>
+            <span style="font-family:'DM Mono',monospace;font-size:11px;color:${color}">${hd}/${hp}</span>
+          </div>
+        </div>
+        <div style="height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden">
+          <div style="height:100%;width:${p}%;background:${color};border-radius:2px;transition:width .8s ease;box-shadow:0 0 6px ${color}44"></div>
+        </div>
+      </div>
+      <div style="font-size:13px;font-weight:700;color:${color};flex-shrink:0;min-width:34px;text-align:right">${p}%</div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML=`
+    <!-- Month nav -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <button class="hab-mnav-btn" onclick="habMonthNav(-1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <div style="text-align:center">
+        <div style="font-size:16px;font-weight:800;color:var(--t1);letter-spacing:-.02em">${MLBL[mo]} ${yr}</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px">${activeDays} активных дней · ${rate}% успех</div>
+      </div>
+      <button class="hab-mnav-btn" onclick="habMonthNav(1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
+    </div>
+
+    <!-- KPI strip -->
+    <div class="hab-kpi-strip" style="margin-bottom:20px">
+      <div class="hab-kpi"><div class="hab-kpi-v">${totalDone}</div><div class="hab-kpi-l">Выполнено</div></div>
+      <div class="hab-kpi"><div class="hab-kpi-v" style="color:var(--green)">${rate}%</div><div class="hab-kpi-l">Успех</div></div>
+      <div class="hab-kpi"><div class="hab-kpi-v" style="color:var(--orange)">${activeDays}</div><div class="hab-kpi-l">Активных дней</div></div>
+      <div class="hab-kpi"><div class="hab-kpi-v" style="color:var(--gold)">${bestDay}</div><div class="hab-kpi-l">Лучший день</div></div>
+    </div>
+
+    <!-- Calendar + Week bars side by side -->
+    <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;margin-bottom:22px">
+
+      <!-- Compact dot calendar -->
+      <div style="flex-shrink:0">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;display:flex;align-items:center;gap:6px">
+          <span style="display:inline-block;width:3px;height:11px;border-radius:2px;background:var(--gold);opacity:.6"></span>
+          Календарь
+        </div>
+        <!-- Day labels -->
+        <div style="display:flex;gap:4px;margin-bottom:4px">${dayLblRow}</div>
+        <!-- Cells -->
+        <div style="display:flex;flex-wrap:wrap;gap:4px;width:${7*30+6*4}px">
+          ${calCells}
+        </div>
+        <!-- Legend -->
+        <div style="display:flex;align-items:center;gap:5px;margin-top:10px">
+          <span style="font-size:9px;color:var(--t3);margin-right:2px">меньше</span>
+          ${legend.map(x=>`<div style="width:12px;height:12px;border-radius:3px;background:${x.bg};flex-shrink:0" title="${x.label}"></div>`).join('')}
+          <span style="font-size:9px;color:var(--t3);margin-left:2px">больше</span>
+        </div>
+      </div>
+
+      <!-- Week summary bars -->
+      <div style="flex:1;min-width:200px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;display:flex;align-items:center;gap:6px">
+          <span style="display:inline-block;width:3px;height:11px;border-radius:2px;background:var(--gold);opacity:.6"></span>
+          По неделям
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:9px;color:var(--t3)">
+          <div style="width:42px;flex-shrink:0">Начало</div>
+          <div style="flex:1">Прогресс</div>
+          <div style="width:36px;text-align:right">%</div>
+          <div style="width:28px;text-align:right">✓/∑</div>
+        </div>
+        ${weekBars}
+      </div>
+
+    </div>
+
+    <!-- Per-habit breakdown -->
+    <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;display:flex;align-items:center;gap:6px">
+      <span style="display:inline-block;width:3px;height:11px;border-radius:2px;background:var(--gold);opacity:.6"></span>
+      По привычкам
+      <span style="font-size:9px;color:var(--t3);font-weight:400;letter-spacing:0;text-transform:none;margin-left:2px">↑↓ vs прошлый месяц</span>
+    </div>
+    ${breakdown}
+  `;
+}
+
+// ══ HOOK showTab ═════════════════════════════════════════════
+const _st=window.showTab;
+window.showTab=function(t,btn){if(_st)_st.call(this,t,btn);if(t==='habits')setTimeout(render,50);};
+
+})();
+</script>
 </body>
 </html>
