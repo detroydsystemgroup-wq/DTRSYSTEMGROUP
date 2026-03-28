@@ -10154,10 +10154,9 @@ function _updateAmbientBtn(on) {
 function showLeaguePickerThenStart() {
   const cats = ALL_CATS.filter(c => P?.activeCatIds?.includes(c.id));
   if (cats.length === 1) {
-    // Only one league — select it automatically and start
+    // Only one league — select it automatically, but don't start timer
     quickSel = cats[0].id;
     renderQuickCats();
-    toggleQuick();
     return;
   }
   // Build overlay
@@ -10194,10 +10193,10 @@ function showLeaguePickerThenStart() {
 
 function pickLeagueAndStart(catId) {
   quickSel = catId;
-  renderQuickCats(); // updates button label via tls block
+  renderQuickCats(); // updates button label, no timer start
   const ov = document.getElementById('leaguePickerOv');
   if (ov) ov.remove();
-  toggleQuick();
+  // Timer does NOT start — user must press Старт themselves
 }
 
 // ── Nav timer pill: показываем/скрываем и обновляем время ──
@@ -10240,11 +10239,12 @@ function toggleQuick() {
   if (!quickSel) quickSel = defCat();
 
   if (!timerRunning && !timerPaused) {
-    // Если категория не выбрана — показываем выбор лиги
+    // Если категория не выбрана — показываем выбор лиги (только выбор, не запуск)
     if (!quickSel || !P?.activeCatIds?.includes(quickSel)) {
       showLeaguePickerThenStart();
       return;
     }
+    // Лига выбрана — стартуем таймер
     // START (or resume from pause handled separately)
     _pausedElapsed = 0;
     setTimerState({ startTime: Date.now(), catId: quickSel, pomMode: pomMode });
