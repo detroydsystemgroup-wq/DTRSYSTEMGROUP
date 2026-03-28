@@ -6251,10 +6251,13 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
 
       <!-- League selector -->
       <div style="padding:12px 20px 0;position:relative">
-        <select id="timerLeagueSel" onchange="selCatFromTimer(this)"
-          style="width:100%;padding:11px 36px 11px 16px;border-radius:12px;border:0.5px solid rgba(245,200,66,.18);background:rgba(245,200,66,.05);color:var(--t1);font-size:13px;font-weight:600;cursor:pointer;outline:none;font-family:'DM Sans',sans-serif;appearance:none;-webkit-appearance:none;transition:all .2s;text-align:center;text-align-last:center">
-          <option value="">🎯 Выбрать лигу</option>
-        </select>
+        <button id="timerLeagueSel"
+          onclick="showLeaguePickerThenStart()"
+          style="width:100%;padding:11px 16px;border-radius:12px;border:0.5px solid rgba(245,200,66,.18);background:rgba(245,200,66,.05);color:var(--t1);font-size:13px;font-weight:600;cursor:pointer;outline:none;font-family:'DM Sans',sans-serif;transition:all .2s;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px">
+          <span id="timerLeagueSelIcon">🎯</span>
+          <span id="timerLeagueSelLabel">ВЫБРАТЬ ЛИГУ</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:auto;opacity:.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
         <span style="position:absolute;right:32px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:10px;color:var(--t3)">▾</span>
       </div>
 
@@ -9312,21 +9315,29 @@ function renderQuickCats() {
       </button>`
     ).join('');
   // Populate league selector
+  // Update league picker button label
   const tls = document.getElementById('timerLeagueSel');
-  if(tls){
-    const cats = ALL_CATS.filter(c => P.activeCatIds.includes(c.id));
-    tls.innerHTML = '<option value="">🎯 ВЫБРАТЬ ЛИГУ</option>' +
-      cats.map(c=>`<option value="${c.id}" ${c.id===quickSel?'selected':''}>${c.icon} ${c.name.toUpperCase()}</option>`).join('');
-    tls.style.borderColor = quickSel ? 'var(--gold)' : 'var(--border)';
-    tls.style.color = quickSel ? 'var(--gold)' : 'var(--t2)';
+  if(tls) {
+    const selCat = quickSel ? ALL_CATS.find(c => c.id === quickSel) : null;
+    const iconEl = document.getElementById('timerLeagueSelIcon');
+    const lblEl  = document.getElementById('timerLeagueSelLabel');
+    if(selCat) {
+      if(iconEl) iconEl.textContent = selCat.icon;
+      if(lblEl)  lblEl.textContent  = selCat.name.toUpperCase();
+      tls.style.borderColor = 'var(--gold)';
+      tls.style.color       = 'var(--gold)';
+      tls.style.background  = 'rgba(245,200,66,.08)';
+    } else {
+      if(iconEl) iconEl.textContent = '🎯';
+      if(lblEl)  lblEl.textContent  = 'ВЫБРАТЬ ЛИГУ';
+      tls.style.borderColor = 'rgba(245,200,66,.18)';
+      tls.style.color       = 'var(--t1)';
+      tls.style.background  = 'rgba(245,200,66,.05)';
+    }
   }
 }
 
-function selCatFromTimer(sel){
-  const val = sel.value;
-  if(val){ selCat(val); sel.style.borderColor='var(--gold)'; sel.style.color='var(--gold)'; }
-  else { quickSel=null; sel.style.borderColor='var(--border)'; sel.style.color='var(--t2)'; }
-}
+// selCatFromTimer replaced by league picker button
 function selCat(id) { if (timerRunning) return; quickSel = id; renderQuickCats(); }
 
 function timerTick() {
@@ -9756,7 +9767,7 @@ function showLeaguePickerThenStart() {
 
 function pickLeagueAndStart(catId) {
   quickSel = catId;
-  renderQuickCats();
+  renderQuickCats(); // updates button label via tls block
   const ov = document.getElementById('leaguePickerOv');
   if (ov) ov.remove();
   toggleQuick();
