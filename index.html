@@ -5704,6 +5704,9 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
   .week-dot-lbl { font-size: 8px; }
 }
 
+
+/* ── Notification settings modal ── */
+#notifSettingsOv { display: none; }
 </style>
   <link rel="manifest" id="pwaManifest">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23080808'/%3E%3Cpolygon points='58,10 38,52 52,52 42,90 62,46 46,46' fill='%23F5C842'/%3E%3C/svg%3E">
@@ -5913,6 +5916,7 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
       <div class="ph-acts">
         <button class="btn-ol" onclick="openPub()" style="display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 16px;font-size:13px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Профиль</button>
         <button class="btn-ol" onclick="showTab('manage')" style="display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 16px;font-size:13px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> Лиги</button>
+        <button id="notifSettingsBtn" class="btn-ol" onclick="openNotifSettings()" style="display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 16px;font-size:13px;position:relative"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Уведомления<span id="notifActiveDot" style="display:none;position:absolute;top:6px;right:8px;width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green)"></span></button>
         </div>
       </div>
     </div>
@@ -6981,6 +6985,7 @@ async function loadUser(userId){
   // Онлайн счётчик сразу
   initPresence();
   initRealtimeMessages();
+  initNotifications();
   // Обновляем last_seen при открытии приложения
   if(!SB_USER.isDemoUser){
     sb.from('users').update({last_seen:new Date().toISOString()})
@@ -11579,6 +11584,383 @@ window.addEventListener('load', ()=>{
 </script>
 
 <script>
+
+
+// ══════════════════════════════════════════════════════════════
+// NOTIFICATION SYSTEM
+// ══════════════════════════════════════════════════════════════
+
+const NOTIF_STORAGE_KEY = 'dtr_notifications_v1';
+const NOTIF_MELODIES = [
+  { id: 'default', name: 'По умолчанию', desc: 'Стандартный звук браузера' },
+  { id: 'chime',   name: 'Колокольчик',  desc: 'Нежный перезвон' },
+  { id: 'pulse',   name: 'Пульс',         desc: 'Ритмичный сигнал' },
+  { id: 'gong',    name: 'Гонг',           desc: 'Глубокий удар' },
+  { id: 'digital', name: 'Digital',        desc: 'Электронный сигнал' },
+];
+const NOTIF_DAYS_RU = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+let _notifSchedules = [];
+let _notifTimers = [];
+let _notifSelMelody = 'chime';
+let _notifSelDays = [0,1,2,3,4]; // Mon–Fri default
+
+function _loadNotifSchedules() {
+  try { _notifSchedules = JSON.parse(localStorage.getItem(NOTIF_STORAGE_KEY) || '[]'); } catch { _notifSchedules = []; }
+}
+function _saveNotifSchedules() {
+  localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(_notifSchedules));
+}
+
+// ── Audio engine for melodies ──────────────────────────────────
+function _playMelody(id) {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const g = ctx.createGain();
+  g.connect(ctx.destination);
+  const now = ctx.currentTime;
+
+  const seq = (freq, start, dur, vol=0.4) => {
+    const o = ctx.createOscillator();
+    const eg = ctx.createGain();
+    o.connect(eg); eg.connect(g);
+    o.frequency.value = freq;
+    eg.gain.setValueAtTime(0, now+start);
+    eg.gain.linearRampToValueAtTime(vol, now+start+0.01);
+    eg.gain.exponentialRampToValueAtTime(0.001, now+start+dur);
+    o.start(now+start); o.stop(now+start+dur+0.05);
+  };
+
+  if (id === 'chime') {
+    o => void 0;
+    seq(1047, 0,    0.4, 0.3);
+    seq(1319, 0.15, 0.4, 0.25);
+    seq(1568, 0.3,  0.5, 0.2);
+    seq(2093, 0.5,  0.8, 0.15);
+  } else if (id === 'pulse') {
+    [0, 0.25, 0.5].forEach(t => seq(880, t, 0.15, 0.35));
+  } else if (id === 'gong') {
+    const o = ctx.createOscillator();
+    const eg = ctx.createGain();
+    o.type = 'sine'; o.frequency.value = 196;
+    o.connect(eg); eg.connect(g);
+    eg.gain.setValueAtTime(0.5, now);
+    eg.gain.exponentialRampToValueAtTime(0.001, now+3);
+    o.start(now); o.stop(now+3.1);
+  } else if (id === 'digital') {
+    seq(1760, 0, 0.08, 0.4); seq(2349, 0.1, 0.08, 0.4);
+    seq(1760, 0.2, 0.08, 0.4); seq(2349, 0.3, 0.12, 0.4);
+  } else {
+    // default — simple beep
+    seq(880, 0, 0.3, 0.4); seq(1047, 0.35, 0.4, 0.35);
+  }
+  setTimeout(() => { try { ctx.close(); } catch {} }, 4000);
+}
+
+// ── Open / close modal ─────────────────────────────────────────
+function openNotifSettings() {
+  _loadNotifSchedules();
+  const ov = document.getElementById('notifSettingsOv');
+  ov.style.display = 'flex';
+  _renderNotifDayBtns();
+  _renderNotifMelodies();
+  _renderNotifScheduleList();
+  _updateNotifPermUI();
+}
+
+function closeNotifSettings() {
+  document.getElementById('notifSettingsOv').style.display = 'none';
+}
+
+function _detectBrowser() {
+  const ua = navigator.userAgent;
+  if (ua.includes('YaBrowser') || ua.includes('Yandex')) return 'yandex';
+  if (ua.includes('OPR') || ua.includes('Opera')) return 'opera';
+  if (ua.includes('Edg/')) return 'edge';
+  if (ua.includes('Firefox')) return 'firefox';
+  if (ua.includes('Chrome')) return 'chrome';
+  if (ua.includes('Safari')) return 'safari';
+  return 'chrome';
+}
+
+function _getBrowserUnblockSteps() {
+  const br = _detectBrowser();
+  const url = location.href.replace(location.hash,'');
+  const steps = {
+    chrome:  `1. Нажми на <b>🔒 замок</b> (или ⓘ) в адресной строке<br>2. Найди <b>«Уведомления»</b> → установи <b>«Разрешить»</b><br>3. Обнови страницу`,
+    yandex:  `1. Нажми на <b>🔒 замок</b> в адресной строке слева<br>2. Найди <b>«Уведомления»</b> → поставь <b>«Разрешить»</b><br>3. Нажми <b>«Обновить»</b>`,
+    edge:    `1. Нажми на <b>🔒 замок</b> в адресной строке<br>2. Перейди в <b>«Разрешения для этого сайта»</b><br>3. Найди <b>«Уведомления»</b> → выбери <b>«Разрешить»</b><br>4. Обнови страницу`,
+    firefox: `1. Нажми на <b>🔒 замок</b> в адресной строке<br>2. Нажми стрелку <b>›</b> рядом с «Подключение защищено»<br>3. Нажми <b>«Дополнительные сведения»</b> → вкладка <b>«Разрешения»</b><br>4. Найди <b>«Отправлять уведомления»</b> → сними блокировку`,
+    safari:  `1. Открой меню <b>Safari → Настройки → Веб-сайты</b><br>2. Выбери <b>«Уведомления»</b><br>3. Найди <b>${url}</b> → выбери <b>«Разрешить»</b>`,
+    opera:   `1. Нажми на <b>🔒 замок</b> в адресной строке<br>2. Найди <b>«Уведомления»</b> → выбери <b>«Разрешить»</b><br>3. Обнови страницу`,
+  };
+  return steps[br] || steps.chrome;
+}
+
+function notifOpenBrowserSettings() {
+  const br = _detectBrowser();
+  let url = null;
+  if (br === 'chrome')  url = 'chrome://settings/content/notifications';
+  else if (br === 'edge') url = 'edge://settings/content/notifications';
+  else if (br === 'firefox') url = 'about:preferences#privacy';
+  if (url) {
+    showToast('Скопируй адрес и вставь в новую вкладку: ' + url, 'ℹ️');
+    // Can't open chrome:// via JS — copy to clipboard
+    if (navigator.clipboard) navigator.clipboard.writeText(url);
+  } else {
+    showToast('Нажми на 🔒 замок в адресной строке → Уведомления → Разрешить', 'ℹ️');
+  }
+}
+
+function _updateNotifPermUI() {
+  const status     = document.getElementById('notifPermStatus');
+  const block      = document.getElementById('notifPermBlock');
+  const defaultMsg = document.getElementById('notifPermDefaultMsg');
+  const deniedMsg  = document.getElementById('notifPermDeniedMsg');
+  const stepsEl    = document.getElementById('notifPermSteps');
+
+  if (!('Notification' in window)) {
+    if (status) { status.textContent = 'Уведомления не поддерживаются браузером'; status.style.color = 'var(--red)'; }
+    if (block) block.style.display = 'none';
+    return;
+  }
+  const p = Notification.permission;
+  if (p === 'granted') {
+    if (status) { status.textContent = '✓ Разрешено'; status.style.color = 'var(--green)'; }
+    if (block) block.style.display = 'none';
+  } else if (p === 'denied') {
+    if (status) { status.textContent = 'Заблокировано — разрешите в настройках браузера'; status.style.color = 'var(--red)'; }
+    if (block) { block.style.display = 'block'; }
+    if (defaultMsg) defaultMsg.style.display = 'none';
+    if (deniedMsg)  deniedMsg.style.display  = 'block';
+    if (stepsEl)    stepsEl.innerHTML = _getBrowserUnblockSteps();
+  } else {
+    if (status) { status.textContent = 'Нужно разрешение для уведомлений'; status.style.color = 'var(--gold)'; }
+    if (block) { block.style.display = 'block'; }
+    if (defaultMsg) defaultMsg.style.display = 'block';
+    if (deniedMsg)  deniedMsg.style.display  = 'none';
+  }
+}
+
+async function requestNotifPerm() {
+  if (!('Notification' in window)) { showToast('Браузер не поддерживает уведомления', '⚠️'); return; }
+  const result = await Notification.requestPermission();
+  _updateNotifPermUI();
+  if (result === 'granted') showToast('Уведомления разрешены!', '🔔');
+  else showToast('Уведомления заблокированы', '⚠️');
+}
+
+// ── Day picker ─────────────────────────────────────────────────
+function _renderNotifDayBtns() {
+  const cont = document.getElementById('notifDayBtns');
+  if (!cont) return;
+  cont.innerHTML = NOTIF_DAYS_RU.map((d, i) => `
+    <button class="notif-day-btn" data-day="${i}" onclick="toggleNotifDay(this)"
+      style="padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;
+             font-family:'DM Sans',sans-serif;transition:all .18s;
+             background:${_notifSelDays.includes(i)?'rgba(245,200,66,.15)':'var(--card)'};
+             border:${_notifSelDays.includes(i)?'1.5px solid var(--gold)':'0.5px solid var(--border)'};
+             color:${_notifSelDays.includes(i)?'var(--gold)':'var(--t2)'}"
+    >${d}</button>`
+  ).join('') + `
+    <button onclick="notifSelectAllDays()"
+      style="padding:7px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;
+             font-family:'DM Sans',sans-serif;background:transparent;
+             border:0.5px solid rgba(255,255,255,.1);color:var(--t3);transition:all .18s">Все</button>`;
+}
+
+function toggleNotifDay(btn) {
+  const day = parseInt(btn.dataset.day);
+  const idx = _notifSelDays.indexOf(day);
+  if (idx > -1) _notifSelDays.splice(idx, 1);
+  else _notifSelDays.push(day);
+  _renderNotifDayBtns();
+}
+
+function notifSelectAllDays() {
+  _notifSelDays = [0,1,2,3,4,5,6];
+  _renderNotifDayBtns();
+}
+
+// ── Melody picker ──────────────────────────────────────────────
+function _renderNotifMelodies() {
+  const cont = document.getElementById('notifMelodyList');
+  if (!cont) return;
+  cont.innerHTML = NOTIF_MELODIES.map(m => `
+    <div class="notif-melody-item" data-mel="${m.id}" onclick="selectNotifMelody('${m.id}')"
+      style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;cursor:pointer;
+             border:${_notifSelMelody===m.id?'1.5px solid var(--gold)':'1px solid var(--border)'};
+             background:${_notifSelMelody===m.id?'rgba(245,200,66,.06)':'var(--card)'};transition:all .18s">
+      <div style="font-size:20px;flex-shrink:0">🎵</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600;color:${_notifSelMelody===m.id?'var(--gold)':'var(--t1)'}">${m.name}</div>
+        <div style="font-size:11px;color:var(--t3)">${m.desc}</div>
+      </div>
+      <button onclick="event.stopPropagation();previewNotifMelody('${m.id}')"
+        style="background:rgba(245,200,66,.1);border:0.5px solid rgba(245,200,66,.2);
+               border-radius:6px;padding:4px 10px;color:var(--gold);font-size:11px;
+               cursor:pointer;font-family:'DM Sans',sans-serif;flex-shrink:0">&#x25B6;</button>
+      <div style="width:16px;height:16px;border-radius:50%;flex-shrink:0;
+                  background:${_notifSelMelody===m.id?'var(--gold)':'transparent'};
+                  border:1.5px solid ${_notifSelMelody===m.id?'var(--gold)':'var(--border)'}"></div>
+    </div>`).join('');
+}
+
+function selectNotifMelody(id) {
+  _notifSelMelody = id;
+  _renderNotifMelodies();
+}
+
+function previewNotifMelody(id) {
+  _playMelody(id);
+}
+
+// ── Add / delete schedules ─────────────────────────────────────
+function addNotifSchedule() {
+  if (Notification.permission !== 'granted') {
+    requestNotifPerm().then(() => {
+      if (Notification.permission === 'granted') addNotifSchedule();
+    });
+    return;
+  }
+  const h = document.getElementById('notifHour')?.value || '09';
+  const m = document.getElementById('notifMinute')?.value || '00';
+  const time = h + ':' + m;
+  const text = document.getElementById('notifText')?.value?.trim() || 'Время заниматься! 🚀';
+  if (!time) { showToast('Укажи время','⚠️'); return; }
+  if (_notifSelDays.length === 0) { showToast('Выбери хотя бы один день','⚠️'); return; }
+
+  const id = 'n_' + Date.now();
+  _notifSchedules.push({
+    id,
+    time,
+    days: [..._notifSelDays].sort(),
+    melody: _notifSelMelody,
+    text,
+    enabled: true,
+  });
+  _saveNotifSchedules();
+  _scheduleAllNotifs();
+  _renderNotifScheduleList();
+  _updateNotifActiveDot();
+  showToast('Уведомление добавлено!', '🔔');
+}
+
+function deleteNotifSchedule(id) {
+  _notifSchedules = _notifSchedules.filter(n => n.id !== id);
+  _saveNotifSchedules();
+  _scheduleAllNotifs();
+  _renderNotifScheduleList();
+  _updateNotifActiveDot();
+}
+
+function toggleNotifSchedule(id) {
+  const n = _notifSchedules.find(n => n.id === id);
+  if (n) { n.enabled = !n.enabled; _saveNotifSchedules(); _scheduleAllNotifs(); _renderNotifScheduleList(); }
+}
+
+function _renderNotifScheduleList() {
+  const cont = document.getElementById('notifScheduleList');
+  if (!cont) return;
+  if (_notifSchedules.length === 0) {
+    cont.innerHTML = '<div style="font-size:12px;color:var(--t3);text-align:center;padding:8px 0">Нет настроенных уведомлений</div>';
+    return;
+  }
+  cont.innerHTML = '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:10px">Расписание</div>' +
+    _notifSchedules.map(n => {
+      const daysStr = n.days.length === 7 ? 'Каждый день' : n.days.map(d => NOTIF_DAYS_RU[d]).join(', ');
+      const mel = NOTIF_MELODIES.find(m => m.id === n.melody)?.name || n.melody;
+      return `
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;
+                    background:var(--card);border:0.5px solid ${n.enabled?'rgba(245,200,66,.15)':'var(--border)'};
+                    margin-bottom:8px;transition:all .2s">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:700;color:${n.enabled?'var(--t1)':'var(--t3)'}">&#x23F0; ${n.time}</div>
+            <div style="font-size:11px;color:var(--t3);margin-top:2px">${daysStr} &middot; ${mel}</div>
+            <div style="font-size:11px;color:var(--t2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(n.text)}</div>
+          </div>
+          <label style="position:relative;width:36px;height:20px;cursor:pointer;flex-shrink:0">
+            <input type="checkbox" ${n.enabled?'checked':''} onchange="toggleNotifSchedule('${n.id}')"
+              style="opacity:0;width:0;height:0;position:absolute">
+            <span style="position:absolute;inset:0;border-radius:10px;transition:.2s;
+                         background:${n.enabled?'var(--green)':'var(--border)'}"></span>
+            <span style="position:absolute;top:2px;left:${n.enabled?'18':'2'}px;width:16px;height:16px;
+                         border-radius:50%;background:#fff;transition:.2s"></span>
+          </label>
+          <button onclick="deleteNotifSchedule('${n.id}')"
+            style="background:rgba(239,68,68,.12);border:0.5px solid rgba(239,68,68,.25);
+                   border-radius:7px;padding:5px 8px;color:var(--red);cursor:pointer;
+                   font-size:12px;flex-shrink:0;transition:all .18s">&#x2715;</button>
+        </div>`;
+    }).join('');
+}
+
+function _updateNotifActiveDot() {
+  const dot = document.getElementById('notifActiveDot');
+  if (dot) dot.style.display = _notifSchedules.some(n => n.enabled) ? 'block' : 'none';
+}
+
+// ── Scheduler — precise setTimeout-based ──────────────────────
+function _scheduleAllNotifs() {
+  // Clear existing timers
+  _notifTimers.forEach(t => clearTimeout(t));
+  _notifTimers = [];
+
+  _notifSchedules.filter(n => n.enabled).forEach(n => {
+    _scheduleNext(n);
+  });
+}
+
+function _scheduleNext(schedule) {
+  const now = new Date();
+  const [h, m] = schedule.time.split(':').map(Number);
+
+  // Find next matching day+time
+  for (let offset = 0; offset <= 7; offset++) {
+    const candidate = new Date(now);
+    candidate.setDate(candidate.getDate() + offset);
+    candidate.setHours(h, m, 0, 0);
+
+    // Day of week: JS 0=Sun,1=Mon...6=Sat → our 0=Mon...6=Sun
+    const jsDay = candidate.getDay();
+    const ourDay = jsDay === 0 ? 6 : jsDay - 1; // convert Sun=0 → 6, Mon=1 → 0
+
+    if (!schedule.days.includes(ourDay)) continue;
+    if (candidate <= now) continue; // skip if in the past
+
+    const msUntil = candidate.getTime() - now.getTime();
+    const t = setTimeout(() => {
+      _fireNotification(schedule);
+      // Schedule next occurrence
+      setTimeout(() => _scheduleNext(schedule), 1000);
+    }, msUntil);
+    _notifTimers.push(t);
+    return; // only schedule the nearest one
+  }
+}
+
+function _fireNotification(schedule) {
+  if (Notification.permission !== 'granted') return;
+  _playMelody(schedule.melody);
+  try {
+    const notif = new Notification('DTR Progress Club', {
+      body: schedule.text || 'Время заниматься! 🚀',
+      icon: '/favicon.ico',
+      tag: schedule.id,
+      requireInteraction: false,
+    });
+    notif.onclick = () => { window.focus(); notif.close(); };
+  } catch (e) {
+    console.warn('Notification error:', e);
+  }
+}
+
+// ── Init on app load ───────────────────────────────────────────
+function initNotifications() {
+  _loadNotifSchedules();
+  _scheduleAllNotifs();
+  _updateNotifActiveDot();
+}
+
+
 // ── Авто-обновление в полночь ──────────────────────────────
 (function scheduleMidnightRefresh(){
   const now = new Date();
@@ -11623,6 +12005,74 @@ window.addEventListener('load', ()=>{
   }
 })();
 </script>
+
+
+
+<!-- ══ NOTIFICATION SETTINGS MODAL ══════════════════════════════ -->
+<div id="notifSettingsOv" style="display:none;position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.75);backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeNotifSettings()">
+  <div style="background:var(--panel);border:0.5px solid var(--border);border-radius:20px;padding:0;max-width:420px;width:100%;box-shadow:0 32px 80px rgba(0,0,0,.7);max-height:90vh;overflow-y:auto">
+    <div style="padding:20px 22px 16px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:34px;height:34px;border-radius:10px;background:rgba(245,200,66,.1);border:0.5px solid rgba(245,200,66,.25);display:flex;align-items:center;justify-content:center">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </div>
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--t1)">Уведомления</div>
+          <div style="font-size:11px;color:var(--t3)" id="notifPermStatus">Проверяем разрешения...</div>
+        </div>
+      </div>
+      <button onclick="closeNotifSettings()" style="background:none;border:none;color:var(--t3);font-size:20px;cursor:pointer;padding:4px">&#x2715;</button>
+    </div>
+    <div id="notifPermBlock" style="padding:18px 22px;border-bottom:0.5px solid var(--border);display:none">
+      <div id="notifPermDefaultMsg" style="display:none">
+        <div style="font-size:13px;color:var(--t2);margin-bottom:12px;line-height:1.5">Нажми кнопку ниже — браузер покажет диалог с запросом разрешения</div>
+        <button onclick="requestNotifPerm()" style="width:100%;padding:12px;border-radius:10px;background:var(--gold);color:#0A0A0B;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          Разрешить уведомления
+        </button>
+      </div>
+      <div id="notifPermDeniedMsg" style="display:none">
+        <div style="background:rgba(239,68,68,.08);border:0.5px solid rgba(239,68,68,.25);border-radius:10px;padding:14px;margin-bottom:12px">
+          <div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:6px">Уведомления заблокированы в браузере</div>
+          <div id="notifPermSteps" style="font-size:12px;color:var(--t2);line-height:1.7"></div>
+        </div>
+        <button onclick="notifOpenBrowserSettings()" style="width:100%;padding:11px;border-radius:10px;background:rgba(239,68,68,.15);border:0.5px solid rgba(239,68,68,.3);color:var(--red);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+          Открыть настройки браузера
+        </button>
+      </div>
+    </div>
+    <div style="padding:18px 22px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:14px">Новое уведомление</div>
+      <div style="margin-bottom:14px">
+        <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:7px">&#x23F0; Время</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <select id="notifHour" style="flex:1;padding:11px 10px;border-radius:10px;background:var(--card);border:0.5px solid var(--border);color:var(--t1);font-size:16px;font-family:'DM Mono',monospace;font-weight:600;outline:none;cursor:pointer;text-align:center;appearance:none;-webkit-appearance:none">
+            <option value="00">00</option><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="06">06</option><option value="07">07</option><option value="08">08</option><option value="09"selected>09</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option>
+          </select>
+          <span style="font-size:22px;font-weight:700;color:var(--t2);flex-shrink:0">:</span>
+          <select id="notifMinute" style="flex:1;padding:11px 10px;border-radius:10px;background:var(--card);border:0.5px solid var(--border);color:var(--t1);font-size:16px;font-family:'DM Mono',monospace;font-weight:600;outline:none;cursor:pointer;text-align:center;appearance:none;-webkit-appearance:none">
+            <option value="00"selected>00</option><option value="05">05</option><option value="10">10</option><option value="15">15</option><option value="20">20</option><option value="25">25</option><option value="30">30</option><option value="35">35</option><option value="40">40</option><option value="45">45</option><option value="50">50</option><option value="55">55</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom:14px">
+        <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:7px">&#x1F4C5; Дни недели</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap" id="notifDayBtns"></div>
+      </div>
+      <div style="margin-bottom:18px">
+        <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:7px">&#x1F3B5; Мелодия</div>
+        <div style="display:flex;flex-direction:column;gap:6px" id="notifMelodyList"></div>
+      </div>
+      <div style="margin-bottom:18px">
+        <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:7px">&#x1F4AC; Текст уведомления</div>
+        <input type="text" id="notifText" maxlength="80" placeholder="Время заниматься! &#x1F680;" style="width:100%;padding:10px 14px;border-radius:10px;background:var(--card);border:0.5px solid var(--border);color:var(--t1);font-size:13px;font-family:'DM Sans',sans-serif;outline:none">
+      </div>
+      <button onclick="addNotifSchedule()" style="width:100%;padding:12px;border-radius:10px;background:linear-gradient(135deg,var(--gold-d),var(--gold));color:#0A0A0B;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;border:none;cursor:pointer">+ Добавить уведомление</button>
+    </div>
+    <div id="notifScheduleList" style="padding:0 22px 22px"></div>
+  </div>
+</div>
 
 </body>
 </html>
