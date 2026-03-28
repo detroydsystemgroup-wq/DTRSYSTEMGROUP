@@ -2675,6 +2675,40 @@ body.modal-open{overflow:hidden!important;}
   color: var(--t1) !important;
   align-self: flex-start !important;
 }
+/* ── New incoming message glow ── */
+@keyframes newMsgPop {
+  0%   { opacity:0; transform:translateY(10px) scale(.96); }
+  60%  { transform:translateY(-3px) scale(1.01); }
+  100% { opacity:1; transform:translateY(0) scale(1); }
+}
+@keyframes newMsgGlow {
+  0%,100% { box-shadow: 0 0 0 0 rgba(245,200,66,0); }
+  40%     { box-shadow: 0 0 0 4px rgba(245,200,66,.18), 0 4px 20px rgba(245,200,66,.12); }
+}
+.msg-bubble.theirs.new-msg {
+  animation: newMsgPop .32s cubic-bezier(.34,1.4,.64,1) both,
+             newMsgGlow .9s ease .1s both !important;
+  border-color: rgba(245,200,66,.18) !important;
+}
+/* ── Tab badge pulse ── */
+@keyframes badgePulse {
+  0%,100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239,68,68,.5); }
+  50%     { transform: scale(1.15); box-shadow: 0 0 0 5px rgba(239,68,68,0); }
+}
+#msgTabBadge { animation: badgePulse 1.8s ease infinite; }
+/* ── Conversation badge pop ── */
+@keyframes convBadgePop {
+  0%   { transform: scale(0) rotate(-10deg); opacity:0; }
+  70%  { transform: scale(1.2) rotate(4deg); }
+  100% { transform: scale(1) rotate(0); opacity:1; }
+}
+.msg-conv-badge { animation: convBadgePop .35s cubic-bezier(.34,1.56,.64,1) both; }
+/* ── Unread conv row pulse ── */
+@keyframes unreadRowIn {
+  from { background: rgba(245,200,66,.08); }
+  to   { background: transparent; }
+}
+.msg-conv.has-unread { animation: unreadRowIn 1.2s ease .2s both; }
 
 .msg-input-area {
   padding: 14px 18px !important;
@@ -5943,7 +5977,7 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
         <div class="tab-icon-wrap">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </div>
-        <span>Сообщения<span id="msgTabBadge" style="display:none;background:var(--red);color:#fff;border-radius:6px;font-size:8px;padding:1px 4px;margin-left:3px;font-weight:700;vertical-align:middle"></span></span>
+        <span>Сообщения<span id="msgTabBadge" style="display:none;background:#EF4444;color:#fff;border-radius:8px;font-size:9px;padding:2px 5px;margin-left:4px;font-weight:800;vertical-align:middle;line-height:1;letter-spacing:0"></span></span>
 
     </div>
   </div>
@@ -8884,7 +8918,7 @@ function _renderConvList(convs){
     const isUnread = cv.unread > 0;
 
     return `
-    <div class="msg-conv ${cv.userId===activeConvUserId?'active':''}"
+    <div class="msg-conv ${cv.userId===activeConvUserId?'active':''}${isUnread?' has-unread':''}"
       onclick="openConv('${esc(cv.userId)}','${escAttr(cv.name)}','${escAttr(cv.av)}','${escAttr(cv.avUrl||'')}')"
       style="position:relative">
       <!-- Avatar with online dot -->
@@ -9010,6 +9044,13 @@ async function loadMessages(partnerId){
         .eq('from_user_id',partnerId).eq('to_user_id',SB_USER.id).eq('read',false)
     ]);
     const data = fetchResult.data;
+    // Instantly clear unread badge in local cache — no DB round-trip needed
+    [_convsCache, allConvsCache].forEach(cache => {
+      if(!cache) return;
+      const conv = cache.find(c => c.userId === partnerId);
+      if(conv && conv.unread > 0){ conv.unread = 0; }
+    });
+    if(_convsCache || allConvsCache) _renderConvList(_convsCache || allConvsCache || []);
 
     const elNow = document.getElementById('msgMessages');
     if(!elNow || activeConvUserId !== partnerId) return;
@@ -9977,6 +10018,16 @@ function initRealtimeMessages() {
     }, (payload) => {
       if (payload.new.from_user_id === activeConvUserId) {
         appendMessage(payload.new, false);
+        // User is actively viewing — mark as read instantly, no badge update needed
+        sb.from('messages').update({read:true}).eq('id', payload.new.id).then(() => {
+          [_convsCache, allConvsCache].forEach(cache => {
+            if(!cache) return;
+            const conv = cache.find(c => c.userId === activeConvUserId);
+            if(conv && conv.unread > 0) conv.unread = 0;
+          });
+          if(_convsCache || allConvsCache) _renderConvList(_convsCache || allConvsCache || []);
+        });
+        return;
       }
       loadConversations();
     })
@@ -10028,10 +10079,12 @@ function appendMessage(msg, isMine) {
   const el = document.getElementById('msgMessages');
   if (!el) return;
   const div = document.createElement('div');
-  div.className = 'msg-bubble ' + (isMine ? 'mine' : 'theirs');
+  div.className = 'msg-bubble ' + (isMine ? 'mine' : 'theirs') + (isMine ? '' : ' new-msg');
   div.innerHTML = esc(msg.content) + `<div class="msg-bubble-time">${fmtMsgTime(msg.created_at)}</div>`;
   el.appendChild(div);
   el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  // Remove animation class after it finishes so re-renders don't replay it
+  if(!isMine) setTimeout(() => div.classList.remove('new-msg'), 1200);
 }
 
 // ══════════════════════════════════════════════════════════════
