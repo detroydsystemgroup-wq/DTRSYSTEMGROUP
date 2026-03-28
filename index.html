@@ -7375,7 +7375,15 @@ function toggleCatEpic(id){
       const d=ALL_CATS.find(c=>c.id===id);
       if(d) P.categories.push({...d,hours:0});
     }
-    if(!SB_USER?.isDemoUser) sb.from('user_categories').upsert({user_id:SB_USER.id,category_id:id,hours:0}).then(()=>{});
+    if(!SB_USER?.isDemoUser){
+      sb.from('user_categories').upsert({user_id:SB_USER.id,category_id:id,hours:0})
+        .then(null, e => {
+          P.activeCatIds = P.activeCatIds.filter(x => x !== id);
+          renderAll();
+          showToast('Ошибка добавления категории','⚠️');
+          console.error('toggleCatEpic upsert:', e);
+        });
+    }
     showToast(`${ALL_CATS.find(c=>c.id===id)?.icon} Добавлено в лигу!`,'✅');
   }
   // Инвалидируем только эту категорию, а не весь кеш
@@ -7463,6 +7471,7 @@ const activeCats=()=>ALL_CATS.filter(c=>P.activeCatIds.includes(c.id)).map(c=>({
 
 // ══ RENDER ALL ═══════════════════════════════════════════════
 function renderAll(){
+  if(!P) return;
   renderNav();renderHeader();renderCats();renderSessions();
   renderAchMini();renderAchFull();
   renderQuickCats();renderTotals();renderManageGrid();renderDash();
@@ -9026,7 +9035,7 @@ async function openConv(userId, name, av, avUrl){
         <div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:13px">Загрузка...</div>
       </div>
       <div class="msg-input-area" style="position:relative">
-        <textarea class="msg-input" id="msgInput" aria-label="Написать сообщение" placeholder="Написать сообщение..." rows="1"
+        <textarea class="msg-input" id="msgInput" aria-label="Написать сообщение" placeholder="Написать сообщение..." rows="1" maxlength="1000"
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg('${esc(userId)}')}"
           oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
         <button class="msg-send" onclick="sendMsg('${esc(userId)}')" aria-label="Отправить">➤</button>
@@ -9387,6 +9396,42 @@ function _setTimerUI(state){ // state: 'idle' | 'running' | 'paused'
     if(disp){ disp.classList.remove('run'); disp.classList.add('paused'); }
     if(note) note.textContent='Пауза · Нажми Продолжить';
     if(fab){ fab.classList.remove('running'); fab.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0A0A0B" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>'; }
+  }
+}
+
+// ── Nav timer pill: показываем/скрываем и обновляем время ──
+function updateNavTimerPill() {
+  const pill = document.getElementById('navTimerPill');
+  const pillTime = document.getElementById('navTimerPillTime');
+  if (!pill) return;
+
+  if (timerRunning || timerPaused) {
+    const secs = getElapsed();
+    // Форматируем MM:SS или HH:MM:SS
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    const timeStr = h > 0
+      ? `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+      : `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    if (pillTime) pillTime.textContent = timeStr;
+
+    // Paused state — другой цвет
+    const dot = pill.querySelector('.nav-timer-dot');
+    if (timerPaused) {
+      pill.style.background = 'rgba(245,200,66,.1)';
+      pill.style.borderColor = 'rgba(245,200,66,.22)';
+      if (pillTime) pillTime.style.color = 'var(--gold)';
+      if (dot) dot.style.background = 'var(--gold)';
+    } else {
+      pill.style.background = 'rgba(34,197,94,.1)';
+      pill.style.borderColor = 'rgba(34,197,94,.22)';
+      if (pillTime) pillTime.style.color = '#22C55E';
+      if (dot) dot.style.background = '#22C55E';
+    }
+    pill.style.display = 'flex';
+  } else {
+    pill.style.display = 'none';
   }
 }
 
@@ -10171,6 +10216,7 @@ async function sendMsg(toUserId) {
   const input = document.getElementById('msgInput');
   const text = input?.value?.trim();
   if (!text || !SB_USER) return;
+  if (text.length > 1000) { showToast('Сообщение слишком длинное (макс. 1000 символов)', '⚠️'); return; }
 
   // OPTIMISTIC: instantly show message
   input.value = '';
