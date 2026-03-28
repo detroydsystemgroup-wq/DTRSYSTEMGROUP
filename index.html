@@ -6260,7 +6260,7 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
           <span class="amb-icon">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           </span>
-          <span class="amb-label">Всего часов</span>
+          <span class="amb-label">За всё время</span>
         </button>
         <button class="arena-mode-btn" onclick="setArenaMode('streak',this)" data-mode="streak">
           <span class="amb-icon">
@@ -7354,7 +7354,7 @@ async function saveSession(catId,secs){
   const newTotalSessions=(P.totalSessions||0)+1;
   // Считаем обновлённое число активных дней (локально)
   const _nowKey=`${new Date().getFullYear()}-${new Date().getMonth()}-${new Date().getDate()}`;
-  const _existDayKeys=new Set(P.sessions.map(s=>{const d=new Date(s.ts||0);return`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;}));
+  const _existDayKeys=new Set(P.sessions.map(s=>{const d=new Date(sessTs(s)||0);return`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;}));
   const newActiveDays = (_existDayKeys.has(_nowKey)) ? (P.totalActiveDays||0) : (P.totalActiveDays||0)+1;
   await sb.from('users').update({
     streak:newStreak,
@@ -7399,15 +7399,15 @@ function evalAch(def,sessSeconds=0){
   const now=Date.now();
   const dayMap={};
   P.sessions.forEach(s=>{
-    if(!s.ts)return;
-    const d=new Date(s.ts).toDateString();
+    const _t=sessTs(s);if(!_t)return;
+    const d=new Date(_t).toDateString();
     dayMap[d]=(dayMap[d]||0)+s.dur/3600;
   });
   const bestDay=Math.max(...Object.values(dayMap),0);
-  const weekDays=new Set(P.sessions.filter(s=>s.ts&&s.ts>now-7*86400000).map(s=>new Date(s.ts).toDateString())).size;
+  const weekDays=new Set(P.sessions.filter(s=>sessTs(s)>now-7*86400000).map(s=>new Date(sessTs(s)).toDateString())).size;
   // sessions today
   const today=new Date().toDateString();
-  const sessToday=P.sessions.filter(s=>s.ts&&new Date(s.ts).toDateString()===today).length;
+  const sessToday=P.sessions.filter(s=>new Date(sessTs(s)).toDateString()===today).length;
 
   switch(def.t){
     case 'sessions':    return P.totalSessions>=def.th;
@@ -7485,7 +7485,7 @@ function achProgress(def){
   const totalH=P.categories.reduce((a,c)=>a+c.hours,0);
   const now=Date.now();
   const dayMap={};
-  P.sessions.forEach(s=>{if(!s.ts)return;const d=new Date(s.ts).toDateString();dayMap[d]=(dayMap[d]||0)+s.dur/3600;});
+  P.sessions.forEach(s=>{const d=new Date(sessTs(s)).toDateString();if(!d||d==='Invalid Date')return;dayMap[d]=(dayMap[d]||0)+s.dur/3600;});
   const bestDay=Math.max(...Object.values(dayMap),0);
   switch(def.t){
     case 'sessions': return {cur:P.totalSessions, max:def.th};
@@ -7571,13 +7571,18 @@ function relDate(d){
 const fmt=s=>[Math.floor(s/3600),Math.floor((s%3600)/60),s%60].map(x=>String(x).padStart(2,'0')).join(':');
 const fmtD=s=>{const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60;if(h>0)return`${h}ч ${m}м`;if(m>0)return`${m}м ${ss}с`;return`${ss}с`;};
 const totalHrs=()=>P.categories.reduce((a,c)=>a+c.hours,0);
+
+// Безопасное получение timestamp из сессии: предпочитает ts, fallback на isoDate
+// Устраняет баг когда created_at=null даёт ts=0 и сессия выпадает из всех фильтров
+const sessTs=s=>{
+  if(s.ts && s.ts > 0) return s.ts;
+  if(s.isoDate){ const t=new Date(s.isoDate).getTime(); if(!isNaN(t)&&t>0) return t; }
+  return 0;
+};
+
 const weekHrs=()=>{
   const cut=Date.now()-7*86400000;
-  return P.sessions.filter(s=>{
-    // Предпочитаем ts, но если он 0/null — пробуем isoDate
-    const t = (s.ts && s.ts > 0) ? s.ts : (s.isoDate ? new Date(s.isoDate).getTime() : 0);
-    return t > cut;
-  }).reduce((a,s)=>a+s.dur/3600,0);
+  return P.sessions.filter(s=>sessTs(s)>cut).reduce((a,s)=>a+s.dur/3600,0);
 };
 const activeCats=()=>ALL_CATS.filter(c=>P.activeCatIds.includes(c.id)).map(c=>({...c,hours:P.categories.find(x=>x.id===c.id)?.hours||0}));
 
@@ -7626,7 +7631,8 @@ function renderHeader(){
     titleEl.style.boxShadow = 'none';
   }
   // Update stat bar — set values immediately (no flicker) then animate
-  const _th = Math.round(totalHrs());
+  const _thRaw = totalHrs();
+  const _th = _thRaw < 10 ? _thRaw.toFixed(1) : Math.round(_thRaw).toString();
   const _ss = P.totalSessions || 0;
   const _ac = P.achievements ? P.achievements.filter(a=>a.unlocked).length : 0;
   const _st = P.streak || 0; // стрик — дни подряд без перерыва
@@ -7659,24 +7665,27 @@ function renderHeader(){
 
 // Анимация цифр в стат-баре профиля (запускается через 120мс после прямого присвоения)
 function animStatBar(){
+  const thRaw = totalHrs();
+  const thTarget = thRaw < 10 ? parseFloat(thRaw.toFixed(1)) : Math.round(thRaw);
   const pairs=[
-    ['statTotalHrs', Math.round(totalHrs())],
-    ['statSessions',  P.totalSessions||0],
-    ['statAchs',      P.achievements ? P.achievements.filter(a=>a.unlocked).length : 0],
-    ['statStreak',P.streak||0],
+    {id:'statTotalHrs', val:thTarget, isFloat: thRaw < 10},
+    {id:'statSessions',  val:P.totalSessions||0, isFloat:false},
+    {id:'statAchs',      val:P.achievements ? P.achievements.filter(a=>a.unlocked).length : 0, isFloat:false},
+    {id:'statStreak',    val:P.streak||0, isFloat:false},
   ];
-  pairs.forEach(([id,val])=>{
+  pairs.forEach(({id,val,isFloat})=>{
     const el=document.getElementById(id);
     if(!el) return;
-    const from=parseInt(el.textContent)||0;
-    if(from===val) return; // уже актуально — не мигаем
+    const from=parseFloat(el.textContent)||0;
+    if(Math.abs(from-val)<0.05) return; // уже актуально — не мигаем
     const dur=600, start=performance.now();
     (function step(now){
       const p=Math.min((now-start)/dur,1);
       const ease=1-Math.pow(1-p,3);
-      el.textContent=Math.round(from+(val-from)*ease);
+      const cur=from+(val-from)*ease;
+      el.textContent=isFloat ? cur.toFixed(1) : Math.round(cur);
       if(p<1) requestAnimationFrame(step);
-      else el.textContent=val;
+      else el.textContent=isFloat ? val.toFixed(1) : val;
     })(performance.now());
   });
 }
@@ -7684,9 +7693,11 @@ function animStatBar(){
 function renderTotals(){
   const totEl=document.getElementById('totDisp');
   const newVal=totalHrs();
-  if(totEl) totEl.textContent=Math.round(newVal);
+  // Показываем 1 знак после запятой для < 10ч — иначе 0.8 → 1 (неправильно)
+  const displayVal = newVal < 10 ? newVal : Math.round(newVal);
+  if(totEl) totEl.textContent = newVal < 10 ? newVal.toFixed(1) : Math.round(newVal);
   if(totEl){
-    animCount(totEl,newVal,1200);
+    animCount(totEl, displayVal, 1200);
     totEl.classList.remove('updated');
     void totEl.offsetWidth;
     totEl.classList.add('updated');
@@ -7700,7 +7711,7 @@ function renderTotals(){
   // ── Hero zone — те же данные, те же функции ──
   const todayStart = new Date(); todayStart.setHours(0,0,0,0);
   const todayH = P.sessions
-    .filter(s => s.ts && s.ts >= todayStart.getTime())
+    .filter(s => sessTs(s) >= todayStart.getTime())
     .reduce((a,s) => a + s.dur/3600, 0);
   const weekH  = weekHrs();
   const totalH = totalHrs();
@@ -7738,7 +7749,7 @@ function getDashData(){
   const data={};ALL_CATS.forEach(c=>{data[c.id]=Array(buckets).fill(0);});
   P.sessions.forEach(s=>{
     // Используем ts (предпочтительно) или isoDate как запасной вариант
-    const t = (s.ts && s.ts > 0) ? s.ts : (s.isoDate ? new Date(s.isoDate).getTime() : 0);
+    const t = sessTs(s);
     if(!t || isNaN(t)) return;
     const age=Math.floor((now-t)/86400000);
     if(age>=0&&age<buckets&&data[s.cat]!==undefined)data[s.cat][buckets-1-age]+=s.dur/3600;
@@ -7768,7 +7779,7 @@ function renderDash(){
   const prevPeriodStart=Date.now()-buckets*2*86400000;
   const prevPeriodEnd=Date.now()-buckets*86400000;
   const prevPeriodHrs=active.reduce((sum,c)=>sum+P.sessions.filter(s=>
-    s.ts&&s.ts>=prevPeriodStart&&s.ts<prevPeriodEnd&&s.cat===c.id
+    sessTs(s)>=prevPeriodStart&&sessTs(s)<prevPeriodEnd&&s.cat===c.id
   ).reduce((a,s)=>a+s.dur/3600,0),0);
   const deltaRaw=prevPeriodHrs>0?((periodHrs-prevPeriodHrs)/prevPeriodHrs*100):periodHrs>0?100:0;
   const delta=deltaRaw.toFixed(0);
@@ -7808,7 +7819,7 @@ function renderDash(){
   // Build 7-day sparkline data
   const spark7=Array.from({length:7},(_,i)=>{
     const dayAgo=6-i;
-    return P.sessions.filter(s=>s.ts&&Math.floor((Date.now()-s.ts)/86400000)===dayAgo)
+    return P.sessions.filter(s=>Math.floor((Date.now()-sessTs(s))/86400000)===dayAgo)
       .reduce((a,s)=>a+s.dur/3600,0);
   });
   const sparkMax=Math.max(...spark7,0.1);
@@ -7918,14 +7929,23 @@ function renderDash(){
   catEl.innerHTML=active.map((c,idx)=>{
     const catH=data[c.id].reduce((a,v)=>a+v,0);
     const pct=Math.min(100,Math.round((catH/maxCatH)*100));
-    const sessCount=P.sessions.filter(s=>s.cat===c.id&&s.ts>Date.now()-(isWeek?7:30)*86400000).length;
+    // Считаем сессии за выбранный период с fallback на isoDate
+    const cut=Date.now()-(isWeek?7:30)*86400000;
+    const sessCount=P.sessions.filter(s=>{
+      const t=sessTs(s);
+      return s.cat===c.id && t>cut;
+    }).length;
+    // Отображаем всего с 1 знаком после запятой — toFixed(0) округляет 0.5→"1" и 0.3→"0" (БАГИ)
+    const totalHrsLabel = c.hours < 10 ? c.hours.toFixed(1) : Math.round(c.hours).toString();
+    const periodLabel = isWeek ? 'за неделю' : 'за месяц';
     return `<div style="background:var(--card);border:0.5px solid rgba(255,255,255,.08);border-left:3px solid ${c.color};border-radius:14px;padding:16px;position:relative;overflow:hidden">
       <div style="position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,${c.color}44,transparent)"></div>
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
         ${catIconBox(c.id, c.color, 42)}
         <div style="flex:1;min-width:0">
           <div style="font-size:10px;font-weight:800;color:${c.color};text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">${c.name}</div>
           <div style="font-family:'DM Mono',monospace;font-size:24px;font-weight:400;line-height:1;color:var(--t1)">${catH.toFixed(1)}<span style="font-size:12px;color:var(--t3);font-family:sans-serif;margin-left:2px"> ч</span></div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px">${periodLabel}</div>
         </div>
       </div>
       <div style="height:2px;background:rgba(255,255,255,.05);border-radius:2px;overflow:hidden;margin-bottom:10px">
@@ -7933,7 +7953,7 @@ function renderDash(){
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span style="font-size:10px;color:var(--t3);display:flex;align-items:center;gap:4px"><span style="color:${c.color};font-weight:700">${sessCount}</span> сессий</span>
-        <span style="font-size:10px;color:var(--t3)">всего <span style="color:var(--t2);font-weight:600">${c.hours.toFixed(0)} ч</span></span>
+        <span style="font-size:10px;color:var(--t3)">всего <span style="color:var(--t2);font-weight:600">${totalHrsLabel} ч</span></span>
       </div>
     </div>`;
   }).join('');
@@ -7993,7 +8013,7 @@ function renderSessions(all=false){
   const list=all?P.sessions:P.sessions.slice(0,6);
   const el=document.getElementById(all?'allSessList':'sessList');
   if(!el)return;
-  if(all){const c=document.getElementById('allSessCnt');if(c)c.textContent=P.sessions.length+' сессий';}
+  if(all){const c=document.getElementById('allSessCnt');if(c)c.textContent=(P.totalSessions||P.sessions.length)+' сессий';}
   el.innerHTML=list.length?list.map(s=>`
     <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:12px;margin-bottom:5px;background:linear-gradient(90deg,${s.color||'var(--blue)'}0a,var(--card));border:0.5px solid ${s.color||'var(--blue)'}22;transition:transform .15s,border-color .15s" onmouseover="this.style.transform='translateX(5px)';this.style.borderColor='${s.color||"var(--blue)"}55'" onmouseout="this.style.transform='';this.style.borderColor='${s.color||"var(--blue)"}22'"><div style="width:3px;height:36px;border-radius:2px;background:${s.color||'var(--blue)'};box-shadow:0 0 8px ${s.color||'var(--blue)'}88;flex-shrink:0"></div>${catIconBox(s.cat||'read', s.color||'var(--blue)', 36)}<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700;color:var(--t1)">${s.name}</div><div style="font-size:10px;color:var(--t3);margin-top:1px">${s.date}</div></div><div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:400;color:${s.color||'var(--blue)'}">${fmtD(s.dur)}</div></div>`).join(''):`<div class="empty" style="padding:16px"><div style="font-size:24px;margin-bottom:6px">⏱</div>Нет сессий</div>`;
 }
@@ -8400,7 +8420,7 @@ function formatArenaValue(val, mode) {
 }
 
 function arenaModeLabel(mode) {
-  return {hours:'Всего часов',streak:'Лучший стрик',week:'За неделю',month:'За месяц',session:'Лучшая сессия'}[mode]||'';
+  return {hours:'За всё время',streak:'Лучший стрик',week:'За неделю',month:'За месяц',session:'Лучшая сессия'}[mode]||'';
 }
 
 async function renderLeagues(){
@@ -8564,7 +8584,7 @@ function _buildArenaHTML(cats, results){
 
           const secInfo=arenaMode==='hours'?`🔥 ${isMe?P.streak:p.streak}д стрик`
             :arenaMode==='streak'?`⏱ ${isMe?activeCats().find(c=>c.id===cat.id)?.hours?.toFixed(1)||'0':p.hrs}ч`
-            :arenaMode==='week'?`📅 ${isMe?P.sessions.filter(s=>s.ts&&s.ts>Date.now()-7*86400000).reduce((a,s)=>a+s.dur/3600,0).toFixed(1):p.weekHrs}ч нед`
+            :arenaMode==='week'?`📅 ${isMe?P.sessions.filter(s=>sessTs(s)>Date.now()-7*86400000).reduce((a,s)=>a+s.dur/3600,0).toFixed(1):p.weekHrs}ч нед`
             :`⚡ ${isMe?P.totalSessions:p.hrs}`;
 
           return `<div style="display:flex;align-items:center;gap:12px;padding:${i<3?'16px':'12px'} 20px;
@@ -8856,7 +8876,7 @@ async function openUserProfile(userId, name, av, avUrl){
     // ── KPI ──
     const SVG_ICONS_KPI=[`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`,`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="14 9 15.5 4 22 6"/><polyline points="10 9 8.5 4 2 6"/><path d="M4.23 12C2.86 11 2 9.6 2 8c0-3.31 2.69-6 6-6h8c3.31 0 6 2.69 6 6 0 1.6-.86 3-2.23 4"/><path d="M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/><line x1="12" y1="16" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>`];
     const kpis = [
-      {v:totalH.toFixed(0), l:'Часов',  c:'var(--gold)'},
+      {v:(totalH<10?totalH.toFixed(1):Math.round(totalH)), l:'Часов',  c:'var(--gold)'},
       {v:streak,            l:'Стрик',  c:'#f85149'},
       {v:sessions,          l:'Сессий', c:'var(--blue)'},
       {v:achCount,          l:'Наград', c:'var(--orange)'},
@@ -9230,7 +9250,7 @@ function renderDailyProgress() {
   const _todayStart=new Date();_todayStart.setHours(0,0,0,0);
   const todaySecs = P.sessions
     .filter(s => {
-      const t = (s.ts && s.ts > 0) ? s.ts : (s.isoDate ? new Date(s.isoDate).getTime() : 0);
+      const t = sessTs(s);
       return t >= _todayStart.getTime();
     })
     .reduce((sum, s) => sum + s.dur, 0);
@@ -9679,7 +9699,7 @@ async function openPub(){
         <!-- Stats row -->
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:14px">
           ${[
-            ['Часов', thPub.toFixed(0), '#F5C842'],
+            ['Часов', (thPub<10?thPub.toFixed(1):Math.round(thPub)), '#F5C842'],
             ['Наград', unl, '#F97316'],
             ['Стрик',  P.streak, '#4ADE80']
           ].map(([l,v,c])=>`
@@ -10356,8 +10376,10 @@ function renderHeatmap(){
   const now=Date.now();
   const actMap={};
   P.sessions.forEach(s=>{
-    if(!s.ts)return;
-    const d=new Date(s.ts);
+    // Используем ts или isoDate — так же как в weekHrs/getDashData
+    const t=sessTs(s);
+    if(!t||isNaN(t))return;
+    const d=new Date(t);
     const key=`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
     actMap[key]=(actMap[key]||0)+s.dur/3600;
   });
@@ -10404,7 +10426,7 @@ function renderRings(){
         <circle cx="40" cy="40" r="${r}" fill="none" stroke="${c.color}" stroke-width="7"
           stroke-dasharray="${dash} ${circ}" stroke-dashoffset="${circ/4}"
           stroke-linecap="round" style="transition:stroke-dasharray 1.2s cubic-bezier(.4,0,.2,1)"/>
-        <text x="40" y="36" text-anchor="middle" fill="${c.color}" font-family="Rajdhani,sans-serif" font-size="15" font-weight="700">${c.hours.toFixed(0)}</text>
+        <text x="40" y="36" text-anchor="middle" fill="${c.color}" font-family="Rajdhani,sans-serif" font-size="15" font-weight="700">${c.hours < 10 ? c.hours.toFixed(1) : Math.round(c.hours)}</text>
         <text x="40" y="50" text-anchor="middle" fill="var(--t3)" font-family="Inter,sans-serif" font-size="8">/ ${next}ч</text>
       </svg>
       <div class="ring-name">${c.icon} ${c.name}</div>
@@ -10420,7 +10442,10 @@ function renderRecords(){
   const now=Date.now();
   let bestWeek=0;
   for(let i=0;i<52;i++){
-    const wk=P.sessions.filter(s=>s.ts&&s.ts>now-(i+1)*7*86400000&&s.ts<=now-i*7*86400000).reduce((a,s)=>a+s.dur/3600,0);
+    const wk=P.sessions.filter(s=>{
+      const t=sessTs(s);
+      return t>now-(i+1)*7*86400000 && t<=now-i*7*86400000;
+    }).reduce((a,s)=>a+s.dur/3600,0);
     if(wk>bestWeek)bestWeek=wk;
   }
   const topCat=P.categories.slice().sort((a,b)=>b.hours-a.hours)[0];
@@ -10449,7 +10474,7 @@ function renderRecords(){
       '#00d4ff','rgba(0,212,255,.08)','rgba(0,212,255,.15)','rgba(0,212,255,.1)')+
     neonRec(iconBox('flame','#ff6b35',44,12),'Лучшая неделя', bestWeek>0?bestWeek.toFixed(1)+'ч':'—', bestWeek>0?`${Math.round(bestWeek/7*10)/10}ч/день`:'Нет данных',
       '#ff6b35','rgba(255,107,53,.08)','rgba(255,107,53,.15)','rgba(255,107,53,.1)')+
-    neonRec(topCat?catIconBox(topCat.id,topCat.color,44):iconBox('trophy','#a855f7',44,12),'Топ категория', topCat?topCat.hours.toFixed(0)+'ч':'—', topCat?.name||'Нет данных',
+    neonRec(topCat?catIconBox(topCat.id,topCat.color,44):iconBox('trophy','#a855f7',44,12),'Топ категория', topCat?topCat.hours < 10 ? topCat.hours.toFixed(1)+'ч' : Math.round(topCat.hours)+'ч':'—', topCat?.name||'Нет данных',
       topCat?.color||'#a855f7',`${topCat?.color||'#a855f7'}0d`,`${topCat?.color||'#a855f7'}20`,`${topCat?.color||'#a855f7'}15`);
 }
 
@@ -10544,9 +10569,9 @@ async function renderForecast(){
     : 0;
 
   // ── MY stats ──
-  const mySessInPeriod=P.sessions.filter(s=>s.ts&&s.ts>=periodStart);
+  const mySessInPeriod=P.sessions.filter(s=>sessTs(s)>=periodStart);
   const myHrs=parseFloat(mySessInPeriod.reduce((s,x)=>s+x.dur/3600,0).toFixed(1));
-  const myActiveDays=new Set(mySessInPeriod.map(s=>new Date(s.ts).toISOString().slice(0,10))).size;
+  const myActiveDays=new Set(mySessInPeriod.map(s=>new Date(sessTs(s)).toISOString().slice(0,10))).size;
   const myStreak=P.streak||0;
 
   // ── Per category hours ──
@@ -10966,7 +10991,7 @@ function openReport(){
     </div>
 
     <div style="margin-top:12px;font-size:11px;color:var(--t3);text-align:center">
-      Всего за всё время: <b style="color:var(--t1)">${totalAllTime.toFixed(0)} ч</b> · Стрик: <b style="color:var(--orange)">${streak} дней</b> · Активных дней: <b style="color:var(--green)">${activeDaysTotal}</b>
+      Всего за всё время: <b style="color:var(--t1)">${totalAllTime < 10 ? totalAllTime.toFixed(1) : Math.round(totalAllTime)} ч</b> · Стрик: <b style="color:var(--orange)">${streak} дней</b> · Активных дней: <b style="color:var(--green)">${activeDaysTotal}</b>
     </div>`;
 
   document.getElementById('reportOv').classList.add('show');
@@ -11484,7 +11509,7 @@ function _doRenderHero(){
   // Используем те же глобальные функции что и рабочие счётчики
   const todayStart = new Date(); todayStart.setHours(0,0,0,0);
   const todayH = P.sessions
-    .filter(s => s.ts && s.ts >= todayStart.getTime())
+    .filter(s => sessTs(s) >= todayStart.getTime())
     .reduce((a,s) => a + s.dur/3600, 0);
   const weekH  = weekHrs();   // глобальная функция — работает в renderTotals
   const totalH = totalHrs();  // глобальная функция — работает в renderHeader
@@ -11502,7 +11527,7 @@ function _doRenderHero(){
   hEl.style.color = todayH > 0 ? 'var(--gold)' : 'var(--t1)';
   if(sEl) sEl.textContent = P.streak || 0;
   if(wEl) wEl.textContent = weekH.toFixed(1);
-  if(tEl) tEl.textContent = totalH < 1 ? totalH.toFixed(1) : Math.round(totalH).toString();
+  if(tEl) tEl.textContent = totalH < 10 ? totalH.toFixed(1) : Math.round(totalH).toString();
   if(mEl){ mEl.textContent = msg; mEl.style.color = msgColor; }
 }
 
@@ -11835,7 +11860,7 @@ function cancelDeleteSession(sessId){
 async function doDeleteSession(sessId){
   if(SB_USER?.isDemoUser){
     P.sessions=P.sessions.filter(s=>s.id!==sessId);
-    P.totalSessions=P.sessions.length;
+    P.totalSessions=Math.max(0,(P.totalSessions||1)-1);
     haptic('success');
     showToast('Сессия удалена','✅');
     renderAll();return;
@@ -11843,7 +11868,9 @@ async function doDeleteSession(sessId){
   try{
     await sb.from('sessions').delete().eq('id',sessId).eq('user_id',SB_USER.id);
     P.sessions=P.sessions.filter(s=>s.id!==sessId);
-    P.totalSessions=P.sessions.length;
+    P.totalSessions=Math.max(0,(P.totalSessions||1)-1);
+    // Синхронизируем с БД в фоне
+    sb.from('users').update({total_sessions:P.totalSessions}).eq('id',SB_USER.id).then(()=>{});
     haptic('success');
     showToast('Сессия удалена','✅');
     renderAll();
