@@ -7737,8 +7737,10 @@ function getDashData(){
   const now=Date.now();
   const data={};ALL_CATS.forEach(c=>{data[c.id]=Array(buckets).fill(0);});
   P.sessions.forEach(s=>{
-    if(!s.ts)return;
-    const age=Math.floor((now-s.ts)/86400000);
+    // Используем ts (предпочтительно) или isoDate как запасной вариант
+    const t = (s.ts && s.ts > 0) ? s.ts : (s.isoDate ? new Date(s.isoDate).getTime() : 0);
+    if(!t || isNaN(t)) return;
+    const age=Math.floor((now-t)/86400000);
     if(age>=0&&age<buckets&&data[s.cat]!==undefined)data[s.cat][buckets-1-age]+=s.dur/3600;
   });
   return{data,buckets,isWeek};
@@ -8407,15 +8409,34 @@ async function renderLeagues(){
   const cats=activeCats();
   if(!cats.length){el.innerHTML=`<div class="empty" style="padding:40px">Нет активных категорий</div>`;return;}
 
-  // ── STALE-WHILE-REVALIDATE ────────────────────────────────────
-  // Есть кеш → рисуем мгновенно, грузим свежие данные тихо в фоне
-  // Нет кеша → показываем минимальный скелетон, потом данные
-  const hasSomeCache = cats.some(c => lgCache[c.id] && lgCache[c.id].length >= 0);
-  if(!hasSomeCache){
+  // ── TRUE STALE-WHILE-REVALIDATE ───────────────────────────────
+  // 1. Если кеш есть — рисуем МГНОВЕННО (0 мс задержки пользователю)
+  // 2. Параллельно запускаем обновление данных
+  // 3. Когда свежие данные пришли — перерисовываем тихо
+  const cachedResults = cats.map(c => lgCache[c.id] || null);
+  const allCached = cachedResults.every(r => r !== null);
+
+  if(allCached){
+    // Рисуем из кеша немедленно — пользователь видит арену без ожидания
+    el.innerHTML = _buildArenaHTML(cats, cachedResults);
+    // Проверяем: есть ли протухшие данные?
+    const hasStale = cats.some(c => !lgCacheTime[c.id] || (Date.now()-lgCacheTime[c.id]) >= LG_CACHE_TTL);
+    if(!hasStale) return; // все свежие — ничего не делать
+    // Есть протухшие — обновляем тихо в фоне (без spinner)
+    const freshResults = await Promise.all(cats.map(c=>loadLeagueData(c.id)));
+    el.innerHTML = _buildArenaHTML(cats, freshResults);
+  } else {
+    // Нет кеша совсем — показываем минимальный скелетон
     el.innerHTML=`<div style="text-align:center;padding:32px;color:var(--t3)"><div style="font-size:36px;margin-bottom:8px;animation:floatUp 2s ease-in-out infinite">⚔️</div>Загрузка арены...</div>`;
+    const results=await Promise.all(cats.map(c=>loadLeagueData(c.id)));
+    el.innerHTML = _buildArenaHTML(cats, results);
   }
 
-  const results=await Promise.all(cats.map(c=>loadLeagueData(c.id)));
+  }catch(e){console.error('renderLeagues:',e);el.innerHTML='<div class="empty" style="padding:40px">Ошибка загрузки арены. Попробуй позже.</div>';}
+}
+
+// Вспомогательная функция: строит HTML арены из готовых данных
+function _buildArenaHTML(cats, results){
   const modeLbl=arenaModeLabel(arenaMode);
 
   // Arena header — Apple style
@@ -8483,7 +8504,7 @@ async function renderLeagues(){
       </div>
     </div>`;
 
-  el.innerHTML=arenaHeader+cats.map((cat,ci)=>{
+  const leagueCards=cats.map((cat,ci)=>{
     const rawPlayers=results[ci]||[];
     const sorted=[...rawPlayers].sort((a,b)=>getArenaValue(b,arenaMode)-getArenaValue(a,arenaMode));
     const myIdx=sorted.findIndex(p=>p.isMe);
@@ -8614,7 +8635,7 @@ async function renderLeagues(){
       </div>
     </div>`;
   }).join('');
-  }catch(e){console.error('renderLeagues:',e);el.innerHTML='<div class="empty" style="padding:40px">Ошибка загрузки арены. Попробуй позже.</div>';}
+  return arenaHeader + leagueCards;
 }
 
 
@@ -9208,7 +9229,10 @@ function renderDailyProgress() {
   // FIX: use local timestamp range instead of UTC string (timezone-safe)
   const _todayStart=new Date();_todayStart.setHours(0,0,0,0);
   const todaySecs = P.sessions
-    .filter(s => s.ts && s.ts >= _todayStart.getTime())
+    .filter(s => {
+      const t = (s.ts && s.ts > 0) ? s.ts : (s.isoDate ? new Date(s.isoDate).getTime() : 0);
+      return t >= _todayStart.getTime();
+    })
     .reduce((sum, s) => sum + s.dur, 0);
   const todayH = Math.round(todaySecs / 3600 * 10) / 10;
   const goal = dailyGoalHours;
