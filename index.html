@@ -6067,8 +6067,8 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
         <div class="ph-stat-lbl">Наград</div>
       </div>
       <div class="ph-stat-cell">
-        <div class="ph-stat-num" id="statActiveDays" style="color:var(--green)">—</div>
-        <div class="ph-stat-lbl">Акт. дней</div>
+        <div class="ph-stat-num" id="statStreak" style="color:var(--green)">—</div>
+        <div class="ph-stat-lbl">Стрик</div>
       </div>
     </div>
 
@@ -7172,11 +7172,14 @@ async function loadUser(userId){
 
   const sessFmt=sessionsDeduped.map(s=>{
     const c=catLookup[s.category_id]||{name:s.category_id,icon:'⏱',color:'var(--t2)'};
+    // Если created_at отсутствует — используем текущее время как запасной вариант
+    const tsRaw = s.created_at ? new Date(s.created_at).getTime() : Date.now();
+    const ts = isNaN(tsRaw) ? Date.now() : tsRaw;
     return{id:s.id,cat:s.category_id,name:c.name,icon:c.icon,color:c.color,
       dur:s.duration_seconds,
       date:relDate(s.created_at),
       isoDate:s.created_at,
-      ts:new Date(s.created_at).getTime()};
+      ts};
   });
 
   // ── totalSessions: prefer DB value (handles >300 sessions) ───
@@ -7568,7 +7571,14 @@ function relDate(d){
 const fmt=s=>[Math.floor(s/3600),Math.floor((s%3600)/60),s%60].map(x=>String(x).padStart(2,'0')).join(':');
 const fmtD=s=>{const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60;if(h>0)return`${h}ч ${m}м`;if(m>0)return`${m}м ${ss}с`;return`${ss}с`;};
 const totalHrs=()=>P.categories.reduce((a,c)=>a+c.hours,0);
-const weekHrs=()=>P.sessions.filter(s=>s.ts&&s.ts>Date.now()-7*86400000).reduce((a,s)=>a+s.dur/3600,0);
+const weekHrs=()=>{
+  const cut=Date.now()-7*86400000;
+  return P.sessions.filter(s=>{
+    // Предпочитаем ts, но если он 0/null — пробуем isoDate
+    const t = (s.ts && s.ts > 0) ? s.ts : (s.isoDate ? new Date(s.isoDate).getTime() : 0);
+    return t > cut;
+  }).reduce((a,s)=>a+s.dur/3600,0);
+};
 const activeCats=()=>ALL_CATS.filter(c=>P.activeCatIds.includes(c.id)).map(c=>({...c,hours:P.categories.find(x=>x.id===c.id)?.hours||0}));
 
 // ══ RENDER ALL ═══════════════════════════════════════════════
@@ -7619,16 +7629,16 @@ function renderHeader(){
   const _th = Math.round(totalHrs());
   const _ss = P.totalSessions || 0;
   const _ac = P.achievements ? P.achievements.filter(a=>a.unlocked).length : 0;
-  const _ad = P.totalActiveDays || 0; // активные дни — уникальные дни с сессиями за всё время
+  const _st = P.streak || 0; // стрик — дни подряд без перерыва
   const statTH=document.getElementById('statTotalHrs');
   const statSS=document.getElementById('statSessions');
   const statAC=document.getElementById('statAchs');
-  const statAD=document.getElementById('statActiveDays');
+  const statST=document.getElementById('statStreak');
   // Write immediately so user sees real values even if animation doesn't fire
   if(statTH) statTH.textContent = _th;
   if(statSS) statSS.textContent = _ss;
   if(statAC) statAC.textContent = _ac;
-  if(statAD) statAD.textContent = _ad;
+  if(statST) statST.textContent = _st;
   // Then animate with odometer
   setTimeout(()=>{ if(typeof animStatBar==='function') animStatBar(); }, 120);
   // Apply cover frame
@@ -7653,7 +7663,7 @@ function animStatBar(){
     ['statTotalHrs', Math.round(totalHrs())],
     ['statSessions',  P.totalSessions||0],
     ['statAchs',      P.achievements ? P.achievements.filter(a=>a.unlocked).length : 0],
-    ['statActiveDays',P.totalActiveDays||0],
+    ['statStreak',P.streak||0],
   ];
   pairs.forEach(([id,val])=>{
     const el=document.getElementById(id);
