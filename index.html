@@ -6219,7 +6219,7 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
               </div>
               <div style="text-align:center">
                 <div id="heroWeekHrs" style="font-family:'DM Mono',monospace;font-size:28px;font-weight:400;color:var(--blue);line-height:1">—</div>
-                <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t2);margin-top:3px">За неделю</div>
+                <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t2);margin-top:3px">Эта неделя (пн–вс)</div>
               </div>
               <div style="text-align:center">
                 <div id="heroTotalHrs" style="font-family:'DM Mono',monospace;font-size:28px;font-weight:400;color:var(--green);line-height:1">—</div>
@@ -6524,7 +6524,7 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
           <div class="tot-div"></div>
           <div class="tot-streak" id="streakDisp">🔥 0 дней</div>
           <div class="tot-week" style="color:var(--t3);font-size:11px;margin-top:2px" id="activeDaysDisp">📅 0 активных дней всего</div>
-          <div class="tot-week" id="weekDisp" style="color:#4ade80">↑ +0 ч за 7 дней</div>
+          <div class="tot-week" id="weekDisp" style="color:#4ade80">↑ +0 ч эта неделя</div>
         </div>
       </div>
     </div>
@@ -7580,9 +7580,21 @@ const sessTs=s=>{
   return 0;
 };
 
+// Начало текущей календарной недели (Понедельник 00:00:00)
+// Неделя сбрасывается каждый Понедельник в 00:00, не "последние 7 дней"
+const getWeekStart=()=>{
+  const d=new Date();
+  d.setHours(0,0,0,0);
+  const day=d.getDay(); // 0=Вс, 1=Пн, ..., 6=Сб
+  const diff=day===0?6:day-1; // сколько дней прошло с Понедельника
+  d.setDate(d.getDate()-diff);
+  return d.getTime();
+};
+
+// Часы за текущую календарную неделю (Пн 00:00 — Вс 23:59)
 const weekHrs=()=>{
-  const cut=Date.now()-7*86400000;
-  return P.sessions.filter(s=>sessTs(s)>cut).reduce((a,s)=>a+s.dur/3600,0);
+  const weekStart=getWeekStart();
+  return P.sessions.filter(s=>sessTs(s)>=weekStart).reduce((a,s)=>a+s.dur/3600,0);
 };
 const activeCats=()=>ALL_CATS.filter(c=>P.activeCatIds.includes(c.id)).map(c=>({...c,hours:P.categories.find(x=>x.id===c.id)?.hours||0}));
 
@@ -7706,7 +7718,10 @@ function renderTotals(){
   // Показываем общее число активных дней отдельно от стрика
   const activeDaysEl=document.getElementById('activeDaysDisp');
   if(activeDaysEl) activeDaysEl.textContent=`📅 ${P.totalActiveDays||0} активных дней всего`;
-  document.getElementById('weekDisp').textContent=`↑ +${weekHrs().toFixed(1)} ч за 7 дней`;
+  const _ws2=new Date(getWeekStart());
+  const _we2=new Date(getWeekStart()+6*86400000);
+  const _wLabel=`${_ws2.getDate()}–${_we2.getDate()} ${_we2.toLocaleDateString('ru',{month:'short'}).replace(' г.','')}`;
+  document.getElementById('weekDisp').textContent=`↑ +${weekHrs().toFixed(1)} ч (${_wLabel})`;
 
   // ── Hero zone — те же данные, те же функции ──
   const todayStart = new Date(); todayStart.setHours(0,0,0,0);
@@ -7744,40 +7759,61 @@ function setPeriod(p){
 }
 function getDashData(){
   const isWeek=dashPeriod==='week';
-  const buckets=isWeek?7:30;
   const now=Date.now();
-  const data={};ALL_CATS.forEach(c=>{data[c.id]=Array(buckets).fill(0);});
-  P.sessions.forEach(s=>{
-    // Используем ts (предпочтительно) или isoDate как запасной вариант
-    const t = sessTs(s);
-    if(!t || isNaN(t)) return;
-    const age=Math.floor((now-t)/86400000);
-    if(age>=0&&age<buckets&&data[s.cat]!==undefined)data[s.cat][buckets-1-age]+=s.dur/3600;
-  });
-  return{data,buckets,isWeek};
+
+  if(isWeek){
+    // Календарная неделя: 7 бакетов = Пн Вт Ср Чт Пт Сб Вс
+    const weekStart=getWeekStart(); // Пн 00:00
+    const buckets=7;
+    const data={};ALL_CATS.forEach(c=>{data[c.id]=Array(buckets).fill(0);});
+    P.sessions.forEach(s=>{
+      const t=sessTs(s);
+      if(!t||isNaN(t)||t<weekStart) return; // только сессии этой недели
+      const dayOfWeek=Math.floor((t-weekStart)/86400000); // 0=Пн, 1=Вт... 6=Вс
+      if(dayOfWeek>=0&&dayOfWeek<7&&data[s.cat]!==undefined)
+        data[s.cat][dayOfWeek]+=s.dur/3600;
+    });
+    return{data,buckets,isWeek,weekStart};
+  } else {
+    // Месяц: скользящие 30 дней (остаётся как было)
+    const buckets=30;
+    const data={};ALL_CATS.forEach(c=>{data[c.id]=Array(buckets).fill(0);});
+    P.sessions.forEach(s=>{
+      const t=sessTs(s);
+      if(!t||isNaN(t)) return;
+      const age=Math.floor((now-t)/86400000);
+      if(age>=0&&age<buckets&&data[s.cat]!==undefined)data[s.cat][buckets-1-age]+=s.dur/3600;
+    });
+    return{data,buckets,isWeek};
+  }
 }
 function renderDash(){
   try{
-  const{data,buckets,isWeek}=getDashData();
+  const{data,buckets,isWeek,weekStart}=getDashData();
   renderCatFilter();
   const allCats=activeCats();
   const active=dashCatFilter?allCats.filter(c=>c.id===dashCatFilter):allCats;
   const catCount=active.length;
   const DAYS=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
   const now=Date.now();
-  const labels=Array.from({length:buckets},(_,i)=>{
-    const d=new Date(now-(buckets-1-i)*86400000);
-    return isWeek?DAYS[((d.getDay()+6)%7)]:i%5===0?`${d.getDate()}/${d.getMonth()+1}`:'';
-  });
+  // Для недели: фиксированные метки Пн-Вс (бакет 0=Пн, ..., 6=Вс)
+  // Для месяца: даты скользящих 30 дней
+  const labels=isWeek
+    ? DAYS  // ['Пн','Вт','Ср','Чт','Пт','Сб','Вс']
+    : Array.from({length:buckets},(_,i)=>{
+        const d=new Date(now-(buckets-1-i)*86400000);
+        return i%5===0?`${d.getDate()}/${d.getMonth()+1}`:'';
+      });
   const totals=Array(buckets).fill(0);
   active.forEach(c=>{data[c.id].forEach((v,i)=>totals[i]+=v);});
   const maxVal=Math.max(...totals,0.1);
   const periodHrs=active.reduce((a,c)=>a+data[c.id].reduce((x,v)=>x+v,0),0);
-  const avgPerDay=periodHrs/buckets;
+  const avgPerDay=isWeek?(periodHrs/7):(periodHrs/buckets);
   const bestDay=Math.max(...totals);
   const activeDays=totals.filter(v=>v>0).length;
-  const prevPeriodStart=Date.now()-buckets*2*86400000;
-  const prevPeriodEnd=Date.now()-buckets*86400000;
+  // Прошлый период: для недели = прошлая Пн–Вс, для месяца = скользящие предыдущие 30 дней
+  const prevPeriodStart=isWeek?(getWeekStart()-7*86400000):(Date.now()-buckets*2*86400000);
+  const prevPeriodEnd=isWeek?getWeekStart():(Date.now()-buckets*86400000);
   const prevPeriodHrs=active.reduce((sum,c)=>sum+P.sessions.filter(s=>
     sessTs(s)>=prevPeriodStart&&sessTs(s)<prevPeriodEnd&&s.cat===c.id
   ).reduce((a,s)=>a+s.dur/3600,0),0);
@@ -7788,7 +7824,18 @@ function renderDash(){
 
   const dashTitleEl=document.getElementById('dashTitle');
   if(dashTitleEl){
-    dashTitleEl.innerHTML=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.6"><rect x="2" y="2" width="9" height="9" rx="2"/><rect x="13" y="2" width="9" height="9" rx="2"/><rect x="2" y="13" width="9" height="9" rx="2"/><rect x="13" y="13" width="9" height="9" rx="2"/></svg>${isWeek?'Дашборд · Неделя':'Дашборд · Месяц'}`;
+    let titleStr;
+    if(isWeek){
+      // Показываем диапазон: "Неделя · 24–30 мар"
+      const ws=new Date(getWeekStart());
+      const we=new Date(getWeekStart()+6*86400000);
+      const fmtShort=d=>d.toLocaleDateString('ru',{day:'numeric',month:'short'}).replace(' г.','');
+      titleStr=`Неделя · ${ws.getDate()}–${fmtShort(we)}`;
+    } else {
+      const d30=new Date(Date.now()-29*86400000);
+      titleStr=`Месяц · ${d30.toLocaleDateString('ru',{day:'numeric',month:'short'}).replace(' г.','')}–сегодня`;
+    }
+    dashTitleEl.innerHTML=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.6"><rect x="2" y="2" width="9" height="9" rx="2"/><rect x="13" y="2" width="9" height="9" rx="2"/><rect x="2" y="13" width="9" height="9" rx="2"/><rect x="13" y="13" width="9" height="9" rx="2"/></svg>${titleStr}`;
   }
   const setSec=(id,lbl,icon)=>{const el=document.getElementById(id);if(el)el.innerHTML=`<span class="sec-icon">${icon}</span>${lbl}`;};
   setSec('sec_by_cat','ПО КАТЕГОРИЯМ','📊');
@@ -7816,10 +7863,12 @@ function renderDash(){
      sub:'Личный рекорд',subc:'var(--t3)',
      color:'var(--purple)',ring:Math.min(100,Math.round(bestDay/8*100))},
   ];
-  // Build 7-day sparkline data
+  // Sparkline: 7 баров = Пн Вт Ср Чт Пт Сб Вс текущей недели
+  const _ws=getWeekStart();
   const spark7=Array.from({length:7},(_,i)=>{
-    const dayAgo=6-i;
-    return P.sessions.filter(s=>Math.floor((Date.now()-sessTs(s))/86400000)===dayAgo)
+    const dayStart=_ws+i*86400000;
+    const dayEnd=dayStart+86400000;
+    return P.sessions.filter(s=>{const t=sessTs(s);return t>=dayStart&&t<dayEnd;})
       .reduce((a,s)=>a+s.dur/3600,0);
   });
   const sparkMax=Math.max(...spark7,0.1);
@@ -7929,11 +7978,11 @@ function renderDash(){
   catEl.innerHTML=active.map((c,idx)=>{
     const catH=data[c.id].reduce((a,v)=>a+v,0);
     const pct=Math.min(100,Math.round((catH/maxCatH)*100));
-    // Считаем сессии за выбранный период с fallback на isoDate
-    const cut=Date.now()-(isWeek?7:30)*86400000;
+    // Считаем сессии за выбранный период (для недели — с Пн 00:00, для месяца — скользящие 30 дней)
+    const cut=isWeek ? getWeekStart() : Date.now()-30*86400000;
     const sessCount=P.sessions.filter(s=>{
       const t=sessTs(s);
-      return s.cat===c.id && t>cut;
+      return s.cat===c.id && t>=cut;
     }).length;
     // Отображаем всего с 1 знаком после запятой — toFixed(0) округляет 0.5→"1" и 0.3→"0" (БАГИ)
     const totalHrsLabel = c.hours < 10 ? c.hours.toFixed(1) : Math.round(c.hours).toString();
@@ -8336,9 +8385,8 @@ async function _fetchLeagueData(catId){
   const userMap={};
   (usersData||[]).forEach(u=>{userMap[u.id]=u;});
 
-  // Step 3: get session stats за последние 35 дней (неделя + месяц с запасом)
-  // ВАЖНО: фильтр по дате — не грузим всю историю с начала времён
-  const wCut=new Date(Date.now()-7*86400000).toISOString();
+  // Step 3: get session stats — неделя от Пн 00:00 (не скользящие 7 дней), месяц с запасом
+  const wCut=new Date(getWeekStart()).toISOString(); // Пн 00:00 текущей недели
   const mCut=new Date(Date.now()-35*86400000).toISOString();
   const{data:sessData}=await sb.from('sessions')
     .select('user_id,duration_seconds,created_at')
@@ -8584,7 +8632,7 @@ function _buildArenaHTML(cats, results){
 
           const secInfo=arenaMode==='hours'?`🔥 ${isMe?P.streak:p.streak}д стрик`
             :arenaMode==='streak'?`⏱ ${isMe?activeCats().find(c=>c.id===cat.id)?.hours?.toFixed(1)||'0':p.hrs}ч`
-            :arenaMode==='week'?`📅 ${isMe?P.sessions.filter(s=>sessTs(s)>Date.now()-7*86400000).reduce((a,s)=>a+s.dur/3600,0).toFixed(1):p.weekHrs}ч нед`
+            :arenaMode==='week'?`📅 ${isMe?P.sessions.filter(s=>sessTs(s)>=getWeekStart()).reduce((a,s)=>a+s.dur/3600,0).toFixed(1):p.weekHrs}ч нед`
             :`⚡ ${isMe?P.totalSessions:p.hrs}`;
 
           return `<div style="display:flex;align-items:center;gap:12px;padding:${i<3?'16px':'12px'} 20px;
@@ -10737,7 +10785,7 @@ const T = {
   mot_default:'Маленькие шаги каждый день создают большие результаты.',
   quick_start:'Быстрый старт', choose_act:'Выбери активность и нажми Старт',
   start:'▶ СТАРТ', stop:'⏹ СТОП', hrs_in_self:'Часов в себя',
-  days_streak:'дней подряд', hrs_7days:'+0.0 ч за 7 дней',
+  days_streak:'дней подряд', hrs_7days:'+0.0 ч эта неделя',
   arena_title:'Арена', participants:'участников', top3:'Топ-3 🔥',
   all_sessions:'Все сессии',
   achievements:'Награды', unlocked:'Получено',
@@ -10761,7 +10809,7 @@ const T = {
   to_leader:'до лидера', your_pos:'Твоя позиция',
   days_streak_lbl:'дней стрик', loading_leagues:'Загрузка лиг...',
   no_active_cats:'Нет активных категорий', added_to_league:'Добавлено в лигу!',
-  hrs_for_7:'ч за 7 дней', hrs_cnt:'Часов', ach_cnt:'Наград', streak_cnt:'Стрик',
+  hrs_for_7:'ч эта неделя', hrs_cnt:'Часов', ach_cnt:'Наград', streak_cnt:'Стрик',
   active_cnt:'Активных дней',
   mot_better:'% лучше прошлого периода. Рост очевиден.',
   mot_stable:'— стабильный темп.',
@@ -10934,10 +10982,21 @@ function openReport(){
   const grade=periodHrs>=14?'🔥':periodHrs>=7?'⚡':periodHrs>=3?'📈':periodHrs>=1?'🌱':'💤';
   const gradeTxt=periodHrs>=14?'Отличная неделя':periodHrs>=7?'Хорошая неделя':periodHrs>=3?'Есть прогресс':periodHrs>=1?'Начало положено':'Неактивная неделя';
 
+  // Строим заголовок с датами периода
+  let periodDateStr = '';
+  if(isWeek){
+    const ws=new Date(getWeekStart());
+    const we=new Date(getWeekStart()+6*86400000);
+    periodDateStr=`${ws.getDate()}–${we.getDate()} ${we.toLocaleDateString('ru',{month:'long'}).replace(' г.','')}`;
+  } else {
+    const d30=new Date(Date.now()-29*86400000);
+    periodDateStr=`${d30.toLocaleDateString('ru',{day:'numeric',month:'short'}).replace(' г.','')} – сегодня`;
+  }
   const label=isWeek?'неделю':'месяц';
-  // Заголовок включает название лиги если выбрана конкретная
   const catName = dashCatFilter ? (activeCats().find(c=>c.id===dashCatFilter)?.name||'') : '';
-  const title = catName ? `Отчёт: ${catName} — за ${label}` : `Отчёт за ${label}`;
+  const title = catName
+    ? `Отчёт: ${catName} · ${periodDateStr}`
+    : `Отчёт за ${label} · ${periodDateStr}`;
   document.getElementById('reportTitle').textContent=title;
 
   const catRows=sortedCats.map(c=>{
