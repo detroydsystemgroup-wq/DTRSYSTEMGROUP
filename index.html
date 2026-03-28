@@ -1113,7 +1113,7 @@ button:active,.btn-ol:active,.btn-auth:active{
 a,button,[onclick]{-webkit-tap-highlight-color:transparent!important;}
 
 /* ── 29. SMOOTH SCROLL ── */
-.msg-messages,.sl,.ach-grid2,[id$="List"]{
+.sl,.ach-grid2,[id$="List"]{
   overscroll-behavior:contain;
 }
 
@@ -1613,7 +1613,7 @@ body { transition:background .28s,color .28s; }
 .msg-chat-name{font-size:14px;font-weight:600;flex:1;}
 .msg-chat-btn{padding:6px 12px;border-radius:7px;background:transparent;border:0.5px solid var(--border);color:var(--t2);font-size:11px;font-weight:600;cursor:pointer;transition:all .2s;}
 .msg-chat-btn:hover{border-color:var(--blue);color:var(--blue);}
-.msg-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;}
+.msg-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;overscroll-behavior:auto;}
 .msg-empty{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--t3);}
 .msg-bubble{max-width:70%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.5;word-break:break-word;animation:fadeUp .18s ease both;}
 .msg-bubble.mine{background:linear-gradient(135deg,var(--gold-d),var(--gold));color:#09090B;align-self:flex-end;border-radius:12px 12px 4px 12px;font-weight:500;}
@@ -1986,7 +1986,7 @@ button, a, [onclick], .stab, .mg-item, .cat-item, .csg-item, .mb, .cf-btn, .lg-r
 }
 /* ── Prevent overscroll on mobile ── */
 /* overscroll-behavior removed for mobile scroll */
-#tab-messages .msg-messages { overscroll-behavior: contain; }
+#tab-messages .msg-messages { overscroll-behavior: auto; }
 
 
 /* ══ WILL-CHANGE: GPU LAYER PROMOTION ══════════════════════ */
@@ -9471,8 +9471,6 @@ function openMobileTimerSheet() {
 // ── Command Palette ────────────────────────────────────────────
 const CMD_LIST = [
   { label: '🚀 Старт таймера',       action: () => { showTab('dash'); setTimeout(toggleQuick, 200); } },
-  { label: '⏸ Пауза таймера',        action: () => pauseTimer() },
-  { label: '⏹ Стоп / сохранить',     action: () => stopTimer() },
   { label: '📊 Дашборд',             action: () => showTab('dash') },
   { label: '⚔️ Арена',               action: () => showTab('leagues') },
   { label: '📜 История',             action: () => showTab('activity') },
@@ -9812,6 +9810,7 @@ function toggleQuick() {
     timerRunning = true; timerPaused = false;
     _setTimerUI('running');
     startTimerInterval();
+    updateNavTimerPill(); // immediate — no setTimeout delay
     haptic('medium');
   } else if (timerPaused) {
     // RESUME
@@ -9819,6 +9818,7 @@ function toggleQuick() {
     timerRunning = true; timerPaused = false;
     _setTimerUI('running');
     startTimerInterval();
+    updateNavTimerPill(); // immediate
     haptic('light');
   }
 }
