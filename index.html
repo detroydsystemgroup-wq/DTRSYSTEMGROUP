@@ -8269,11 +8269,10 @@ async function _fetchLeagueData(catId){
 
   if(!ucData||!ucData.length){lgCache[catId]=[];return[];}
 
-  // Step 2: get user profiles — НЕ грузим avatar_url (base64, до 800KB на игрока)
-  // Аватарки грузятся отдельно только для своего профиля
+  // Step 2: get user profiles including avatar_url for arena display
   const userIds=ucData.map(u=>u.user_id);
   const{data:usersData}=await sb.from('users')
-    .select('id,username,avatar,streak')
+    .select('id,username,avatar,avatar_url,streak')
     .in('id',userIds);
 
   const userMap={};
@@ -8323,7 +8322,7 @@ async function _fetchLeagueData(catId){
     return{
       name:isMe?(P?.name||u.username||'?'):(u.username||'?'),
       av:isMe?(P?.avatar||u.avatar||'🎯'):(u.avatar||'🎯'),
-      avUrl:isMe?(P?.avatarUrl||null):null,
+      avUrl:isMe?(P?.avatarUrl||u.avatar_url||null):(u.avatar_url||null),
       hrs:Math.round(totalHrs*10)/10,
       streak:isMe?(P?.streak||0):(u.streak||0),
       weekHrs:Math.round(myWeekHrs*10)/10,
@@ -9508,19 +9507,19 @@ function filterCmds(q) {
   const lower = (q || '').toLowerCase();
   const filtered = CMD_LIST.filter(c => !lower || c.label.toLowerCase().includes(lower));
   _cmdIdx = -1;
+  // Store first so onclick can reference it
+  list._filtered = filtered;
   list.innerHTML = filtered.map((c, i) =>
     `<div class="cmd-item" data-idx="${i}"
        style="padding:11px 16px;cursor:pointer;font-size:13px;color:var(--t1);transition:background .12s;border-radius:0"
        onmouseenter="this.style.background='rgba(255,255,255,.06)'"
        onmouseleave="this.style.background=''"
-       onclick="(${JSON.stringify(filtered.map(x=>x.label))})[${i}]; _execCmd(${i}, ${JSON.stringify(filtered.map(x=>x.label))})"
+       onclick="_execCmd(${i})"
     >${c.label}</div>`
   ).join('');
-  // Store filtered for keyNav
-  list._filtered = filtered;
 }
 
-function _execCmd(idx, labels) {
+function _execCmd(idx) {
   const list = document.getElementById('cmdList');
   const filtered = list?._filtered || CMD_LIST;
   if (filtered[idx]) {
