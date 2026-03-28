@@ -5896,6 +5896,89 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
     </button>
 
+    <!-- 🔔 Кнопка напоминаний — БЫЛА ПОТЕРЯНА, теперь здесь -->
+    <div style="position:relative;flex-shrink:0">
+      <button id="rmdNavBtn" onclick="rmdOpenPanel(event)" class="nav-icon-btn"
+        title="Напоминания" style="position:relative;font-size:15px;color:rgba(255,255,255,.3)">
+        🔔
+        <!-- Золотая точка: видна когда напоминания включены -->
+        <span id="rmdNavDot" style="display:none;position:absolute;top:4px;right:4px;
+          width:7px;height:7px;background:var(--gold);border-radius:50%;
+          border:1.5px solid var(--bg);pointer-events:none"></span>
+      </button>
+
+      <!-- Выпадающая панель настроек напоминаний -->
+      <div id="rmdNavPanel" style="display:none;position:absolute;top:calc(100% + 10px);right:0;
+        width:300px;background:var(--panel);border:0.5px solid var(--border);
+        border-radius:16px;padding:18px;z-index:500;
+        box-shadow:0 8px 40px rgba(0,0,0,.6),0 0 0 0.5px rgba(255,255,255,.05);
+        backdrop-filter:blur(20px)">
+
+        <!-- Заголовок + мастер-тоггл -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div style="font-size:13px;font-weight:700;color:var(--t1)">🔔 Напоминания</div>
+          <div onclick="rmdToggleMaster()" style="cursor:pointer;display:flex;align-items:center;gap:8px">
+            <span style="font-size:11px;color:var(--t2)" id="rmdPanelStatusLbl">Выкл</span>
+            <div id="rmdPanelTrack" style="width:36px;height:20px;border-radius:10px;background:var(--border);
+              position:relative;cursor:pointer;transition:background .2s;flex-shrink:0">
+              <div id="rmdPanelThumb" style="position:absolute;top:3px;left:3px;
+                width:14px;height:14px;border-radius:50%;background:#fff;
+                transition:transform .2s;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Тело панели — диммируется когда выключено -->
+        <div id="rmdPanelBody" style="opacity:0.35;pointer-events:none;transition:opacity .2s">
+
+          <!-- Время -->
+          <div style="margin-bottom:12px">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Время</div>
+            <div onclick="rmdOpenTimePicker(event)"
+              style="display:flex;align-items:center;justify-content:space-between;
+              padding:10px 14px;background:var(--card);border:0.5px solid var(--border);
+              border-radius:10px;cursor:pointer;transition:border-color .15s"
+              onmouseover="this.style.borderColor='rgba(245,200,66,.3)'"
+              onmouseout="this.style.borderColor='var(--border)'">
+              <span style="font-family:'DM Mono',monospace;font-size:20px;font-weight:500;color:var(--gold)" id="rmdTimeDisplay">20:00</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+          </div>
+
+          <!-- Дни недели -->
+          <div style="margin-bottom:12px">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Дни</div>
+            <div id="rmdPanelDays" style="display:flex;gap:5px;flex-wrap:wrap"></div>
+          </div>
+
+          <!-- Стиль -->
+          <div style="margin-bottom:12px">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);margin-bottom:6px">Стиль</div>
+            <div id="rmdPanelPresets"></div>
+          </div>
+
+          <!-- Превью -->
+          <div style="background:var(--card);border-radius:10px;padding:10px 12px;border-left:2px solid var(--gold)">
+            <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--gold);margin-bottom:4px">Превью</div>
+            <div id="rmdPanelPreviewText" style="font-size:11px;color:var(--t2);line-height:1.5"></div>
+          </div>
+
+          <!-- Разрешение браузера -->
+          <div style="margin-top:10px" id="rmdPanelPermRow">
+            <button onclick="rmdRequestPermission()"
+              style="width:100%;padding:9px;border-radius:9px;border:0.5px solid rgba(245,200,66,.3);
+              background:rgba(245,200,66,.07);color:var(--gold);font-size:11px;font-weight:700;
+              cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.03em;
+              display:flex;align-items:center;justify-content:center;gap:6px;transition:all .18s"
+              onmouseover="this.style.background='rgba(245,200,66,.12)'"
+              onmouseout="this.style.background='rgba(245,200,66,.07)'">
+              🔔 Разрешить уведомления в браузере
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </nav>
 
@@ -6885,7 +6968,7 @@ async function finishReg(){
   // Upsert users (ignore if already exists)
   const{error:uErr}=await sb.from('users').upsert({
     id:userId,username:regBuf.name,avatar:regBuf.avatar,
-    streak:0,total_sessions:0
+    streak:0,total_sessions:0,active_days:0
   },{onConflict:'id'});
   
   if(uErr){
@@ -6961,14 +7044,17 @@ function computeStreakFromSessions(sessions){
   if(!sessions||!sessions.length) return 0;
   const daySet=new Set();
   sessions.forEach(s=>{
-    // FIX: use local date (via timestamp) to avoid UTC/local timezone mismatch
-    const ts=s.created_at?new Date(s.created_at).getTime():null;
-    if(ts){
+    // Поддерживаем оба формата: created_at (ISO строка) и ts (timestamp в мс)
+    let ts = null;
+    if(s.created_at) ts = new Date(s.created_at).getTime();
+    else if(s.ts) ts = s.ts;
+    if(ts && !isNaN(ts)){
       const d=new Date(ts);
       const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       daySet.add(key);
     }
   });
+  if(!daySet.size) return 0;
   let streak=0;
   const today=new Date();
   for(let i=0;i<365;i++){
@@ -6976,7 +7062,7 @@ function computeStreakFromSessions(sessions){
     d.setDate(d.getDate()-i);
     const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     if(daySet.has(key)) streak++;
-    else if(i>0) break;
+    else if(i>0) break; // первый пропуск = конец стрика
   }
   return streak;
 }
@@ -7011,7 +7097,7 @@ async function loadUser(userId){
       if(meta?.username) username = meta.username;
     } catch(authErr) { console.warn('auth.getUser failed:', authErr); }
     const {error: createErr} = await sb.from('users').upsert({
-      id: userId, username, avatar: '🎯', streak: 0, total_sessions: 0
+      id: userId, username, avatar: '🎯', streak: 0, total_sessions: 0, active_days: 0
     }, {onConflict: 'id'});
     if(createErr) console.error('Failed to create user row:', createErr);
     _loadUserRetryCount++;
@@ -7225,10 +7311,15 @@ async function saveSession(catId,secs){
     if(pc)pc.hours=Math.round((pc.hours+secs/3600)*10)/10;
     else P.categories.push({...cat,hours:Math.round(secs/3600*10)/10});
     const today=new Date().toDateString(),yest=new Date(Date.now()-86400000).toDateString();
-    if(P.lastActiveDate!==today){P.streak=P.lastActiveDate===yest?(P.streak||0)+1:1;P.lastActiveDate=today;}
+    if(P.lastActiveDate!==today){
+      P.streak=P.lastActiveDate===yest?(P.streak||0)+1:1;
+      P.lastActiveDate=today;
+      // Считаем активный день
+      P.totalActiveDays=(P.totalActiveDays||0)+1;
+    }
     const nowISO=new Date().toISOString();
     P.sessions.unshift({cat:catId,name:cat.name,icon:cat.icon,color:cat.color,dur:secs,date:'только что',ts:Date.now(),isoDate:nowISO});
-    P.totalSessions=P.sessions.length;
+    P.totalSessions=(P.totalSessions||0)+1;
     const newly=checkAchsLocal({dur:secs});
     renderAll();
     showToast(`${cat.icon} +${fmtD(secs)} в "${cat.name}"`, '✅');
@@ -7555,6 +7646,31 @@ function renderHeader(){
     avEl.style.boxShadow=`0 0 16px ${info.color.includes('gradient')?'rgba(245,200,66,.4)':info.color+'66'}`;
   }
 }
+
+// Анимация цифр в стат-баре профиля (запускается через 120мс после прямого присвоения)
+function animStatBar(){
+  const pairs=[
+    ['statTotalHrs', Math.round(totalHrs())],
+    ['statSessions',  P.totalSessions||0],
+    ['statAchs',      P.achievements ? P.achievements.filter(a=>a.unlocked).length : 0],
+    ['statActiveDays',P.totalActiveDays||0],
+  ];
+  pairs.forEach(([id,val])=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    const from=parseInt(el.textContent)||0;
+    if(from===val) return; // уже актуально — не мигаем
+    const dur=600, start=performance.now();
+    (function step(now){
+      const p=Math.min((now-start)/dur,1);
+      const ease=1-Math.pow(1-p,3);
+      el.textContent=Math.round(from+(val-from)*ease);
+      if(p<1) requestAnimationFrame(step);
+      else el.textContent=val;
+    })(performance.now());
+  });
+}
+
 function renderTotals(){
   const totEl=document.getElementById('totDisp');
   const newVal=totalHrs();
@@ -8151,8 +8267,23 @@ function renderAvEl(av, avUrl, size=40, radius=10, border='0.5px solid var(--bor
   return `<div style="${sty}">${av||'🎯'}</div>`;
 }
 
+// Хранит незавершённые запросы к арене — защищает от одновременных дублирующих фетчей
+const _lgInFlight = {};
+
 async function loadLeagueData(catId){
   if(lgCache[catId] && lgCacheTime[catId] && (Date.now()-lgCacheTime[catId]) < LG_CACHE_TTL) return lgCache[catId];
+  // Если уже идёт запрос для этой категории — ждём его результат, не делаем новый
+  if(_lgInFlight[catId]) return _lgInFlight[catId];
+  _lgInFlight[catId] = _fetchLeagueData(catId);
+  try {
+    const result = await _lgInFlight[catId];
+    return result;
+  } finally {
+    delete _lgInFlight[catId];
+  }
+}
+
+async function _fetchLeagueData(catId){
   try{
   // Step 1: get user_categories for this league
   const{data:ucData}=await sb.from('user_categories')
@@ -8220,7 +8351,7 @@ async function loadLeagueData(catId){
   lgCache[catId]=players;
   lgCacheTime[catId]=Date.now();
   return players;
-  }catch(e){console.error('loadLeagueData:',e);return[];}
+  }catch(e){console.error('_fetchLeagueData:',e);return[];}
 }
 
 
@@ -8482,16 +8613,29 @@ async function renderLgMini(){
   try{
     const cats=activeCats();
     if(!cats.length){el.innerHTML='';return;}
+
+    // Функция рендера мини-виджета из данных
+    const _draw=(results)=>{
+      el.innerHTML=cats.map((c,i)=>{
+        const rank=results[i].findIndex(p=>p.isMe)+1||'?';
+        return `<div style="display:flex;align-items:center;gap:10px;padding:7px 5px;border-radius:7px;cursor:pointer;transition:background .2s" onclick="showTab('leagues')" onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
+          ${catIconBox(c.id, c.color, 32)}
+          <div style="flex:1"><div style="font-size:12px;font-weight:600">${c.name}</div>
+            <div style="font-size:10px;color:var(--t3)">${c.hours.toFixed(1)} часов</div></div>
+          <div style="font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;color:${c.color}">#${rank}</div>
+        </div>`;
+      }).join('');
+    };
+
+    // Если кеш есть — рисуем мгновенно
+    const hasCached = cats.every(c => lgCache[c.id]);
+    if(hasCached){
+      _draw(cats.map(c=>lgCache[c.id]||[]));
+    }
+
+    // Грузим/обновляем данные (из кеша или с сервера)
     const results=await Promise.all(cats.map(c=>loadLeagueData(c.id)));
-    el.innerHTML=cats.map((c,i)=>{
-      const rank=results[i].findIndex(p=>p.isMe)+1||'?';
-      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 5px;border-radius:7px;cursor:pointer;transition:background .2s" onclick="showTab('leagues')" onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
-        ${catIconBox(c.id, c.color, 32)}
-        <div style="flex:1"><div style="font-size:12px;font-weight:600">${c.name}</div>
-          <div style="font-size:10px;color:var(--t3)">${c.hours.toFixed(1)} часов</div></div>
-        <div style="font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;color:${c.color}">#${rank}</div>
-      </div>`;
-    }).join('');
+    _draw(results);
   }catch(e){console.error('renderLgMini:',e);el.innerHTML='';}
 }
 
@@ -11398,9 +11542,16 @@ function updateNavTimerPill(){
     const dy=e.changedTouches[0].clientY-startY;
     if(dy>70&&window.P){
       haptic('medium');
+      // Pull-to-refresh: полный сброс кеша + перезагрузка с сервера
       lgCache={};lgCacheTime={};
-      renderLeagues();renderLgMini();renderAll();
-      if(typeof showToast==='function') showToast('Обновлено','✅');
+      const cats=activeCats ? activeCats() : [];
+      if(typeof showToast==='function') showToast(`Обновляем ${cats.length} ${cats.length===1?'лигу':cats.length<5?'лиги':'лиг'}...`,'🔄');
+      if(window.SB_USER && !SB_USER.isDemoUser) {
+        loadUser(SB_USER.id).catch(()=>{ renderLeagues();renderLgMini();renderAll(); });
+      } else {
+        renderLeagues();renderLgMini();renderAll();
+        if(typeof showToast==='function') showToast('Обновлено','✅');
+      }
     }
     if(indicator){
       indicator.style.transform='translateX(-50%) translateY(-100%)';
@@ -12916,6 +13067,20 @@ window.renderAll = function(){
         thumb.style.transform  = 'translateX(0)';
         if(dot) dot.style.display = 'none';
       }
+    }
+
+    // Лейбл статуса рядом с тогглом
+    const statusLbl = document.getElementById('rmdPanelStatusLbl');
+    if(statusLbl) {
+      statusLbl.textContent = cfg.enabled ? 'Вкл' : 'Выкл';
+      statusLbl.style.color = cfg.enabled ? 'var(--gold)' : 'var(--t2)';
+    }
+
+    // Скрываем кнопку разрешений если они уже выданы
+    const permRow = document.getElementById('rmdPanelPermRow');
+    if(permRow) {
+      const perm = ('Notification' in window) ? Notification.permission : 'default';
+      permRow.style.display = perm === 'granted' ? 'none' : 'block';
     }
 
     // Body opacity — enabled = full, disabled = dimmed
