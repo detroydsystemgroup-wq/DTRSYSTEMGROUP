@@ -15949,7 +15949,17 @@ function renderLearnTab(){
       .lrn-cat-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
       .lrn-cat-name{font-size:15px;font-weight:700;color:var(--t1);letter-spacing:-.01em;flex:1;}
       .lrn-cat-actions{display:flex;gap:6px;}
-      .lrn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
+      .lrn-grid-wrap{position:relative;}
+      .lrn-grid{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.1) transparent;}
+      .lrn-grid::-webkit-scrollbar{height:4px;}
+      .lrn-grid::-webkit-scrollbar-track{background:transparent;}
+      .lrn-grid::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:2px;}
+      .lrn-card{flex:0 0 200px;width:200px;}
+      .lrn-add-link{flex:0 0 200px;width:200px;}
+      .lrn-scroll-btn{position:absolute;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;border:0.5px solid rgba(255,255,255,.15);background:rgba(15,15,18,.9);color:var(--t1);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;transition:all .15s;backdrop-filter:blur(8px);}
+      .lrn-scroll-btn:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.3);}
+      .lrn-scroll-btn.left{left:-14px;}
+      .lrn-scroll-btn.right{right:-14px;}
       .lrn-card{background:var(--card);border:0.5px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:all .2s cubic-bezier(.34,1.56,.64,1);position:relative;text-decoration:none;display:block;}
       .lrn-card:hover{transform:translateY(-3px);box-shadow:0 8px 28px rgba(0,0,0,.4);border-color:rgba(255,255,255,.15);}
       .lrn-card-thumb{height:110px;background:var(--hover);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;}
@@ -16006,7 +16016,10 @@ function renderLearnTab(){
             <button onclick="lrnDeleteCat('${cat.id}')" style="padding:5px 10px;border-radius:7px;border:0.5px solid rgba(239,68,68,.2);background:transparent;color:var(--red);font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif" title="Удалить категорию">🗑</button>
           </div>
         </div>
-        <div class="lrn-grid">
+        <div class="lrn-grid-wrap">
+          <button class="lrn-scroll-btn left" onclick="lrnScroll(this,-1)">&#8249;</button>
+          <button class="lrn-scroll-btn right" onclick="lrnScroll(this,1)">&#8250;</button>
+          <div class="lrn-grid" id="lrn-grid-${cat.id}">
           ${(cat.links||[]).map(link => `
             <div class="lrn-card" onclick="lrnOpenLink('${link.id}','${cat.id}')">
               <div class="lrn-card-thumb">
@@ -16097,6 +16110,12 @@ window.lrnAddLink = function(catId){
     _lrnSave();
     renderLearnTab();
   });
+};
+
+window.lrnScroll = function(btn, dir){
+  const wrap = btn.closest('.lrn-grid-wrap');
+  const grid = wrap?.querySelector('.lrn-grid');
+  if(grid) grid.scrollBy({left: dir * 440, behavior:'smooth'});
 };
 
 window.lrnDeleteLink = function(catId, linkId){
