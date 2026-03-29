@@ -17405,7 +17405,15 @@ function _lrnUID(){ return Math.random().toString(36).slice(2,10); }
 function _lrnLoad(){ try{ _lrn=JSON.parse(localStorage.getItem(LRN_KEY)||'{"categories":[]}'); }catch(e){ _lrn={categories:[]}; } if(!_lrn.categories)_lrn.categories=[]; }
 function _authLoad(){ try{ _auth=JSON.parse(localStorage.getItem(AUTH_KEY)||'{"authors":[]}'); }catch(e){ _auth={authors:[]}; } if(!_auth.authors)_auth.authors=[]; }
 function _lrnSave(){ localStorage.setItem(LRN_KEY,JSON.stringify(_lrn)); _lrnSaveToDB(); }
-function _authSave(){ localStorage.setItem(AUTH_KEY,JSON.stringify(_auth)); _authSaveToDB(); }
+function _authSave(){
+  // Strip runtime-only fields before persisting
+  const clean = { authors: _auth.authors.map(a => ({
+    id: a.id, name: a.name, url: a.url, color: a.color,
+    avatarUrl: a.avatarUrl || null   // persist avatar, never persist avatarLoading
+  }))};
+  localStorage.setItem(AUTH_KEY, JSON.stringify(clean));
+  _authSaveToDB();
+}
 
 function _lrnSaveToDB(){
   if(!SB_USER||SB_USER.isDemoUser) return;
@@ -18439,15 +18447,18 @@ window.lrnAddAuthor=function(){
         avatarLoading: true,
       };
       _auth.authors.push(newAuthor);
-      _authSave();
-      _lrnRenderSidebar(); // show immediately with letter placeholder
+      _authSave();              // saved WITHOUT avatarLoading
+      _lrnRenderSidebar();      // shows spinner
 
-      // Async: fetch YouTube channel avatar
-      const avatarUrl = await _lrnFetchChannelAvatar(fullUrl);
-      const found = _auth.authors.find(a => a.id === newAuthor.id);
-      if(found){
-        found.avatarUrl = avatarUrl || null;
-        found.avatarLoading = false;
+      try {
+        const avatarUrl = await _lrnFetchChannelAvatar(fullUrl);
+        const found = _auth.authors.find(a => a.id === newAuthor.id);
+        if(found) found.avatarUrl = avatarUrl || null;
+      } catch(e) {
+        // silently skip
+      } finally {
+        const found = _auth.authors.find(a => a.id === newAuthor.id);
+        if(found) found.avatarLoading = false;
         _authSave();
         _lrnRenderSidebar();
       }
@@ -18455,48 +18466,86 @@ window.lrnAddAuthor=function(){
   );
 };
 
-// ── Fetch YouTube channel avatar via CORS proxy ──────────────────
+// ── Fetch YouTube channel avatar ────────────────────────────────
 async function _lrnFetchChannelAvatar(channelUrl){
-  if(!channelUrl || !channelUrl.includes('youtube')) return null;
-  try {
-    // allorigins.win is a free CORS proxy — fetches the channel page
-    const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(channelUrl)}`;
-    const res = await fetch(proxy, { signal: AbortSignal.timeout(8000) });
-    if(!res.ok) return null;
-    const data = await res.json();
-    const html = data.contents || '';
+  if(!channelUrl) return null;
 
-    // og:image on a YouTube channel page = channel avatar (high-res)
-    const m1 = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i);
-    if(m1 && m1[1] && !m1[1].includes('placeholder')) return m1[1];
+  // Helper: fetch with manual timeout (AbortSignal.timeout not supported everywhere)
+  const fetchWithTimeout = (url, ms=7000) => {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), ms);
+    return fetch(url, { signal: ctrl.signal })
+      .finally(() => clearTimeout(t));
+  };
 
-    // Fallback: twitter:image
-    const m2 = html.match(/<meta\s+name="twitter:image"\s+content="([^"]+)"/i);
-    if(m2 && m2[1]) return m2[1];
+  // Extract HTML from a proxy and parse og:image
+  const parseOgImage = (html) => {
+    if(!html || typeof html !== 'string') return null;
+    // Match various formats YouTube uses for og:image
+    const patterns = [
+      /property="og:image"\s+content="([^"]+)"/i,
+      /content="([^"]+)"\s+property="og:image"/i,
+      /property='og:image'\s+content='([^']+)'/i,
+      /"og:image","content":"(https:\\\/\\\/yt3[^"]+)"/i,
+      /yt3\.googleusercontent\.com\/ytc\/[A-Za-z0-9_\-]+=s[0-9]+-c-k-c[0-9a-f]+-no/,
+    ];
+    for(const p of patterns){
+      const m = html.match(p);
+      if(m && m[1] && m[1].startsWith('http')) return m[1].replace(/\\u003d/g,'=').replace(/\\\//g,'/');
+      if(m && m[0] && m[0].startsWith('http')) return m[0];
+    }
+    return null;
+  };
 
-    // Fallback: yt-avatar inside JSON-LD or initial data
-    const m3 = html.match(/"avatar":\{"thumbnails":\[{"url":"([^"]+)"/);
-    if(m3 && m3[1]) return m3[1];
+  // Proxy list — try in order, first success wins
+  const proxies = [
+    // corsproxy.io — returns raw HTML directly
+    () => fetchWithTimeout(`https://corsproxy.io/?${encodeURIComponent(channelUrl)}`)
+            .then(r => r.ok ? r.text() : Promise.reject()),
+    // allorigins raw — also returns raw HTML
+    () => fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(channelUrl)}`)
+            .then(r => r.ok ? r.text() : Promise.reject()),
+    // allorigins JSON — parse .contents
+    () => fetchWithTimeout(`https://api.allorigins.win/get?url=${encodeURIComponent(channelUrl)}`)
+            .then(r => r.ok ? r.json() : Promise.reject())
+            .then(d => d.contents || ''),
+  ];
 
-  } catch(e){ /* timeout or network error — silently fail */ }
+  for(const getHtml of proxies){
+    try {
+      const html = await getHtml();
+      const img = parseOgImage(html);
+      if(img) return img;
+    } catch(e){ /* try next proxy */ }
+  }
   return null;
 }
 window.lrnDelAuthor=function(id){ _auth.authors=_auth.authors.filter(a=>a.id!==id); _authSave(); _lrnRenderSidebar(); };
 
 // ── On load: fetch missing avatars for existing authors ──────────
 async function _lrnRefreshMissingAvatars(){
-  const toFetch = _auth.authors.filter(a => !a.avatarUrl && !a.avatarLoading && a.url);
+  // Only authors without a stored avatar URL (ignore runtime avatarLoading flag)
+  const toFetch = _auth.authors.filter(a => !a.avatarUrl && a.url);
   if(!toFetch.length) return;
+
   for(const a of toFetch){
     a.avatarLoading = true;
   }
   _lrnRenderSidebar();
+
   for(const a of toFetch){
-    const url = await _lrnFetchChannelAvatar(a.url);
-    const found = _auth.authors.find(x => x.id === a.id);
-    if(found){ found.avatarUrl = url || null; found.avatarLoading = false; }
+    try {
+      const url = await _lrnFetchChannelAvatar(a.url);
+      const found = _auth.authors.find(x => x.id === a.id);
+      if(found){ found.avatarUrl = url || null; }
+    } catch(e){
+      // silently skip
+    } finally {
+      const found = _auth.authors.find(x => x.id === a.id);
+      if(found) found.avatarLoading = false;
+    }
   }
-  _authSave();
+  _authSave();      // saves without avatarLoading (cleaned in _authSave)
   _lrnRenderSidebar();
 }
 
