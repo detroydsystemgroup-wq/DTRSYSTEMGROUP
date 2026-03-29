@@ -14004,26 +14004,50 @@ function _kbShowTableTB(cell){
   const tbtb=document.getElementById('kb3tbtb');if(!tbtb)return;
   _kbTBTBtarget=cell;
   const table=cell.closest('table');
-  tbtb.style.display='flex';tbtb.style.alignItems='center';tbtb.style.gap='3px';
-  tbtb.style.flexWrap='wrap';
+  tbtb.style.cssText='display:flex;align-items:center;gap:2px;flex-wrap:wrap;position:fixed;background:var(--panel);border:0.5px solid var(--border);border-radius:10px;padding:5px 8px;box-shadow:0 8px 32px rgba(0,0,0,.65);z-index:500;backdrop-filter:blur(8px)';
   tbtb.innerHTML=`<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)">Таблица</span>
     <div style="width:0.5px;height:14px;background:var(--border);margin:0 3px"></div>
-    <button class="k3tb" onclick="_kbTBAddRow(false)" title="Строка выше">▲</button>
-    <button class="k3tb" onclick="_kbTBAddRow(true)" title="Строка ниже">▼</button>
-    <button class="k3tb" onclick="_kbTBAddCol(false)" title="Колонка слева">◀</button>
-    <button class="k3tb" onclick="_kbTBAddCol(true)" title="Колонка справа">▶</button>
-    <div style="width:0.5px;height:14px;background:var(--border);margin:0 3px"></div>
-    <button class="k3tb" onclick="_kbTBDelRow()" title="Удалить строку" style="color:var(--red);font-size:9px;width:auto;padding:0 5px">−Строка</button>
-    <button class="k3tb" onclick="_kbTBDelCol()" title="Удалить столбец" style="color:var(--red);font-size:9px;width:auto;padding:0 5px">−Столбец</button>
-    <div style="width:0.5px;height:14px;background:var(--border);margin:0 3px"></div>
-    <label class="k3tb" style="width:auto;padding:0 5px;gap:3px;cursor:pointer;font-size:9px;color:var(--t3)" title="Цвет рамки">
-      Рамка <input type="color" value="#3a3a40" onchange="_kbTBBorder(this.value)" style="width:13px;height:13px;border:none;padding:0;cursor:pointer;background:none;outline:none">
+    <!-- Добавить строки -->
+    <span style="font-size:9px;color:var(--t3);font-weight:600;letter-spacing:.04em;margin-right:1px">Строка</span>
+    <button class="k3tb" onclick="_kbTBAddRow(false)" title="Добавить строку выше" style="display:flex;align-items:center;gap:3px;width:auto;padding:0 7px;font-size:10px;font-weight:600">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>+
+    </button>
+    <button class="k3tb" onclick="_kbTBAddRow(true)" title="Добавить строку ниже" style="display:flex;align-items:center;gap:3px;width:auto;padding:0 7px;font-size:10px;font-weight:600">
+      +<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div style="width:0.5px;height:14px;background:var(--border);margin:0 2px"></div>
+    <!-- Добавить столбцы -->
+    <span style="font-size:9px;color:var(--t3);font-weight:600;letter-spacing:.04em;margin-right:1px">Столбец</span>
+    <button class="k3tb" onclick="_kbTBAddCol(false)" title="Добавить столбец слева" style="display:flex;align-items:center;gap:3px;width:auto;padding:0 7px;font-size:10px;font-weight:600">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>+
+    </button>
+    <button class="k3tb" onclick="_kbTBAddCol(true)" title="Добавить столбец справа" style="display:flex;align-items:center;gap:3px;width:auto;padding:0 7px;font-size:10px;font-weight:600">
+      +<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+    <div style="width:0.5px;height:14px;background:var(--border);margin:0 2px"></div>
+    <!-- Удалить -->
+    <button class="k3tb" onclick="_kbTBDelRow()" title="Удалить строку" style="display:flex;align-items:center;gap:3px;color:var(--red);width:auto;padding:0 7px;font-size:10px;font-weight:600">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>Строка
+    </button>
+    <button class="k3tb" onclick="_kbTBDelCol()" title="Удалить столбец" style="display:flex;align-items:center;gap:3px;color:var(--red);width:auto;padding:0 7px;font-size:10px;font-weight:600">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>Столбец
+    </button>
+    <div style="width:0.5px;height:14px;background:var(--border);margin:0 2px"></div>
+    <!-- Цвета -->
+    <label class="k3tb" style="width:auto;padding:0 8px;gap:4px;cursor:pointer;font-size:10px;color:var(--t3);font-weight:600" title="Цвет рамки таблицы">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+      Рамка
+      <input type="color" value="#3a3a40" onchange="_kbTBBorder(this.value)" style="width:14px;height:14px;border:none;border-radius:3px;padding:0;cursor:pointer;background:none;outline:none;vertical-align:middle">
     </label>
-    <label class="k3tb" style="width:auto;padding:0 5px;gap:3px;cursor:pointer;font-size:9px;color:var(--t3)" title="Фон ячейки">
-      Ячейка <input type="color" value="#1a1a1e" onchange="_kbTBCellBg(this.value)" style="width:13px;height:13px;border:none;padding:0;cursor:pointer;background:none;outline:none">
+    <label class="k3tb" style="width:auto;padding:0 8px;gap:4px;cursor:pointer;font-size:10px;color:var(--t3);font-weight:600" title="Фон выбранной ячейки">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/></svg>
+      Ячейка
+      <input type="color" value="#1a1a1e" onchange="_kbTBCellBg(this.value)" style="width:14px;height:14px;border:none;border-radius:3px;padding:0;cursor:pointer;background:none;outline:none;vertical-align:middle">
     </label>
-    <div style="width:0.5px;height:14px;background:var(--border);margin:0 3px"></div>
-    <button class="k3tb" onclick="_kbTBDelTable()" style="color:var(--red);font-size:9px;width:auto;padding:0 6px">✕ Таблица</button>`;
+    <div style="width:0.5px;height:14px;background:var(--border);margin:0 2px"></div>
+    <button class="k3tb" onclick="_kbTBDelTable()" style="display:flex;align-items:center;gap:4px;color:var(--red);width:auto;padding:0 8px;font-size:10px;font-weight:600">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg>Таблицу
+    </button>`;
   const cellRect=cell.getBoundingClientRect();
   tbtb.style.position='fixed';tbtb.style.top=(cellRect.top-40)+'px';tbtb.style.left=cellRect.left+'px';
   tbtb.style.maxWidth='700px';tbtb.style.zIndex='500';
