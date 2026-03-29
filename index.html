@@ -9144,6 +9144,14 @@ async function renderLgMini(){
 
 // ══ LEAGUE HERO BANNER ═══════════════════════════════════════
 async function showLeagueHero(){
+  // ── Только в воскресенье и только при первом входе за это воскресенье ──
+  const today = new Date();
+  if(today.getDay() !== 0) return; // 0 = воскресенье
+
+  const sundayKey = today.toISOString().slice(0,10); // YYYY-MM-DD
+  const seenKey = `dtr_lhero_${SB_USER?.id||'x'}_${sundayKey}`;
+  if(localStorage.getItem(seenKey)) return; // уже видел сегодня
+
   const cats=activeCats();if(!cats.length)return;
   let chosen=cats[0],chosenLeader=null,maxGap=0;
   await Promise.all(cats.map(async c=>{
@@ -9184,9 +9192,20 @@ async function showLeagueHero(){
   document.getElementById('lhMsg').textContent=chosenLeader.fake?`${chosenLeader.name} лидирует в лиге ${chosen.name}`:`Реальный игрок из ${chosen.name}`;
   document.getElementById('leagueHero').style.display='flex';
 }
-function closeHero(){document.getElementById('leagueHero').style.display='none';}
+
+function _markHeroSeen(){
+  const today = new Date();
+  const sundayKey = today.toISOString().slice(0,10);
+  localStorage.setItem(`dtr_lhero_${SB_USER?.id||'x'}_${sundayKey}`, '1');
+}
+
+function closeHero(){
+  document.getElementById('leagueHero').style.display='none';
+  _markHeroSeen();
+}
 // FIX: was referenced in HTML but never defined
 function closeHeroGoLeague(){
+  _markHeroSeen();
   closeHero();
   showTab('leagues');
   const leagueTab=document.querySelector('.stab[onclick*="leagues"]');
