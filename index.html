@@ -388,7 +388,7 @@ body{font-family:'Inter','DM Sans',sans-serif;background:var(--bg);color:var(--t
 .kpi-delta.neu{color:var(--t3);}
 
 /* bar chart */
-.bar-chart{display:block;height:auto;margin-top:4px;width:100%;border-radius:8px;overflow:hidden;}
+.bar-chart{display:block;height:auto;margin-top:4px;width:100%;border-radius:8px;overflow:visible;}
 .bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:0;position:relative;}
 .bar-fill{width:calc(100% - 6px);border-radius:4px 4px 0 0;transition:height .6s cubic-bezier(.4,0,.2,1);min-height:2px;position:relative;cursor:pointer;}
 .bar-fill:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--panel);border:0.5px solid var(--border);color:var(--t1);font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;white-space:nowrap;z-index:10;pointer-events:none;}
@@ -8156,7 +8156,7 @@ function renderDash(){
     `<div class="cl-item"><div class="cl-dot" style="background:${c.color};box-shadow:0 0 6px ${c.color}"></div>${c.name}</div>`).join('');
 
   const showEvery = isWeek ? 1 : Math.ceil(buckets/10);
-  const svgW=800, svgH=180, padL=42, padR=12, padT=16, padB=32;
+  const svgW=800, svgH=180, padL=6, padR=6, padT=22, padB=28;
   const plotW=svgW-padL-padR, plotH=svgH-padT-padB;
 
   function yOf(v){ return padT+plotH-(v/maxVal)*plotH; }
@@ -8189,7 +8189,8 @@ function renderDash(){
   const cs=10, cw=1.5;
 
   const svgEl=`<svg viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg"
-    style="width:100%;height:200px;display:block;overflow:visible">
+    preserveAspectRatio="none"
+    style="width:100%;height:200px;display:block">
     <defs>
       <filter id="glow${uid}" x="-50%" y="-50%" width="200%" height="200%">
         <feGaussianBlur stdDeviation="3.5" result="blur"/>
@@ -8231,8 +8232,8 @@ function renderDash(){
       return `<line x1="${padL}" y1="${gy}" x2="${svgW-padR}" y2="${gy}"
         stroke="${isHalf?'rgba(0,229,255,.12)':'rgba(0,229,255,.06)'}"
         stroke-width="${isHalf?1:.6}" stroke-dasharray="${isHalf?'4 4':'2 6'}"/>
-        <text x="${padL-6}" y="${(+gy+3).toFixed(1)}" text-anchor="end" font-size="8"
-          fill="rgba(0,229,255,.45)" font-family="DM Mono,monospace">${gv<1?gv.toFixed(1):gv.toFixed(gv<5?1:0)}</text>`;
+        <text x="${padL+5}" y="${(+gy-3).toFixed(1)}" text-anchor="start" font-size="8"
+          fill="rgba(0,229,255,.4)" font-family="DM Mono,monospace">${gv<1?gv.toFixed(1):gv.toFixed(gv<5?1:0)}</text>`;
     }).join('')}
     ${Array.from({length:buckets},(_,i)=>{
       if(i%showEvery!==0&&buckets>7) return '';
