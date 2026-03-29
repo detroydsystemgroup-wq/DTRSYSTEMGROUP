@@ -17706,38 +17706,78 @@ function _lrnInjectCSS(){
 }
 .lrn-new-cat-btn:active{ transform:scale(.97); }
 
-/* ── Section (category block) ────────────────────────────── */
-.lrn-sec{ margin-bottom:32px; }
+/* ── Section (category card — Arena style) ───────────────── */
+.lrn-sec{
+  margin-bottom:16px;
+  border-radius:16px;
+  border:0.5px solid var(--border);
+  background:var(--card);
+  overflow:hidden;
+  transition:box-shadow .2s;
+}
+.lrn-sec:hover{
+  box-shadow:0 4px 24px rgba(0,0,0,.35);
+}
 
+/* Colored left accent bar */
+.lrn-sec::before{
+  content:'';
+  position:absolute;
+  left:0; top:0; bottom:0;
+  width:3px;
+  background:var(--sec-c, var(--gold));
+  border-radius:0;
+}
+/* Make sec position:relative for ::before */
+.lrn-sec{ position:relative; }
+
+/* Category header inside card */
 .lrn-sec-hdr{
   display:flex;
   align-items:center;
-  gap:10px;
-  margin-bottom:14px;
-  padding-right:4px;
+  gap:12px;
+  padding:14px 18px;
+  border-bottom:0.5px solid rgba(255,255,255,.05);
+  background:rgba(255,255,255,.015);
+  position:relative;
 }
-.lrn-sec-dot{
-  width:8px;
-  height:8px;
-  border-radius:50%;
+
+/* Category icon box */
+.lrn-sec-icon{
+  width:36px;
+  height:36px;
+  border-radius:10px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   flex-shrink:0;
 }
+
+.lrn-sec-info{ flex:1; min-width:0; }
 .lrn-sec-name{
-  font-size:13px;
+  font-size:13.5px;
   font-weight:700;
   color:var(--t1);
-  flex:1;
-  letter-spacing:-.01em;
+  letter-spacing:-.02em;
+  line-height:1.2;
 }
+.lrn-sec-sub{
+  font-size:10px;
+  color:var(--t3);
+  letter-spacing:.01em;
+  margin-top:2px;
+}
+
 .lrn-sec-cnt{
   font-size:10px;
   color:var(--t3);
   font-family:'DM Mono',monospace;
-  background:rgba(255,255,255,.05);
-  border:0.5px solid rgba(255,255,255,.07);
+  background:rgba(255,255,255,.06);
+  border:0.5px solid rgba(255,255,255,.08);
   border-radius:6px;
-  padding:1px 7px;
+  padding:2px 8px;
 }
+
 .lrn-sec-acts{
   display:flex;
   gap:3px;
@@ -17746,9 +17786,9 @@ function _lrnInjectCSS(){
 }
 .lrn-sec:hover .lrn-sec-acts{ opacity:1; }
 .lrn-sec-btn{
-  width:26px;
-  height:26px;
-  border-radius:7px;
+  width:28px;
+  height:28px;
+  border-radius:8px;
   border:0.5px solid rgba(255,255,255,.08);
   background:transparent;
   color:var(--t3);
@@ -17759,14 +17799,29 @@ function _lrnInjectCSS(){
   transition:all .12s;
 }
 .lrn-sec-btn:hover{ background:rgba(255,255,255,.08); color:var(--t2); }
-.lrn-sec-btn.del:hover{ background:rgba(255,69,58,.1); color:var(--red); border-color:rgba(255,69,58,.2); }
+.lrn-sec-btn.del:hover{
+  background:rgba(255,69,58,.1);
+  color:var(--red);
+  border-color:rgba(255,69,58,.2);
+}
 
-/* ── Card row ────────────────────────────────────────────── */
-.lrn-row-wrap{ overflow:hidden; }
+/* Card grid inside the section */
+.lrn-row-wrap{ padding:16px 18px 18px; }
 .lrn-row{
   display:grid;
   grid-template-columns:repeat(4,1fr);
   gap:12px;
+}
+@media(max-width:1100px){
+  .lrn-row{ grid-template-columns:repeat(3,1fr); }
+}
+@media(max-width:900px){
+  .lrn-row{ grid-template-columns:repeat(2,1fr); }
+}
+@media(max-width:600px){
+  .lrn-row-wrap{ padding:12px 12px 14px; }
+  .lrn-row{ gap:8px; }
+  .lrn-card-acts{ opacity:1 !important; transform:none !important; }
 }
 
 /* ── Card ────────────────────────────────────────────────── */
@@ -18216,13 +18271,21 @@ function _lrnRenderMain(){
         <div class="lrn-empty-sub">Например: <b style="color:var(--t1)">Английский</b>, <b style="color:var(--t1)">Программирование</b>, <b style="color:var(--t1)">Таргет</b></div>
         <button class="lrn-new-cat-btn" onclick="lrnAddCat()">${svgPlus} Создать категорию</button>
       </div>
-    ` : _lrn.categories.map(cat=>`
-      <div class="lrn-sec" id="lrn-s-${cat.id}">
+    ` : _lrn.categories.map(cat=>{
+      const count = (cat.links||[]).length;
+      const catIconSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${cat.color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`;
+      return `
+      <div class="lrn-sec" id="lrn-s-${cat.id}" style="--sec-c:${cat.color}">
 
         <div class="lrn-sec-hdr">
-          <div class="lrn-sec-dot" style="background:${cat.color}"></div>
-          <div class="lrn-sec-name">${cat.name}</div>
-          <div class="lrn-sec-cnt">${(cat.links||[]).length}</div>
+          <div class="lrn-sec-icon" style="background:${cat.color}18;border:0.5px solid ${cat.color}35">
+            ${catIconSvg}
+          </div>
+          <div class="lrn-sec-info">
+            <div class="lrn-sec-name">${cat.name}</div>
+            <div class="lrn-sec-sub">${count} ${count===1?'материал':count<=4?'материала':'материалов'}</div>
+          </div>
+          <div class="lrn-sec-cnt">${count}</div>
           <div class="lrn-sec-acts">
             <button class="lrn-sec-btn" title="Переименовать" onclick="lrnRenameCat('${cat.id}')">${svgRename}</button>
             <button class="lrn-sec-btn del" title="Удалить" onclick="lrnDeleteCat('${cat.id}')">${svgDelete}</button>
@@ -18240,18 +18303,12 @@ function _lrnRenderMain(){
 
               return `
                 <div class="lrn-card" onclick="lrnOpenLink('${link.id}','${cat.id}')">
-
                   <div class="lrn-thumb">
-                    ${thumb
-                      ? `<img src="${thumb}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
-                      : ``}
+                    ${thumb ? `<img src="${thumb}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ``}
                     <div class="lrn-thumb-ico" style="${thumb?'display:none':'display:flex'}">${isYT ? svgPlay : svgLink}</div>
-                    ${isYT
-                      ? `<div class="lrn-thumb-play"><div class="lrn-thumb-play-btn">${svgPlay}</div></div>`
-                      : ``}
+                    ${isYT ? `<div class="lrn-thumb-play"><div class="lrn-thumb-play-btn">${svgPlay}</div></div>` : ``}
                     <div class="lrn-yt-badge">${domain}</div>
                   </div>
-
                   <div class="lrn-card-body">
                     <div class="lrn-card-ttl">${link.name}</div>
                     <div class="lrn-card-meta">
@@ -18259,15 +18316,10 @@ function _lrnRenderMain(){
                       <span>${domain}</span>
                     </div>
                     <div class="lrn-card-acts">
-                      <button class="lrn-card-act" onclick="event.stopPropagation();lrnEditLink('${cat.id}','${link.id}')">
-                        ${svgEdit} Изменить
-                      </button>
-                      <button class="lrn-card-act del" onclick="event.stopPropagation();lrnDeleteLink('${cat.id}','${link.id}')">
-                        ${svgTrash}
-                      </button>
+                      <button class="lrn-card-act" onclick="event.stopPropagation();lrnEditLink('${cat.id}','${link.id}')">${svgEdit} Изменить</button>
+                      <button class="lrn-card-act del" onclick="event.stopPropagation();lrnDeleteLink('${cat.id}','${link.id}')">${svgTrash}</button>
                     </div>
                   </div>
-
                 </div>`;
             }).join('')}
 
@@ -18278,8 +18330,8 @@ function _lrnRenderMain(){
 
           </div>
         </div>
-      </div>
-    `).join('')}
+      </div>`;
+    }).join('')}
   `;
 }
 
