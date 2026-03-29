@@ -20535,15 +20535,33 @@ async function buildRoomCard(room, myRole, user){
   const sb = getSB();
   let members=[],habits=[],logs={};
   try {
-    const {data:mems} = await sb.from('collab_habit_members').select('user_id,role,users(username,avatar,avatar_url)').eq('room_id',room.id);
-    members = mems||[];
+    // Step 1: get members (user_id + role only — no join, avoids 400)
+    const {data:mems} = await sb.from('collab_habit_members')
+      .select('user_id,role').eq('room_id',room.id);
+    const rawMembers = mems||[];
+
+    // Step 2: get profiles from public.users for each member
+    const memberIds = rawMembers.map(m=>m.user_id);
+    let profileMap = {};
+    if(memberIds.length){
+      const {data:profiles} = await sb.from('users')
+        .select('id,username,avatar,avatar_url')
+        .in('id', memberIds);
+      (profiles||[]).forEach(p=>{ profileMap[p.id]=p; });
+    }
+    // Attach profile to each member as .users
+    members = rawMembers.map(m=>({
+      ...m,
+      users: profileMap[m.user_id] || { username:'?', avatar:'👤', avatar_url:null }
+    }));
+
     const {data:habs} = await sb.from('collab_habits').select('*').eq('room_id',room.id).eq('active',true);
     habits = habs||[];
     if(habits.length&&members.length){
       const {data:lg} = await sb.from('collab_habit_logs').select('habit_id,user_id,date').eq('room_id',room.id).gte('date',_getWeekStart());
       (lg||[]).forEach(e=>{ if(!logs[e.user_id])logs[e.user_id]={};if(!logs[e.user_id][e.habit_id])logs[e.user_id][e.habit_id]={};logs[e.user_id][e.habit_id][e.date]=true;});
     }
-  } catch(e){}
+  } catch(e){ console.error('buildRoomCard:', e); }
 
   const today=_todayStr(), weekDays=_getWeekDays();
   const scores = members.map(m=>{
