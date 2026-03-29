@@ -7621,7 +7621,7 @@ async function saveSession(catId,secs){
 // ══ ACHIEVEMENTS ════════════════════════════════════════════
 // ── Achievement condition checker ─────────────────────────
 function evalAch(def,sessSeconds=0){
-  const totalH=P.categories.reduce((a,c)=>a+c.hours,0);
+  const totalH=P.sessions.reduce((a,s)=>a+s.dur/3600,0);
   const h=new Date().getHours();
   const dow=new Date().getDay(); // 0=Sun,6=Sat
   // best day this week
@@ -7711,7 +7711,7 @@ function showAchToast(def){
 
 // ── Ach progress helper ────────────────────────────────────
 function achProgress(def){
-  const totalH=P.categories.reduce((a,c)=>a+c.hours,0);
+  const totalH=P.sessions.reduce((a,s)=>a+s.dur/3600,0);
   const now=Date.now();
   const dayMap={};
   P.sessions.forEach(s=>{const d=new Date(sessTs(s)).toDateString();if(!d||d==='Invalid Date')return;dayMap[d]=(dayMap[d]||0)+s.dur/3600;});
@@ -7832,7 +7832,8 @@ function relDate(d){
 }
 const fmt=s=>[Math.floor(s/3600),Math.floor((s%3600)/60),s%60].map(x=>String(x).padStart(2,'0')).join(':');
 const fmtD=s=>{const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60;if(h>0)return`${h}ч ${m}м`;if(m>0)return`${m}м ${ss}с`;return`${ss}с`;};
-const totalHrs=()=>P.categories.reduce((a,c)=>a+c.hours,0);
+// totalHrs считает из P.sessions — все сессии включая убранные лиги
+const totalHrs=()=>P.sessions.reduce((a,s)=>a+s.dur/3600,0);
 
 // Безопасное получение timestamp из сессии: предпочитает ts, fallback на isoDate
 // Устраняет баг когда created_at=null даёт ts=0 и сессия выпадает из всех фильтров
@@ -8082,7 +8083,7 @@ function renderDash(){
   ).reduce((a,s)=>a+s.dur/3600,0),0);
   const deltaRaw=prevPeriodHrs>0?((periodHrs-prevPeriodHrs)/prevPeriodHrs*100):periodHrs>0?100:0;
   const delta=deltaRaw.toFixed(0);
-  const totalAllTime=allCats.reduce((a,c)=>a+c.hours,0);
+  const totalAllTime=P.sessions.reduce((a,s)=>a+s.dur/3600,0);
   const goalPct=Math.min(100,Math.round((periodHrs/(isWeek?14:60))*100));
 
   const dashTitleEl=document.getElementById('dashTitle');
@@ -11556,7 +11557,7 @@ function renderRecords(){
     if(wk>bestWeek)bestWeek=wk;
   }
   const topCat=P.categories.slice().sort((a,b)=>b.hours-a.hours)[0];
-  const totalH=P.categories.reduce((a,c)=>a+c.hours,0);
+  const totalH=P.sessions.reduce((a,s)=>a+s.dur/3600,0);
 
   const neonRec=(icon,label,val,sub,nc,ncBg,ncScan,ncEdge)=>`
     <div class="neon-rec" style="--nc:${nc};--nc-bg:${ncBg};--nc-scan:${ncScan};--nc-edge:${ncEdge}">
