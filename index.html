@@ -17515,9 +17515,9 @@ function render(){
     <button class="hab-sort-btn${_sort==='alpha'?' a':''}"   onclick="_hSort('alpha',this)">А—Я</button>
   </div>`;
 
-  // ── grid columns: name col | 7 day cells | ring | del ──
+  // ── grid columns: name | 7 cells | progress bar | del ──
   const NCOL='180px';
-  const colsDesktop=`${NCOL} repeat(7,38px) 40px 30px`;
+  const colsDesktop=`${NCOL} repeat(7,38px) minmax(90px,140px) 28px`;
 
   // ── column day headers ──
   const colHead=days.map((d,i)=>{
@@ -17572,7 +17572,19 @@ function render(){
         </div>
       </div>
       ${cells}
-      <div class="hab-wring">${mkRing(weekPct,color)}<div class="hab-wring-pct" style="color:${color}">${weekPct}%</div></div>
+      <div style="display:flex;flex-direction:column;justify-content:center;gap:5px;padding:0 4px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+          <span style="font-size:9px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--t3)">Неделя</span>
+          <span style="font-family:'DM Mono',monospace;font-size:11px;font-weight:600;color:${weekPct===100?color:weekPct>0?color:'var(--t3)'}">${weekPct}%</span>
+        </div>
+        <div style="height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;position:relative">
+          <div style="position:absolute;inset:0;height:100%;width:${weekPct}%;background:linear-gradient(90deg,${color}88,${color});border-radius:3px;box-shadow:${weekPct>0?`0 0 8px ${color}55`:'none'};transition:width 1.4s cubic-bezier(.4,0,.2,1)"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between">
+          <span style="font-size:8.5px;color:var(--t3)">${wDone}/${wActive} дн.</span>
+          ${weekPct===100?`<span style="font-size:8.5px;color:${color};font-weight:700">✓</span>`:''}
+        </div>
+      </div>
       <button class="hab-del-btn" onclick="habDel('${h.id}')" title="Удалить">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
       </button>
@@ -17642,7 +17654,7 @@ function render(){
     <div style="display:grid;grid-template-columns:${colsDesktop};align-items:center;gap:4px;padding:10px 16px 8px;border-bottom:0.5px solid rgba(255,255,255,.05)">
       <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)">ПРИВЫЧКА</div>
       ${colHead}
-      <div style="text-align:center;font-size:8px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--t3)">НЕД</div>
+      <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:0 4px">ПРОГРЕСС</div>
       <div></div>
     </div>
     <!-- Rows -->
