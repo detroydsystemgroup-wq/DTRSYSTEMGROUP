@@ -6317,6 +6317,12 @@ body, input, select, textarea, button {
         </div>
         <span>Привычки</span>
       </div>
+      <div class="stab" onclick="showTab('learn',this)" data-tab="learn" role="tab" aria-selected="false" aria-label="Обучающие материалы">
+        <div class="tab-icon-wrap">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        </div>
+        <span>Материалы</span>
+      </div>
   </div>
 
 <!-- ══ SUNDAY TOP PLAYER BANNER ══════════════════════════════ -->
@@ -6581,6 +6587,9 @@ body, input, select, textarea, button {
     </div>
     <div id="tab-habits" class="tc">
       <div id="hab-root"></div>
+    </div>
+    <div id="tab-learn" class="tc">
+      <div id="learn-root" style="padding:20px;max-width:900px;margin:0 auto"></div>
     </div>
 
 
@@ -15835,5 +15844,326 @@ window.showTab=function(t,btn){if(_st)_st.call(this,t,btn);if(t==='habits')setTi
 
 })();
 </script>
-</body>
+<!-- ══ LEARN MATERIALS MODULE ══════════════════════════════════ -->
+<script>
+(function(){
+'use strict';
+
+const LRN_KEY = 'dtr_learn_v1';
+let _lrn = { categories: [] }; // { categories: [{id,name,color,links:[{id,name,url,createdAt}]}] }
+let _lrnDBReady = false;
+let _lrnDBTimer = null;
+
+// ── Palette for new categories ────────────────────────────────
+const LRN_COLORS = ['#58a6ff','#FBBF24','#A855F7','#22C55E','#F97316','#06B6D4','#EF4444','#EC4899','#8B5CF6','#14B8A6'];
+
+// ── Helpers ───────────────────────────────────────────────────
+function _lrnUID(){ return Math.random().toString(36).slice(2,10); }
+
+function _lrnLoad(){
+  try { _lrn = JSON.parse(localStorage.getItem(LRN_KEY)||'{"categories":[]}'); }
+  catch(e){ _lrn={categories:[]}; }
+  if(!_lrn.categories) _lrn.categories=[];
+}
+
+function _lrnSave(){
+  localStorage.setItem(LRN_KEY, JSON.stringify(_lrn));
+  _lrnSaveToDB();
+}
+
+function _lrnSaveToDB(){
+  if(!SB_USER||SB_USER.isDemoUser) return;
+  clearTimeout(_lrnDBTimer);
+  _lrnDBTimer = setTimeout(async()=>{
+    try{
+      const {error} = await sb.from('user_learn_links').upsert(
+        {user_id:SB_USER.id, data:_lrn, updated_at:new Date().toISOString()},
+        {onConflict:'user_id'}
+      );
+      if(error) console.warn('Learn save error:',error);
+    }catch(e){console.warn('Learn save failed:',e);}
+  }, 1500);
+}
+
+async function _lrnLoadFromDB(){
+  if(!SB_USER||SB_USER.isDemoUser){ _lrnDBReady=true; return; }
+  try{
+    const {data,error} = await sb.from('user_learn_links')
+      .select('data').eq('user_id',SB_USER.id).maybeSingle();
+    if(error){ console.warn('Learn DB load error:',error); return; }
+    if(data?.data){
+      // Merge: remote wins for newer items
+      const remote = data.data;
+      if(remote.categories){
+        remote.categories.forEach(rCat=>{
+          const lCat = _lrn.categories.find(c=>c.id===rCat.id);
+          if(!lCat){ _lrn.categories.push(rCat); }
+          else{
+            (rCat.links||[]).forEach(rL=>{
+              if(!lCat.links.find(l=>l.id===rL.id)) lCat.links.push(rL);
+            });
+          }
+        });
+      }
+      localStorage.setItem(LRN_KEY, JSON.stringify(_lrn));
+    }
+  }catch(e){console.warn('Learn load from DB failed:',e);}
+  finally{ _lrnDBReady=true; }
+}
+
+// ── YouTube helpers ───────────────────────────────────────────
+function _lrnIsYT(url){
+  return /youtube\.com|youtu\.be/.test(url);
+}
+function _lrnYTThumb(url){
+  // video
+  const vm = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  if(vm) return `https://img.youtube.com/vi/${vm[1]}/mqdefault.jpg`;
+  // playlist — use first listed video if available (fallback to generic icon)
+  return null;
+}
+function _lrnDomain(url){
+  try{ return new URL(url).hostname.replace('www.',''); }catch{ return url; }
+}
+function _lrnFavicon(url){
+  try{ return `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=32`; }catch{ return ''; }
+}
+
+// ── Render ────────────────────────────────────────────────────
+function renderLearnTab(){
+  _lrnLoad();
+  const root = document.getElementById('learn-root');
+  if(!root) return;
+  if(!_lrnDBReady) _lrnLoadFromDB().then(()=>{ renderLearnTab(); });
+
+  const cats = _lrn.categories;
+
+  root.innerHTML = `
+    <style>
+      .lrn-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:10px;}
+      .lrn-title{font-size:22px;font-weight:800;color:var(--t1);letter-spacing:-.03em;}
+      .lrn-add-cat{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:10px;border:0.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:var(--t1);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;}
+      .lrn-add-cat:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.25);}
+      .lrn-section{margin-bottom:32px;}
+      .lrn-cat-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+      .lrn-cat-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+      .lrn-cat-name{font-size:15px;font-weight:700;color:var(--t1);letter-spacing:-.01em;flex:1;}
+      .lrn-cat-actions{display:flex;gap:6px;}
+      .lrn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
+      .lrn-card{background:var(--card);border:0.5px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:all .2s cubic-bezier(.34,1.56,.64,1);position:relative;text-decoration:none;display:block;}
+      .lrn-card:hover{transform:translateY(-3px);box-shadow:0 8px 28px rgba(0,0,0,.4);border-color:rgba(255,255,255,.15);}
+      .lrn-card-thumb{height:110px;background:var(--hover);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;}
+      .lrn-card-thumb img{width:100%;height:100%;object-fit:cover;}
+      .lrn-card-thumb-icon{font-size:36px;opacity:.5;}
+      .lrn-card-body{padding:10px 12px 12px;}
+      .lrn-card-name{font-size:13px;font-weight:700;color:var(--t1);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;margin-bottom:5px;}
+      .lrn-card-meta{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--t3);}
+      .lrn-card-meta img{width:14px;height:14px;border-radius:2px;}
+      .lrn-card-del{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:6px;background:rgba(0,0,0,.7);border:none;color:rgba(255,255,255,.6);font-size:13px;cursor:pointer;display:none;align-items:center;justify-content:center;transition:all .15s;}
+      .lrn-card:hover .lrn-card-del{display:flex;}
+      .lrn-card-del:hover{background:rgba(239,68,68,.8);color:#fff;}
+      .lrn-add-link{background:transparent;border:1.5px dashed rgba(255,255,255,.12);border-radius:14px;height:170px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;color:var(--t3);font-size:13px;font-weight:500;transition:all .2s;font-family:'DM Sans',sans-serif;}
+      .lrn-add-link:hover{border-color:rgba(255,255,255,.3);color:var(--t2);background:rgba(255,255,255,.03);}
+      .lrn-empty{text-align:center;padding:60px 20px;color:var(--t3);}
+      .lrn-empty-icon{font-size:48px;margin-bottom:16px;opacity:.4;}
+      .lrn-modal-ov{position:fixed;inset:0;z-index:9800;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;}
+      .lrn-modal{background:var(--panel);border:0.5px solid var(--border);border-radius:18px;padding:24px;width:100%;max-width:420px;box-shadow:0 32px 80px rgba(0,0,0,.7);}
+      .lrn-modal-title{font-size:17px;font-weight:800;color:var(--t1);margin-bottom:20px;letter-spacing:-.02em;}
+      .lrn-inp{width:100%;padding:11px 14px;border-radius:10px;border:0.5px solid var(--border);background:var(--card);color:var(--t1);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;box-sizing:border-box;margin-bottom:12px;transition:border-color .15s;}
+      .lrn-inp:focus{border-color:var(--gold);}
+      .lrn-inp::placeholder{color:var(--t3);}
+      .lrn-modal-btns{display:flex;gap:8px;margin-top:4px;}
+      .lrn-btn-ok{flex:1;padding:11px;border-radius:10px;border:none;background:var(--gold);color:#09090B;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:opacity .15s;}
+      .lrn-btn-ok:hover{opacity:.85;}
+      .lrn-btn-cancel{padding:11px 18px;border-radius:10px;border:0.5px solid var(--border);background:transparent;color:var(--t2);font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;}
+    </style>
+
+    <div class="lrn-header">
+      <div>
+        <div class="lrn-title">📚 Обучающие материалы</div>
+        <div style="font-size:13px;color:var(--t3);margin-top:3px">Сохраняй ссылки на курсы, плейлисты и видео</div>
+      </div>
+      <button class="lrn-add-cat" onclick="lrnAddCat()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Новая категория
+      </button>
+    </div>
+
+    ${cats.length === 0 ? `
+      <div class="lrn-empty">
+        <div class="lrn-empty-icon">🎓</div>
+        <div style="font-size:16px;font-weight:700;color:var(--t2);margin-bottom:8px">Пока пусто</div>
+        <div style="font-size:13px;line-height:1.6;margin-bottom:20px">Создай категорию и добавь первую ссылку<br>на курс, плейлист или статью</div>
+        <button class="lrn-add-cat" onclick="lrnAddCat()">+ Создать первую категорию</button>
+      </div>
+    ` : cats.map(cat => `
+      <div class="lrn-section">
+        <div class="lrn-cat-header">
+          <div class="lrn-cat-dot" style="background:${cat.color}"></div>
+          <div class="lrn-cat-name">${cat.name}</div>
+          <div class="lrn-cat-actions">
+            <button onclick="lrnRenameCat('${cat.id}')" style="padding:5px 10px;border-radius:7px;border:0.5px solid var(--border);background:transparent;color:var(--t3);font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif" title="Переименовать">✏️</button>
+            <button onclick="lrnDeleteCat('${cat.id}')" style="padding:5px 10px;border-radius:7px;border:0.5px solid rgba(239,68,68,.2);background:transparent;color:var(--red);font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif" title="Удалить категорию">🗑</button>
+          </div>
+        </div>
+        <div class="lrn-grid">
+          ${(cat.links||[]).map(link => `
+            <div class="lrn-card" onclick="lrnOpenLink('${link.id}','${cat.id}')">
+              <div class="lrn-card-thumb">
+                ${_lrnIsYT(link.url) && _lrnYTThumb(link.url)
+                  ? `<img src="${_lrnYTThumb(link.url)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+                  : ''}
+                <div class="lrn-card-thumb-icon" style="${_lrnIsYT(link.url) && _lrnYTThumb(link.url) ? 'display:none' : ''}">
+                  ${_lrnIsYT(link.url) ? '▶️' : '🔗'}
+                </div>
+                ${_lrnIsYT(link.url) ? `<div style="position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,.8);border-radius:4px;padding:2px 5px;font-size:9px;font-weight:700;color:#fff;letter-spacing:.03em">YouTube</div>` : ''}
+              </div>
+              <div class="lrn-card-body">
+                <div class="lrn-card-name">${link.name}</div>
+                <div class="lrn-card-meta">
+                  <img src="${_lrnFavicon(link.url)}" alt="" onerror="this.style.display='none'">
+                  <span>${_lrnDomain(link.url)}</span>
+                </div>
+              </div>
+              <button class="lrn-card-del" onclick="event.stopPropagation();lrnDeleteLink('${cat.id}','${link.id}')" title="Удалить">×</button>
+            </div>
+          `).join('')}
+          <button class="lrn-add-link" onclick="lrnAddLink('${cat.id}')">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Добавить ссылку
+          </button>
+        </div>
+      </div>
+    `).join('')}
+  `;
+}
+
+// ── Actions ───────────────────────────────────────────────────
+window.lrnOpenLink = function(linkId, catId){
+  const cat = _lrn.categories.find(c=>c.id===catId);
+  const link = cat?.links.find(l=>l.id===linkId);
+  if(link) window.open(link.url, '_blank', 'noopener');
+};
+
+window.lrnAddCat = function(){
+  const used = _lrn.categories.map(c=>c.color);
+  const color = LRN_COLORS.find(c=>!used.includes(c)) || LRN_COLORS[_lrn.categories.length % LRN_COLORS.length];
+  _lrnModal('Новая категория', [
+    {id:'catname', placeholder:'Название категории (напр: Английский)', type:'text'}
+  ], (vals)=>{
+    const name = vals.catname.trim();
+    if(!name) return;
+    _lrn.categories.push({id:_lrnUID(), name, color, links:[]});
+    _lrnSave();
+    renderLearnTab();
+  });
+};
+
+window.lrnRenameCat = function(catId){
+  const cat = _lrn.categories.find(c=>c.id===catId);
+  if(!cat) return;
+  _lrnModal('Переименовать категорию', [
+    {id:'catname', placeholder:'Новое название', type:'text', value:cat.name}
+  ], (vals)=>{
+    const name = vals.catname.trim();
+    if(!name) return;
+    cat.name = name;
+    _lrnSave();
+    renderLearnTab();
+  });
+};
+
+window.lrnDeleteCat = function(catId){
+  const cat = _lrn.categories.find(c=>c.id===catId);
+  if(!cat) return;
+  if(!confirm(`Удалить категорию "${cat.name}" и все ${cat.links.length} ссылок?`)) return;
+  _lrn.categories = _lrn.categories.filter(c=>c.id!==catId);
+  _lrnSave();
+  renderLearnTab();
+};
+
+window.lrnAddLink = function(catId){
+  _lrnModal('Добавить ссылку', [
+    {id:'lname', placeholder:'Название (напр: Английский для начинающих)', type:'text'},
+    {id:'lurl',  placeholder:'https://youtube.com/playlist?list=...', type:'url'}
+  ], (vals)=>{
+    const name = vals.lname.trim();
+    let url = vals.lurl.trim();
+    if(!name || !url) return;
+    if(!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    const cat = _lrn.categories.find(c=>c.id===catId);
+    if(!cat) return;
+    cat.links.push({id:_lrnUID(), name, url, createdAt:Date.now()});
+    _lrnSave();
+    renderLearnTab();
+  });
+};
+
+window.lrnDeleteLink = function(catId, linkId){
+  const cat = _lrn.categories.find(c=>c.id===catId);
+  if(!cat) return;
+  cat.links = cat.links.filter(l=>l.id!==linkId);
+  _lrnSave();
+  renderLearnTab();
+};
+
+// ── Simple modal ──────────────────────────────────────────────
+function _lrnModal(title, fields, onOk){
+  const existing = document.getElementById('lrn-modal-ov');
+  if(existing) existing.remove();
+
+  const ov = document.createElement('div');
+  ov.id = 'lrn-modal-ov';
+  ov.className = 'lrn-modal-ov';
+  ov.onclick = e=>{ if(e.target===ov) ov.remove(); };
+
+  ov.innerHTML = `
+    <div class="lrn-modal">
+      <div class="lrn-modal-title">${title}</div>
+      ${fields.map(f=>`
+        <input id="lrn-f-${f.id}" class="lrn-inp" type="${f.type||'text'}"
+          placeholder="${f.placeholder}" value="${f.value||''}"
+          autocomplete="off" spellcheck="false">
+      `).join('')}
+      <div class="lrn-modal-btns">
+        <button class="lrn-btn-cancel" onclick="document.getElementById('lrn-modal-ov').remove()">Отмена</button>
+        <button class="lrn-btn-ok" id="lrn-modal-ok">Сохранить</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(ov);
+
+  // Focus first field
+  setTimeout(()=>{ document.getElementById(`lrn-f-${fields[0].id}`)?.focus(); }, 80);
+
+  document.getElementById('lrn-modal-ok').onclick = ()=>{
+    const vals = {};
+    fields.forEach(f=>{ vals[f.id] = document.getElementById(`lrn-f-${f.id}`)?.value||''; });
+    onOk(vals);
+    ov.remove();
+  };
+
+  // Enter key
+  ov.addEventListener('keydown', e=>{
+    if(e.key==='Enter') document.getElementById('lrn-modal-ok')?.click();
+    if(e.key==='Escape') ov.remove();
+  });
+}
+
+// ── Hook into showTab ─────────────────────────────────────────
+const _origShowTab = window.showTab;
+window.showTab = function(name, el, skipHistory){
+  if(_origShowTab) _origShowTab.call(this, name, el, skipHistory);
+  if(name==='learn') setTimeout(renderLearnTab, 60);
+};
+
+// ── Pre-load DB on app start ──────────────────────────────────
+document.addEventListener('DOMContentLoaded', ()=>{
+  setTimeout(()=>{
+    if(window.SB_USER && !SB_USER.isDemoUser) _lrnLoadFromDB();
+  }, 3000);
+});
+
+})();
+</script>
 </html>
