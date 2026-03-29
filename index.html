@@ -20840,6 +20840,7 @@ async function buildRoomCard(room, myRole, user){
           style="background:${memberDone?color+'99':'rgba(255,255,255,.1)'}"></div>`;
       }).join('');
 
+      const clickFn = future ? '' : `chabToggleCell('${room.id}','${h.id}','${key}',this)`;
       let cls = 'chab-cell mine';
       if(done) cls+=' done';
       if(isToday) cls+=' today';
@@ -20847,7 +20848,7 @@ async function buildRoomCard(room, myRole, user){
 
       return `<div class="${cls}"
         style="${done?`background:${color}20;border-color:${color}55`:''}"
-        onclick="${future?'':isOwner||true?`chabToggleCell('${room.id}','${h.id}','${key}',this)`:''}">
+        ${clickFn ? `onclick="${clickFn}"` : ''}>
         ${done
           ?`<span class="chab-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>`
           :future
