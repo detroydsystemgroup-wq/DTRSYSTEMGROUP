@@ -17821,8 +17821,26 @@ function renderMonthRep(){
 }
 
 // ══ HOOK showTab ═════════════════════════════════════════════
+// Export render so collab engine can call it
+window._habPersonalRender = render;
+
 const _st=window.showTab;
-window.showTab=function(t,btn){if(_st)_st.call(this,t,btn);if(t==='habits')setTimeout(render,50);};
+window.showTab=function(t,btn){
+  if(_st)_st.call(this,t,btn);
+  if(t==='habits'){
+    // Only auto-render personal if not in collab mode
+    setTimeout(function(){
+      var mode = localStorage.getItem('dtr_chab_mode') || 'personal';
+      if(mode !== 'collab') {
+        render();
+        // Re-attach mode bar if collab engine added it before render wiped it
+        var root = document.getElementById('hab-root');
+        var bar  = document.getElementById('habModeBar');
+        if(root && bar && bar.parentNode !== root) root.insertBefore(bar, root.firstChild);
+      }
+    }, 60);
+  }
+};
 
 })();
 </script>
@@ -20390,24 +20408,30 @@ function mkCode(){ return Math.random().toString(36).slice(2,8).toUpperCase(); }
 window.chabSetMode = function(mode){
   _chabMode = mode;
   localStorage.setItem(CHAB_MODE_KEY, mode);
-  document.querySelectorAll('.hab-mode-btn').forEach(b=>{
+  document.querySelectorAll('.hab-mode-btn').forEach(function(b){
     b.classList.toggle('active', b.dataset.mode === mode);
     b.classList.toggle('collab', b.dataset.mode === 'collab' && mode === 'collab');
   });
-  if(mode === 'collab') renderCollabView();
-  else {
-    const root = document.getElementById('hab-root');
-    if(root) {
-      const bar = document.getElementById('habModeBar');
-      // Trigger personal render via showTab hook
-      const tc = document.getElementById('tab-habits');
-      if(tc && tc.classList.contains('active')) {
-        root.innerHTML = '';
-        if(bar) root.appendChild(bar);
-        // Re-run personal tracker
-        if(window._habTriggerRender) window._habTriggerRender();
-      }
+
+  if(mode === 'collab'){
+    renderCollabView();
+  } else {
+    // Personal: use HabTracker's own render (exported as _habPersonalRender)
+    if(typeof window._habPersonalRender === 'function'){
+      window._habPersonalRender();
     }
+    // render() wipes root.innerHTML — re-attach mode bar afterward
+    setTimeout(function(){
+      var r   = document.getElementById('hab-root');
+      var bar = document.getElementById('habModeBar');
+      if(r && bar && bar.parentNode !== r) r.insertBefore(bar, r.firstChild);
+      if(r && !bar) renderModeBar(r);
+      // Re-sync button states
+      document.querySelectorAll('.hab-mode-btn').forEach(function(b){
+        b.classList.toggle('active', b.dataset.mode === 'personal');
+        b.classList.toggle('collab', false);
+      });
+    }, 15);
   }
 };
 
@@ -20693,11 +20717,27 @@ const _origST=window.showTab;
 window.showTab=function(t,btn,skip){
   if(_origST)_origST.call(this,t,btn,skip);
   if(t==='habits'){
-    setTimeout(()=>{
-      const root=document.getElementById('hab-root');
-      if(root&&!document.getElementById('habModeBar'))renderModeBar(root);
-      if(_chabMode==='collab')renderCollabView();
-    },80);
+    // Run at 120ms — after HabTracker's 60ms render completes
+    setTimeout(function(){
+      var root=document.getElementById('hab-root');
+      if(!root) return;
+
+      if(_chabMode==='collab'){
+        // Collab: inject bar then render collab view
+        if(!document.getElementById('habModeBar')) renderModeBar(root);
+        renderCollabView();
+      } else {
+        // Personal: HabTracker already rendered. Just ensure mode bar is present.
+        var bar=document.getElementById('habModeBar');
+        if(!bar){ renderModeBar(root); }
+        else if(bar.parentNode!==root){ root.insertBefore(bar, root.firstChild); }
+        // Sync button states
+        root.querySelectorAll('.hab-mode-btn').forEach(function(b){
+          b.classList.toggle('active', b.dataset.mode==='personal');
+          b.classList.toggle('collab', false);
+        });
+      }
+    }, 120);
   }
 };
 
