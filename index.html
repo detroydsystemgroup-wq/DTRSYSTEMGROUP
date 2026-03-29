@@ -20788,21 +20788,28 @@ async function buildRoomCard(room, myRole, user){
   } catch(e){ console.error('buildRoomCard:', e); }
 
   // ── Helpers ──────────────────────────────────────────────────
-  const today = _todayStr();
+  // ВАЖНО: используем локальное время везде — чтобы совпадало с _todayStr() и данными в БД
+  function dateStr(d){
+    return d.getFullYear() + '-' +
+      String(d.getMonth()+1).padStart(2,'0') + '-' +
+      String(d.getDate()).padStart(2,'0');
+  }
+
+  const today = _todayStr(); // локальная дата сегодня
   const now = new Date();
 
-  // Get Mon–Sun of current week as Date objects
+  // Пн–Вс текущей недели (локальное время)
   function chabWeekDates(){
-    const d=new Date(), dow=d.getDay()||7;
-    d.setDate(d.getDate()-dow+1); d.setHours(0,0,0,0);
-    return Array.from({length:7},(_,i)=>{ const x=new Date(d); x.setDate(x.getDate()+i); return x; });
+    const d=new Date();
+    const dow = d.getDay() || 7; // 1=Пн..7=Вс
+    d.setDate(d.getDate()-dow+1);
+    d.setHours(0,0,0,0);
+    return Array.from({length:7},(_,i)=>{
+      const x=new Date(d); x.setDate(x.getDate()+i); return x;
+    });
   }
   const weekDates = chabWeekDates();
   const DLBL=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
-
-  function dateStr(d){ return d.toISOString().slice(0,10); }
-
-  // Streak for a user on a habit from logs
   function chabStreak(habitId, userId){
     const userHabLog = (logs[userId]||{})[habitId]||{};
     let s=0;
@@ -21396,21 +21403,41 @@ window.chabDoAddHabit=async function(roomId){
   if(btn){ btn.textContent='Добавляем...'; btn.disabled=true; }
 
   try {
+    // Сначала пробуем с freq (если колонка есть в таблице)
     var res = await sb.from('collab_habits').insert({
       room_id: roomId,
       name: name,
-      icon: window._chabHabIcon||'🎯',
+      icon: window._chabHabIcon||'📚',
       color: window._chabHabColor||'#a855f7',
       freq: window._chabHabFreq||'daily',
       active: true
     });
-    if(res.error) throw res.error;
+
+    // Если 400 — скорее всего нет колонки freq, пробуем без неё
+    if(res.error){
+      var errMsg = (res.error.message||'')+(res.error.details||'');
+      var needsFreqCol = errMsg.includes('freq') || errMsg.includes('column') || res.error.code==='42703';
+      if(needsFreqCol || res.error.code==='PGRST204' || !errMsg){
+        var res2 = await sb.from('collab_habits').insert({
+          room_id: roomId,
+          name: name,
+          icon: window._chabHabIcon||'📚',
+          color: window._chabHabColor||'#a855f7',
+          active: true
+        });
+        if(res2.error) throw res2.error;
+      } else {
+        throw res.error;
+      }
+    }
+
     hideChabModal();
-    try{showToast('Привычка добавлена', window._chabHabIcon||'🎯');}catch{}
+    try{showToast('Привычка добавлена', window._chabHabIcon||'📚');}catch{}
     setTimeout(renderCollabView, 300);
   } catch(e){
     console.error('chabDoAddHabit error:', e);
-    try{showToast('Ошибка: '+(e&&e.message?e.message:'неизвестная'),'❌');}catch{}
+    var msg = e&&e.message ? e.message : (e&&e.details ? e.details : 'Ошибка сохранения');
+    try{showToast('Ошибка: '+msg,'❌');}catch{}
     if(btn){ btn.textContent='Добавить'; btn.disabled=false; }
   }
 };
