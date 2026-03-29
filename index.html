@@ -6152,6 +6152,12 @@ body, input, select, textarea, button {
   <div id="navTimerPill" onclick="document.getElementById('timerTabBtn')?.click()||openMobileTimerSheet()">
     <span class="nav-timer-dot"></span>
     <span id="navTimerPillTime">00:00</span>
+    <button id="navPauseBtn" onclick="event.stopPropagation();timerPaused?toggleQuick():pauseTimer()" style="display:none;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;border:none;background:rgba(255,255,255,.1);cursor:pointer;flex-shrink:0;padding:0;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.2)'" onmouseout="this.style.background='rgba(255,255,255,.1)'">
+      <svg id="navPauseIcon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2.5">
+        <rect x="6" y="4" width="4" height="16" rx="1"/>
+        <rect x="14" y="4" width="4" height="16" rx="1"/>
+      </svg>
+    </button>
   </div>
 
   <!-- Right: actions row -->
@@ -7434,7 +7440,6 @@ async function loadUser(userId){
   }));
   // Recover categories that appear in sessions but have no user_categories row
   // ВАЖНО: восстанавливаем только если у пользователя нет НИ ОДНОЙ лиги
-  // (сценарий полной потери данных). Если лиги есть — не трогаем выбор пользователя.
   if(P.activeCatIds.length === 0){
     Object.entries(sessHrsByCat).forEach(([catId,hrs])=>{
       if(!P.categories.find(c=>c.id===catId)){
@@ -7446,12 +7451,9 @@ async function loadUser(userId){
       }
     });
   } else {
-    // Только обновляем часы для существующих категорий, не добавляем новые
     Object.entries(sessHrsByCat).forEach(([catId,hrs])=>{
       const cat=P.categories.find(c=>c.id===catId);
-      if(cat){
-        cat.hours=Math.max(cat.hours, Math.round(hrs*100)/100);
-      }
+      if(cat){ cat.hours=Math.max(cat.hours, Math.round(hrs*100)/100); }
     });
   }
 
@@ -10288,6 +10290,8 @@ function pickLeagueAndStart(catId) {
 function updateNavTimerPill() {
   const pill = document.getElementById('navTimerPill');
   const pillTime = document.getElementById('navTimerPillTime');
+  const pauseBtn = document.getElementById('navPauseBtn');
+  const pauseIcon = document.getElementById('navPauseIcon');
   if (!pill) return;
 
   if (timerRunning || timerPaused) {
@@ -10308,15 +10312,23 @@ function updateNavTimerPill() {
       pill.style.borderColor = 'rgba(245,200,66,.22)';
       if (pillTime) pillTime.style.color = 'var(--gold)';
       if (dot) dot.style.background = 'var(--gold)';
+      // Кнопка паузы — показать иконку "play" (возобновить)
+      if (pauseBtn) pauseBtn.style.display = 'flex';
+      if (pauseIcon) pauseIcon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3" fill="var(--gold)" stroke="none"/>';
+      if (pauseIcon) pauseIcon.setAttribute('stroke','var(--gold)');
     } else {
       pill.style.background = 'rgba(34,197,94,.1)';
       pill.style.borderColor = 'rgba(34,197,94,.22)';
       if (pillTime) pillTime.style.color = '#22C55E';
       if (dot) dot.style.background = '#22C55E';
+      // Кнопка паузы — показать иконку "pause"
+      if (pauseBtn) pauseBtn.style.display = 'flex';
+      if (pauseIcon) pauseIcon.innerHTML = '<rect x="6" y="4" width="4" height="16" rx="1" fill="#22C55E" stroke="none"/><rect x="14" y="4" width="4" height="16" rx="1" fill="#22C55E" stroke="none"/>';
     }
     pill.style.display = 'flex';
   } else {
     pill.style.display = 'none';
+    if (pauseBtn) pauseBtn.style.display = 'none';
   }
 }
 
