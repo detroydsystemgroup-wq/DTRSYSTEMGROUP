@@ -8069,18 +8069,21 @@ function renderDash(){
         return i%5===0?`${d.getDate()}/${d.getMonth()+1}`:'';
       });
   const totals=Array(buckets).fill(0);
-  active.forEach(c=>{data[c.id].forEach((v,i)=>totals[i]+=v);});
+  // Для графика и KPI — все лиги включая убранные (или только выбранная если фильтр)
+  const statsSource = dashCatFilter ? [dashCatFilter] : ALL_CATS.map(c=>c.id);
+  statsSource.forEach(id=>{if(data[id])data[id].forEach((v,i)=>totals[i]+=v);});
   const maxVal=Math.max(...totals,0.1);
-  const periodHrs=active.reduce((a,c)=>a+data[c.id].reduce((x,v)=>x+v,0),0);
+  const periodHrs=statsSource.reduce((a,id)=>a+(data[id]?data[id].reduce((x,v)=>x+v,0):0),0);
   const avgPerDay=isWeek?(periodHrs/7):(periodHrs/buckets);
   const bestDay=Math.max(...totals);
   const activeDays=totals.filter(v=>v>0).length;
-  // Прошлый период: для недели = прошлая Пн–Вс, для месяца = скользящие предыдущие 30 дней
+  // Прошлый период — тоже все лиги
   const prevPeriodStart=isWeek?(getWeekStart()-7*86400000):(Date.now()-buckets*2*86400000);
   const prevPeriodEnd=isWeek?getWeekStart():(Date.now()-buckets*86400000);
-  const prevPeriodHrs=active.reduce((sum,c)=>sum+P.sessions.filter(s=>
-    sessTs(s)>=prevPeriodStart&&sessTs(s)<prevPeriodEnd&&s.cat===c.id
-  ).reduce((a,s)=>a+s.dur/3600,0),0);
+  const prevPeriodHrs=P.sessions.filter(s=>{
+    const t=sessTs(s);
+    return t>=prevPeriodStart&&t<prevPeriodEnd&&(!dashCatFilter||s.cat===dashCatFilter);
+  }).reduce((a,s)=>a+s.dur/3600,0);
   const deltaRaw=prevPeriodHrs>0?((periodHrs-prevPeriodHrs)/prevPeriodHrs*100):periodHrs>0?100:0;
   const delta=deltaRaw.toFixed(0);
   const totalAllTime=P.sessions.reduce((a,s)=>a+s.dur/3600,0);
