@@ -2657,45 +2657,97 @@ body.modal-open{overflow:hidden!important;}
 }
 .msg-conv.has-unread { animation: unreadRowIn 1.2s ease .2s both; }
 
-/* ══ NEON RECORD CARDS ══════════════════════════════════ */
-/* neon animations removed for performance */
+/* ══ RECORD CARDS — Apple Design ════════════════════════════ */
+.rec-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3,1fr) !important;
+  gap: 10px !important;
+}
+@media (max-width: 900px) { .rec-grid { grid-template-columns: 1fr !important; } }
+@media (max-width: 600px) { .rec-grid { grid-template-columns: 1fr !important; gap: 8px !important; } }
+
 .neon-rec {
   position: relative;
-  overflow: hidden;
-  border-radius: 14px;
-  padding: 14px 14px;
-  text-align: center;
-  background: linear-gradient(160deg, var(--nc-bg) 0%, var(--card) 70%);
-  border: 0.5px solid var(--nc);
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  padding: 16px !important;
+  border-radius: 14px !important;
+  background: var(--card) !important;
+  border: 0.5px solid var(--border) !important;
+  overflow: hidden !important;
+  text-align: left !important;
+  transition: transform .18s var(--ease-bounce, cubic-bezier(.34,1.15,.64,1)),
+              box-shadow .18s, border-color .2s !important;
+  cursor: default;
 }
-.neon-rec-icon {
-  font-size: 22px;
-  margin-bottom: 6px;
-  display: block;
+/* Accent top bar driven by --nc */
+.neon-rec::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--nc, var(--gold));
+  opacity: .7;
+  border-radius: 14px 14px 0 0;
 }
+.neon-rec:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,.35) !important;
+  border-color: var(--nc, var(--gold)) !important;
+  opacity: 1 !important;
+}
+/* Corner decorations — removed */
+.neon-rec .nc-corner { display: none !important; }
+
+/* Icon box — Apple-style colored tile */
+.neon-rec-icon-box {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  color: var(--nc, var(--gold));
+  background: color-mix(in srgb, var(--nc, var(--gold)) 12%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--nc, var(--gold)) 22%, transparent);
+  /* fallback for browsers without color-mix */
+  background: rgba(var(--nc-rgb,245,192,48), .1);
+  border-color: rgba(var(--nc-rgb,245,192,48), .2);
+}
+
+/* Icon box legacy (inline style) */
+.neon-rec > div[style*="border-radius:12px"],
+.neon-rec > div[style*="border-radius: 12px"] {
+  flex-shrink: 0 !important;
+}
+
+/* Text block */
+.neon-rec-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+
 .neon-rec-val {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 24px;
-  line-height: 1;
-  letter-spacing: 1px;
-  color: var(--nc);
-  margin-bottom: 5px;
+  font-family: 'DM Mono', monospace !important;
+  font-size: 22px !important;
+  font-weight: 400 !important;
+  line-height: 1.1 !important;
+  letter-spacing: -.02em !important;
+  color: var(--t1) !important;
+  margin-bottom: 0 !important;
 }
 .neon-rec-lbl {
-  font-size: 9px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  color: rgba(255,255,255,.4);
-  margin-bottom: 4px;
+  font-family: 'DM Sans', sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .08em !important;
+  color: var(--t2) !important;
+  margin-bottom: 2px !important;
 }
 .neon-rec-sub {
-  font-size: 10px;
-  font-weight: 600;
-  opacity: .7;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  letter-spacing: -.005em !important;
+  color: var(--nc, var(--gold)) !important;
+  opacity: .85 !important;
 }
-/* Corner decorations hidden - border beam replaces */
-.neon-rec .nc-corner { display: none; }
 
 /* ══════════════════════════════════════════════════════════
    EPIC UNIFIED DESIGN SYSTEM — DTR PROGRESS CLUB
@@ -7019,6 +7071,15 @@ body {
   background: linear-gradient(135deg, #FFF9E6 0%, #FFF3CC 100%) !important;
 }
 
+/* ── Shared icon box ───────────────────────────────────────── */
+.icon-box-base {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  transition: transform .18s var(--ease-bounce), opacity .18s !important;
+}
+
 /* ── MOBILE FINAL ──────────────────────────────────────────── */
 @media (max-width: 600px) {
   .ph-cover { height: 120px !important; }
@@ -8037,8 +8098,16 @@ const ICONS = {
 
 function iconBox(id, color='var(--t2)', size=36, radius=10){
   const svg = ICONS[id] || ICONS.timer;
-  const s = `width:${size}px;height:${size}px;border-radius:${radius}px;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.09);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:${color}`;
-  return `<div style="${s}">${svg}</div>`;
+  // Use CSS class + inline only for color/size (unavoidable for dynamic values)
+  const s = [
+    `width:${size}px`,
+    `height:${size}px`,
+    `border-radius:${radius}px`,
+    `color:${color}`,
+    `background:${color}1a`,          // ~10% opacity tint
+    `border:0.5px solid ${color}33`,  // ~20% opacity border
+  ].join(';');
+  return `<div class="icon-box-base" style="${s}">${svg}</div>`;
 }
 
 function catIconBox(catId, color, size=42){
@@ -9158,10 +9227,10 @@ function renderDash(){
     }
     dashTitleEl.innerHTML=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.6"><rect x="2" y="2" width="9" height="9" rx="2"/><rect x="13" y="2" width="9" height="9" rx="2"/><rect x="2" y="13" width="9" height="9" rx="2"/><rect x="13" y="13" width="9" height="9" rx="2"/></svg>${titleStr}`;
   }
-  const setSec=(id,lbl,icon)=>{const el=document.getElementById(id);if(el)el.innerHTML=`<span class="sec-icon">${icon}</span>${lbl}`;};
-  setSec('sec_by_cat','ПО КАТЕГОРИЯМ','📊');
-  setSec('sec_kpi','КЛЮЧЕВЫЕ ПОКАЗАТЕЛИ','⚡');
-  setSec('sec_records','ЛИЧНЫЕ РЕКОРДЫ','🏆');
+  const setSec=(id,lbl,svgIcon)=>{const el=document.getElementById(id);if(el)el.innerHTML=`<span style="display:inline-flex;align-items:center;color:var(--gold);opacity:.7">${svgIcon}</span>${lbl}`;};
+  setSec('sec_by_cat','ПО КАТЕГОРИЯМ',`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`);
+  setSec('sec_kpi','КЛЮЧЕВЫЕ ПОКАЗАТЕЛИ',`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`);
+  setSec('sec_records','ЛИЧНЫЕ РЕКОРДЫ',`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>`);
 
   // ── PREMIUM KPI ROW ──
   const kpiEl=document.getElementById('kpiRow');
@@ -9194,15 +9263,74 @@ function renderDash(){
   });
   const sparkMax=Math.max(...spark7,0.1);
 
-  kpiEl.innerHTML=kpis.map((k,i)=>`
-    <div class="kpi" style="--kpi-c:${k.color};background:var(--card);border:0.5px solid rgba(255,255,255,.07);padding:16px 14px;border-left:2px solid ${k.color}">
-      <div>
-        <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">${k.lbl}</div>
-        <div style="font-family:'DM Mono',monospace;font-size:26px;font-weight:400;line-height:1;color:${k.color}">${k.val}<span style="font-size:13px;opacity:.6;margin-left:1px">${k.unit}</span></div>
-        <div style="font-size:11px;font-weight:500;margin-top:5px;color:${k.subc}">${k.sub}</div>
-      </div>
-      ${i===0?`<div class="kpi-sparkline">${spark7.map((v,j)=>`<div class="kpi-spark-bar ${j===6?'today':''}" style="height:${Math.max(8,Math.round((v/sparkMax)*100))}%;background:${k.color}"></div>`).join('')}</div>`:''}
-    </div>`).join('');
+  kpiEl.innerHTML = kpis.map((k, i) => {
+    // Sparkline only for first card
+    const sparkHtml = i === 0 ? `
+      <div class="kpi-sparkline" style="margin-top:10px">
+        ${spark7.map((v, j) => `
+          <div class="kpi-spark-bar ${j === 6 ? 'today' : ''}"
+            style="height:${Math.max(8, Math.round((v / sparkMax) * 100))}%;background:${k.color};opacity:${j === 6 ? 1 : 0.35 + j * 0.09}">
+          </div>`).join('')}
+      </div>` : '';
+
+    return `
+      <div class="kpi" style="--kpi-c:${k.color}">
+        <div>
+          <div style="
+            font-size:9.5px;
+            font-weight:700;
+            letter-spacing:.09em;
+            text-transform:uppercase;
+            color:var(--t2);
+            margin-bottom:9px;
+            font-family:'DM Sans',sans-serif;
+            display:flex;
+            align-items:center;
+            gap:6px">
+            <div style="
+              width:6px;height:6px;
+              border-radius:50%;
+              background:${k.color};
+              opacity:.8;
+              flex-shrink:0">
+            </div>
+            ${k.lbl}
+          </div>
+          <div style="
+            display:flex;
+            align-items:baseline;
+            gap:3px;
+            margin-bottom:6px">
+            <span style="
+              font-family:'DM Mono',monospace;
+              font-size:28px;
+              font-weight:400;
+              line-height:1;
+              letter-spacing:-.03em;
+              color:var(--t1)">
+              ${k.val}
+            </span>
+            <span style="
+              font-family:'DM Mono',monospace;
+              font-size:13px;
+              font-weight:400;
+              color:var(--t2);
+              letter-spacing:-.01em">
+              ${k.unit}
+            </span>
+          </div>
+          <div style="
+            font-size:11px;
+            font-weight:500;
+            letter-spacing:-.005em;
+            color:${k.subc};
+            font-family:'DM Sans',sans-serif">
+            ${k.sub}
+          </div>
+        </div>
+        ${sparkHtml}
+      </div>`;
+  }).join('');
 
   // ── CHART ──
   const legendCats = ALL_CATS.filter(c => data[c.id] && data[c.id].some(v=>v>0));
@@ -12862,6 +12990,8 @@ function renderRings(){
 // ══ PERSONAL RECORDS ════════════════════════════════
 function renderRecords(){
   const el=document.getElementById('recGrid');if(!el)return;
+
+  // ── Compute values ──────────────────────────────────────────
   const bestSess=P.sessions.reduce((a,s)=>s.dur>a?s.dur:a,0);
   const now=Date.now();
   let bestWeek=0;
@@ -12873,33 +13003,49 @@ function renderRecords(){
     if(wk>bestWeek)bestWeek=wk;
   }
   const topCat=P.categories.slice().sort((a,b)=>b.hours-a.hours)[0];
-  const totalH=P.sessions.reduce((a,s)=>a+s.dur/3600,0);
 
-  const neonRec=(icon,label,val,sub,nc,ncBg,ncScan,ncEdge)=>`
-    <div class="neon-rec" style="--nc:${nc};--nc-bg:${ncBg};--nc-scan:${ncScan};--nc-edge:${ncEdge}">
-      <div class="nc-corner nc-tl"></div>
-      <div class="nc-corner nc-tr"></div>
-      <div class="nc-corner nc-bl"></div>
-      <div class="nc-corner nc-br"></div>
-      <div style="width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">${icon}</div>
-      <div class="neon-rec-val">${val}</div>
-      <div class="neon-rec-lbl">${label}</div>
-      ${sub?`<div class="neon-rec-sub" style="color:${nc}">${sub}</div>`:''}
+  // ── Card builder ────────────────────────────────────────────
+  // nc     = accent color hex/var
+  // iconEl = result of iconBox(...)
+  // label  = uppercase category label (e.g. "ЛУЧШАЯ СЕССИЯ")
+  // val    = main large value string
+  // sub    = secondary label (record type / avg / category name)
+  const recCard = (nc, iconEl, label, val, sub) => `
+    <div class="neon-rec" style="--nc:${nc}">
+      ${iconEl}
+      <div class="neon-rec-body">
+        <div class="neon-rec-lbl">${label}</div>
+        <div class="neon-rec-val">${val}</div>
+        ${sub ? `<div class="neon-rec-sub">${sub}</div>` : ''}
+      </div>
     </div>`;
 
-  // uniform row layout
-  if(!document.getElementById('neonRecStyle')){
-    const s=document.createElement('style');s.id='neonRecStyle';
-    s.textContent='.neon-rec{display:flex!important;align-items:center!important;gap:14px!important;text-align:left!important;padding:14px 16px!important}';
-    document.head.appendChild(s);
-  }
-  el.innerHTML=
-    neonRec(iconBox('zap','#00d4ff',44,12),'Лучшая сессия', bestSess>0?fmtD(bestSess):'—', bestSess>0?'Личный рекорд':'Нет данных',
-      '#00d4ff','rgba(0,212,255,.08)','rgba(0,212,255,.15)','rgba(0,212,255,.1)')+
-    neonRec(iconBox('flame','#ff6b35',44,12),'Лучшая неделя', bestWeek>0?bestWeek.toFixed(1)+'ч':'—', bestWeek>0?`${Math.round(bestWeek/7*10)/10}ч/день`:'Нет данных',
-      '#ff6b35','rgba(255,107,53,.08)','rgba(255,107,53,.15)','rgba(255,107,53,.1)')+
-    neonRec(topCat?catIconBox(topCat.id,topCat.color,44):iconBox('trophy','#a855f7',44,12),'Топ категория', topCat?topCat.hours < 10 ? topCat.hours.toFixed(1)+'ч' : Math.round(topCat.hours)+'ч':'—', topCat?.name||'Нет данных',
-      topCat?.color||'#a855f7',`${topCat?.color||'#a855f7'}0d`,`${topCat?.color||'#a855f7'}20`,`${topCat?.color||'#a855f7'}15`);
+  el.innerHTML =
+    recCard(
+      'var(--blue)',
+      iconBox('zap','var(--blue)',44,12),
+      'Лучшая сессия',
+      bestSess > 0 ? fmtD(bestSess) : '—',
+      bestSess > 0 ? 'Личный рекорд' : 'Нет данных'
+    ) +
+    recCard(
+      'var(--orange)',
+      iconBox('flame','var(--orange)',44,12),
+      'Лучшая неделя',
+      bestWeek > 0 ? bestWeek.toFixed(1) + ' ч' : '—',
+      bestWeek > 0 ? `${(Math.round(bestWeek/7*10)/10).toFixed(1)} ч/день` : 'Нет данных'
+    ) +
+    recCard(
+      topCat?.color || 'var(--purple)',
+      topCat
+        ? catIconBox(topCat.id, topCat.color, 44)
+        : iconBox('trophy','var(--purple)',44,12),
+      'Топ категория',
+      topCat
+        ? (topCat.hours < 10 ? topCat.hours.toFixed(1) : Math.round(topCat.hours)) + ' ч'
+        : '—',
+      topCat?.name || 'Нет данных'
+    );
 }
 
 // ══ COMPARISON — REAL DATA ════════════════════════════
