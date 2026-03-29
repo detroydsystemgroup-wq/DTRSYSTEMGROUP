@@ -17141,6 +17141,155 @@ function _kbFmtDate(ts) {
   color: #c084fc;
   letter-spacing: .04em;
 }
+
+/* ── New: Full matrix styles ── */
+.chab-hero-bar {
+  display: flex; align-items: stretch; gap: 10px;
+  padding: 14px 16px; flex-wrap: wrap;
+  border-bottom: 0.5px solid rgba(255,255,255,.05);
+}
+.chab-hero-arc { position: relative; flex-shrink: 0; }
+.chab-hero-main {
+  flex: 1; min-width: 180px;
+  display: flex; flex-direction: column; justify-content: center; gap: 4px;
+}
+.chab-hero-title {
+  font-size: 15px; font-weight: 800; color: var(--t1);
+  letter-spacing: -.02em; line-height: 1.2;
+}
+.chab-hero-sub { font-size: 12px; color: var(--t2); }
+.chab-hero-kpis { display: flex; gap: 16px; margin-top: 8px; }
+.chab-hero-kpi { text-align: center; }
+.chab-hero-kpi-val {
+  font-family: 'DM Mono', monospace;
+  font-size: 20px; font-weight: 400; line-height: 1;
+}
+.chab-hero-kpi-lbl {
+  font-size: 8px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--t3); margin-top: 2px;
+}
+
+/* ── Matrix grid ── */
+.chab-matrix {
+  background: rgba(255,255,255,.01);
+  border-bottom: 0.5px solid rgba(255,255,255,.05);
+}
+.chab-matrix-head {
+  display: grid;
+  padding: 8px 14px 6px;
+  align-items: center; gap: 4px;
+  border-bottom: 0.5px solid rgba(255,255,255,.04);
+}
+.chab-col-head {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.chab-col-day-lbl {
+  font-size: 7.5px; font-weight: 800; letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.chab-col-date-num {
+  width: 24px; height: 24px; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700;
+}
+.chab-col-date-num.is-today {
+  background: rgba(168,85,247,.2); color: #c084fc;
+  outline: 1.5px solid rgba(168,85,247,.45); outline-offset: 1px;
+}
+
+/* ── Habit row in matrix ── */
+.chab-hab-row {
+  display: grid;
+  align-items: center; gap: 4px;
+  padding: 8px 14px;
+  border-top: 0.5px solid rgba(255,255,255,.04);
+  transition: background .15s;
+}
+.chab-hab-row:hover { background: rgba(255,255,255,.02); }
+.chab-hab-row.at-risk {
+  border-left: 2.5px solid rgba(249,115,22,.55);
+  background: rgba(249,115,22,.025);
+}
+.chab-hab-row.perfect {
+  border-left: 2.5px solid rgba(168,85,247,.5);
+  background: rgba(168,85,247,.025);
+}
+.chab-hab-row-name {
+  display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden;
+}
+.chab-hab-icon {
+  width: 30px; height: 30px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; flex-shrink: 0;
+  transition: transform .2s cubic-bezier(.34,1.56,.64,1);
+}
+.chab-hab-row:hover .chab-hab-icon { transform: scale(1.1); }
+.chab-hab-title {
+  font-size: 12px; font-weight: 600; color: var(--t1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.chab-hab-streak {
+  font-size: 10px; color: var(--t3); display: flex; align-items: center; gap: 3px;
+}
+
+/* ── Matrix cells ── */
+.chab-cell {
+  width: 34px; height: 34px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  border: 0.5px solid rgba(255,255,255,.07);
+  background: rgba(255,255,255,.03);
+  transition: all .18s cubic-bezier(.34,1.56,.64,1);
+  position: relative; overflow: hidden; flex-shrink: 0;
+}
+.chab-cell.mine { cursor: pointer; }
+.chab-cell.mine:hover:not(.done):not(.future) {
+  background: rgba(168,85,247,.1);
+  border-color: rgba(168,85,247,.3);
+  transform: scale(1.08);
+}
+.chab-cell.done {
+  border-color: rgba(168,85,247,.45);
+  box-shadow: 0 2px 10px rgba(168,85,247,.2);
+}
+.chab-cell.today { outline: 1.5px solid rgba(168,85,247,.35); outline-offset: 1px; }
+.chab-cell.future { opacity: .25; pointer-events: none; }
+@keyframes chabCellPop {
+  0%  { transform: scale(.5) rotate(-10deg); opacity: 0; }
+  55% { transform: scale(1.25) rotate(4deg); }
+  80% { transform: scale(.96); }
+  100%{ transform: scale(1); opacity: 1; }
+}
+.chab-cell.done .chab-check {
+  animation: chabCellPop .3s cubic-bezier(.34,1.56,.64,1) both;
+}
+
+/* ── Member mini dots per cell ── */
+.chab-cell-mems {
+  display: flex; gap: 2px; flex-wrap: wrap;
+  max-width: 34px;
+}
+.chab-mem-pip {
+  width: 8px; height: 8px; border-radius: 50%;
+  border: 0.5px solid rgba(0,0,0,.3);
+  flex-shrink: 0;
+  transition: transform .15s;
+}
+.chab-mem-pip:hover { transform: scale(1.4); z-index: 5; }
+
+/* ── Week ring ── */
+.chab-wring { position: relative; flex-shrink: 0; }
+.chab-wring-pct {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 7px; font-weight: 700;
+}
+
+/* ── Actions row at bottom of room ── */
+.chab-actions-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px;
+  border-top: 0.5px solid rgba(255,255,255,.05);
+}
 </style>
 
 <script>
@@ -20535,77 +20684,341 @@ async function buildRoomCard(room, myRole, user){
   const sb = getSB();
   let members=[],habits=[],logs={};
   try {
-    // Step 1: get members (user_id + role only — no join, avoids 400)
     const {data:mems} = await sb.from('collab_habit_members')
       .select('user_id,role').eq('room_id',room.id);
     const rawMembers = mems||[];
-
-    // Step 2: get profiles from public.users for each member
     const memberIds = rawMembers.map(m=>m.user_id);
     let profileMap = {};
     if(memberIds.length){
       const {data:profiles} = await sb.from('users')
-        .select('id,username,avatar,avatar_url')
-        .in('id', memberIds);
+        .select('id,username,avatar,avatar_url').in('id', memberIds);
       (profiles||[]).forEach(p=>{ profileMap[p.id]=p; });
     }
-    // Attach profile to each member as .users
     members = rawMembers.map(m=>({
-      ...m,
-      users: profileMap[m.user_id] || { username:'?', avatar:'👤', avatar_url:null }
+      ...m, users: profileMap[m.user_id] || { username:'?', avatar:'👤', avatar_url:null }
     }));
-
     const {data:habs} = await sb.from('collab_habits').select('*').eq('room_id',room.id).eq('active',true);
     habits = habs||[];
-    if(habits.length&&members.length){
-      const {data:lg} = await sb.from('collab_habit_logs').select('habit_id,user_id,date').eq('room_id',room.id).gte('date',_getWeekStart());
-      (lg||[]).forEach(e=>{ if(!logs[e.user_id])logs[e.user_id]={};if(!logs[e.user_id][e.habit_id])logs[e.user_id][e.habit_id]={};logs[e.user_id][e.habit_id][e.date]=true;});
+    if(habits.length && members.length){
+      // Load logs for last 30 days for streak calc
+      const d30ago = new Date(); d30ago.setDate(d30ago.getDate()-30);
+      const d30str = d30ago.toISOString().slice(0,10);
+      const {data:lg} = await sb.from('collab_habit_logs')
+        .select('habit_id,user_id,date').eq('room_id',room.id).gte('date',d30str);
+      (lg||[]).forEach(e=>{
+        if(!logs[e.user_id]) logs[e.user_id]={};
+        if(!logs[e.user_id][e.habit_id]) logs[e.user_id][e.habit_id]={};
+        logs[e.user_id][e.habit_id][e.date]=true;
+      });
     }
   } catch(e){ console.error('buildRoomCard:', e); }
 
-  const today=_todayStr(), weekDays=_getWeekDays();
+  // ── Helpers ──────────────────────────────────────────────────
+  const today = _todayStr();
+  const now = new Date();
+
+  // Get Mon–Sun of current week as Date objects
+  function chabWeekDates(){
+    const d=new Date(), dow=d.getDay()||7;
+    d.setDate(d.getDate()-dow+1); d.setHours(0,0,0,0);
+    return Array.from({length:7},(_,i)=>{ const x=new Date(d); x.setDate(x.getDate()+i); return x; });
+  }
+  const weekDates = chabWeekDates();
+  const DLBL=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+
+  function dateStr(d){ return d.toISOString().slice(0,10); }
+
+  // Streak for a user on a habit from logs
+  function chabStreak(habitId, userId){
+    const userHabLog = (logs[userId]||{})[habitId]||{};
+    let s=0;
+    const d=new Date(); d.setHours(12,0,0,0);
+    for(let i=0;i<60;i++){
+      if(userHabLog[dateStr(d)]) s++; else if(i>0) break;
+      d.setDate(d.getDate()-1);
+    }
+    return s;
+  }
+
+  // My logs shortcut
+  const myId = user?.id;
+  const myLog = logs[myId]||{};
+
+  // ── My stats today ──
+  let myDoneToday=0;
+  habits.forEach(h=>{ if((myLog[h.id]||{})[today]) myDoneToday++; });
+  const myTodayPct = habits.length ? Math.round(myDoneToday/habits.length*100) : 0;
+
+  // My global streak (consecutive days with at least one habit done)
+  let myGlobalStreak=0;
+  {const d=new Date(); d.setHours(12,0,0,0);
+   for(let i=0;i<200;i++){
+     const key=dateStr(d);
+     const anyDone=habits.some(h=>(myLog[h.id]||{})[key]);
+     if(anyDone) myGlobalStreak++; else if(i>0) break;
+     d.setDate(d.getDate()-1);
+   }}
+
+  // ── Group leaderboard scores (week) ──
+  const weekDayStrs = weekDates.map(d=>dateStr(d));
   const scores = members.map(m=>{
-    let done=0,possible=habits.length*7;
-    habits.forEach(h=>weekDays.forEach(d=>{ if((logs[m.user_id] && logs[m.user_id][h.id] && logs[m.user_id][h.id][d])) done++; }));
-    const pct=possible>0?Math.round(done/possible*100):0;
-    const todayDone=habits.filter(h=>(logs[m.user_id] && logs[m.user_id][h.id] && logs[m.user_id][h.id][today])).length;
-    return{...m,done,pct,todayDone};
+    let done=0, possible=habits.length*7;
+    habits.forEach(h=>weekDayStrs.forEach(d=>{
+      if((logs[m.user_id]||{})[h.id]?.[d]) done++;
+    }));
+    const pct = possible>0 ? Math.round(done/possible*100) : 0;
+    const todayDone = habits.filter(h=>((logs[m.user_id]||{})[h.id]||{})[today]).length;
+    return{...m, done, pct, todayDone};
   }).sort((a,b)=>b.pct-a.pct);
-  const maxPct=Math.max(...scores.map(s=>s.pct),1);
+  const maxPct = Math.max(...scores.map(s=>s.pct), 1);
+  const isOwner = myRole==='owner';
+  const code = room.invite_code||'——';
 
-  const avHtml=scores.map(s=>{ const u=s.users||{}; const av=u.avatar_url?`<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:6px">`:`<span style="font-size:13px">${u.avatar||'👤'}</span>`; return `<div class="chab-av" style="background:rgba(168,85,247,.12)" title="${u.username||'?'}">${av}</div>`; }).join('');
+  // ── Hero color & message ──
+  const heroColor = myTodayPct===100?'#22C55E':myTodayPct>=70?'#F5C842':myTodayPct>=40?'#F97316':'#a855f7';
+  const heroMsg = myTodayPct===100?'🏆 Идеальный день!':myTodayPct>=70?'💪 Отличный прогресс!':myTodayPct>=1?'⚡ Продолжай!':'🎯 Начни сейчас';
 
+  // ── Hero arc SVG ──
+  function chabArc(pct, size=72){
+    const r=28,cx=size/2,cy=size/2;
+    const startAngle=-200, sweepAngle=220;
+    function pt(angle){ const rad=angle*Math.PI/180; return {x:cx+r*Math.cos(rad),y:cy+r*Math.sin(rad)}; }
+    const s=pt(startAngle),e=pt(startAngle+sweepAngle);
+    const p=pt(startAngle+sweepAngle*(pct/100));
+    const la=sweepAngle*(pct/100)>180?1:0;
+    const col=pct===100?'#22C55E':pct>=70?'#F5C842':pct>=40?'#F97316':'#a855f7';
+    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+      <path d="M ${s.x} ${s.y} A ${r} ${r} 0 1 1 ${e.x} ${e.y}" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="4" stroke-linecap="round"/>
+      <path d="M ${s.x} ${s.y} A ${r} ${r} 0 ${la} 1 ${p.x} ${p.y}" fill="none" stroke="${col}" stroke-width="4" stroke-linecap="round" style="filter:drop-shadow(0 0 5px ${col}88)"/>
+    </svg>`;
+  }
+
+  // ── Mini ring SVG ──
+  function chabRing(pct,color,size=32){
+    const r=10,c=2*Math.PI*r,dash=c*pct/100;
+    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+      <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="2.5"/>
+      <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="2.5"
+        stroke-dasharray="${dash.toFixed(1)} ${(c-dash).toFixed(1)}" stroke-linecap="round"
+        style="transform:rotate(-90deg);transform-origin:50% 50%"/>
+    </svg>`;
+  }
+
+  // ── Column headers (Mon–Sun with dates) ──
+  const NCOL='minmax(120px,1fr)';
+  const gridCols=`${NCOL} repeat(7,34px) 36px`;
+
+  const colHead = weekDates.map((d,i)=>{
+    const isToday = dateStr(d)===today;
+    const isPast = d < now && !isToday;
+    return `<div class="chab-col-head">
+      <div class="chab-col-day-lbl" style="color:${isToday?'#c084fc':'var(--t3)'}">${DLBL[i]}</div>
+      <div class="chab-col-date-num${isToday?' is-today':''}" style="${!isToday?`color:${isPast?'var(--t1)':'var(--t3)'}`:''}">${d.getDate()}</div>
+    </div>`;
+  }).join('');
+
+  // ── Habit rows with full 7-day matrix ──
+  const habRows = habits.map(h=>{
+    const color = h.color||'#a855f7';
+    const myStreak = chabStreak(h.id, myId);
+    const myHabLog = myLog[h.id]||{};
+
+    let wDone=0;
+    const cells = weekDates.map((d,i)=>{
+      const key = dateStr(d);
+      const isToday = key===today;
+      const future = d>now && !isToday;
+      const done = !!(myHabLog[key]);
+      if(done) wDone++;
+
+      // Member pips for this day (other members)
+      const otherMembers = members.filter(m=>m.user_id!==myId);
+      const pips = otherMembers.map(m=>{
+        const memberDone = !!((logs[m.user_id]||{})[h.id]||{})[key];
+        const u = m.users||{};
+        return `<div class="chab-mem-pip" title="${u.username||'?'}: ${memberDone?'✓':'—'}"
+          style="background:${memberDone?color+'99':'rgba(255,255,255,.1)'}"></div>`;
+      }).join('');
+
+      let cls = 'chab-cell mine';
+      if(done) cls+=' done';
+      if(isToday) cls+=' today';
+      if(future) cls+=' future';
+
+      return `<div class="${cls}"
+        style="${done?`background:${color}20;border-color:${color}55`:''}"
+        onclick="${future?'':isOwner||true?`chabToggleCell('${room.id}','${h.id}','${key}',this)`:''}">
+        ${done
+          ?`<span class="chab-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>`
+          :future
+            ?`<div style="width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.05)"></div>`
+            :`<div style="width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.1)"></div>`
+        }
+        ${pips&&!future?`<div style="position:absolute;bottom:2px;left:0;right:0;display:flex;justify-content:center;gap:1px">${pips}</div>`:''}
+      </div>`;
+    }).join('');
+
+    const weekPct = Math.round(wDone/7*100);
+    const doneToday = !!(myHabLog[today]);
+    const atRiskRow = myStreak>=3 && !doneToday;
+    const perfectRow = wDone===7;
+    let rowClass = 'chab-hab-row';
+    if(atRiskRow) rowClass+=' at-risk';
+    else if(perfectRow) rowClass+=' perfect';
+
+    // Today's status for all members
+    const todayMems = members.map(m=>{
+      const u=m.users||{};
+      const mDone=!!((logs[m.user_id]||{})[h.id]||{})[today];
+      const av = u.avatar_url
+        ? `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+        : `<span style="font-size:9px">${u.avatar||'👤'}</span>`;
+      return `<div title="${u.username||'?'}: ${mDone?'✓ выполнено':'не выполнено'}"
+        style="width:18px;height:18px;border-radius:50%;background:${mDone?color+'33':'rgba(255,255,255,.07)'};border:1.5px solid ${mDone?color:'rgba(255,255,255,.1)'};display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;transition:transform .15s"
+        onmouseover="this.style.transform='scale(1.3)'" onmouseout="this.style.transform=''">${av}</div>`;
+    }).join('');
+
+    return `<div class="${rowClass}" style="grid-template-columns:${gridCols}">
+      <div class="chab-hab-row-name">
+        <div class="chab-hab-icon" style="background:${color}15;border:0.5px solid ${color}30">${h.icon||'🎯'}</div>
+        <div style="flex:1;min-width:0">
+          <div class="chab-hab-title">${h.name}</div>
+          <div class="chab-hab-streak">
+            ${myStreak>0?`<span style="color:var(--orange);font-weight:700">🔥 ${myStreak}</span>`:'<span>— стрик</span>'}
+          </div>
+        </div>
+      </div>
+      ${cells}
+      <div class="chab-wring" style="width:32px;height:32px">
+        ${chabRing(weekPct,color,32)}
+        <div class="chab-wring-pct" style="color:${color};font-size:7px;font-weight:700">${weekPct}%</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // ── Leaderboard ──
   const medals=['🥇','🥈','🥉'];
-  const lbRows=scores.map((s,i)=>{ const u=s.users||{}; const isMe=s.user_id===(user && user.id); const av=u.avatar_url?`<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`:`<span style="font-size:18px">${u.avatar||'👤'}</span>`; return `<div class="chab-lb-row${isMe?' me':''}"><div class="chab-lb-rank">${medals[i]||i+1}</div><div class="chab-lb-av">${av}</div><div class="chab-lb-info"><div class="chab-lb-name">${u.username||'?'}${isMe?'<span class="chab-you-tag">ТЫ</span>':''}</div><div class="chab-lb-sub">${s.todayDone}/${habits.length} сегодня · 🔥 ${s.done} за неделю</div></div><div class="chab-lb-bar-wr"><div class="chab-lb-bar" style="width:${Math.round(s.pct/maxPct*100)}%"></div></div><div class="chab-lb-score">${s.pct}%</div></div>`; }).join('');
+  const lbRows = scores.map((s,i)=>{
+    const u=s.users||{};
+    const isMe=s.user_id===myId;
+    const av=u.avatar_url?`<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`:`<span style="font-size:18px">${u.avatar||'👤'}</span>`;
+    return `<div class="chab-lb-row${isMe?' me':''}">
+      <div class="chab-lb-rank">${medals[i]||i+1}</div>
+      <div class="chab-lb-av">${av}</div>
+      <div class="chab-lb-info">
+        <div class="chab-lb-name">${u.username||'?'}${isMe?'<span class="chab-you-tag">ТЫ</span>':''}</div>
+        <div class="chab-lb-sub">${s.todayDone}/${habits.length} сегодня · 🔥 ${s.done} за неделю</div>
+      </div>
+      <div class="chab-lb-bar-wr"><div class="chab-lb-bar" style="width:${Math.round(s.pct/maxPct*100)}%"></div></div>
+      <div class="chab-lb-score">${s.pct}%</div>
+    </div>`;
+  }).join('');
 
-  const habRows=habits.map(h=>{ const dots=scores.map(s=>{ const done=!!(logs[s.user_id] && logs[s.user_id][h.id] && logs[s.user_id][h.id][today]); const isMe=s.user_id===(user && user.id); const clickAttr=isMe?`onclick="chabToggle('${room.id}','${h.id}','${today}')" style="cursor:pointer"`:`title="${(s.users||{}).username||'?'}: ${done?'✓':'—'}"`; return `<div class="chab-dot ${done?'done':'pending'}" ${clickAttr}></div>`; }).join(''); return `<div class="chab-habit-row"><div style="width:32px;height:32px;border-radius:9px;background:${h.color||'#a855f7'}18;border:0.5px solid ${h.color||'#a855f7'}30;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${h.icon||'🎯'}</div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:var(--t1);letter-spacing:-.01em">${h.name}</div><div style="font-size:10px;color:var(--t3);margin-top:1px">Нажми чтобы отметить</div></div><div class="chab-habit-dots">${dots}</div></div>`; }).join('');
+  // ── Member avatars header ──
+  const avHtml = scores.map(s=>{
+    const u=s.users||{};
+    const av=u.avatar_url?`<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:6px">`:`<span style="font-size:13px">${u.avatar||'👤'}</span>`;
+    return `<div class="chab-av" style="background:rgba(168,85,247,.12)" title="${u.username||'?'}">${av}</div>`;
+  }).join('');
 
-  const isOwner=myRole==='owner';
-  const code=room.invite_code||'——';
   const svgDel=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>`;
 
   return `<div class="chab-room" id="chab-room-${room.id}">
+
+    <!-- ── HEADER ── -->
     <div class="chab-room-head">
       <div class="chab-room-icon">${room.icon||'🤝'}</div>
       <div style="flex:1;min-width:0">
         <div class="chab-room-title">${room.name||'Совместный трекер'}</div>
         <div class="chab-room-meta">${members.length} участников · ${habits.length} привычек</div>
       </div>
-      <div style="display:flex;align-items:center;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px">
         <div class="chab-members">${avHtml}</div>
         <div class="chab-room-acts">
           <button class="chab-btn-outline" style="padding:5px 10px;font-size:11px" onclick="chabShowCode('${code}')">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
             Пригласить
           </button>
-          ${isOwner?`<button class="chab-btn-outline" style="padding:5px 10px;font-size:11px" onclick="chabAddHabit('${room.id}')">+ Привычка</button><button class="chab-btn-outline" style="padding:5px 10px;font-size:11px;color:var(--red);border-color:rgba(255,69,58,.2)" onclick="chabDeleteRoom('${room.id}')">${svgDel}</button>`:''}
+          ${isOwner?`<button class="chab-btn-outline" style="padding:5px 10px;font-size:11px;color:var(--red);border-color:rgba(255,69,58,.2)" onclick="chabDeleteRoom('${room.id}')">${svgDel}</button>`:''}
         </div>
       </div>
     </div>
+
+    <!-- ── HERO: мои сегодняшние показатели ── -->
+    <div class="chab-hero-bar">
+      <div class="chab-hero-arc" style="position:relative;flex-shrink:0">
+        ${chabArc(myTodayPct,72)}
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+          <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:500;line-height:1;color:${heroColor}">${myTodayPct}%</div>
+          <div style="font-size:6px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:1px">Мой день</div>
+        </div>
+      </div>
+      <div class="chab-hero-main">
+        <div class="chab-hero-title">${heroMsg}</div>
+        <div class="chab-hero-sub">${myDoneToday} из ${habits.length} привычек выполнено</div>
+        <div class="chab-hero-kpis">
+          <div class="chab-hero-kpi">
+            <div class="chab-hero-kpi-val" style="color:var(--orange)">🔥 ${myGlobalStreak}</div>
+            <div class="chab-hero-kpi-lbl">Стрик</div>
+          </div>
+          <div class="chab-hero-kpi">
+            <div class="chab-hero-kpi-val" style="color:#c084fc">${habits.length}</div>
+            <div class="chab-hero-kpi-lbl">Привычек</div>
+          </div>
+          <div class="chab-hero-kpi">
+            <div class="chab-hero-kpi-val" style="color:var(--green)">${members.length}</div>
+            <div class="chab-hero-kpi-lbl">Участников</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── LEADERBOARD ── -->
     ${lbRows?`<div class="chab-lb">${lbRows}</div>`:''}
-    ${habRows||`<div style="padding:20px;text-align:center;color:var(--t3);font-size:13px">${isOwner?`<button class="chab-btn-purple" style="padding:8px 16px;font-size:12px" onclick="chabAddHabit('${room.id}')">+ Добавить привычки</button>`:'Привычки ещё не добавлены'}</div>`}
+
+    <!-- ── 7-DAY MATRIX ── -->
+    ${habits.length ? `
+    <div class="chab-matrix">
+      <div class="chab-matrix-head" style="grid-template-columns:${gridCols}">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t3)">Привычка</div>
+        ${colHead}
+        <div style="font-size:8px;text-align:center;color:var(--t3)">%</div>
+      </div>
+      ${habRows}
+    </div>
+    ` : ''}
+
+    <!-- ── ACTIONS ── -->
+    <div class="chab-actions-row">
+      ${isOwner?`<button class="chab-btn-purple" style="padding:7px 14px;font-size:12px" onclick="chabAddHabit('${room.id}')">+ Привычка</button>`:''}
+      <button class="chab-btn-outline" style="padding:7px 12px;font-size:11px;margin-left:auto" onclick="chabSetMode('personal')">← Мой трекер</button>
+    </div>
+
   </div>`;
 }
+
+window.chabToggleCell = async function(roomId, habitId, date, cellEl){
+  const sb=getSB(), user=getUser(); if(!sb||!user) return;
+  try {
+    const isDone = cellEl.classList.contains('done');
+    // Optimistic UI
+    if(isDone){
+      cellEl.classList.remove('done');
+      cellEl.style.background=''; cellEl.style.borderColor='';
+      cellEl.innerHTML=`<div style="width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.1)"></div>`;
+    } else {
+      cellEl.classList.add('done');
+      cellEl.style.background='rgba(168,85,247,.2)'; cellEl.style.borderColor='rgba(168,85,247,.5)';
+      cellEl.innerHTML=`<span class="chab-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>`;
+    }
+    const {data:ex}=await sb.from('collab_habit_logs').select('id')
+      .eq('room_id',roomId).eq('habit_id',habitId).eq('user_id',user.id).eq('date',date).limit(1);
+    if(ex&&ex.length) await sb.from('collab_habit_logs').delete().eq('id',ex[0].id);
+    else await sb.from('collab_habit_logs').insert({room_id:roomId,habit_id:habitId,user_id:user.id,date});
+    try{showToast(isDone?'Отменено':'✅ Выполнено!',isDone?'↩️':'🎯');}catch{}
+    setTimeout(()=>renderCollabView(), 1200);
+  } catch(e){ console.error('chabToggleCell:',e); }
+};
 
 window.chabToggle=async function(roomId,habitId,date){
   const sb=getSB(),user=getUser(); if(!sb||!user)return;
@@ -20738,41 +21151,106 @@ window.chabDoJoin=async function(){
 };
 
 window.chabAddHabit=function(roomId){
-  window._chabHabIcon='🎯';
-  showChabModal(`<div class="chab-modal-title">Добавить привычку</div>
-    <div class="chab-modal-sub">Общая привычка для всех участников трекера</div>
-    <input id="chabHabName" placeholder="Название привычки" style="width:100%;padding:11px 13px;border-radius:10px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:var(--t1);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;box-sizing:border-box;margin-bottom:10px;transition:border-color .15s" onfocus="this.style.borderColor='rgba(168,85,247,.55)'" onblur="this.style.borderColor='rgba(255,255,255,.1)'" onkeydown="if(event.key==='Enter')chabDoAddHabit('${roomId}')">
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">${['📚','🏃','🧘','💪','💧','🎯','✍️','☀️','🧠','🔥'].map(e=>`<button onclick="this.parentNode.querySelectorAll('button').forEach(b=>b.style.outline='');this.style.outline='2px solid #a855f7';window._chabHabIcon='${e}'" style="width:34px;height:34px;border-radius:8px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);font-size:16px;cursor:pointer">${e}</button>`).join('')}</div>
-    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="chab-btn-outline" onclick="hideChabModal()">Отмена</button><button class="chab-btn-purple" onclick="chabDoAddHabit('${roomId}')">Добавить</button></div>`);
-  setTimeout(function(){ var _el=document.getElementById('chabHabName'); if(_el)_el.focus(); },100);
+  window._chabHabIcon = '🎯';
+  window._chabHabColor = '#a855f7';
+  window._chabHabFreq = 'daily';
+
+  const EMOJIS = ['📚','🏃','🧘','💪','💧','🎯','✍️','☀️','🧠','🔥','🎨','🎸','🥗','😴','🌿','🚴','🏊','💊','🧹','🌙','💻','📝','🧪','🎵','🦷','🏋️','🚶','🍵','⚡','🌸'];
+  const COLORS = ['#a855f7','#F5C842','#22C55E','#3B82F6','#EF4444','#F97316','#06B6D4','#EC4899','#8B5CF6','#14B8A6','#84CC16','#F59E0B'];
+
+  const emojiBtns = EMOJIS.map(e =>
+    `<button class="chab-ep" onclick="window._chabHabIcon='${e}';document.querySelectorAll('.chab-ep').forEach(b=>b.classList.remove('sel'));this.classList.add('sel')"
+      style="width:36px;height:36px;border-radius:9px;border:0.5px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);font-size:17px;cursor:pointer;transition:all .15s;flex-shrink:0"
+      onmouseover="this.style.background='rgba(168,85,247,.15)'" onmouseout="if(!this.classList.contains('sel'))this.style.background='rgba(255,255,255,.03)'">${e}</button>`
+  ).join('');
+
+  const colorDots = COLORS.map(c =>
+    `<div class="chab-cp" onclick="window._chabHabColor='${c}';document.querySelectorAll('.chab-cp').forEach(d=>d.classList.remove('sel'));this.classList.add('sel')"
+      style="width:24px;height:24px;border-radius:50%;background:${c};cursor:pointer;flex-shrink:0;transition:transform .15s,outline .1s;outline:${c==='#a855f7'?`3px solid ${c};outline-offset:2px`:''}"
+      onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform=''"></div>`
+  ).join('');
+
+  const freqBtns = [
+    {v:'daily',l:'Каждый день'},
+    {v:'weekdays',l:'Будни'},
+    {v:'weekend',l:'Выходные'},
+  ].map(f =>
+    `<button class="chab-freq-btn${f.v==='daily'?' sel':''}" data-v="${f.v}"
+      onclick="window._chabHabFreq='${f.v}';document.querySelectorAll('.chab-freq-btn').forEach(b=>b.classList.toggle('sel',b.dataset.v==='${f.v}'))"
+      style="flex:1;padding:7px 4px;border-radius:8px;border:0.5px solid rgba(255,255,255,.1);background:${f.v==='daily'?'rgba(168,85,247,.15)':'rgba(255,255,255,.03)'};color:${f.v==='daily'?'#c084fc':'var(--t2)'};font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s">${f.l}</button>`
+  ).join('');
+
+  showChabModal(`
+    <div class="chab-modal-title">Добавить привычку</div>
+    <div class="chab-modal-sub">Привычка будет общей для всех участников трекера</div>
+
+    <div style="margin-bottom:14px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Название</div>
+      <input id="chabHabName" placeholder="Читать 30 минут, Спорт, Медитация..."
+        style="width:100%;padding:11px 13px;border-radius:10px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:var(--t1);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;box-sizing:border-box;transition:border-color .15s"
+        onfocus="this.style.borderColor='rgba(168,85,247,.55)'" onblur="this.style.borderColor='rgba(255,255,255,.1)'"
+        onkeydown="if(event.key==='Enter')chabDoAddHabit('${roomId}')">
+    </div>
+
+    <div style="margin-bottom:14px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Иконка</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;max-height:120px;overflow-y:auto">${emojiBtns}</div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Цвет</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${colorDots}</div>
+    </div>
+
+    <div style="margin-bottom:20px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Частота</div>
+      <div style="display:flex;gap:6px">${freqBtns}</div>
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="chab-btn-outline" onclick="hideChabModal()">Отмена</button>
+      <button class="chab-btn-purple" onclick="chabDoAddHabit('${roomId}')">Добавить</button>
+    </div>
+  `);
+
+  // Mark first emoji and first color as selected
+  setTimeout(function(){
+    var _el = document.getElementById('chabHabName');
+    if(_el) _el.focus();
+    var firstEmoji = document.querySelector('.chab-ep');
+    if(firstEmoji){ firstEmoji.classList.add('sel'); firstEmoji.style.background='rgba(168,85,247,.2)'; firstEmoji.style.outline='2px solid #a855f7'; }
+    var firstColor = document.querySelector('.chab-cp');
+    if(firstColor) firstColor.style.outline='3px solid #a855f7'; firstColor&&(firstColor.style.outlineOffset='2px');
+  }, 80);
 };
 
 window.chabDoAddHabit=async function(roomId){
-  var _inp3=document.getElementById('chabHabName');
-  var name=_inp3?_inp3.value.trim():'';
-  if(!name){ if(_inp3){_inp3.style.borderColor='rgba(255,69,58,.5)';_inp3.focus();} return; }
+  var inp = document.getElementById('chabHabName');
+  var name = inp ? inp.value.trim() : '';
+  if(!name){ if(inp){ inp.style.borderColor='rgba(255,69,58,.5)'; inp.focus(); } return; }
 
-  var sb=getSB();
-  if(!sb){ showToast('Ошибка: нет подключения','❌'); return; }
+  var sb = getSB();
+  if(!sb){ try{showToast('Ошибка подключения','❌');}catch{} return; }
 
-  var btn=document.querySelector('#chabModal .chab-btn-purple');
+  var btn = document.querySelector('#chabModal .chab-btn-purple');
   if(btn){ btn.textContent='Добавляем...'; btn.disabled=true; }
 
   try {
-    var res=await sb.from('collab_habits').insert({
-      room_id:roomId,
-      name:name,
-      icon:window._chabHabIcon||'🎯',
-      color:'#a855f7',
-      active:true
+    var res = await sb.from('collab_habits').insert({
+      room_id: roomId,
+      name: name,
+      icon: window._chabHabIcon||'🎯',
+      color: window._chabHabColor||'#a855f7',
+      freq: window._chabHabFreq||'daily',
+      active: true
     });
     if(res.error) throw res.error;
     hideChabModal();
-    showToast('Привычка добавлена',window._chabHabIcon||'🎯');
+    try{showToast('Привычка добавлена', window._chabHabIcon||'🎯');}catch{}
     setTimeout(renderCollabView, 300);
   } catch(e){
     console.error('chabDoAddHabit error:', e);
-    showToast('Ошибка: '+(e&&e.message?e.message:''),'❌');
+    try{showToast('Ошибка: '+(e&&e.message?e.message:'неизвестная'),'❌');}catch{}
     if(btn){ btn.textContent='Добавить'; btn.disabled=false; }
   }
 };
