@@ -8150,151 +8150,161 @@ function renderDash(){
       ${i===0?`<div class="kpi-sparkline">${spark7.map((v,j)=>`<div class="kpi-spark-bar ${j===6?'today':''}" style="height:${Math.max(8,Math.round((v/sparkMax)*100))}%;background:${k.color}"></div>`).join('')}</div>`:''}
     </div>`).join('');
 
-  // ── COSMIC HUD CHART ──
+  // ── CHART ──
   const legendCats = ALL_CATS.filter(c => data[c.id] && data[c.id].some(v=>v>0));
+  const showEvery = isWeek ? 1 : Math.ceil(buckets / 10);
   document.getElementById('chartLegend').innerHTML = legendCats.map(c=>
-    `<div class="cl-item"><div class="cl-dot" style="background:${c.color};box-shadow:0 0 6px ${c.color}"></div>${c.name}</div>`).join('');
+    `<div class="cl-item" style="cursor:pointer;opacity:${(!dashCatFilter||dashCatFilter===c.id)?1:.35};transition:opacity .2s"
+      onclick="dashCatFilter=dashCatFilter===\\'${c.id}\\'?null:\\'${c.id}\\';renderDash()">
+      <div class="cl-dot" style="background:${c.color}"></div>${c.name}</div>`
+  ).join('');
 
-  const showEvery = isWeek ? 1 : Math.ceil(buckets/10);
-  const svgW=800, svgH=180, padL=6, padR=6, padT=22, padB=28;
-  const plotW=svgW-padL-padR, plotH=svgH-padT-padB;
+  // Build bar chart — stacked vertical bars per bucket
+  const barEl = document.getElementById('barChart');
+  const bW = barEl.clientWidth || 600;
+  const svgH = 160, padT = 8, padB = 32, padL = 36, padR = 8;
+  const plotW = bW - padL - padR, plotH = svgH - padT - padB;
+  const barGap = isWeek ? 8 : 3;
+  const barW = Math.max(4, plotW / buckets - barGap);
 
-  function yOf(v){ return padT+plotH-(v/maxVal)*plotH; }
-  function xOf(i){ return padL+i*(plotW/(buckets-1||1)); }
+  // Cats to show in bars
+  const barCats = dashCatFilter
+    ? legendCats.filter(c => c.id === dashCatFilter)
+    : legendCats;
 
-  function smoothPath(pts){
-    if(!pts.length) return '';
-    let d=`M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
-    for(let i=1;i<pts.length;i++){
-      const cpx=(pts[i-1][0]+pts[i][0])/2;
-      d+=` C ${cpx.toFixed(1)} ${pts[i-1][1].toFixed(1)} ${cpx.toFixed(1)} ${pts[i][1].toFixed(1)} ${pts[i][0].toFixed(1)} ${pts[i][1].toFixed(1)}`;
-    }
-    return d;
-  }
-
-  const totalPts = totals.map((v,i)=>[xOf(i), yOf(v)]);
-  const linePath = smoothPath(totalPts);
-  const areaPath = `${linePath} L ${xOf(buckets-1).toFixed(1)} ${(padT+plotH).toFixed(1)} L ${xOf(0).toFixed(1)} ${(padT+plotH).toFixed(1)} Z`;
-
-  const catLines = legendCats.map(c=>{
-    const pts = data[c.id].map((v,i)=>[xOf(i),yOf(v)]);
-    return {color:c.color, path:smoothPath(pts)};
+  // Build stacked segments per bucket
+  const segments = Array.from({length: buckets}, (_, i) => {
+    let bottom = 0;
+    return barCats.map(c => {
+      const v = data[c.id] ? data[c.id][i] : 0;
+      const seg = { cat: c.id, color: c.color, name: c.name, val: v, bottom, top: bottom + v };
+      bottom += v;
+      return seg;
+    });
   });
 
-  const peakIdx = totals.indexOf(Math.max(...totals));
-  const peakX = xOf(peakIdx).toFixed(1);
-  const peakY = yOf(totals[peakIdx]).toFixed(1);
-  const peakVal = totals[peakIdx];
-  const uid = Date.now()%99999;
-  const cs=10, cw=1.5;
+  // Y grid values
+  const yTicks = maxVal <= 0 ? [0] : [0.25, 0.5, 0.75, 1].map(t => +(maxVal * t).toFixed(2));
 
-  const svgEl=`<svg viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg"
-    preserveAspectRatio="none"
-    style="width:100%;height:200px;display:block">
-    <defs>
-      <filter id="glow${uid}" x="-50%" y="-50%" width="200%" height="200%">
-        <feGaussianBlur stdDeviation="3.5" result="blur"/>
-        <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-      </filter>
-      <filter id="glowS${uid}" x="-50%" y="-50%" width="200%" height="200%">
-        <feGaussianBlur stdDeviation="1.5" result="blur"/>
-        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-      </filter>
-      <filter id="glowXL${uid}" x="-100%" y="-100%" width="300%" height="300%">
-        <feGaussianBlur stdDeviation="7" result="blur"/>
-        <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-      </filter>
-      <linearGradient id="aFill${uid}" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#00E5FF" stop-opacity="0.22"/>
-        <stop offset="60%" stop-color="#00E5FF" stop-opacity="0.06"/>
-        <stop offset="100%" stop-color="#00E5FF" stop-opacity="0"/>
-      </linearGradient>
-      <linearGradient id="scanG${uid}" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#00E5FF" stop-opacity="0"/>
-        <stop offset="50%" stop-color="#00E5FF" stop-opacity="0.25"/>
-        <stop offset="100%" stop-color="#00E5FF" stop-opacity="0"/>
-      </linearGradient>
-      <clipPath id="cp${uid}"><rect x="${padL}" y="${padT}" width="${plotW}" height="${plotH}"/></clipPath>
-      <style>
-        @keyframes scan${uid}{0%{transform:translateY(0);opacity:1}85%{opacity:.8}100%{transform:translateY(${plotH}px);opacity:0}}
-        @keyframes pulse${uid}{0%,100%{r:4;opacity:1}50%{r:6.5;opacity:.65}}
-        @keyframes blink${uid}{0%,100%{opacity:1}50%{opacity:.3}}
-        .sc${uid}{animation:scan${uid} 4s cubic-bezier(.4,0,.6,1) infinite}
-        .pu${uid}{animation:pulse${uid} 1.8s ease-in-out infinite}
-        .bl${uid}{animation:blink${uid} 1.2s ease-in-out infinite}
-      </style>
-    </defs>
-    <rect x="${padL}" y="${padT}" width="${plotW}" height="${plotH}" fill="rgba(0,229,255,0.025)" rx="2"/>
-    ${[0.25,0.5,0.75,1].map(t=>{
-      const gy=(padT+plotH-t*plotH).toFixed(1);
-      const gv=maxVal*t;
-      const isHalf=t===0.5;
-      return `<line x1="${padL}" y1="${gy}" x2="${svgW-padR}" y2="${gy}"
-        stroke="${isHalf?'rgba(0,229,255,.12)':'rgba(0,229,255,.06)'}"
-        stroke-width="${isHalf?1:.6}" stroke-dasharray="${isHalf?'4 4':'2 6'}"/>
-        <text x="${padL+5}" y="${(+gy-3).toFixed(1)}" text-anchor="start" font-size="8"
-          fill="rgba(0,229,255,.4)" font-family="DM Mono,monospace">${gv<1?gv.toFixed(1):gv.toFixed(gv<5?1:0)}</text>`;
-    }).join('')}
-    ${Array.from({length:buckets},(_,i)=>{
-      if(i%showEvery!==0&&buckets>7) return '';
-      const tx=xOf(i).toFixed(1);
-      return `<line x1="${tx}" y1="${(padT+plotH).toFixed(1)}" x2="${tx}" y2="${(padT+plotH+4).toFixed(1)}"
-        stroke="rgba(0,229,255,.25)" stroke-width=".8"/>`;
-    }).join('')}
-    ${catLines.map(cl=>`<path d="${cl.path}" fill="none" stroke="${cl.color}" stroke-width="1"
-      stroke-opacity="0.3" clip-path="url(#cp${uid})" stroke-linejoin="round"/>`).join('')}
-    <path d="${areaPath}" fill="url(#aFill${uid})" clip-path="url(#cp${uid})"/>
-    <g clip-path="url(#cp${uid})" transform="translate(0,${padT})">
-      <rect class="sc${uid}" x="${padL}" y="0" width="${plotW}" height="18"
-        fill="url(#scanG${uid})" rx="1"/>
-    </g>
-    <path d="${linePath}" fill="none" stroke="#00E5FF" stroke-width="5"
-      stroke-opacity="0.15" clip-path="url(#cp${uid})" filter="url(#glowXL${uid})" stroke-linejoin="round"/>
-    <path d="${linePath}" fill="none" stroke="#00E5FF" stroke-width="1.8"
-      clip-path="url(#cp${uid})" filter="url(#glow${uid})" stroke-linejoin="round"/>
-    <path d="${linePath}" fill="none" stroke="#E0FAFF" stroke-width="1"
-      clip-path="url(#cp${uid})" stroke-linejoin="round"/>
-    ${totals.map((v,i)=>{
-      if(v<=0||i===peakIdx) return '';
-      const dx=xOf(i).toFixed(1), dy=yOf(v).toFixed(1);
-      return `<circle cx="${dx}" cy="${dy}" r="2.5" fill="#09090B" stroke="#00E5FF"
-        stroke-width="1.2" clip-path="url(#cp${uid})" filter="url(#glowS${uid})"/>`;
-    }).join('')}
-    ${peakVal>0?`
-      <circle class="pu${uid}" cx="${peakX}" cy="${peakY}" r="4"
-        fill="#09090B" stroke="#00E5FF" stroke-width="1.5"
-        clip-path="url(#cp${uid})" filter="url(#glow${uid})"/>
-      <circle cx="${peakX}" cy="${peakY}" r="1.5" fill="#00E5FF"
-        clip-path="url(#cp${uid})" filter="url(#glow${uid})"/>
-      <rect x="${(+peakX-22).toFixed(1)}" y="${(+peakY-22).toFixed(1)}" width="44" height="14"
-        rx="2" fill="rgba(0,229,255,.12)" stroke="rgba(0,229,255,.4)" stroke-width=".6"
-        clip-path="url(#cp${uid})"/>
-      <text x="${peakX}" y="${(+peakY-12).toFixed(1)}" text-anchor="middle" font-size="8.5"
-        fill="#00E5FF" font-family="DM Mono,monospace" font-weight="500"
-        filter="url(#glowS${uid})" clip-path="url(#cp${uid})">${peakVal.toFixed(2)}ч</text>
-    `:''}
-    <path d="M ${padL+cs} ${padT} L ${padL} ${padT} L ${padL} ${padT+cs}" fill="none" stroke="#00E5FF" stroke-width="${cw}" opacity=".7"/>
-    <path d="M ${svgW-padR-cs} ${padT} L ${svgW-padR} ${padT} L ${svgW-padR} ${padT+cs}" fill="none" stroke="#00E5FF" stroke-width="${cw}" opacity=".7"/>
-    <path d="M ${padL+cs} ${padT+plotH} L ${padL} ${padT+plotH} L ${padL} ${padT+plotH-cs}" fill="none" stroke="#00E5FF" stroke-width="${cw}" opacity=".7"/>
-    <path d="M ${svgW-padR-cs} ${padT+plotH} L ${svgW-padR} ${padT+plotH} L ${svgW-padR} ${padT+plotH-cs}" fill="none" stroke="#00E5FF" stroke-width="${cw}" opacity=".7"/>
-    ${Array.from({length:buckets},(_,i)=>{
-      if(i%showEvery!==0) return '';
-      const tx=xOf(i).toFixed(1);
-      return `<text x="${tx}" y="${(svgH-6).toFixed(1)}" text-anchor="middle" font-size="9"
-        fill="rgba(0,229,255,.5)" font-family="DM Mono,monospace" letter-spacing="0.04em">${labels[i]}</text>`;
-    }).join('')}
-    <text x="${svgW-padR}" y="${padT-4}" text-anchor="end" font-size="8"
-      fill="rgba(0,229,255,.3)" font-family="DM Mono,monospace" letter-spacing="0.1em">
-      АКТИВНОСТЬ · ${isWeek?'ПН–ВС':'30Д'}</text>
-    <circle class="bl${uid}" cx="${svgW-padR-80}" cy="${padT-8}" r="2.5"
-      fill="#00E5FF" filter="url(#glowS${uid})"/>
-  </svg>`;
+  function yPx(v) { return padT + plotH - (maxVal > 0 ? (v / maxVal) * plotH : 0); }
+  function xPx(i) { return padL + i * (plotW / buckets) + (plotW / buckets - barW) / 2; }
 
-  document.getElementById('barChart').style.height='auto';
-  document.getElementById('barChart').style.display='block';
-  document.getElementById('barChart').innerHTML=svgEl;
-  document.getElementById('barAxisL').textContent='';
-  document.getElementById('barAxisR').textContent='';
+  // Tooltip HTML (positioned absolutely over chart)
+  const tooltipId = 'dChart_tip';
+
+  let barsHTML = '';
+
+  // Grid lines
+  yTicks.forEach(v => {
+    const y = yPx(v).toFixed(1);
+    barsHTML += `<line x1="${padL}" y1="${y}" x2="${bW - padR}" y2="${y}"
+      stroke="rgba(255,255,255,.06)" stroke-width=".8" stroke-dasharray="3 4"/>
+      <text x="${(padL-5).toFixed(0)}" y="${(+y+3).toFixed(0)}" text-anchor="end"
+        font-size="9" fill="rgba(255,255,255,.3)" font-family="DM Mono,monospace">${v < 1 ? v.toFixed(1) : v.toFixed(v < 5 ? 1 : 0)}</text>`;
+  });
+
+  // Bars
+  segments.forEach((segs, i) => {
+    const x = xPx(i).toFixed(1);
+    const totalVal = segs.reduce((a, s) => a + s.val, 0);
+    const tipData = barCats.map(c => {
+      const v = data[c.id] ? data[c.id][i] : 0;
+      return v > 0 ? `${c.name}: ${v.toFixed(2)}ч` : '';
+    }).filter(Boolean).join('&#10;');
+    const labelDay = labels[i] || '';
+
+    // Draw each segment
+    segs.forEach(seg => {
+      if (seg.val <= 0) return;
+      const y1 = yPx(seg.top).toFixed(1);
+      const y2 = yPx(seg.bottom).toFixed(1);
+      const h = Math.max(2, +y2 - +y1);
+      const isTop = seg.top >= totalVal - 0.001;
+      const rx = isTop ? Math.min(4, barW / 2) : 0;
+      barsHTML += `<rect x="${x}" y="${y1}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}"
+        fill="${seg.color}" opacity="0.85" rx="${rx}" ry="${rx}"/>`;
+    });
+
+    // Hover overlay (transparent, triggers tooltip)
+    barsHTML += `<rect x="${x}" y="${padT}" width="${barW.toFixed(1)}" height="${plotH}"
+      fill="transparent" rx="3" style="cursor:pointer"
+      onmouseenter="showDashTip(event,\`${tipData}\`,\`${totalVal > 0 ? totalVal.toFixed(2) + 'ч' : ''}\`,\`${labelDay}\`)"
+      onmouseleave="hideDashTip()"
+      onclick="showDashTip(event,\`${tipData}\`,\`${totalVal > 0 ? totalVal.toFixed(2) + 'ч' : ''}\`,\`${labelDay}\`)"/>`;
+
+    // Highlight current day/bucket
+    const isToday = isWeek && i === new Date().getDay() - 1;
+    if (isToday) {
+      barsHTML += `<rect x="${(+x - 2).toFixed(1)}" y="${padT}" width="${(barW + 4).toFixed(1)}" height="${plotH}"
+        fill="rgba(255,255,255,.04)" rx="3" stroke="rgba(255,255,255,.08)" stroke-width=".8" pointer-events="none"/>`;
+    }
+  });
+
+  // X-axis labels
+  Array.from({length: buckets}, (_, i) => {
+    if (i % showEvery !== 0) return;
+    const x = (xPx(i) + barW / 2).toFixed(1);
+    const isToday = isWeek && i === new Date().getDay() - 1;
+    barsHTML += `<text x="${x}" y="${(svgH - 6).toFixed(0)}" text-anchor="middle"
+      font-size="10" fill="${isToday ? 'rgba(245,200,66,.9)' : 'rgba(255,255,255,.4)'}"
+      font-family="DM Sans,sans-serif" font-weight="${isToday ? 600 : 400}">${labels[i]}</text>`;
+  });
+
+  // X axis baseline
+  barsHTML += `<line x1="${padL}" y1="${(padT + plotH).toFixed(1)}" x2="${bW - padR}" y2="${(padT + plotH).toFixed(1)}"
+    stroke="rgba(255,255,255,.1)" stroke-width="1"/>`;
+
+  const svgEl = `<div style="position:relative">
+    <svg width="${bW}" height="${svgH}" xmlns="http://www.w3.org/2000/svg"
+      style="display:block;width:100%;overflow:visible">
+      ${barsHTML}
+    </svg>
+    <div id="${tooltipId}" style="display:none;position:absolute;pointer-events:none;z-index:99;
+      background:rgba(15,15,18,.95);border:0.5px solid rgba(255,255,255,.15);border-radius:10px;
+      padding:10px 13px;box-shadow:0 8px 32px rgba(0,0,0,.6);min-width:130px;max-width:200px;
+      font-family:'DM Sans',sans-serif;transition:opacity .1s"></div>
+  </div>`;
+
+  barEl.style.display = 'block';
+  barEl.innerHTML = svgEl;
+  document.getElementById('barAxisL').textContent = '';
+  document.getElementById('barAxisR').textContent = '';
+
+  // Inject tooltip functions if not present
+  if (!window.showDashTip) {
+    window.showDashTip = function(e, lines, total, label) {
+      const tip = document.getElementById(tooltipId);
+      if (!tip) return;
+      const rows = lines ? lines.split('\n').filter(Boolean) : [];
+      tip.innerHTML = `
+        ${label ? `<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">${label}</div>` : ''}
+        ${rows.map(r => {
+          const [name, val] = r.split(': ');
+          return `<div style="display:flex;justify-content:space-between;gap:16px;font-size:12px;padding:2px 0">
+            <span style="color:rgba(255,255,255,.65)">${name}</span>
+            <span style="font-family:'DM Mono',monospace;color:var(--t1);font-weight:500">${val}</span>
+          </div>`;
+        }).join('')}
+        ${total ? `<div style="border-top:0.5px solid rgba(255,255,255,.1);margin-top:6px;padding-top:6px;
+          display:flex;justify-content:space-between;gap:16px;font-size:12px">
+          <span style="color:rgba(255,255,255,.5)">Итого</span>
+          <span style="font-family:'DM Mono',monospace;color:var(--gold);font-weight:600">${total}</span>
+        </div>` : ''}
+      `;
+      tip.style.display = 'block';
+      const rect = e.currentTarget.closest('div').getBoundingClientRect();
+      const svgRect = e.currentTarget.closest('svg').getBoundingClientRect();
+      let left = e.clientX - svgRect.left + 12;
+      const tipW = 160;
+      if (left + tipW > svgRect.width) left = e.clientX - svgRect.left - tipW - 12;
+      tip.style.left = left + 'px';
+      tip.style.top = (e.clientY - svgRect.top - 10) + 'px';
+    };
+    window.hideDashTip = function() {
+      const tip = document.getElementById(tooltipId);
+      if (tip) tip.style.display = 'none';
+    };
+  }
 
   // ── CATEGORY BREAKDOWN with mini rings ──
   const maxCatH=Math.max(...active.map(c=>data[c.id].reduce((a,v)=>a+v,0)),0.1);
