@@ -6809,6 +6809,13 @@ body, input, select, textarea, button {
     <!-- Actions -->
     <div class="ma" style="gap:8px">
       <button class="btn btn-g sess-close-btn" onclick="closeSessModal()">Закрыть</button>
+      <button class="btn" id="mPauseBtn" onclick="modalPauseToggle()" style="display:none;background:rgba(245,200,66,.12);border:0.5px solid rgba(245,200,66,.3);color:var(--gold);gap:7px">
+        <svg id="mPauseIcon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.5">
+          <rect x="6" y="4" width="4" height="16" rx="1"/>
+          <rect x="14" y="4" width="4" height="16" rx="1"/>
+        </svg>
+        <span id="mPauseLabel">Пауза</span>
+      </button>
       <button class="btn btn-p sess-start-btn" id="mStartBtn" onclick="modalToggle()">
         <svg id="mBtnIcon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         <span id="mBtnLabel">Старт</span>
@@ -10481,24 +10488,30 @@ function openSessModal() {
   renderMCats();
 
   if (timerRunning) {
-    document.getElementById('mStartBtn').textContent = '⏹ Завершить';
+    document.getElementById('mStartBtn').innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><rect x="4" y="4" width="16" height="16" rx="2"/></svg> Завершить';
     document.getElementById('mStartBtn').className = 'btn btn-d';
     document.getElementById('mSub').textContent = 'Сессия активна...';
+    _setModalPauseBtn('running');
     mRun = true;
     mRAF = requestAnimationFrame(modalTick);
   } else if (timerPaused) {
-    document.getElementById('mStartBtn').textContent = '▶ Продолжить';
-    document.getElementById('mStartBtn').className = 'btn btn-p';
+    document.getElementById('mStartBtn').innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><rect x="4" y="4" width="16" height="16" rx="2"/></svg> Завершить';
+    document.getElementById('mStartBtn').className = 'btn btn-d';
     document.getElementById('mSub').textContent = 'Пауза...';
+    _setModalPauseBtn('paused');
+    // Show paused elapsed time
+    const el = document.getElementById('mTimer');
+    if (el) el.textContent = fmt(getElapsed());
   } else {
     // Restore if modal timer was running independently (legacy)
     try {
       const s = JSON.parse(localStorage.getItem(MODAL_TIMER_KEY) || 'null');
       if (s && s.startTime && !timerRunning) {
         mRun = true; mSel = s.catId || mSel;
-        document.getElementById('mStartBtn').textContent = '⏹ Завершить';
+        document.getElementById('mStartBtn').innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><rect x="4" y="4" width="16" height="16" rx="2"/></svg> Завершить';
         document.getElementById('mStartBtn').className = 'btn btn-d';
         document.getElementById('mSub').textContent = 'Сессия активна...';
+        _setModalPauseBtn('running');
         mRAF = requestAnimationFrame(modalTick);
       }
     } catch {}
@@ -10509,8 +10522,9 @@ function closeSessModal() {
   document.getElementById('sessOv').classList.remove('show');
   document.body.classList.remove('modal-open');
   document.getElementById('mTimer').textContent = '00:00:00';
-  document.getElementById('mStartBtn').textContent = '▶ Старт';
+  document.getElementById('mStartBtn').innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><polygon points="5 3 19 12 5 21 5 3"/></svg> Старт';
   document.getElementById('mStartBtn').className = 'btn btn-p';
+  _setModalPauseBtn('hidden');
 }
 function renderMCats() {
   document.getElementById('mCatGrid').innerHTML =
@@ -10528,6 +10542,50 @@ function modalTick() {
   if (el) el.textContent = fmt(secs);
   mRAF = requestAnimationFrame(modalTick);
 }
+// Хелпер: обновляет кнопку паузы в модалке
+function _setModalPauseBtn(state) {
+  const btn = document.getElementById('mPauseBtn');
+  const icon = document.getElementById('mPauseIcon');
+  const lbl = document.getElementById('mPauseLabel');
+  if (!btn) return;
+  if (state === 'running') {
+    btn.style.display = 'flex';
+    btn.style.background = 'rgba(245,200,66,.12)';
+    btn.style.borderColor = 'rgba(245,200,66,.3)';
+    btn.style.color = 'var(--gold)';
+    if (icon) icon.innerHTML = '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>';
+    if (icon) { icon.setAttribute('stroke','var(--gold)'); icon.setAttribute('fill','none'); }
+    if (lbl) lbl.textContent = 'Пауза';
+  } else if (state === 'paused') {
+    btn.style.display = 'flex';
+    btn.style.background = 'rgba(34,197,94,.12)';
+    btn.style.borderColor = 'rgba(34,197,94,.3)';
+    btn.style.color = '#22C55E';
+    if (icon) icon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+    if (icon) { icon.setAttribute('stroke','none'); icon.setAttribute('fill','#22C55E'); }
+    if (lbl) lbl.textContent = 'Продолжить';
+  } else {
+    btn.style.display = 'none';
+  }
+}
+
+// Пауза/возобновление из модалки
+function modalPauseToggle() {
+  if (timerRunning) {
+    pauseTimer(); // синхронизирует с боковым таймером
+    _setModalPauseBtn('paused');
+    document.getElementById('mSub').textContent = 'Пауза...';
+    updateNavTimerPill();
+  } else if (timerPaused) {
+    toggleQuick(); // возобновляет — синхронизирует с боковым
+    mRun = true;
+    if (!mRAF) mRAF = requestAnimationFrame(modalTick);
+    _setModalPauseBtn('running');
+    document.getElementById('mSub').textContent = 'Сессия активна...';
+    updateNavTimerPill();
+  }
+}
+
 function modalToggle() {
   if (!mRun) {
     // Sync category with main timer
@@ -10537,17 +10595,19 @@ function modalToggle() {
     if (timerRunning) {
       mRun = true;
       mRAF = requestAnimationFrame(modalTick);
-      document.getElementById('mStartBtn').textContent = '⏹ Завершить';
+      document.getElementById('mStartBtn').innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><rect x="4" y="4" width="16" height="16" rx="2"/></svg> Завершить';
       document.getElementById('mStartBtn').className = 'btn btn-d';
       document.getElementById('mSub').textContent = 'Сессия активна...';
+      _setModalPauseBtn('running');
       return;
     }
     // Start main timer (single source of truth)
     mRun = true;
     localStorage.setItem(MODAL_TIMER_KEY, JSON.stringify({ startTime: Date.now(), catId: mSel }));
-    document.getElementById('mStartBtn').textContent = '⏹ Завершить';
+    document.getElementById('mStartBtn').innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><rect x="4" y="4" width="16" height="16" rx="2"/></svg> Завершить';
     document.getElementById('mStartBtn').className = 'btn btn-d';
     document.getElementById('mSub').textContent = 'Сессия активна...';
+    _setModalPauseBtn('running');
     mRAF = requestAnimationFrame(modalTick);
   } else stopModal(true);
 }
@@ -10566,8 +10626,9 @@ function stopModal(save) {
     _setTimerUI('idle');
     updateNavTimerPill();
   }
+  _setModalPauseBtn('hidden');
   if (save && secs > 5) { saveSession(catId, secs); closeSessModal(); return; }
-  document.getElementById('mStartBtn').textContent = '▶ Старт';
+  document.getElementById('mStartBtn').innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><polygon points="5 3 19 12 5 21 5 3"/></svg> Старт';
   document.getElementById('mStartBtn').className = 'btn btn-p';
   document.getElementById('mSub').textContent = 'Выбери активность';
   document.getElementById('mTimer').textContent = '00:00:00';
