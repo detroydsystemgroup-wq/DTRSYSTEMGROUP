@@ -439,9 +439,95 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 
 /* best day card */
 .insight-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;}
-.insight{background:var(--card);border:0.5px solid var(--border);border-radius:12px;padding:14px;text-align:center;}
-.insight-val{font-family:'DM Mono',monospace;font-size:24px;font-weight:500;letter-spacing:-.02em;line-height:1;margin-bottom:4px;}
-.insight-lbl{font-size:11px;color:var(--t2);letter-spacing:.01em;font-weight:500;}
+/* Apple-aligned insight card */
+.insight{
+  background:var(--card);
+  border:0.5px solid var(--border);
+  border-radius:14px;
+  padding:16px;
+  text-align:left;
+  position:relative;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+/* Accent top bar via custom property */
+.insight::before{
+  content:'';
+  position:absolute;top:0;left:0;right:0;height:2px;
+  background:var(--ins-c, var(--gold));
+  opacity:.65;
+  border-radius:14px 14px 0 0;
+}
+/* Header row: icon box + label */
+.insight-head{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.insight-icon-box{
+  width:36px;height:36px;
+  border-radius:10px;
+  display:inline-flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+  color:var(--ins-c, var(--gold));
+  background:rgba(var(--ins-rgb,245,192,48),.1);
+  border:0.5px solid rgba(var(--ins-rgb,245,192,48),.2);
+}
+.insight-lbl{
+  font-size:9.5px;
+  font-weight:700;
+  letter-spacing:.09em;
+  text-transform:uppercase;
+  color:var(--t2);
+  line-height:1.3;
+}
+/* Value row */
+.insight-val-row{
+  display:flex;
+  align-items:baseline;
+  gap:4px;
+}
+.insight-val{
+  font-family:'DM Mono',monospace !important;
+  font-size:26px !important;
+  font-weight:400 !important;
+  letter-spacing:-.03em !important;
+  line-height:1 !important;
+  color:var(--t1) !important;
+  margin-bottom:0 !important;
+}
+.insight-unit{
+  font-family:'DM Mono',monospace;
+  font-size:13px;
+  font-weight:400;
+  color:var(--t2);
+  letter-spacing:-.01em;
+  margin-bottom:1px;
+}
+/* Secondary label */
+.insight-sub{
+  font-size:11px;
+  font-weight:500;
+  letter-spacing:-.005em;
+  color:var(--ins-c, var(--t2));
+  opacity:.8;
+}
+/* Progress bar */
+.insight-bar-wrap{
+  height:2px;
+  background:rgba(255,255,255,.06);
+  border-radius:2px;
+  overflow:hidden;
+  margin-top:2px;
+}
+.insight-bar-fill{
+  height:100%;
+  border-radius:2px;
+  background:var(--ins-c, var(--gold));
+  transition:width 1.1s cubic-bezier(.4,0,.2,1);
+}
 
 /* ── CATS ── */
 .cats{display:flex;flex-direction:column;gap:9px;}
@@ -9536,11 +9622,8 @@ function renderDash(){
 
   // ── INSIGHTS ──
   const bestCat=active.slice().sort((a,b)=>data[b.id].reduce((s,v)=>s+v,0)-data[a.id].reduce((s,v)=>s+v,0))[0];
-  const insightEl=document.getElementById('insightRow');
-  const insCard=(bg,bc,content2)=>`<div class="insight" style="background:var(--card);border:0.5px solid rgba(255,255,255,.08);border-radius:14px;padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;position:relative;overflow:hidden"><div style="position:absolute;bottom:0;left:0;right:0;height:2px;background:${bc}"></div>${content2}</div>`;
-  const bestCatH=bestCat?data[bestCat.id].reduce((a,v)=>a+v,0):0;
-  const bestCatPct=bestCat?Math.min(100,Math.round(bestCatH/Math.max(bestCat.hours,0.1)*100)):0;
-  // Avg goal achievement: average(actual_hours / dailyGoal) per active day, as %
+
+  // ── Goal achievement ─────────────────────────────────────────
   const _goalH = dailyGoalHours;
   const _bucketMs = 86400000;
   const _periodStart = isWeek ? weekStart : (Date.now() - (buckets - 1) * _bucketMs);
@@ -9548,29 +9631,87 @@ function renderDash(){
   for (let d = 0; d < buckets; d++) {
     const dayStart = _periodStart + d * _bucketMs;
     const dayEnd = dayStart + _bucketMs;
-    const dayH = P.sessions.filter(s => { const t = sessTs(s); return t >= dayStart && t < dayEnd; })
-      .reduce((a, s) => a + s.dur / 3600, 0);
+    const dayH = P.sessions.filter(s => { const t=sessTs(s); return t>=dayStart && t<dayEnd; })
+      .reduce((a,s) => a + s.dur/3600, 0);
     if (dayH > 0) { _goalSum += Math.min(dayH / _goalH, 1); _goalDays++; }
   }
   const avgGoalPct = _goalDays > 0 ? Math.round(_goalSum / _goalDays * 100) : 0;
-  const goalColor = avgGoalPct >= 80 ? 'var(--green)' : avgGoalPct >= 50 ? 'var(--gold)' : 'var(--orange)';
-  const goalLabel = avgGoalPct >= 100 ? '🎯 Цель выполняется' : avgGoalPct >= 80 ? '📈 Близко к цели' : avgGoalPct >= 50 ? '⚡ В процессе' : '💪 Нужно больше';
+  const goalColor  = avgGoalPct >= 80 ? 'var(--green)' : avgGoalPct >= 50 ? 'var(--gold)' : 'var(--orange)';
 
-  insightEl.innerHTML=
-    insCard(`linear-gradient(160deg,${goalColor}22,var(--card))`,`${goalColor}55`,`
-      <div style="font-family:'DM Mono',monospace;font-size:34px;font-weight:400;line-height:1;color:${goalColor}">${avgGoalPct}<span style="font-size:14px;opacity:.7">%</span></div>
-      <div style="font-size:10px;font-weight:700;color:${goalColor};text-transform:uppercase;letter-spacing:.8px;margin-top:4px">${goalLabel}</div>
-      <div class="insight-lbl">Достижение цели</div>
-      <div style="font-size:9px;color:var(--t3);margin-top:2px">план ${_goalH>=1?_goalH+'ч':Math.round(_goalH*60)+'мин'}/день · ${_goalDays} дн.</div>`)+
-    insCard('linear-gradient(160deg,rgba(34,197,94,.1),var(--card))','rgba(34,197,94,.3)',`
-      <div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.8px;opacity:.7">${bestCat?bestCat.icon+' '+bestCat.name:'—'}</div>
-      <div style="font-family:'DM Mono',monospace;font-size:28px;font-weight:400;line-height:1;color:var(--green)">${bestCatH.toFixed(1)}<span style="font-size:13px;opacity:.6"> ч</span></div>
-      <div class="insight-lbl">${isWeek?'За неделю':'За месяц'}</div>
-      <div style="width:80%;height:2px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;margin-top:4px"><div style="height:100%;width:${bestCatPct}%;background:var(--green);box-shadow:0 0 6px rgba(34,197,94,.7);transition:width 1s ease"></div></div>`)+
-    insCard('linear-gradient(160deg,rgba(249,115,22,.1),var(--card))','rgba(249,115,22,.3)',`
-      <div style="font-size:10px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.8px;opacity:.7">Стрик</div>
-      <div style="font-family:'DM Mono',monospace;font-size:28px;font-weight:400;line-height:1;color:var(--orange)">${P.streak} <span style="font-size:20px">🔥</span></div>
-      <div class="insight-lbl">Дней подряд</div>`);
+  // ── Best category stats ──────────────────────────────────────
+  const bestCatH   = bestCat ? data[bestCat.id].reduce((a,v) => a+v, 0) : 0;
+  const bestCatPct = bestCat ? Math.min(100, Math.round(bestCatH / Math.max(bestCat.hours, 0.1) * 100)) : 0;
+  // ── INSIGHT CARDS — unified Apple template ──────────────────
+  const insightEl=document.getElementById('insightRow');
+
+  // SVG icons for insights
+  const svgTarget = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>`;
+  const svgBook   = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`;
+  const svgFlame  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`;
+
+  // Card builder — all params explicit, no inline guesswork
+  const insCard = ({color, rgb, icon, label, val, unit='', sub='', barPct=null}) => {
+    const barHtml = barPct !== null ? `
+      <div class="insight-bar-wrap">
+        <div class="insight-bar-fill" style="width:${barPct}%"></div>
+      </div>` : '';
+    return `
+      <div class="insight" style="--ins-c:${color};--ins-rgb:${rgb}">
+        <div class="insight-head">
+          <div class="insight-icon-box">${icon}</div>
+          <div class="insight-lbl">${label}</div>
+        </div>
+        <div class="insight-val-row">
+          <span class="insight-val">${val}</span>
+          ${unit ? `<span class="insight-unit">${unit}</span>` : ''}
+        </div>
+        ${sub ? `<div class="insight-sub">${sub}</div>` : ''}
+        ${barHtml}
+      </div>`;
+  };
+
+  // Determine goal status text (no emoji)
+  const goalStatusText = avgGoalPct >= 100 ? 'Цель выполнена' :
+                         avgGoalPct >= 80  ? 'Близко к цели' :
+                         avgGoalPct >= 50  ? 'В процессе'    : 'Нужно больше';
+  const goalPlanText = `план ${_goalH>=1?_goalH+'ч':Math.round(_goalH*60)+'мин'}/день`;
+
+  // Best cat SVG (use category icon if available, else fallback book)
+  const bestCatSvg = bestCat ? (ICONS[bestCat.id] || svgBook) : svgBook;
+  const bestCatColor = bestCat?.color || 'var(--green)';
+  const bestCatRgb   = bestCat ? '34,197,94' : '34,197,94';
+
+  insightEl.innerHTML =
+    insCard({
+      color: goalColor,
+      rgb: avgGoalPct >= 80 ? '34,197,94' : avgGoalPct >= 50 ? '245,192,48' : '249,115,22',
+      icon: svgTarget,
+      label: 'Достижение цели',
+      val: avgGoalPct,
+      unit: '%',
+      sub: `${goalStatusText} · ${goalPlanText}`,
+      barPct: avgGoalPct,
+    }) +
+    insCard({
+      color: bestCatColor,
+      rgb: '34,197,94',
+      icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${bestCat ? (bestCat.id==='read'?'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>':bestCat.id==='lang'?'<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>':bestCat.id==='code'?'<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>':bestCat.id==='trading'?'<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>':'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>') : '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>'}</svg>`,
+      label: bestCat ? bestCat.name : 'Топ категория',
+      val: bestCatH.toFixed(1),
+      unit: 'ч',
+      sub: isWeek ? 'За неделю' : 'За месяц',
+      barPct: bestCatPct,
+    }) +
+    insCard({
+      color: 'var(--orange)',
+      rgb: '249,115,22',
+      icon: svgFlame,
+      label: 'Стрик',
+      val: P.streak,
+      unit: '',
+      sub: P.streak === 1 ? '1 день подряд' :
+           P.streak <= 4 ? `${P.streak} дня подряд` : `${P.streak} дней подряд`,
+    });
   }catch(e){console.error('renderDash:',e);}
 }
 
