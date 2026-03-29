@@ -4328,78 +4328,266 @@ body.focus-mode #focusModeBtn { display: flex; }
 body.focus-mode #focusModeBtn { background: rgba(245,200,66,.1); border-color: rgba(245,200,66,.25); color: var(--gold); }
 
 /* ── COMMAND PALETTE ── */
+/* ══ COMMAND PALETTE — Apple Spotlight ══════════════════════ */
+
+/* Backdrop overlay */
 #cmdPalette {
   position: fixed; inset: 0; z-index: 9000;
-  background: rgba(0,0,0,.7);
-  backdrop-filter: blur(16px);
-  display: none; align-items: flex-start; justify-content: center;
-  padding-top: 100px;
+  display: none;
+  align-items: flex-start; justify-content: center;
+  padding-top: 14vh;
+  /* backdrop handled by ::before for independent animation */
 }
-#cmdPalette.open { display: flex; animation: fadeIn .15s ease; }
+#cmdPalette::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  opacity: 0;
+  transition: opacity .22s ease;
+  pointer-events: none;
+  z-index: -1;
+}
+#cmdPalette.open { display: flex; }
+#cmdPalette.open::before { opacity: 1; }
+
+/* Palette box — glass material */
 .cmd-box {
-  width: 540px; max-width: 90vw;
-  background: #0E0E16;
-  border: 0.5px solid rgba(255,255,255,.12);
-  border-radius: 16px;
+  width: 580px;
+  max-width: 92vw;
+  background: rgba(18,18,24,.96);
+  backdrop-filter: blur(48px) saturate(200%);
+  -webkit-backdrop-filter: blur(48px) saturate(200%);
+  border: 0.5px solid rgba(255,255,255,.1);
+  border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 32px 80px rgba(0,0,0,.7);
-  animation: springIn .2s cubic-bezier(.34,1.2,.64,1) both;
+  box-shadow:
+    0 0 0 0.5px rgba(0,0,0,.5),
+    0 20px 60px rgba(0,0,0,.65),
+    0 8px 24px rgba(0,0,0,.45),
+    inset 0 0.5px 0 rgba(255,255,255,.08);
+  /* Animation state */
+  opacity: 0;
+  transform: scale(.94) translateY(-8px);
+  transition: opacity .22s var(--ease-out, cubic-bezier(.4,0,.2,1)),
+              transform .28s var(--ease-bounce, cubic-bezier(.34,1.15,.64,1));
+  will-change: transform, opacity;
 }
+#cmdPalette.open .cmd-box {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+#cmdPalette.closing .cmd-box {
+  opacity: 0;
+  transform: scale(.95) translateY(-6px);
+  transition: opacity .16s ease, transform .16s ease;
+}
+#cmdPalette.closing::before { opacity: 0; }
+
+/* Search row */
 .cmd-input-wrap {
-  display: flex; align-items: center; gap: 10px;
-  padding: 14px 18px;
-  border-bottom: 0.5px solid rgba(255,255,255,.06);
+  display: flex; align-items: center; gap: 11px;
+  padding: 16px 18px 15px;
+  border-bottom: 0.5px solid rgba(255,255,255,.055);
+  position: relative;
 }
-.cmd-input-wrap svg { color: var(--t2); flex-shrink: 0; }
+.cmd-search-icon {
+  color: var(--t3);
+  flex-shrink: 0;
+  transition: color .2s;
+}
+.cmd-input-wrap:focus-within .cmd-search-icon { color: var(--t2); }
+
 #cmdInput {
   flex: 1; background: transparent; border: none; outline: none;
-  font-size: 15px; font-weight: 500; color: var(--t1);
-  font-family: 'DM Sans', sans-serif;
-  letter-spacing: -.01em;
+  font-size: 16px; font-weight: 500; color: var(--t1);
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+  letter-spacing: -.02em;
+  caret-color: var(--gold);
 }
-#cmdInput::placeholder { color: var(--t3); }
-.cmd-hint {
-  font-size: 10px; font-weight: 700; letter-spacing: .06em;
-  text-transform: uppercase; color: var(--t3);
-  padding: 10px 18px 6px;
-}
-.cmd-item {
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 18px;
+#cmdInput::placeholder { color: var(--t3); font-weight: 400; }
+
+.cmd-esc-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.07);
+  border: 0.5px solid rgba(255,255,255,.1);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--t3);
+  font-family: var(--font-mono, 'DM Mono', monospace);
+  flex-shrink: 0;
+  transition: all .15s;
   cursor: pointer;
-  transition: background .1s;
-  border-radius: 0;
 }
-.cmd-item:hover, .cmd-item.selected {
-  background: rgba(245,200,66,.08);
+.cmd-esc-badge:hover { background: rgba(255,255,255,.1); color: var(--t2); }
+
+/* List container */
+#cmdList {
+  max-height: 360px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: 6px 0;
 }
-.cmd-item-icon {
-  width: 32px; height: 32px; border-radius: 9px;
-  background: rgba(255,255,255,.06);
-  border: 0.5px solid rgba(255,255,255,.08);
+#cmdList::-webkit-scrollbar { display: none; }
+
+/* Category group header */
+.cmd-group-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--t3);
+  padding: 10px 18px 5px;
+  font-family: var(--font-body);
+  user-select: none;
+}
+.cmd-group-label:first-child { padding-top: 6px; }
+
+/* Item row */
+.cmd-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 7px 10px 7px 12px;
+  margin: 1px 6px;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: background .1s, transform .1s var(--ease-bounce);
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
+}
+.cmd-item:active { transform: scale(.98); }
+
+.cmd-item.selected,
+.cmd-item:hover {
+  background: rgba(255,255,255,.07);
+}
+.cmd-item.selected {
+  background: rgba(239,192,48,.1);
+}
+.cmd-item.selected .cmd-item-label { color: var(--gold); }
+.cmd-item.selected .cmd-item-icon-box { border-color: rgba(239,192,48,.3); }
+
+/* Icon box */
+.cmd-item-icon-box {
+  width: 34px; height: 34px;
+  border-radius: 9px;
   display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; color: var(--t2);
+  flex-shrink: 0;
+  font-size: 17px;
+  border: 0.5px solid rgba(255,255,255,.07);
+  background: rgba(255,255,255,.05);
+  transition: background .15s, border-color .15s;
+  line-height: 1;
 }
-.cmd-item-icon.gold { background: rgba(245,200,66,.1); border-color: rgba(245,200,66,.2); color: var(--gold); }
-.cmd-item-icon.red { background: rgba(239,68,68,.1); border-color: rgba(239,68,68,.2); color: var(--red); }
-.cmd-item-icon.green { background: rgba(34,197,94,.1); border-color: rgba(34,197,94,.2); color: var(--green); }
-.cmd-item-icon.blue { background: rgba(26,159,255,.1); border-color: rgba(26,159,255,.2); color: var(--blue); }
-.cmd-item-label { font-size: 13px; font-weight: 500; color: var(--t1); flex: 1; letter-spacing: -.01em; }
-.cmd-item-shortcut { font-size: 10px; font-weight: 600; color: var(--t3); font-family: 'DM Mono', monospace; }
+/* Icon color classes */
+.cmd-item-icon-box.c-gold   { background: rgba(239,192,48,.12); border-color: rgba(239,192,48,.22); }
+.cmd-item-icon-box.c-blue   { background: rgba(10,132,255,.12); border-color: rgba(10,132,255,.22); }
+.cmd-item-icon-box.c-green  { background: rgba(48,209,88,.12);  border-color: rgba(48,209,88,.22);  }
+.cmd-item-icon-box.c-red    { background: rgba(255,69,58,.12);  border-color: rgba(255,69,58,.22);  }
+.cmd-item-icon-box.c-purple { background: rgba(191,90,242,.12); border-color: rgba(191,90,242,.22); }
+.cmd-item-icon-box.c-orange { background: rgba(255,159,10,.12); border-color: rgba(255,159,10,.22); }
+.cmd-item-icon-box.c-cyan   { background: rgba(50,210,245,.12); border-color: rgba(50,210,245,.22); }
+
+/* Item text */
+.cmd-item-text { flex: 1; min-width: 0; }
+.cmd-item-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--t1);
+  letter-spacing: -.02em;
+  line-height: 1.25;
+  font-family: var(--font-body);
+}
+.cmd-item-desc {
+  font-size: 11px;
+  color: var(--t3);
+  letter-spacing: -.005em;
+  margin-top: 1px;
+  font-family: var(--font-body);
+}
+
+/* Keyboard shortcut chip */
+.cmd-item-shortcut {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.06);
+  border: 0.5px solid rgba(255,255,255,.1);
+  border-radius: 5px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--t3);
+  font-family: var(--font-mono, 'DM Mono', monospace);
+  flex-shrink: 0;
+  min-width: 22px;
+  text-align: center;
+}
+
+/* Divider between groups */
+.cmd-divider {
+  height: 0.5px;
+  background: rgba(255,255,255,.05);
+  margin: 5px 0;
+}
+
+/* Empty state */
+.cmd-empty {
+  text-align: center;
+  padding: 32px 24px;
+  color: var(--t3);
+  font-size: 13px;
+  font-family: var(--font-body);
+  letter-spacing: -.005em;
+}
+.cmd-empty-icon { font-size: 28px; margin-bottom: 8px; opacity: .4; }
+
+/* Footer */
 .cmd-footer {
-  display: flex; align-items: center; gap: 12px;
-  padding: 8px 18px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 9px 14px;
   border-top: 0.5px solid rgba(255,255,255,.05);
+  background: rgba(255,255,255,.015);
 }
 .cmd-key {
-  display: inline-flex; align-items: center; gap: 3px;
-  font-size: 10px; color: var(--t3); font-family: 'DM Mono', monospace;
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px;
+  color: var(--t3);
+  font-family: var(--font-mono);
+  padding: 0 3px;
 }
+.cmd-key + .cmd-key { margin-left: 6px; }
 .cmd-key kbd {
   display: inline-flex; align-items: center; justify-content: center;
-  background: rgba(255,255,255,.08); border: 0.5px solid rgba(255,255,255,.12);
-  border-radius: 4px; padding: 1px 5px; font-size: 10px; color: var(--t2);
-  font-family: 'DM Mono', monospace;
+  background: rgba(255,255,255,.07);
+  border: 0.5px solid rgba(255,255,255,.1);
+  border-bottom-width: 1.5px;
+  border-radius: 5px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--t2);
+  font-family: var(--font-mono);
+  min-width: 18px;
+  text-align: center;
+}
+
+/* Mobile adjustments */
+@media (max-width: 600px) {
+  #cmdPalette { padding-top: 10vh; align-items: flex-end; }
+  .cmd-box {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 20px 20px 0 0;
+    border-left: none; border-right: none; border-bottom: none;
+    max-height: 80dvh;
+    display: flex; flex-direction: column;
+  }
+  #cmdList { flex: 1; }
 }
 
 /* ── KEYBOARD SHORTCUT TOOLTIPS ── */
@@ -6935,17 +7123,33 @@ body {
 <!-- Command Palette -->
 <div id="cmdPalette" onclick="if(event.target===this)closeCmdPalette()">
   <div class="cmd-box">
+
+    <!-- Search row -->
     <div class="cmd-input-wrap">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input id="cmdInput" placeholder="Поиск команд..." oninput="filterCmds(this.value)" onkeydown="cmdKeyNav(event)" autocomplete="off" spellcheck="false">
-      <kbd style="font-size:10px;color:var(--t3);font-family:'DM Mono',monospace;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.1);border-radius:5px;padding:2px 6px">Esc</kbd>
+      <svg class="cmd-search-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input
+        id="cmdInput"
+        placeholder="Поиск команд..."
+        oninput="filterCmds(this.value)"
+        onkeydown="cmdKeyNav(event)"
+        autocomplete="off"
+        spellcheck="false"
+      >
+      <span class="cmd-esc-badge" onclick="closeCmdPalette()">esc</span>
     </div>
-    <div id="cmdList" style="max-height:320px;overflow-y:auto"></div>
+
+    <!-- Results -->
+    <div id="cmdList"></div>
+
+    <!-- Footer -->
     <div class="cmd-footer">
-      <span class="cmd-key"><kbd>↑↓</kbd> навигация</span>
-      <span class="cmd-key" style="margin-left:8px"><kbd>↵</kbd> выбрать</span>
-      <span class="cmd-key" style="margin-left:8px"><kbd>Esc</kbd> закрыть</span>
+      <span class="cmd-key"><kbd>↑</kbd><kbd>↓</kbd> навигация</span>
+      <span class="cmd-key"><kbd>↵</kbd> выбрать</span>
+      <span class="cmd-key"><kbd>Esc</kbd> закрыть</span>
     </div>
+
   </div>
 </div>
 
@@ -11027,86 +11231,161 @@ function openMobileTimerSheet() {
 }
 
 // ── Command Palette ────────────────────────────────────────────
+// ── COMMAND PALETTE — Apple Spotlight ──────────────────────────
 const CMD_LIST = [
-  { label: '🚀 Старт таймера',       action: () => { showTab('dash'); setTimeout(toggleQuick, 200); } },
-  { label: '📊 Дашборд',             action: () => showTab('dash') },
-  { label: '⚔️ Арена',               action: () => showTab('leagues') },
-  { label: '📜 История',             action: () => showTab('activity') },
-  { label: '🏆 Награды',             action: () => showTab('achievements') },
-  { label: '🌟 Лиги',               action: () => showTab('manage') },
-  { label: '💬 Сообщения',           action: () => showTab('messages') },
-  { label: '🚪 Выйти из аккаунта',   action: () => doLogout() },
+  // Navigation
+  { cat:'Навигация', label:'Дашборд',      desc:'Статистика и прогресс',     icon:'📊', color:'c-blue',   shortcut:'1', action:()=>showTab('dash') },
+  { cat:'Навигация', label:'Арена',         desc:'Лиги, рейтинги, соревнования', icon:'⚔️', color:'c-red',    shortcut:'2', action:()=>showTab('leagues') },
+  { cat:'Навигация', label:'История',       desc:'Все прошлые сессии',        icon:'📜', color:'c-purple', shortcut:'3', action:()=>showTab('activity') },
+  { cat:'Навигация', label:'Награды',       desc:'Достижения и трофеи',       icon:'🏆', color:'c-gold',   shortcut:'4', action:()=>showTab('achievements') },
+  { cat:'Навигация', label:'Управление',    desc:'Категории и настройки целей',icon:'⚙️', color:'c-orange', shortcut:'5', action:()=>showTab('manage') },
+  { cat:'Навигация', label:'Сообщения',     desc:'Чат с участниками клуба',   icon:'💬', color:'c-cyan',   shortcut:'6', action:()=>showTab('messages') },
+  { cat:'Навигация', label:'Социальное',    desc:'Лента, друзья, подписки',   icon:'👥', color:'c-green',  shortcut:'7', action:()=>showTab('social') },
+  // Actions
+  { cat:'Действия',  label:'Старт таймера', desc:'Запустить сессию прямо сейчас', icon:'▶️', color:'c-gold', shortcut:'T', action:()=>{ showTab('dash'); setTimeout(toggleQuick,200); } },
+  // Account
+  { cat:'Аккаунт',   label:'Выйти из аккаунта', desc:null, icon:'🚪', color:'c-red', action:()=>doLogout() },
 ];
+
 let _cmdIdx = -1;
+let _cmdCloseTimer = null;
 
 function openCmdPalette() {
   const pal = document.getElementById('cmdPalette');
   if (!pal) return;
+  clearTimeout(_cmdCloseTimer);
+  pal.classList.remove('closing');
   pal.style.display = 'flex';
   _cmdIdx = -1;
   filterCmds('');
-  setTimeout(() => {
-    const inp = document.getElementById('cmdInput');
-    if (inp) { inp.value = ''; inp.focus(); }
-  }, 50);
+  // Trigger animation on next frame
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      pal.classList.add('open');
+      const inp = document.getElementById('cmdInput');
+      if (inp) { inp.value = ''; inp.focus(); }
+    });
+  });
 }
 
 function closeCmdPalette() {
   const pal = document.getElementById('cmdPalette');
-  if (pal) pal.style.display = 'none';
+  if (!pal) return;
+  pal.classList.remove('open');
+  pal.classList.add('closing');
   _cmdIdx = -1;
+  _cmdCloseTimer = setTimeout(() => {
+    pal.style.display = 'none';
+    pal.classList.remove('closing');
+  }, 180);
 }
 
 function filterCmds(q) {
   const list = document.getElementById('cmdList');
   if (!list) return;
-  const lower = (q || '').toLowerCase();
-  const filtered = CMD_LIST.filter(c => !lower || c.label.toLowerCase().includes(lower));
+  const lower = (q || '').toLowerCase().trim();
+
+  const filtered = lower
+    ? CMD_LIST.filter(c =>
+        c.label.toLowerCase().includes(lower) ||
+        (c.desc || '').toLowerCase().includes(lower) ||
+        c.cat.toLowerCase().includes(lower)
+      )
+    : CMD_LIST;
+
   _cmdIdx = -1;
-  // Store first so onclick can reference it
   list._filtered = filtered;
-  list.innerHTML = filtered.map((c, i) =>
-    `<div class="cmd-item" data-idx="${i}"
-       style="padding:11px 16px;cursor:pointer;font-size:13px;color:var(--t1);transition:background .12s;border-radius:0"
-       onmouseenter="this.style.background='rgba(255,255,255,.06)'"
-       onmouseleave="this.style.background=''"
-       onclick="_execCmd(${i})"
-    >${c.label}</div>`
-  ).join('');
+
+  if (!filtered.length) {
+    list.innerHTML = `
+      <div class="cmd-empty">
+        <div class="cmd-empty-icon">🔍</div>
+        <div>Ничего не найдено по «${q}»</div>
+      </div>`;
+    return;
+  }
+
+  // Group by category
+  const groups = {};
+  filtered.forEach((c, i) => {
+    if (!groups[c.cat]) groups[c.cat] = [];
+    groups[c.cat].push({ ...c, _idx: i });
+  });
+
+  let html = '';
+  const cats = Object.keys(groups);
+  cats.forEach((cat, gi) => {
+    html += `<div class="cmd-group-label">${cat}</div>`;
+    groups[cat].forEach(c => {
+      const shortcutHtml = c.shortcut
+        ? `<span class="cmd-item-shortcut">${c.shortcut}</span>`
+        : '';
+      const descHtml = c.desc
+        ? `<div class="cmd-item-desc">${c.desc}</div>`
+        : '';
+      html += `
+        <div class="cmd-item" data-idx="${c._idx}"
+          onmouseenter="_cmdHover(this)"
+          onmouseleave="_cmdUnhover(this)"
+          onclick="_execCmd(${c._idx})">
+          <div class="cmd-item-icon-box ${c.color}">${c.icon}</div>
+          <div class="cmd-item-text">
+            <div class="cmd-item-label">${c.label}</div>
+            ${descHtml}
+          </div>
+          ${shortcutHtml}
+        </div>`;
+    });
+    if (gi < cats.length - 1) html += '<div class="cmd-divider"></div>';
+  });
+
+  list.innerHTML = html;
 }
+
+function _cmdHover(el) {
+  document.querySelectorAll('#cmdList .cmd-item').forEach(x => x.classList.remove('selected'));
+  el.classList.add('selected');
+  const idx = parseInt(el.dataset.idx, 10);
+  const list = document.getElementById('cmdList');
+  const filtered = list?._filtered || [];
+  _cmdIdx = filtered.findIndex(c => c._idx === idx);
+}
+function _cmdUnhover(el) { el.classList.remove('selected'); }
 
 function _execCmd(idx) {
   const list = document.getElementById('cmdList');
   const filtered = list?._filtered || CMD_LIST;
-  if (filtered[idx]) {
-    closeCmdPalette();
-    filtered[idx].action();
-  }
+  const item = filtered.find(c => c._idx === idx) || filtered[idx];
+  if (item) { closeCmdPalette(); setTimeout(() => item.action(), 120); }
 }
 
 function cmdKeyNav(e) {
   const list = document.getElementById('cmdList');
   const filtered = list?._filtered || [];
   const items = list?.querySelectorAll('.cmd-item') || [];
-  if (e.key === 'Escape') { closeCmdPalette(); return; }
+  const len = items.length;
+
+  if (e.key === 'Escape') { e.preventDefault(); closeCmdPalette(); return; }
+
   if (e.key === 'ArrowDown') {
     e.preventDefault();
-    _cmdIdx = Math.min(_cmdIdx + 1, items.length - 1);
+    _cmdIdx = _cmdIdx < len - 1 ? _cmdIdx + 1 : 0;
   } else if (e.key === 'ArrowUp') {
     e.preventDefault();
-    _cmdIdx = Math.max(_cmdIdx - 1, 0);
+    _cmdIdx = _cmdIdx > 0 ? _cmdIdx - 1 : len - 1;
   } else if (e.key === 'Enter') {
     e.preventDefault();
-    if (_cmdIdx >= 0 && filtered[_cmdIdx]) {
-      closeCmdPalette();
-      filtered[_cmdIdx].action();
+    if (_cmdIdx >= 0 && items[_cmdIdx]) {
+      const idx = parseInt(items[_cmdIdx].dataset.idx, 10);
+      _execCmd(idx);
     }
     return;
   } else { return; }
+
   items.forEach((el, i) => {
-    el.style.background = i === _cmdIdx ? 'rgba(245,200,66,.12)' : '';
+    el.classList.toggle('selected', i === _cmdIdx);
   });
-  items[_cmdIdx]?.scrollIntoView({ block: 'nearest' });
+  items[_cmdIdx]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 
 // Close palette on Escape globally
