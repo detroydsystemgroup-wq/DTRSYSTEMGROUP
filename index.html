@@ -43,7 +43,7 @@
 <meta name="twitter:title" content="DTR Progress Club">
 <meta name="twitter:description" content="Геймифицированный трекер саморазвития с лигами и соревнованием.">
 <title>DTR Progress Club</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Nunito:wght@300;400;500;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{
@@ -69,6 +69,7 @@
   /* ── Semantic colors ── */
   --blue:#1a9fff;      /* keep for compat */
   --green:#22C55E;
+  --green-l:#4ADE80;    /* data / positive metric green */
   --orange:#F97316;
   --purple:#A855F7;
   --red:#EF4444;
@@ -96,7 +97,7 @@
 
   /* ── Typography tokens ── */
   --font-display:'Bebas Neue',sans-serif;
-  --font-body:'Inter','DM Sans',sans-serif;
+  --font-body:'DM Sans',sans-serif;
   --font-mono:'DM Mono',monospace;
 
   /* ── Radius tokens ── */
@@ -105,11 +106,22 @@
   --r-btn:10px;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-* { transition-property: color, background-color, border-color, box-shadow; transition-duration: .18s; transition-timing-function: ease; }
+/* Targeted transition — only interactive elements, not every DOM node */
+a, button, input, select, textarea,
+.btn, .btn-ol, .btn-auth, .btn-cs, .btn-demo,
+.nb, .stab, .kpi, .card, .si, .lg-row, .mg-item,
+.ach2, .ai, .nav-user, .a-tab, .seg-btn,
+.arena-mode-btn, .mg-item, .csg-item, .gl-row,
+.av-opt, .fi, .msg-conv, .msg-bubble, .r-pill,
+.hm-cell, .timer-mode-btn, .ctx-item, .up-btn {
+  transition-property: color, background-color, border-color, box-shadow, opacity;
+  transition-duration: .18s;
+  transition-timing-function: ease;
+}
 /* Override for animated elements — no color transition interference */
 .xp-fill, .cbd-bar, .lr-bar, .ci-bar { transition: width 1s cubic-bezier(.4,0,.2,1) !important; }
 .kpi, .card, .modal, .stab, .mg-item { transition: transform .22s cubic-bezier(.34,1.56,.64,1), box-shadow .2s, color .18s, background-color .18s, border-color .18s !important; }
-body{font-family:'Inter','DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;font-size:15px;line-height:1.6;letter-spacing:-0.005em;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;font-size:15px;line-height:1.6;letter-spacing:-0.005em;}
 
 /* ── ONBOARDING ── */
 #onboard{position:fixed;inset:0;z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);overflow-y:auto;padding:20px 0;}
@@ -151,7 +163,7 @@ body{font-family:'Inter','DM Sans',sans-serif;background:var(--bg);color:var(--t
 .fi::placeholder{color:var(--t3);}
 .av-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:4px;}
 .av-opt{width:40px;height:40px;border-radius:10px;background:var(--card);border:0.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;transition:all .2s;}
-.av-opt:hover,.av-opt.sel{border-color:var(--blue);background:rgba(26,159,255,.1);}
+.av-opt:hover,.av-opt.sel{border-color:rgba(245,200,66,.5);background:rgba(245,200,66,.08);}
 .a-err{font-size:12px;color:var(--red);min-height:16px;text-align:center;margin-top:4px;}
 .btn-auth{width:100%;padding:13px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;border:none;background:var(--gold);color:#0A0A0B;font-family:'DM Sans',sans-serif;letter-spacing:.02em;margin-top:6px;transition:all .2s;}
 .btn-auth:hover{transform:translateY(-2px);box-shadow:0 6px 28px rgba(245,200,66,.4);}
@@ -231,7 +243,7 @@ body{font-family:'Inter','DM Sans',sans-serif;background:var(--bg);color:var(--t
 }
 /* Cover — cinematic game banner */
 .ph-cover{
-  height:110px;
+  height:160px;
   background:#06050F;
   position:relative;overflow:hidden;
 }
@@ -266,7 +278,7 @@ body{font-family:'Inter','DM Sans',sans-serif;background:var(--bg);color:var(--t
 .ph-in{width:100%;padding:0 36px;box-sizing:border-box;}
 .ph-top{
   display:flex;align-items:center;gap:20px;
-  margin-top:-48px;padding-bottom:16px;
+  margin-top:-52px;padding-bottom:16px;
   position:relative;z-index:2;
 }
 /* Avatar */
@@ -497,8 +509,8 @@ body{font-family:'Inter','DM Sans',sans-serif;background:var(--bg);color:var(--t
 
 /* ── TOTALS SIDEBAR ── */
 .tot-wr{text-align:center;padding:18px 12px;}
-.tot-num{font-family:'DM Mono',monospace;font-size:52px;font-weight:400;letter-spacing:-.02em;line-height:1;color:#4ade80;text-shadow:0 0 20px rgba(74,222,128,.2);transition:all .3s;}
-.tot-lbl{font-size:10px;color:rgba(74,222,128,.7);text-transform:uppercase;letter-spacing:2px;margin-top:3px;font-weight:600;}
+.tot-num{font-family:'DM Mono',monospace;font-size:52px;font-weight:400;letter-spacing:-.02em;line-height:1;color:var(--green-l);text-shadow:0 0 20px rgba(74,222,128,.2);transition:all .3s;}
+.tot-lbl{font-size:10px;color:rgba(var(--green-rgb, 34,197,94),.65);text-transform:uppercase;letter-spacing:2px;margin-top:3px;font-weight:600;}
 .tot-div{height:1px;background:var(--border);margin:10px 0;}
 .tot-streak{font-size:12px;color:var(--orange);display:flex;align-items:center;justify-content:center;gap:5px;font-weight:600;}
 .tot-week{font-size:11px;color:var(--green);display:flex;align-items:center;justify-content:center;gap:4px;margin-top:4px;}
@@ -618,7 +630,7 @@ body{
 #navTimerPill{font-size:11px!important;}
 
 /* ── 3. PROFILE HEADER — centered iOS style ── */
-.ph-cover{height:90px!important;overflow:hidden!important;}
+.ph-cover{height:120px!important;overflow:hidden!important;}
 .ph-cover::before{animation:none!important;}
 .ph-in{padding:0!important;}
 .ph-top{
@@ -878,8 +890,6 @@ body{
 .cmp-period-btn{font-size:10px!important;padding:5px 9px!important;}
 [id^="sec_"]{
   margin:20px 0 10px!important;
-  font-size:10px!important;
-  letter-spacing:.07em!important;
 }
 
 /* Segmented control */
@@ -1500,11 +1510,7 @@ body { transition:background .28s,color .28s; }
 .btn-p:hover { box-shadow:0 4px 18px rgba(26,159,255,.35); }
 .btn-d:hover { box-shadow:0 4px 18px rgba(248,81,73,.3); }
 
-/* ── SCROLLBAR ── */
-::-webkit-scrollbar { width:5px; height:5px; }
-::-webkit-scrollbar-track { background:transparent; }
-::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
-::-webkit-scrollbar-thumb:hover { background:var(--t3); }
+/* Scrollbar — see canonical definition below */
 
 /* ── LIGHT THEME SUPPLEMENT ── */
 [data-theme="light"] .nav { box-shadow:0 1px 12px rgba(0,0,0,.07); }
@@ -1569,11 +1575,11 @@ body { transition:background .28s,color .28s; }
   position:absolute;bottom:-42px;left:24px;
   box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 0 1px rgba(245,200,66,.15);
   overflow:hidden;
-  animation:avFloat 4s ease-in-out infinite;
+  transition:transform .22s cubic-bezier(.34,1.56,.64,1),box-shadow .22s;
 }
-@keyframes avFloat{
-  0%,100%{transform:translateY(0);box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 0 1px rgba(245,200,66,.15),0 0 20px rgba(245,200,66,.1);}
-  50%{transform:translateY(-6px);box-shadow:0 16px 40px rgba(0,0,0,.7),0 0 0 1px rgba(245,200,66,.25),0 0 32px rgba(245,200,66,.2);}
+.up-av:hover{
+  transform:translateY(-4px);
+  box-shadow:0 16px 40px rgba(0,0,0,.7),0 0 0 1px rgba(245,200,66,.25);
 }
 .up-head{padding:60px 24px 18px;border-bottom:0.5px solid var(--border-l);}
 .up-name{font-family:'DM Sans',sans-serif;font-size:24px;font-weight:800;margin-bottom:5px;letter-spacing:-.02em;}
@@ -1966,10 +1972,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 
 
 /* ── Scrollbar gold tint ── */
-::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(245,200,66,.3); }
+/* scrollbar — canonical below */
 
 /* ── Achievement unlock gold ── */
 .ach2.unlocked { border-color: var(--ach-color); }
@@ -2528,16 +2531,13 @@ body.modal-open{overflow:hidden!important;}
 
 
 /* ── Timer dropdown options ── */
-#pomTimeSel option{background:#0d1a0d;color:#4ade80;font-size:14px;font-weight:700;padding:8px 12px;}
-#pomTimeSel option:hover{background:#1a3a1a;}
-#timerLeagueSel option{background:#111;color:var(--t1);font-size:13px;text-align:center;}
+#pomTimeSel option{background:var(--card);color:var(--green);font-size:14px;font-weight:700;padding:8px 12px;}
+#pomTimeSel option:hover{background:var(--hover);}
+#timerLeagueSel option{background:var(--card);color:var(--t1);font-size:13px;text-align:center;}
 
 
 /* ══ PREMIUM DASHBOARD GLOW ═══════════════════════════════ */
-.kpi:hover {
-  transform: translateY(-5px) scale(1.02) !important;
-  box-shadow: 0 12px 32px rgba(0,0,0,.35), 0 0 0 1px rgba(245,200,66,.15) !important;
-}
+/* KPI hover — see canonical definition in desktop block */
 .bar-fill > div {
   transition: height .6s cubic-bezier(.4,0,.2,1);
 }
@@ -2776,16 +2776,7 @@ body {
   border-bottom: 0.5px solid rgba(245,200,66,.1) !important;
   box-shadow: 0 1px 0 rgba(245,200,66,.06), 0 4px 32px rgba(0,0,0,.5) !important;
 }
-.nav-logo-text {
-  font-family: 'Bebas Neue', sans-serif !important;
-  font-size: 19px !important;
-  letter-spacing: 3px !important;
-  background: linear-gradient(135deg, var(--gold-l), var(--gold)) !important;
-  -webkit-background-clip: text !important;
-  background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
-  filter: drop-shadow(0 0 8px rgba(245,200,66,.3)) !important;
-}
+/* nav-logo-text — canonical: DM Sans, var(--t1) + gold accent, defined in desktop block */
 .nb-p {
   background: linear-gradient(135deg, var(--gold), var(--gold-d)) !important;
   color: #09090B !important;
@@ -2869,7 +2860,7 @@ body {
 .tot-num {
   font-family: 'Bebas Neue', sans-serif !important;
   font-size: 60px !important;
-  color: #4ade80 !important;
+  color: var(--green-l) !important;
   text-shadow: 0 0 24px rgba(74,222,128,.4), 0 0 48px rgba(74,222,128,.15) !important;
 }
 
@@ -2970,32 +2961,10 @@ body {
 .ach2:hover { border-color: rgba(245,200,66,.2) !important; background: rgba(245,200,66,.04) !important; transform: translateY(-3px) !important; }
 .ach2.unlocked { border-color: var(--ach-color) !important; background: rgba(0,0,0,.1) !important; }
 
-/* ── Section titles ── */
-#sec_by_cat, #sec_kpi, #sec_records, #sec_forecast {
-  font-size: 10px !important;
-  font-weight: 800 !important;
-  letter-spacing: 2.5px !important;
-  text-transform: uppercase !important;
-  color: var(--gold) !important;
-  text-shadow: 0 0 10px rgba(245,200,66,.3) !important;
-  margin: 20px 0 12px !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 10px !important;
-}
-#sec_by_cat::after, #sec_kpi::after, #sec_records::after, #sec_forecast::after {
-  content: '' !important;
-  flex: 1 !important;
-  height: 1px !important;
-  background: linear-gradient(90deg, rgba(245,200,66,.3), transparent) !important;
-}
+/* ── Section titles — consolidated into single canonical definition below ── */
 
 
-/* ── Scrollbar global ── */
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(245,200,66,.2); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(245,200,66,.4); }
+/* scrollbar — canonical below */
 
 /* ── Dashboard period buttons ── */
 .dp-btn.active {
@@ -3017,11 +2986,11 @@ body {
 
 /* ── Profile meta badges ── */
 .mi {
-  background: rgba(245,200,66,.06) !important;
-  border: 0.5px solid rgba(245,200,66,.15) !important;
-  color: var(--gold) !important;
+  background: rgba(255,255,255,.04) !important;
+  border: 0.5px solid rgba(255,255,255,.07) !important;
+  color: var(--t2) !important;
   border-radius: 8px !important;
-  font-weight: 700 !important;
+  font-weight: 500 !important;
 }
 
 /* ── Cat filter buttons ── */
@@ -3081,15 +3050,7 @@ body {
 .lh-name { font-family: 'DM Sans', sans-serif !important; font-weight: 800 !important; font-size: 22px !important; letter-spacing: -.03em !important; }
 .lh-gap { font-family: 'DM Mono', monospace !important; font-size: 20px !important; font-weight: 500 !important; }
 
-/* Apple-style section separators */
-[id^="sec_"] {
-  font-family: 'DM Sans', sans-serif !important;
-  font-size: 10px !important;
-  font-weight: 700 !important;
-  letter-spacing: .08em !important;
-  text-transform: uppercase !important;
-  color: var(--t2) !important;
-}
+/* Apple-style section separators — see canonical definition in desktop block */
 
 /* Badge / pill fix */
 .lg-badge, .lr-pill {
@@ -3126,7 +3087,7 @@ body {
 .nav-logo-text { font-family: 'DM Sans', sans-serif !important; }
 
 /* Trophy number on profile stats */
-.tot-lbl { font-family: 'DM Sans', sans-serif !important; font-size: 10px !important; font-weight: 600 !important; letter-spacing: .06em !important; text-transform: uppercase !important; color: rgba(74,222,128,.6) !important; }
+.tot-lbl { font-family: 'DM Sans', sans-serif !important; font-size: 10px !important; font-weight: 600 !important; letter-spacing: .06em !important; text-transform: uppercase !important; color: var(--green) !important; opacity: .65; }
 
 /* Auth logo accent stays gold */
 .auth-logo span { color: var(--gold); font-family: 'DM Sans', sans-serif !important; }
@@ -3155,8 +3116,7 @@ p, .ms, .ach2-desc, .cbd-vs, .csg-desc, .mg-members {
   color: var(--t2);
 }
 
-/* Scrollbar gold tint */
-::-webkit-scrollbar-thumb:hover { background: rgba(245,200,66,.25) !important; }
+/* scrollbar hover — see canonical */
 
 
 /* ══════════════════════════════════════════════════════════
@@ -3189,11 +3149,7 @@ button, select, input, textarea { font-family: var(--font-body); }
 .kpi:nth-child(3) { --kpi-c: #60A5FA; }
 .kpi:nth-child(4) { --kpi-c: #F97316; }
 
-/* --- Cleaner KPI hover state --- */
-.kpi:hover {
-  transform: translateY(-3px) !important;
-  box-shadow: 0 6px 24px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.04) !important;
-}
+/* --- KPI hover — see canonical definition in desktop block --- */
 
 /* --- Session date color fix --- */
 .sdate { color: var(--t2) !important; font-size: 11px !important; }
@@ -3228,11 +3184,11 @@ button, select, input, textarea { font-family: var(--font-body); }
   letter-spacing: -.01em !important;
 }
 
-/* --- Scrollbar gold system-wide --- */
-* { scrollbar-width: thin; scrollbar-color: rgba(245,200,66,.15) transparent; }
+/* Scrollbar — canonical global definition */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-thumb { background: rgba(245,200,66,.15); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(245,200,66,.3); }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(245,200,66,.18); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(245,200,66,.32); }
 
 /* --- Heatmap cells nicer --- */
 .hm-cell { border-radius: 3px !important; }
@@ -3296,7 +3252,7 @@ button, select, input, textarea { font-family: var(--font-body); }
 
 /* --- CMP diff badges --- */
 .cmp-diff { border-radius: 6px !important; font-size: 11px !important; }
-.cmp-diff.up { background: rgba(74,222,128,.08) !important; color: #4ADE80 !important; border-color: rgba(74,222,128,.2) !important; }
+.cmp-diff.up { background: rgba(74,222,128,.08) !important; color: var(--green-l) !important; border-color: rgba(74,222,128,.2) !important; }
 .cmp-diff.dn { background: rgba(239,68,68,.08) !important; color: #EF4444 !important; border-color: rgba(239,68,68,.2) !important; }
 .cmp-diff.eq { background: rgba(245,200,66,.07) !important; }
 
@@ -3373,28 +3329,7 @@ button, select, input, textarea { font-family: var(--font-body); }
 .kpi-row { gap: 12px !important; margin-bottom: 28px !important; }
 .kpi { padding: 18px 16px !important; min-height: 100px !important; }
 
-/* Section headers — Apple label style, no gold glow */
-[id^="sec_"] {
-  font-size: 11px !important;
-  font-weight: 700 !important;
-  letter-spacing: .08em !important;
-  text-transform: uppercase !important;
-  color: var(--t2) !important;
-  text-shadow: none !important;
-  margin: 28px 0 12px !important;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-[id^="sec_"]::before {
-  content: '';
-  display: inline-block;
-  width: 3px;
-  height: 12px;
-  border-radius: 2px;
-  background: var(--gold);
-  opacity: .7;
-}
+/* Section headers — see canonical definition in desktop block */
 
 /* Cat breakdown grid gap */
 .cat-breakdown { gap: 12px !important; }
@@ -3855,7 +3790,7 @@ body, .card, .nav, .kpi, .timer-panel, .modal, .ch, .cb,
 
 /* ph-top margin fix */
 .ph-top {
-  margin-top: -48px !important;
+  margin-top: -52px !important;
   padding: 0 28px 16px !important;
   align-items: flex-end !important;
   gap: 20px !important;
@@ -4067,13 +4002,7 @@ body, .card, .nav, .kpi, .timer-panel, .modal, .ch, .cb,
   box-shadow: none !important;
   padding: 0 40px !important;
 }
-.nav-logo-text {
-  font-size: 16px !important;
-  font-weight: 800 !important;
-  letter-spacing: -.02em !important;
-  color: var(--t1) !important;
-}
-.nav-logo-text span { color: var(--gold) !important; }
+/* nav-logo-text — see canonical in NAV PERFECT v2 */
 .nav-links { gap: 8px !important; }
 .nb {
   font-size: 13px !important;
@@ -4237,7 +4166,7 @@ body, .card, .nav, .kpi, .timer-panel, .modal, .ch, .cb,
   font-weight: 400 !important;
   letter-spacing: -.04em !important;
   line-height: 1 !important;
-  color: #4ADE80 !important;
+  color: var(--green-l) !important;
   text-shadow: none !important;
 }
 #totGrowthPulse { display: none !important; }
@@ -4260,7 +4189,7 @@ body, .card, .nav, .kpi, .timer-panel, .modal, .ch, .cb,
 .tot-week {
   font-size: 12px !important;
   font-weight: 500 !important;
-  color: #4ADE80 !important;
+  color: var(--green) !important;
 }
 
 /* ── CARDS ── */
@@ -4287,9 +4216,10 @@ body, .card, .nav, .kpi, .timer-panel, .modal, .ch, .cb,
   min-height: 100px !important;
   transition: transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s !important;
 }
+/* KPI hover — canonical */
 .kpi:hover {
   transform: translateY(-4px) scale(1.01) !important;
-  box-shadow: 0 12px 32px rgba(0,0,0,.35), 0 0 0 0.5px rgba(245,200,66,.12) !important;
+  box-shadow: 0 10px 28px rgba(0,0,0,.38), 0 0 0 0.5px rgba(245,200,66,.14) !important;
 }
 
 /* ── LEAGUE ROWS — top 3 podium ── */
@@ -4325,14 +4255,16 @@ body, .card, .nav, .kpi, .timer-panel, .modal, .ch, .cb,
   color: var(--t2) !important;
 }
 
-/* ── SECTION LABELS ── */
+/* ── SECTION LABELS — single canonical definition ── */
 [id^="sec_"] {
   margin: 28px 0 12px !important;
-  font-size: 10px !important;
+  font-family: var(--font-body) !important;
+  font-size: 11px !important;
   font-weight: 700 !important;
-  letter-spacing: .09em !important;
+  letter-spacing: .08em !important;
   text-transform: uppercase !important;
   color: var(--t2) !important;
+  text-shadow: none !important;
   display: flex !important;
   align-items: center !important;
   gap: 8px !important;
@@ -4340,12 +4272,14 @@ body, .card, .nav, .kpi, .timer-panel, .modal, .ch, .cb,
 [id^="sec_"]::before {
   content: '' !important;
   display: inline-block !important;
-  width: 3px !important; height: 12px !important;
+  width: 3px !important;
+  height: 11px !important;
   border-radius: 2px !important;
   background: var(--gold) !important;
-  opacity: .6 !important;
+  opacity: .65 !important;
   flex-shrink: 0 !important;
 }
+/* [id^="sec_"]::after — suppressed in master block */
 
 /* ── SESSIONS ── */
 .si {
@@ -4994,14 +4928,7 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
   box-shadow: none !important;
 }
 
-/* Logo */
-.nav-logo-text {
-  font-size: 15px !important;
-  font-weight: 800 !important;
-  letter-spacing: -.02em !important;
-  color: var(--t1) !important;
-}
-.nav-logo-accent { color: var(--gold) !important; }
+/* Logo — see canonical in NAV PERFECT v2 */
 
 /* Links row */
 .nav-links {
@@ -5349,7 +5276,7 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
   border: 0.5px solid rgba(34,197,94,.16) !important;
   border-radius: 20px !important;
   font-size: 12px !important; font-weight: 600 !important;
-  color: #4ADE80 !important;
+  color: var(--green-l) !important;
   white-space: nowrap;
   margin: 0 4px;
 }
@@ -5659,12 +5586,7 @@ body, input, select, textarea, button {
   color: var(--t2) !important;
 }
 
-/* — Section labels — */
-[id^="sec_"] {
-  font-size: 11px !important;
-  font-weight: 600 !important;
-  letter-spacing: .06em !important;
-}
+/* — Section labels — consolidated into desktop block — */
 
 /* — Motivation banner — */
 .mot-text {
@@ -6027,6 +5949,99 @@ body, input, select, textarea, button {
 
 /* — Arena mode buttons — */
 .amb-label { font-size: 12px !important; font-weight: 600 !important; letter-spacing: -.005em !important; }
+
+
+/* ══════════════════════════════════════════════════════════════
+   ✦ DTR DESIGN SYSTEM — MASTER FINAL BLOCK
+   Single source of truth for tokens that were previously
+   scattered across competing !important layers.
+   This block intentionally lives last in the cascade.
+══════════════════════════════════════════════════════════════ */
+
+/* ── Border-radius canonical values ──────────────────────── */
+:root {
+  --r-card: 16px;
+  --r-card-lg: 18px;   /* desktop elevated cards */
+  --r-inner: 10px;
+  --r-btn: 10px;
+  --r-pill: 20px;
+}
+
+/* ── Card consistency ─────────────────────────────────────── */
+@media (min-width: 601px) {
+  .card { border-radius: var(--r-card-lg) !important; }
+  .kpi  { border-radius: 14px !important; }
+}
+@media (max-width: 600px) {
+  .card { border-radius: var(--r-card) !important; }
+  .kpi  { border-radius: 14px !important; }
+}
+
+/* ── Reduce-motion: respect user OS preference ─────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+  .xp-fill, .xp-bar-fill {
+    animation: none !important;
+    background: var(--gold) !important;
+  }
+}
+
+/* ── Profile cover bottomfade — correct height for 160px cover */
+.ph-cover-bottomfade {
+  height: 80px !important;
+  background: linear-gradient(to bottom, transparent, var(--bg)) !important;
+}
+
+/* ── Auth box clean radius ─────────────────────────────────── */
+.auth-box, .onboard .banner-track { border-radius: 18px !important; }
+
+/* ── Buttons — consistent radius ──────────────────────────── */
+.btn-auth, .btn-cs, .btn-demo, .lh-btn, .sw-btn {
+  border-radius: var(--r-btn) !important;
+}
+
+/* ── Interactive gold language — override any remaining blues ─ */
+.av-opt:hover, .av-opt.sel,
+.fi:focus, .msg-search-input:focus,
+.msg-input-wrap.focused {
+  border-color: rgba(245,200,66,.5) !important;
+}
+
+/* ── Stat sidebar label ────────────────────────────────────── */
+.tot-lbl {
+  color: var(--green) !important;
+  opacity: .62 !important;
+}
+
+/* ── Section headers — force no ::after gradient ──────────── */
+[id^="sec_"]::after { content: none !important; display: none !important; }
+
+/* ── Nav logo — final canonical ───────────────────────────── */
+.nav-logo-text {
+  font-family: var(--font-body) !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  letter-spacing: -.02em !important;
+  color: var(--t1) !important;
+  -webkit-text-fill-color: unset !important;
+  filter: none !important;
+  background: none !important;
+  -webkit-background-clip: unset !important;
+  background-clip: unset !important;
+}
+.nav-logo-accent,
+.nav-logo-text span { color: var(--gold) !important; }
+
+/* ── Mobile: profile cover adjusted ───────────────────────── */
+@media (max-width: 600px) {
+  .ph-cover { height: 130px !important; }
+}
 </style>
   <link rel="manifest" id="pwaManifest">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23080808'/%3E%3Cpolygon points='58,10 38,52 52,52 42,90 62,46 46,46' fill='%23F5C842'/%3E%3C/svg%3E">
@@ -9316,7 +9331,7 @@ async function openUserProfile(userId, name, av, avUrl){
     cover.innerHTML =
       `<div style="position:absolute;top:-40px;left:-40px;width:220px;height:220px;border-radius:50%;background:${lvlColor}14;filter:blur(50px);pointer-events:none"></div>`+
       `<div style="position:absolute;top:-20px;right:-20px;width:140px;height:140px;border-radius:50%;background:${topCat?topCat.color+'0e':'rgba(168,85,247,.06)'};filter:blur(35px);pointer-events:none"></div>`+
-      `<div style="position:absolute;bottom:-42px;left:24px;width:110px;height:110px;border-radius:22px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:54px;border:3px solid ${lvlColor}55;box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 0 1px ${lvlColor}18,0 0 24px ${lvlColor}22;overflow:hidden;z-index:2;animation:avFloat 4s ease-in-out infinite" id="upAv">${av||'🎯'}</div>`+
+      `<div style="position:absolute;bottom:-42px;left:24px;width:110px;height:110px;border-radius:22px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:54px;border:3px solid ${lvlColor}55;box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 0 1px ${lvlColor}18,0 0 24px ${lvlColor}22;overflow:hidden;z-index:2;transition:transform .22s cubic-bezier(.34,1.56,.64,1),box-shadow .22s" id="upAv">${av||'🎯'}</div>`+
       `<button class="up-close" onclick="closeUserProfile()" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.08);border:0.5px solid rgba(255,255,255,.12);color:var(--t2);font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:3">✕</button>`;
 
     // ── Avatar with glow ──
