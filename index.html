@@ -14578,6 +14578,39 @@ function renderKnowledgeBase() {
       .k3view em{font-style:italic;color:var(--t2);}
       .k3view table{width:100%;border-collapse:collapse;margin:18px 0;font-size:13.5px;}
       .k3view th{background:var(--card);padding:9px 13px;font-weight:600;border:0.5px solid var(--border);text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--t2);}
+
+      /* ── Light theme: force ALL inline-colored text to readable dark tones ── */
+      /* Covers text colored white/light via execCommand('foreColor') in dark mode */
+      [data-theme="light"] .k3view *[style*="color"],
+      [data-theme="light"] .k3view *[style*="color: rgb(255"] ,
+      [data-theme="light"] .k3view *[style*="color:#fff"],
+      [data-theme="light"] .k3view *[style*="color: #fff"],
+      [data-theme="light"] .k3view *[style*="color: white"],
+      [data-theme="light"] .k3view *[style*="color:white"] {
+        color: var(--t1) !important;
+      }
+      /* Blanket rule: in light mode, ANY inline color in view is overridden */
+      [data-theme="light"] .k3view [style*="color"] {
+        color: var(--t1) !important;
+      }
+      /* Exception: keep gold/accent links visible */
+      [data-theme="light"] .k3view a[style*="color"] {
+        color: var(--gold-d) !important;
+      }
+      /* Light mode background for view area */
+      [data-theme="light"] .k3view {
+        color: var(--t1) !important;
+      }
+      [data-theme="light"] #kb3area {
+        color: var(--t1) !important;
+      }
+      /* In edit mode light: override inline white text too */
+      [data-theme="light"] #kb3area [style*="color"] {
+        color: var(--t1) !important;
+      }
+      [data-theme="light"] #kb3area a[style*="color"] {
+        color: var(--gold-d) !important;
+      }
       .k3view td{padding:9px 13px;border:0.5px solid var(--border);color:var(--t1);}
       .k3view tr:nth-child(even) td{background:rgba(255,255,255,.015);}
       .k3view img{max-width:100%;border-radius:8px;margin:8px 0;}
@@ -14938,6 +14971,27 @@ function _kbRNL() {
   // В 2-панельном layout список заметок рендерится через _kbRED
   // Этот метод теперь просто триггерит перерисовку главной области
   _kbRED();
+}
+
+// Silent refresh — updates ONLY the sidebar note list count/time,
+// without touching the editor DOM (prevents cursor jump on autosave)
+function _kbRNLSilent(){
+  try {
+    // Update "last modified" times in the sidebar note list
+    const sbi = document.getElementById('kb3sbi');
+    if(!sbi) return;
+    // Find all note time elements and refresh them
+    sbi.querySelectorAll('[data-note-id]').forEach(el => {
+      const nid = el.dataset.noteId;
+      const fid = el.dataset.folderId;
+      const cid = el.dataset.catId;
+      if(!nid || !fid || !cid) return;
+      const n = _kbGetNote(cid, fid, nid);
+      if(!n) return;
+      const timeEl = el.querySelector('.k3nt');
+      if(timeEl) timeEl.textContent = _kbD(n.updatedAt || n.createdAt);
+    });
+  } catch(e){}
 }
 
 
@@ -15758,17 +15812,28 @@ function _kbFlush3(){
   n.updatedAt=Date.now();_kbSave3();
 }
 function _kbEI(){
-  _kbSSV('saving');clearTimeout(_kbSaveTimer);
-  _kbSaveTimer=setTimeout(()=>{
-    _kbFlush3();_kbSSV('saved');
-    const ea=document.getElementById('kb3area');
-    if(ea){const wc=_kbWC(ea.innerHTML);
-      const w=document.getElementById('kb3wc'),r=document.getElementById('kb3rt');
-      if(w)w.textContent=`${wc} сл`;
-      if(r)r.textContent=`~${Math.max(1,Math.ceil(wc/200))} мин`;
+  _kbSSV('saving');
+  clearTimeout(_kbSaveTimer);
+  _kbSaveTimer = setTimeout(() => {
+    // Save the note body without touching the DOM
+    _kbFlush3();
+    _kbSSV('saved');
+
+    // Update word count / read time in status bar (no DOM rebuild)
+    const ea = document.getElementById('kb3area');
+    if(ea){
+      const wc = _kbWC(ea.innerHTML);
+      const w = document.getElementById('kb3wc');
+      const r = document.getElementById('kb3rt');
+      const m = document.getElementById('k3meta-wc'); // meta line in header
+      if(w) w.textContent = `${wc} сл`;
+      if(r) r.textContent = `~${Math.max(1, Math.ceil(wc/200))} мин`;
+      if(m) m.textContent = `${wc} слов · ~${Math.max(1, Math.ceil(wc/200))} мин`;
     }
-    _kbRNL();_kbRS();
-  },1200);
+
+    // Silently refresh sidebar note list WITHOUT rebuilding the editor DOM
+    _kbRNLSilent();
+  }, 1200);
 }
 function _kbEK(e){
   const cm=e.ctrlKey||e.metaKey;
