@@ -7761,7 +7761,7 @@ body {
       <div id="hab-root"></div>
     </div>
     <div id="tab-learn" class="tc">
-      <div id="learn-root" style="padding:20px 24px"></div>
+      <div id="learn-root" style="padding:20px 0 20px 0"></div>
     </div>
     <div id="tab-social" class="tc">
       <div id="social-root"></div>
@@ -17423,46 +17423,95 @@ function _lrnInjectCSS(){
 
 /* ── Sidebar ─────────────────────────────────────────────── */
 #lrn-sidebar{
-  width:216px;
-  min-width:216px;
+  width:232px;
+  min-width:232px;
   flex-shrink:0;
   padding:0 0 32px;
   border-right:0.5px solid var(--border);
   display:flex;
   flex-direction:column;
-  gap:0;
+  overflow-y:auto;
+  scrollbar-width:none;
+}
+#lrn-sidebar::-webkit-scrollbar{display:none;}
+
+/* Summary card at top */
+.lrn-sb-summary{
+  padding:16px 16px 14px;
+  margin:14px 12px 4px;
+  background:rgba(239,192,48,.06);
+  border:0.5px solid rgba(239,192,48,.18);
+  border-radius:14px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.lrn-sb-summary-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+.lrn-sb-summary-title{
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.09em;
+  text-transform:uppercase;
+  color:var(--t3);
+}
+.lrn-sb-summary-stats{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
+.lrn-sb-stat{
+  background:rgba(255,255,255,.04);
+  border:0.5px solid rgba(255,255,255,.06);
+  border-radius:9px;
+  padding:9px 10px;
+}
+.lrn-sb-stat-val{
+  font-family:'DM Mono',monospace;
+  font-size:18px;
+  font-weight:400;
+  color:var(--t1);
+  letter-spacing:-.02em;
+  line-height:1;
+  margin-bottom:3px;
+}
+.lrn-sb-stat-lbl{
+  font-size:9px;
+  font-weight:700;
+  letter-spacing:.07em;
+  text-transform:uppercase;
+  color:var(--t3);
 }
 
+/* Section title */
 .lrn-sb-section{
-  padding:20px 16px 8px;
+  padding:16px 12px 6px;
 }
-.lrn-sb-section + .lrn-sb-section{
-  padding-top:8px;
-}
-
 .lrn-sb-ttl{
   font-size:9.5px;
   font-weight:700;
   letter-spacing:.1em;
   text-transform:uppercase;
   color:var(--t3);
-  padding:0 8px;
+  padding:0 4px;
   margin-bottom:8px;
 }
-
 .lrn-sb-divider{
   height:0.5px;
   background:var(--border);
-  margin:4px 16px 0;
+  margin:6px 12px 0;
 }
 
 /* Author rows */
 .lrn-auth-row{
   display:flex;
   align-items:center;
-  gap:9px;
-  padding:6px 8px;
-  border-radius:9px;
+  gap:10px;
+  padding:7px 8px;
+  border-radius:10px;
   cursor:pointer;
   text-decoration:none;
   transition:background .13s;
@@ -17470,41 +17519,48 @@ function _lrnInjectCSS(){
 }
 .lrn-auth-row:hover{ background:rgba(255,255,255,.06); }
 .lrn-auth-av{
-  width:30px;
-  height:30px;
+  width:32px;
+  height:32px;
   border-radius:9px;
   flex-shrink:0;
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size:12px;
+  font-size:13px;
   font-weight:700;
   color:#fff;
+  box-shadow:0 2px 8px rgba(0,0,0,.3);
 }
+.lrn-auth-info{ flex:1; min-width:0; }
 .lrn-auth-name{
   font-size:13px;
   font-weight:600;
   color:var(--t1);
-  flex:1;
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
   letter-spacing:-.01em;
+  line-height:1.2;
+}
+.lrn-auth-sub{
+  font-size:10px;
+  color:var(--t3);
+  letter-spacing:-.005em;
+  margin-top:1px;
 }
 .lrn-auth-del{
-  width:18px;
-  height:18px;
-  border-radius:5px;
+  width:20px;
+  height:20px;
+  border-radius:6px;
   border:none;
   background:transparent;
   color:var(--t3);
-  font-size:14px;
   cursor:pointer;
   display:none;
   align-items:center;
   justify-content:center;
-  line-height:1;
   transition:all .12s;
+  flex-shrink:0;
 }
 .lrn-auth-row:hover .lrn-auth-del{ display:flex; }
 .lrn-auth-del:hover{ color:var(--red); background:rgba(255,69,58,.1); }
@@ -17519,7 +17575,7 @@ function _lrnInjectCSS(){
   border:none;
   background:transparent;
   color:var(--t3);
-  font-size:12px;
+  font-size:11.5px;
   font-weight:500;
   cursor:pointer;
   font-family:'DM Sans',sans-serif;
@@ -17535,13 +17591,38 @@ function _lrnInjectCSS(){
 .lrn-sb-cat{
   display:flex;
   align-items:center;
-  gap:9px;
-  padding:6px 8px;
-  border-radius:8px;
+  gap:10px;
+  padding:8px 10px;
+  border-radius:10px;
   cursor:pointer;
   transition:background .13s;
+  position:relative;
 }
 .lrn-sb-cat:hover{ background:rgba(255,255,255,.05); }
+/* Active indicator on left edge */
+.lrn-sb-cat::before{
+  content:'';
+  position:absolute;
+  left:0; top:6px; bottom:6px;
+  width:2.5px;
+  border-radius:2px;
+  background:var(--cat-c, transparent);
+  opacity:0;
+  transition:opacity .15s;
+}
+.lrn-sb-cat:hover::before{ opacity:.7; }
+.lrn-sb-cat-icon{
+  width:28px;
+  height:28px;
+  border-radius:8px;
+  flex-shrink:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:13px;
+  transition:transform .18s;
+}
+.lrn-sb-cat:hover .lrn-sb-cat-icon{ transform:scale(1.05); }
 .lrn-sb-cat-dot{
   width:7px;
   height:7px;
@@ -17564,11 +17645,17 @@ function _lrnInjectCSS(){
   font-size:10px;
   color:var(--t3);
   font-family:'DM Mono',monospace;
-  background:rgba(255,255,255,.05);
-  border-radius:5px;
-  padding:1px 6px;
-  min-width:20px;
+  background:rgba(255,255,255,.06);
+  border:0.5px solid rgba(255,255,255,.07);
+  border-radius:6px;
+  padding:1px 7px;
+  min-width:22px;
   text-align:center;
+  transition:all .13s;
+}
+.lrn-sb-cat:hover .lrn-sb-cat-cnt{
+  background:rgba(255,255,255,.1);
+  color:var(--t2);
 }
 
 /* ── Main area ───────────────────────────────────────────── */
@@ -18019,21 +18106,47 @@ function _lrnRenderSidebar(){
   const sb_el=document.getElementById('lrn-sidebar');
   if(!sb_el) return;
 
-  const svgPlus=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
-  const svgPerson=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+  const totalLinks = _lrn.categories.reduce((a,c)=>a+(c.links||[]).length, 0);
+  const totalCats  = _lrn.categories.length;
+  const totalAuth  = _auth.authors.length;
+
+  const svgPlus = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+  const svgClose = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+  const svgLink  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
 
   sb_el.innerHTML=`
+
+    <!-- ── Summary card ── -->
+    <div class="lrn-sb-summary">
+      <div class="lrn-sb-summary-row">
+        <span class="lrn-sb-summary-title">Библиотека</span>
+        <span style="color:var(--gold);opacity:.6">${svgLink}</span>
+      </div>
+      <div class="lrn-sb-summary-stats">
+        <div class="lrn-sb-stat">
+          <div class="lrn-sb-stat-val">${totalLinks}</div>
+          <div class="lrn-sb-stat-lbl">Материалов</div>
+        </div>
+        <div class="lrn-sb-stat">
+          <div class="lrn-sb-stat-val">${totalCats}</div>
+          <div class="lrn-sb-stat-lbl">Категорий</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Authors ── -->
     <div class="lrn-sb-section">
       <div class="lrn-sb-ttl">Авторы</div>
-      ${_auth.authors.length===0
-        ? `<div style="font-size:11.5px;color:var(--t3);line-height:1.65;padding:0 8px 8px;letter-spacing:-.005em">Добавляй авторов — клик откроет их канал</div>`
+      ${totalAuth === 0
+        ? `<div style="font-size:11.5px;color:var(--t3);line-height:1.65;padding:0 4px 8px;letter-spacing:-.005em">Добавляй авторов — клик откроет их канал</div>`
         : _auth.authors.map(a=>`
           <a class="lrn-auth-row" href="${a.url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
-            <div class="lrn-auth-av" style="background:${a.color};border-radius:9px">${_lrnInitial(a.name)}</div>
-            <span class="lrn-auth-name">${a.name}</span>
-            <button class="lrn-auth-del" onclick="event.preventDefault();event.stopPropagation();lrnDelAuthor('${a.id}')">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
+            <div class="lrn-auth-av" style="background:${a.color}">${_lrnInitial(a.name)}</div>
+            <div class="lrn-auth-info">
+              <div class="lrn-auth-name">${a.name}</div>
+              <div class="lrn-auth-sub">Автор · ${_auth.authors.indexOf(a)+1}</div>
+            </div>
+            <button class="lrn-auth-del" onclick="event.preventDefault();event.stopPropagation();lrnDelAuthor('${a.id}')">${svgClose}</button>
           </a>`).join('')}
       <button class="lrn-sb-addbtn" onclick="lrnAddAuthor()">
         ${svgPlus}
@@ -18043,17 +18156,33 @@ function _lrnRenderSidebar(){
 
     <div class="lrn-sb-divider"></div>
 
+    <!-- ── Categories ── -->
     <div class="lrn-sb-section">
       <div class="lrn-sb-ttl">Категории</div>
-      ${_lrn.categories.length===0
-        ? `<div style="font-size:11.5px;color:var(--t3);padding:0 8px 4px;letter-spacing:-.005em">Категории появятся здесь</div>`
-        : _lrn.categories.map(c=>`
-          <div class="lrn-sb-cat" onclick="document.getElementById('lrn-s-${c.id}')?.scrollIntoView({behavior:'smooth',block:'start'})">
-            <div class="lrn-sb-cat-dot" style="background:${c.color}"></div>
-            <span class="lrn-sb-cat-name">${c.name}</span>
-            <span class="lrn-sb-cat-cnt">${(c.links||[]).length}</span>
-          </div>`).join('')}
+      ${totalCats === 0
+        ? `<div style="font-size:11.5px;color:var(--t3);padding:0 4px 4px;letter-spacing:-.005em">Категории появятся здесь</div>`
+        : _lrn.categories.map(c=>{
+            const count = (c.links||[]).length;
+            return `
+              <div class="lrn-sb-cat" style="--cat-c:${c.color}"
+                onclick="document.getElementById('lrn-s-${c.id}')?.scrollIntoView({behavior:'smooth',block:'start'})">
+                <div class="lrn-sb-cat-icon"
+                  style="background:${c.color}18;border:0.5px solid ${c.color}30">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${c.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                  </svg>
+                </div>
+                <span class="lrn-sb-cat-name">${c.name}</span>
+                <span class="lrn-sb-cat-cnt">${count}</span>
+              </div>`;
+          }).join('')}
+      <button class="lrn-sb-addbtn" onclick="lrnAddCat()">
+        ${svgPlus}
+        Новая категория
+      </button>
     </div>
+
   `;
 }
 
