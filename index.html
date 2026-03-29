@@ -8150,89 +8150,150 @@ function renderDash(){
       ${i===0?`<div class="kpi-sparkline">${spark7.map((v,j)=>`<div class="kpi-spark-bar ${j===6?'today':''}" style="height:${Math.max(8,Math.round((v/sparkMax)*100))}%;background:${k.color}"></div>`).join('')}</div>`:''}
     </div>`).join('');
 
-  // ── SVG AREA CHART ──
-  document.getElementById('chartLegend').innerHTML=active.map(c=>
+  // ── COSMIC HUD CHART ──
+  const legendCats = ALL_CATS.filter(c => data[c.id] && data[c.id].some(v=>v>0));
+  document.getElementById('chartLegend').innerHTML = legendCats.map(c=>
     `<div class="cl-item"><div class="cl-dot" style="background:${c.color};box-shadow:0 0 6px ${c.color}"></div>${c.name}</div>`).join('');
 
-  const showEvery=isWeek?1:Math.ceil(buckets/10);
-  const svgW=800, svgH=140, padL=0, padR=0, padT=10, padB=28;
+  const showEvery = isWeek ? 1 : Math.ceil(buckets/10);
+  const svgW=800, svgH=180, padL=42, padR=12, padT=16, padB=32;
   const plotW=svgW-padL-padR, plotH=svgH-padT-padB;
 
-  // Build points for each category (stacked)
-  const stackedTops=Array(buckets).fill(0);
-  // We'll draw each cat as a filled area from its stack-bottom to stack-top
-  const layers=active.map(c=>{
-    const bottom=[...stackedTops];
-    data[c.id].forEach((v,i)=>{ stackedTops[i]+=v; });
-    const top=[...stackedTops];
-    return{color:c.color, bottom, top};
-  });
+  function yOf(v){ return padT+plotH-(v/maxVal)*plotH; }
+  function xOf(i){ return padL+i*(plotW/(buckets-1||1)); }
 
-  // Smooth SVG path helper using cubic bezier
   function smoothPath(pts){
     if(!pts.length) return '';
-    let d=`M ${pts[0][0]} ${pts[0][1]}`;
+    let d=`M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
     for(let i=1;i<pts.length;i++){
-      const cp1x=(pts[i-1][0]+pts[i][0])/2, cp1y=pts[i-1][1];
-      const cp2x=(pts[i-1][0]+pts[i][0])/2, cp2y=pts[i][1];
-      d+=` C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${pts[i][0]} ${pts[i][1]}`;
+      const cpx=(pts[i-1][0]+pts[i][0])/2;
+      d+=` C ${cpx.toFixed(1)} ${pts[i-1][1].toFixed(1)} ${cpx.toFixed(1)} ${pts[i][1].toFixed(1)} ${pts[i][0].toFixed(1)} ${pts[i][1].toFixed(1)}`;
     }
     return d;
   }
 
-  function yOf(val){ return padT+plotH-(val/maxVal)*plotH; }
-  function xOf(i){ return padL+i*(plotW/(buckets-1||1)); }
+  const totalPts = totals.map((v,i)=>[xOf(i), yOf(v)]);
+  const linePath = smoothPath(totalPts);
+  const areaPath = `${linePath} L ${xOf(buckets-1).toFixed(1)} ${(padT+plotH).toFixed(1)} L ${xOf(0).toFixed(1)} ${(padT+plotH).toFixed(1)} Z`;
 
-  let svgContent='';
-
-  // Draw each stacked layer (bottom to top = first to last category)
-  // Draw in reverse so first cat is on top visually
-  [...layers].reverse().forEach((layer,ri)=>{
-    const i=layers.length-1-ri;
-    const topPts=layer.top.map((v,j)=>[xOf(j),yOf(v)]);
-    const botPts=layer.bottom.map((v,j)=>[xOf(j),yOf(v)]);
-
-    const topPath=smoothPath(topPts);
-    const botPathRev=smoothPath([...botPts].reverse());
-    // Closed area path
-    const areaPath=`${topPath} L ${xOf(buckets-1)} ${yOf(layer.bottom[buckets-1])} ${botPathRev.replace(/^M/,'L')} Z`;
-
-    const gradId=`ag${i}`;
-    svgContent+=`<defs>
-      <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="${layer.color}" stop-opacity="0.55"/>
-        <stop offset="100%" stop-color="${layer.color}" stop-opacity="0.08"/>
-      </linearGradient>
-    </defs>
-    <path d="${areaPath}" fill="url(#${gradId})"/>
-    <path d="${topPath}" fill="none" stroke="${layer.color}" stroke-width="2" stroke-linejoin="round"/>`;
+  const catLines = legendCats.map(c=>{
+    const pts = data[c.id].map((v,i)=>[xOf(i),yOf(v)]);
+    return {color:c.color, path:smoothPath(pts)};
   });
 
-  // Day labels along bottom
-  const labelEls=Array.from({length:buckets},(_,i)=>{
-    if(i%showEvery!==0)return'';
-    const x=xOf(i);
-    return `<text x="${x}" y="${svgH-4}" text-anchor="middle" font-size="9" fill="rgba(255,255,255,.3)" font-family="DM Sans,sans-serif">${labels[i]}</text>`;
-  }).join('');
+  const peakIdx = totals.indexOf(Math.max(...totals));
+  const peakX = xOf(peakIdx).toFixed(1);
+  const peakY = yOf(totals[peakIdx]).toFixed(1);
+  const peakVal = totals[peakIdx];
+  const uid = Date.now()%99999;
+  const cs=10, cw=1.5;
 
-  // Y-axis grid lines (subtle)
-  const gridLines=[0.25,0.5,0.75,1].map(t=>{
-    const y=padT+plotH-(t*plotH);
-    return `<line x1="${padL}" y1="${y}" x2="${svgW-padR}" y2="${y}" stroke="rgba(255,255,255,.04)" stroke-width="1"/>
-      <text x="${padL}" y="${y-3}" font-size="8" fill="rgba(255,255,255,.2)" font-family="DM Sans,sans-serif">${(maxVal*t).toFixed(1)}</text>`;
-  }).join('');
-
-  const svgEl=`<svg viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:160px;display:block">
-    ${gridLines}
-    ${svgContent}
-    ${labelEls}
+  const svgEl=`<svg viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg"
+    style="width:100%;height:200px;display:block;overflow:visible">
+    <defs>
+      <filter id="glow${uid}" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="3.5" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="glowS${uid}" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="1.5" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="glowXL${uid}" x="-100%" y="-100%" width="300%" height="300%">
+        <feGaussianBlur stdDeviation="7" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <linearGradient id="aFill${uid}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#00E5FF" stop-opacity="0.22"/>
+        <stop offset="60%" stop-color="#00E5FF" stop-opacity="0.06"/>
+        <stop offset="100%" stop-color="#00E5FF" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="scanG${uid}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#00E5FF" stop-opacity="0"/>
+        <stop offset="50%" stop-color="#00E5FF" stop-opacity="0.25"/>
+        <stop offset="100%" stop-color="#00E5FF" stop-opacity="0"/>
+      </linearGradient>
+      <clipPath id="cp${uid}"><rect x="${padL}" y="${padT}" width="${plotW}" height="${plotH}"/></clipPath>
+      <style>
+        @keyframes scan${uid}{0%{transform:translateY(0);opacity:1}85%{opacity:.8}100%{transform:translateY(${plotH}px);opacity:0}}
+        @keyframes pulse${uid}{0%,100%{r:4;opacity:1}50%{r:6.5;opacity:.65}}
+        @keyframes blink${uid}{0%,100%{opacity:1}50%{opacity:.3}}
+        .sc${uid}{animation:scan${uid} 4s cubic-bezier(.4,0,.6,1) infinite}
+        .pu${uid}{animation:pulse${uid} 1.8s ease-in-out infinite}
+        .bl${uid}{animation:blink${uid} 1.2s ease-in-out infinite}
+      </style>
+    </defs>
+    <rect x="${padL}" y="${padT}" width="${plotW}" height="${plotH}" fill="rgba(0,229,255,0.025)" rx="2"/>
+    ${[0.25,0.5,0.75,1].map(t=>{
+      const gy=(padT+plotH-t*plotH).toFixed(1);
+      const gv=maxVal*t;
+      const isHalf=t===0.5;
+      return `<line x1="${padL}" y1="${gy}" x2="${svgW-padR}" y2="${gy}"
+        stroke="${isHalf?'rgba(0,229,255,.12)':'rgba(0,229,255,.06)'}"
+        stroke-width="${isHalf?1:.6}" stroke-dasharray="${isHalf?'4 4':'2 6'}"/>
+        <text x="${padL-6}" y="${(+gy+3).toFixed(1)}" text-anchor="end" font-size="8"
+          fill="rgba(0,229,255,.45)" font-family="DM Mono,monospace">${gv<1?gv.toFixed(1):gv.toFixed(gv<5?1:0)}</text>`;
+    }).join('')}
+    ${Array.from({length:buckets},(_,i)=>{
+      if(i%showEvery!==0&&buckets>7) return '';
+      const tx=xOf(i).toFixed(1);
+      return `<line x1="${tx}" y1="${(padT+plotH).toFixed(1)}" x2="${tx}" y2="${(padT+plotH+4).toFixed(1)}"
+        stroke="rgba(0,229,255,.25)" stroke-width=".8"/>`;
+    }).join('')}
+    ${catLines.map(cl=>`<path d="${cl.path}" fill="none" stroke="${cl.color}" stroke-width="1"
+      stroke-opacity="0.3" clip-path="url(#cp${uid})" stroke-linejoin="round"/>`).join('')}
+    <path d="${areaPath}" fill="url(#aFill${uid})" clip-path="url(#cp${uid})"/>
+    <g clip-path="url(#cp${uid})" transform="translate(0,${padT})">
+      <rect class="sc${uid}" x="${padL}" y="0" width="${plotW}" height="18"
+        fill="url(#scanG${uid})" rx="1"/>
+    </g>
+    <path d="${linePath}" fill="none" stroke="#00E5FF" stroke-width="5"
+      stroke-opacity="0.15" clip-path="url(#cp${uid})" filter="url(#glowXL${uid})" stroke-linejoin="round"/>
+    <path d="${linePath}" fill="none" stroke="#00E5FF" stroke-width="1.8"
+      clip-path="url(#cp${uid})" filter="url(#glow${uid})" stroke-linejoin="round"/>
+    <path d="${linePath}" fill="none" stroke="#E0FAFF" stroke-width="1"
+      clip-path="url(#cp${uid})" stroke-linejoin="round"/>
+    ${totals.map((v,i)=>{
+      if(v<=0||i===peakIdx) return '';
+      const dx=xOf(i).toFixed(1), dy=yOf(v).toFixed(1);
+      return `<circle cx="${dx}" cy="${dy}" r="2.5" fill="#09090B" stroke="#00E5FF"
+        stroke-width="1.2" clip-path="url(#cp${uid})" filter="url(#glowS${uid})"/>`;
+    }).join('')}
+    ${peakVal>0?`
+      <circle class="pu${uid}" cx="${peakX}" cy="${peakY}" r="4"
+        fill="#09090B" stroke="#00E5FF" stroke-width="1.5"
+        clip-path="url(#cp${uid})" filter="url(#glow${uid})"/>
+      <circle cx="${peakX}" cy="${peakY}" r="1.5" fill="#00E5FF"
+        clip-path="url(#cp${uid})" filter="url(#glow${uid})"/>
+      <rect x="${(+peakX-22).toFixed(1)}" y="${(+peakY-22).toFixed(1)}" width="44" height="14"
+        rx="2" fill="rgba(0,229,255,.12)" stroke="rgba(0,229,255,.4)" stroke-width=".6"
+        clip-path="url(#cp${uid})"/>
+      <text x="${peakX}" y="${(+peakY-12).toFixed(1)}" text-anchor="middle" font-size="8.5"
+        fill="#00E5FF" font-family="DM Mono,monospace" font-weight="500"
+        filter="url(#glowS${uid})" clip-path="url(#cp${uid})">${peakVal.toFixed(2)}ч</text>
+    `:''}
+    <path d="M ${padL+cs} ${padT} L ${padL} ${padT} L ${padL} ${padT+cs}" fill="none" stroke="#00E5FF" stroke-width="${cw}" opacity=".7"/>
+    <path d="M ${svgW-padR-cs} ${padT} L ${svgW-padR} ${padT} L ${svgW-padR} ${padT+cs}" fill="none" stroke="#00E5FF" stroke-width="${cw}" opacity=".7"/>
+    <path d="M ${padL+cs} ${padT+plotH} L ${padL} ${padT+plotH} L ${padL} ${padT+plotH-cs}" fill="none" stroke="#00E5FF" stroke-width="${cw}" opacity=".7"/>
+    <path d="M ${svgW-padR-cs} ${padT+plotH} L ${svgW-padR} ${padT+plotH} L ${svgW-padR} ${padT+plotH-cs}" fill="none" stroke="#00E5FF" stroke-width="${cw}" opacity=".7"/>
+    ${Array.from({length:buckets},(_,i)=>{
+      if(i%showEvery!==0) return '';
+      const tx=xOf(i).toFixed(1);
+      return `<text x="${tx}" y="${(svgH-6).toFixed(1)}" text-anchor="middle" font-size="9"
+        fill="rgba(0,229,255,.5)" font-family="DM Mono,monospace" letter-spacing="0.04em">${labels[i]}</text>`;
+    }).join('')}
+    <text x="${svgW-padR}" y="${padT-4}" text-anchor="end" font-size="8"
+      fill="rgba(0,229,255,.3)" font-family="DM Mono,monospace" letter-spacing="0.1em">
+      АКТИВНОСТЬ · ${isWeek?'ПН–ВС':'30Д'}</text>
+    <circle class="bl${uid}" cx="${svgW-padR-80}" cy="${padT-8}" r="2.5"
+      fill="#00E5FF" filter="url(#glowS${uid})"/>
   </svg>`;
 
   document.getElementById('barChart').style.height='auto';
   document.getElementById('barChart').style.display='block';
   document.getElementById('barChart').innerHTML=svgEl;
-  document.getElementById('barAxisL').textContent='0';
-  document.getElementById('barAxisR').textContent=`${maxVal.toFixed(1)} ч макс.`;
+  document.getElementById('barAxisL').textContent='';
+  document.getElementById('barAxisR').textContent='';
 
   // ── CATEGORY BREAKDOWN with mini rings ──
   const maxCatH=Math.max(...active.map(c=>data[c.id].reduce((a,v)=>a+v,0)),0.1);
