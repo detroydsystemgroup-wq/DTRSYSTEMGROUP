@@ -20381,8 +20381,10 @@ const CHAB_MODE_KEY = 'dtr_chab_mode';
 let _chabMode = localStorage.getItem(CHAB_MODE_KEY) || 'personal';
 let _chabSub  = null;
 
-function getSB(){ return window.sb || null; }
-function getUser(){ return window.SB_USER || null; }
+/* getSB — sb is const in main script scope, not on window */
+function getSB(){ try{ return sb; }catch(e){ return null; } }
+/* getUser — SB_USER is let in main script scope, not on window */
+function getUser(){ try{ return typeof SB_USER !== "undefined" ? SB_USER : null; }catch(e){ return null; } }
 function mkCode(){ return Math.random().toString(36).slice(2,8).toUpperCase(); }
 
 window.chabSetMode = function(mode){
@@ -20435,10 +20437,19 @@ async function renderCollabView(){
   root.innerHTML = '';
   if(bar) root.appendChild(bar);
 
+  // If user not yet available, retry up to 5 times with 600ms delay
   if(!user || user.isDemoUser){
+    var _retries = (renderCollabView._retries || 0) + 1;
+    renderCollabView._retries = _retries;
+    if(_retries <= 5){
+      setTimeout(renderCollabView, 600);
+      return;
+    }
+    renderCollabView._retries = 0;
     root.insertAdjacentHTML('beforeend',`<div class="chab-empty"><div class="chab-empty-icon">🤝</div><div style="font-size:17px;font-weight:800;color:var(--t1);letter-spacing:-.03em;margin-bottom:8px">Совместные привычки</div><div style="font-size:13px;color:var(--t2);line-height:1.6;max-width:280px">Войди в аккаунт чтобы создавать совместные трекеры с друзьями</div></div>`);
     return;
   }
+  renderCollabView._retries = 0; // reset on success
 
   root.insertAdjacentHTML('beforeend',`<div id="chabContent"><div style="color:var(--t3);font-size:13px;padding:32px 0;text-align:center;animation:fadeUp .22s ease">Загружаем...</div></div>`);
 
