@@ -17482,9 +17482,15 @@ const isDone=(hid,key)=>{const l=lLoad();return !!(l[hid]&&l[hid][key]);};
 function calcStreak(hid,freq){
   const l=lLoad()[hid]||{};let s=0;
   const d=new Date();d.setHours(12,0,0,0);
+  // If today is an active day but not yet done — start from yesterday
+  // so the streak doesn't break just because today hasn't been logged yet
+  const todayKey=dk(d);
+  if(isActive(freq,d)&&!l[todayKey]){
+    d.setDate(d.getDate()-1);
+  }
   for(let i=0;i<400;i++){
     if(!isActive(freq,d)){d.setDate(d.getDate()-1);continue;}
-    if(l[dk(d)])s++;else if(i>0)break;
+    if(l[dk(d)])s++;else break;
     d.setDate(d.getDate()-1);
   }
   return s;
@@ -17562,16 +17568,23 @@ function render(){
   habits.forEach(h=>{if(isActive(h.freq,now)){totalToday++;if(isDone(h.id,td))doneToday++;}});
   const todayPct=totalToday?Math.round(doneToday/totalToday*100):0;
 
-  // Compute global streak (consecutive days any habit done)
+  // Compute global streak (consecutive days where at least one habit done)
   const log=lLoad();
   let globalStreak=0;
-  {const d=new Date();d.setHours(12,0,0,0);
-   for(let i=0;i<400;i++){
-     const key=dk(d);
-     const anyDone=habits.some(h=>isActive(h.freq,d)&&log[h.id]&&log[h.id][key]);
-     if(anyDone)globalStreak++;else if(i>0)break;
-     d.setDate(d.getDate()-1);
-   }}
+  {
+    const d=new Date();d.setHours(12,0,0,0);
+    // If no habit done today yet — start from yesterday to not break the streak
+    const todayKey=dk(d);
+    const anyDoneToday=habits.some(h=>isActive(h.freq,d)&&log[h.id]&&log[h.id][todayKey]);
+    if(!anyDoneToday) d.setDate(d.getDate()-1);
+    for(let i=0;i<400;i++){
+      const key=dk(d);
+      const anyDone=habits.some(h=>isActive(h.freq,d)&&log[h.id]&&log[h.id][key]);
+      if(anyDone) globalStreak++;
+      else break;
+      d.setDate(d.getDate()-1);
+    }
+  }
 
   // Total completions ever
   let totalEver=0;
@@ -20934,8 +20947,10 @@ async function buildRoomCard(room, myRole, user){
     const userHabLog = (logs[userId]||{})[habitId]||{};
     let s=0;
     const d=new Date(); d.setHours(12,0,0,0);
+    // If today not done yet — start from yesterday
+    if(!userHabLog[dateStr(d)]) d.setDate(d.getDate()-1);
     for(let i=0;i<60;i++){
-      if(userHabLog[dateStr(d)]) s++; else if(i>0) break;
+      if(userHabLog[dateStr(d)]) s++; else break;
       d.setDate(d.getDate()-1);
     }
     return s;
@@ -20963,11 +20978,14 @@ async function buildRoomCard(room, myRole, user){
   // ── My global streak ──
   let myGlobalStreak=0;
   {const d=new Date(); d.setHours(12,0,0,0);
+   // If no habit done today — start from yesterday
+   const anyDoneToday=habits.some(h=>(myLog[h.id]||{})[dateStr(d)]);
+   if(!anyDoneToday) d.setDate(d.getDate()-1);
    for(let i=0;i<200;i++){
      const key=dateStr(d);
      const anyDone=habits.some(h=>(myLog[h.id]||{})[key]);
      if(anyDone) myGlobalStreak++;
-     else if(i>0) break;
+     else break;
      d.setDate(d.getDate()-1);
    }}
 
@@ -20985,10 +21003,13 @@ async function buildRoomCard(room, myRole, user){
     // Персональный стрик участника (последовательные дни)
     let streak=0;
     {const dd=new Date(); dd.setHours(12,0,0,0);
+     // Skip today if not done yet
+     const anyDoneToday=habits.some(h=>(logs[m.user_id]||{})[h.id]?.[dateStr(dd)]);
+     if(!anyDoneToday) dd.setDate(dd.getDate()-1);
      for(let i=0;i<60;i++){
        const k=dateStr(dd);
        const anyD=habits.some(h=>(logs[m.user_id]||{})[h.id]?.[k]);
-       if(anyD) streak++; else if(i>0) break;
+       if(anyD) streak++; else break;
        dd.setDate(dd.getDate()-1);
      }}
     const perfectDays = passedDayStrs.filter(d =>
