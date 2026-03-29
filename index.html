@@ -20610,31 +20610,45 @@ async function renderCollabView(){
   root.innerHTML = '';
   if(bar) root.appendChild(bar);
 
-  // If user not yet available, retry up to 5 times with 600ms delay
+  // Retry if user not ready
   if(!user || user.isDemoUser){
     var _retries = (renderCollabView._retries || 0) + 1;
     renderCollabView._retries = _retries;
-    if(_retries <= 5){
-      setTimeout(renderCollabView, 600);
-      return;
-    }
+    if(_retries <= 5){ setTimeout(renderCollabView, 600); return; }
     renderCollabView._retries = 0;
     root.insertAdjacentHTML('beforeend',`<div class="chab-empty"><div class="chab-empty-icon">🤝</div><div style="font-size:17px;font-weight:800;color:var(--t1);letter-spacing:-.03em;margin-bottom:8px">Совместные привычки</div><div style="font-size:13px;color:var(--t2);line-height:1.6;max-width:280px">Войди в аккаунт чтобы создавать совместные трекеры с друзьями</div></div>`);
     return;
   }
-  renderCollabView._retries = 0; // reset on success
+  renderCollabView._retries = 0;
 
-  root.insertAdjacentHTML('beforeend',`<div id="chabContent"><div style="color:var(--t3);font-size:13px;padding:32px 0;text-align:center;animation:fadeUp .22s ease">Загружаем...</div></div>`);
+  // ── Skeleton: показываем мгновенно пока грузим данные ──
+  const skeletonCard = `<div style="background:linear-gradient(135deg,rgba(168,85,247,.06),rgba(139,92,246,.03));border:0.5px solid rgba(168,85,247,.2);border-radius:18px;padding:20px;margin-bottom:14px;animation:skeletonShimmer 1.4s ease infinite">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <div class="skel" style="width:44px;height:44px;border-radius:12px"></div>
+      <div style="flex:1"><div class="skel skel-line" style="width:40%;margin-bottom:6px"></div><div class="skel skel-line" style="width:25%"></div></div>
+    </div>
+    <div class="skel" style="height:72px;border-radius:12px;margin-bottom:12px"></div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${[1,2,3].map(()=>`<div class="skel" style="height:42px;border-radius:10px"></div>`).join('')}
+    </div>
+  </div>`;
+
+  root.insertAdjacentHTML('beforeend',`<div id="chabContent">${skeletonCard}</div>`);
 
   try {
-    const {data:memberships} = await sb.from('collab_habit_members').select('room_id,role').eq('user_id',user.id);
-    const roomIds = (memberships||[]).map(m=>m.room_id);
+    // ── Параллельная загрузка всех данных сразу ──
+    const [membershipsRes] = await Promise.all([
+      sb.from('collab_habit_members').select('room_id,role').eq('user_id',user.id)
+    ]);
+    const memberships = membershipsRes.data || [];
+    const roomIds = memberships.map(m=>m.room_id);
+
     let rooms = [];
     if(roomIds.length){
       const {data} = await sb.from('collab_habit_rooms').select('*').in('id',roomIds);
       rooms = data||[];
     }
-    await renderChabContent(rooms, memberships||[]);
+    await renderChabContent(rooms, memberships);
   } catch(e){ console.error('CollabHabits:',e); await renderChabContent([],[]); }
 }
 
@@ -20672,11 +20686,14 @@ async function renderChabContent(rooms, memberships){
     </div>
   </div>`;
 
-  for(const room of rooms){
-    const myRole = (memberships.find(m=>m.room_id===room.id)||{role:'member'}).role;
-    html += await buildRoomCard(room, myRole, user);
-  }
-  el.innerHTML = html;
+  // ── Все карточки параллельно ──
+  const cards = await Promise.all(
+    rooms.map(room => {
+      const myRole = (memberships.find(m=>m.room_id===room.id)||{role:'member'}).role;
+      return buildRoomCard(room, myRole, user);
+    })
+  );
+  el.innerHTML = html + cards.join('');
   subscribeRealtime(rooms.map(r=>r.id));
 }
 
@@ -20684,33 +20701,35 @@ async function buildRoomCard(room, myRole, user){
   const sb = getSB();
   let members=[],habits=[],logs={};
   try {
-    const {data:mems} = await sb.from('collab_habit_members')
-      .select('user_id,role').eq('room_id',room.id);
-    const rawMembers = mems||[];
+    // ── Все запросы параллельно ──
+    const d30ago = new Date(); d30ago.setDate(d30ago.getDate()-30);
+    const d30str = d30ago.toISOString().slice(0,10);
+
+    const [memsRes, habsRes] = await Promise.all([
+      sb.from('collab_habit_members').select('user_id,role').eq('room_id',room.id),
+      sb.from('collab_habits').select('*').eq('room_id',room.id).eq('active',true)
+    ]);
+
+    const rawMembers = memsRes.data||[];
+    habits = habsRes.data||[];
     const memberIds = rawMembers.map(m=>m.user_id);
-    let profileMap = {};
-    if(memberIds.length){
-      const {data:profiles} = await sb.from('users')
-        .select('id,username,avatar,avatar_url').in('id', memberIds);
-      (profiles||[]).forEach(p=>{ profileMap[p.id]=p; });
-    }
+
+    // Профили и логи — тоже параллельно
+    const [profilesRes, logsRes] = await Promise.all([
+      memberIds.length ? sb.from('users').select('id,username,avatar,avatar_url').in('id',memberIds) : Promise.resolve({data:[]}),
+      habits.length && memberIds.length ? sb.from('collab_habit_logs').select('habit_id,user_id,date').eq('room_id',room.id).gte('date',d30str) : Promise.resolve({data:[]})
+    ]);
+
+    const profileMap = {};
+    (profilesRes.data||[]).forEach(p=>{ profileMap[p.id]=p; });
     members = rawMembers.map(m=>({
       ...m, users: profileMap[m.user_id] || { username:'?', avatar:'👤', avatar_url:null }
     }));
-    const {data:habs} = await sb.from('collab_habits').select('*').eq('room_id',room.id).eq('active',true);
-    habits = habs||[];
-    if(habits.length && members.length){
-      // Load logs for last 30 days for streak calc
-      const d30ago = new Date(); d30ago.setDate(d30ago.getDate()-30);
-      const d30str = d30ago.toISOString().slice(0,10);
-      const {data:lg} = await sb.from('collab_habit_logs')
-        .select('habit_id,user_id,date').eq('room_id',room.id).gte('date',d30str);
-      (lg||[]).forEach(e=>{
-        if(!logs[e.user_id]) logs[e.user_id]={};
-        if(!logs[e.user_id][e.habit_id]) logs[e.user_id][e.habit_id]={};
-        logs[e.user_id][e.habit_id][e.date]=true;
-      });
-    }
+    (logsRes.data||[]).forEach(e=>{
+      if(!logs[e.user_id]) logs[e.user_id]={};
+      if(!logs[e.user_id][e.habit_id]) logs[e.user_id][e.habit_id]={};
+      logs[e.user_id][e.habit_id][e.date]=true;
+    });
   } catch(e){ console.error('buildRoomCard:', e); }
 
   // ── Helpers ──────────────────────────────────────────────────
@@ -21112,41 +21131,61 @@ window.chabJoinRoom=function(){
 };
 
 window.chabDoJoin=async function(){
-  var _inp2=document.getElementById('chabJoinCode');
-  var code=_inp2?_inp2.value.trim().toUpperCase():'';
-  if(code.length<6){ if(_inp2){_inp2.style.borderColor='rgba(255,69,58,.5)';_inp2.focus();} return; }
+  var inp=document.getElementById('chabJoinCode');
+  var code=inp?inp.value.trim().toUpperCase():'';
+  if(code.length<4){ if(inp){inp.style.borderColor='rgba(255,69,58,.5)';inp.focus();} return; }
 
   var sb=getSB(), user=getUser();
-  if(!sb){ showToast('Ошибка: нет подключения','❌'); return; }
-  if(!user){ showToast('Ошибка: войдите в аккаунт','❌'); return; }
+  if(!sb||!user){ try{showToast('Войди в аккаунт','❌');}catch{} return; }
 
   var btn=document.querySelector('#chabModal .chab-btn-purple');
   if(btn){ btn.textContent='Входим...'; btn.disabled=true; }
 
   try {
-    var res1=await sb.from('collab_habit_rooms').select('id,name').eq('invite_code',code);
-    if(res1.error) throw res1.error;
-    var room=res1.data&&res1.data[0];
-    if(!room){ showToast('Неверный код приглашения','❌'); if(btn){btn.textContent='Войти';btn.disabled=false;} return; }
+    // Try exact match first, then case-insensitive
+    var res1 = await sb.from('collab_habit_rooms')
+      .select('id,name,invite_code')
+      .eq('invite_code', code)
+      .maybeSingle();
+
+    var room = res1.data;
+
+    // Fallback: ilike (case-insensitive) if not found
+    if(!room && !res1.error){
+      var res1b = await sb.from('collab_habit_rooms')
+        .select('id,name,invite_code')
+        .ilike('invite_code', code)
+        .maybeSingle();
+      room = res1b.data;
+    }
+
+    if(!room){
+      var errDetail = res1.error ? ' ('+res1.error.message+')' : '';
+      try{showToast('Код не найден. Проверь и попробуй снова'+errDetail,'❌');}catch{}
+      if(inp){ inp.style.borderColor='rgba(255,69,58,.5)'; }
+      if(btn){ btn.textContent='Войти'; btn.disabled=false; }
+      return;
+    }
 
     // Check if already member
-    var res2=await sb.from('collab_habit_members').select('id').eq('room_id',room.id).eq('user_id',user.id);
+    var res2 = await sb.from('collab_habit_members')
+      .select('id').eq('room_id',room.id).eq('user_id',user.id).maybeSingle();
     if(res2.error) throw res2.error;
-    var already=res2.data&&res2.data.length>0;
 
-    if(!already){
-      var res3=await sb.from('collab_habit_members').insert({room_id:room.id,user_id:user.id,role:'member'});
+    if(!res2.data){
+      var res3 = await sb.from('collab_habit_members')
+        .insert({room_id:room.id, user_id:user.id, role:'member'});
       if(res3.error) throw res3.error;
     }
 
     hideChabModal();
-    showToast('Вступил в «'+room.name+'»!','🎉');
-    setTimeout(renderCollabView, 300);
+    try{showToast('Вступил в «'+room.name+'»! 🎉','🤝');}catch{}
+    setTimeout(renderCollabView, 400);
 
   } catch(e){
     console.error('chabDoJoin error:', e);
-    var msg=e&&e.message?e.message:'Неизвестная ошибка';
-    showToast('Ошибка: '+msg,'❌');
+    var msg = e&&e.message ? e.message : 'Неизвестная ошибка';
+    try{showToast('Ошибка: '+msg,'❌');}catch{}
     if(btn){ btn.textContent='Войти'; btn.disabled=false; }
   }
 };
