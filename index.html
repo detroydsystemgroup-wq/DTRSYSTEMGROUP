@@ -16766,11 +16766,386 @@ function _kbFmtDate(ts) {
   </div>
 </div>
 
+<style id="chab-styles">
+/* Mode switcher bar (like Arena) */
+.hab-mode-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 4px;
+  background: rgba(255,255,255,.04);
+  border: 0.5px solid rgba(255,255,255,.07);
+  border-radius: 14px;
+}
+.hab-mode-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--t2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  letter-spacing: -.01em;
+  transition: all .2s var(--ease-bounce, cubic-bezier(.34,1.15,.64,1));
+  position: relative;
+}
+.hab-mode-btn:hover { color: var(--t1); background: rgba(255,255,255,.06); }
+.hab-mode-btn.active {
+  background: rgba(239,192,48,.12);
+  color: var(--gold);
+  border: 0.5px solid rgba(239,192,48,.3);
+  box-shadow: 0 2px 12px rgba(239,192,48,.15);
+}
+.hab-mode-btn.active.collab {
+  background: rgba(168,85,247,.12);
+  color: #c084fc;
+  border-color: rgba(168,85,247,.35);
+  box-shadow: 0 2px 12px rgba(168,85,247,.2);
+}
+.hab-mode-badge {
+  font-size: 9px;
+  font-weight: 800;
+  background: rgba(168,85,247,.2);
+  color: #c084fc;
+  border-radius: 5px;
+  padding: 1px 5px;
+  letter-spacing: .04em;
+}
+
+/* ── Collab room card ── */
+.chab-room {
+  border-radius: 18px;
+  border: 0.5px solid rgba(168,85,247,.25);
+  background: linear-gradient(135deg, rgba(168,85,247,.06) 0%, rgba(139,92,246,.03) 100%);
+  overflow: hidden;
+  margin-bottom: 14px;
+  position: relative;
+}
+.chab-room::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #a855f7, #8b5cf6, #6366f1);
+  opacity: .7;
+}
+.chab-room-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border-bottom: 0.5px solid rgba(255,255,255,.05);
+}
+.chab-room-icon {
+  width: 44px; height: 44px;
+  border-radius: 13px;
+  background: rgba(168,85,247,.15);
+  border: 0.5px solid rgba(168,85,247,.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.chab-room-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--t1);
+  letter-spacing: -.03em;
+  line-height: 1.2;
+}
+.chab-room-meta {
+  font-size: 11px;
+  color: var(--t3);
+  margin-top: 2px;
+  letter-spacing: -.005em;
+}
+.chab-room-acts { display: flex; gap: 6px; margin-left: auto; }
+
+/* Members row */
+.chab-members {
+  display: flex;
+  gap: 0;
+  align-items: center;
+}
+.chab-av {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  border: 2px solid var(--card);
+  margin-left: -6px;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: transform .15s;
+}
+.chab-av:first-child { margin-left: 0; }
+.chab-av:hover { transform: translateY(-3px); z-index: 5; }
+
+/* Collab leaderboard */
+.chab-lb {
+  padding: 0;
+}
+.chab-lb-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 0.5px solid rgba(255,255,255,.04);
+  transition: background .13s;
+  position: relative;
+}
+.chab-lb-row:last-child { border-bottom: none; }
+.chab-lb-row:hover { background: rgba(255,255,255,.03); }
+.chab-lb-row.me {
+  background: rgba(168,85,247,.05);
+  border-left: 2.5px solid rgba(168,85,247,.6);
+}
+.chab-lb-rank {
+  font-family: 'DM Mono', monospace;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--t3);
+  width: 22px;
+  flex-shrink: 0;
+  text-align: center;
+}
+.chab-lb-row:nth-child(1) .chab-lb-rank { color: #F0C030; }
+.chab-lb-row:nth-child(2) .chab-lb-rank { color: #B8B8C4; }
+.chab-lb-row:nth-child(3) .chab-lb-rank { color: #C07840; }
+.chab-lb-av {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+  border: 0.5px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.05);
+  overflow: hidden;
+}
+.chab-lb-info { flex: 1; min-width: 0; }
+.chab-lb-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--t1);
+  letter-spacing: -.015em;
+  display: flex; align-items: center; gap: 6px;
+}
+.chab-lb-sub {
+  font-size: 10.5px;
+  color: var(--t3);
+  margin-top: 2px;
+  letter-spacing: -.005em;
+}
+.chab-lb-score {
+  font-family: 'DM Mono', monospace;
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: -.02em;
+  color: #c084fc;
+  min-width: 52px;
+  text-align: right;
+}
+.chab-lb-bar-wr {
+  width: 80px;
+  height: 3px;
+  background: rgba(255,255,255,.06);
+  border-radius: 2px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.chab-lb-bar {
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #8b5cf6, #a855f7);
+  transition: width 1s var(--ease-out, cubic-bezier(.4,0,.2,1));
+}
+
+/* Shared habit rows with user dots */
+.chab-habit-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  border-top: 0.5px solid rgba(255,255,255,.04);
+  transition: background .13s;
+}
+.chab-habit-row:hover { background: rgba(255,255,255,.025); }
+.chab-habit-dots {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.chab-dot {
+  width: 22px; height: 22px;
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px;
+  border: 0.5px solid rgba(255,255,255,.08);
+  position: relative;
+  cursor: default;
+  transition: transform .15s;
+}
+.chab-dot:hover { transform: scale(1.15); z-index: 3; }
+.chab-dot.done {
+  background: rgba(168,85,247,.2);
+  border-color: rgba(168,85,247,.4);
+}
+.chab-dot.done::after {
+  content: '✓';
+  font-size: 9px;
+  color: #c084fc;
+  position: absolute;
+  inset: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.chab-dot.pending {
+  background: rgba(255,255,255,.04);
+  opacity: .5;
+}
+
+/* Empty / invite state */
+.chab-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  text-align: center;
+}
+.chab-empty-icon {
+  width: 72px; height: 72px;
+  border-radius: 20px;
+  background: rgba(168,85,247,.08);
+  border: 0.5px solid rgba(168,85,247,.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32px;
+  margin-bottom: 20px;
+  animation: floatUpDown 4s ease-in-out infinite;
+}
+
+/* Invite code pill */
+.chab-code {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(168,85,247,.1);
+  border: 0.5px solid rgba(168,85,247,.3);
+  border-radius: 10px;
+  font-family: 'DM Mono', monospace;
+  font-size: 16px;
+  font-weight: 400;
+  color: #c084fc;
+  letter-spacing: .1em;
+  cursor: pointer;
+  transition: all .15s;
+}
+.chab-code:hover {
+  background: rgba(168,85,247,.18);
+  transform: scale(1.02);
+}
+
+/* Create room modal */
+.chab-modal {
+  background: rgba(18,18,24,.98);
+  border: 0.5px solid rgba(168,85,247,.2);
+  border-radius: 22px;
+  padding: 28px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 32px 80px rgba(0,0,0,.7),
+              inset 0 0.5px 0 rgba(255,255,255,.07);
+  animation: appleSpringIn .26s cubic-bezier(.34,1.15,.64,1) both;
+}
+.chab-modal-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--t1);
+  letter-spacing: -.04em;
+  margin-bottom: 6px;
+}
+.chab-modal-sub {
+  font-size: 13px;
+  color: var(--t2);
+  margin-bottom: 22px;
+  letter-spacing: -.005em;
+  line-height: 1.5;
+}
+.chab-btn-purple {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #8b5cf6, #a855f7);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  letter-spacing: -.01em;
+  transition: all .15s var(--ease-bounce, cubic-bezier(.34,1.15,.64,1));
+  box-shadow: 0 4px 16px rgba(139,92,246,.35);
+}
+.chab-btn-purple:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(139,92,246,.5);
+}
+.chab-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: 0.5px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04);
+  color: var(--t2);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all .15s;
+}
+.chab-btn-outline:hover {
+  background: rgba(255,255,255,.08);
+  color: var(--t1);
+}
+
+/* Real-time pulse */
+.chab-live-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  display: inline-block;
+  animation: livePulse 2.5s ease infinite;
+  flex-shrink: 0;
+}
+@keyframes livePulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(34,197,94,.4); }
+  50%      { box-shadow: 0 0 0 5px rgba(34,197,94,.0); }
+}
+
+/* You badge */
+.chab-you-tag {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: rgba(168,85,247,.2);
+  color: #c084fc;
+  letter-spacing: .04em;
+}
+</style>
+
 <script>
-/* ══════════════════════════════════════════════════════════════
-   HABIT TRACKER ENGINE  v3 — DTR Progress Club
-   Self-contained IIFE — touches only #hab-root + #habAddOv
-══════════════════════════════════════════════════════════════ */
+/* ══ HABIT TRACKER ENGINE v3 ══ */
+
 (function HabTracker(){
 'use strict';
 
@@ -19989,4 +20364,332 @@ window.socToggleFollowInModal = async function(userId, btn){
 };
 
 })(); // end IIFE
+</script>
+
+<!-- ══ COLLABORATIVE HABITS MODAL ═════════════════════════════ -->
+<div id="chabModalOv" style="display:none;position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.72);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);align-items:center;justify-content:center;padding:20px">
+  <div class="chab-modal" id="chabModal"></div>
+</div>
+
+
+<script>
+/* ══ COLLABORATIVE HABITS ENGINE ════════════════════════════ */
+(function CollabHabits(){
+'use strict';
+
+const CHAB_MODE_KEY = 'dtr_chab_mode';
+let _chabMode = localStorage.getItem(CHAB_MODE_KEY) || 'personal';
+let _chabSub  = null;
+
+function getSB(){ return window.sb || null; }
+function getUser(){ return window.SB_USER || null; }
+function mkCode(){ return Math.random().toString(36).slice(2,8).toUpperCase(); }
+
+window.chabSetMode = function(mode){
+  _chabMode = mode;
+  localStorage.setItem(CHAB_MODE_KEY, mode);
+  document.querySelectorAll('.hab-mode-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.mode === mode);
+    b.classList.toggle('collab', b.dataset.mode === 'collab' && mode === 'collab');
+  });
+  if(mode === 'collab') renderCollabView();
+  else {
+    const root = document.getElementById('hab-root');
+    if(root) {
+      const bar = document.getElementById('habModeBar');
+      // Trigger personal render via showTab hook
+      const tc = document.getElementById('tab-habits');
+      if(tc && tc.classList.contains('active')) {
+        root.innerHTML = '';
+        if(bar) root.appendChild(bar);
+        // Re-run personal tracker
+        if(window._habTriggerRender) window._habTriggerRender();
+      }
+    }
+  }
+};
+
+function renderModeBar(container){
+  if(document.getElementById('habModeBar')) return;
+  const bar = document.createElement('div');
+  bar.className = 'hab-mode-bar';
+  bar.id = 'habModeBar';
+  bar.innerHTML = `
+    <button class="hab-mode-btn ${_chabMode==='personal'?'active':''}" data-mode="personal" onclick="chabSetMode('personal')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Мой трекер
+    </button>
+    <button class="hab-mode-btn ${_chabMode==='collab'?'active collab':''}" data-mode="collab" onclick="chabSetMode('collab')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Совместный
+      <span class="hab-mode-badge">NEW</span>
+    </button>`;
+  container.prepend(bar);
+}
+
+async function renderCollabView(){
+  const root = document.getElementById('hab-root');
+  if(!root) return;
+  const sb = getSB(), user = getUser();
+  const bar = document.getElementById('habModeBar');
+  root.innerHTML = '';
+  if(bar) root.appendChild(bar);
+
+  if(!user || user.isDemoUser){
+    root.insertAdjacentHTML('beforeend',`<div class="chab-empty"><div class="chab-empty-icon">🤝</div><div style="font-size:17px;font-weight:800;color:var(--t1);letter-spacing:-.03em;margin-bottom:8px">Совместные привычки</div><div style="font-size:13px;color:var(--t2);line-height:1.6;max-width:280px">Войди в аккаунт чтобы создавать совместные трекеры с друзьями</div></div>`);
+    return;
+  }
+
+  root.insertAdjacentHTML('beforeend',`<div id="chabContent"><div style="color:var(--t3);font-size:13px;padding:32px 0;text-align:center;animation:fadeUp .22s ease">Загружаем...</div></div>`);
+
+  try {
+    const {data:memberships} = await sb.from('collab_habit_members').select('room_id,role').eq('user_id',user.id);
+    const roomIds = (memberships||[]).map(m=>m.room_id);
+    let rooms = [];
+    if(roomIds.length){
+      const {data} = await sb.from('collab_habit_rooms').select('*').in('id',roomIds);
+      rooms = data||[];
+    }
+    await renderChabContent(rooms, memberships||[]);
+  } catch(e){ console.error('CollabHabits:',e); await renderChabContent([],[]); }
+}
+
+async function renderChabContent(rooms, memberships){
+  const el = document.getElementById('chabContent');
+  if(!el) return;
+  const user = getUser();
+
+  if(!rooms.length){
+    el.innerHTML = `<div class="chab-empty">
+      <div class="chab-empty-icon">🤝</div>
+      <div style="font-size:17px;font-weight:800;color:var(--t1);letter-spacing:-.03em;margin-bottom:8px">Нет совместных трекеров</div>
+      <div style="font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:24px;max-width:300px">Создай трекер и пригласи друзей — соревнуйтесь, мотивируйте друг друга</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+        <button class="chab-btn-purple" onclick="chabCreateRoom()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Создать трекер
+        </button>
+        <button class="chab-btn-outline" onclick="chabJoinRoom()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          Войти по коду
+        </button>
+      </div>
+    </div>`;
+    return;
+  }
+
+  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+    <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t2);display:flex;align-items:center;gap:8px">
+      <span class="chab-live-dot"></span>Совместные трекеры · ${rooms.length}
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="chab-btn-purple" style="padding:7px 14px;font-size:12px" onclick="chabCreateRoom()">+ Создать</button>
+      <button class="chab-btn-outline" style="padding:7px 14px;font-size:12px" onclick="chabJoinRoom()">Войти по коду</button>
+    </div>
+  </div>`;
+
+  for(const room of rooms){
+    const myRole = (memberships.find(m=>m.room_id===room.id)||{role:'member'}).role;
+    html += await buildRoomCard(room, myRole, user);
+  }
+  el.innerHTML = html;
+  subscribeRealtime(rooms.map(r=>r.id));
+}
+
+async function buildRoomCard(room, myRole, user){
+  const sb = getSB();
+  let members=[],habits=[],logs={};
+  try {
+    const {data:mems} = await sb.from('collab_habit_members').select('user_id,role,users(username,avatar,avatar_url)').eq('room_id',room.id);
+    members = mems||[];
+    const {data:habs} = await sb.from('collab_habits').select('*').eq('room_id',room.id).eq('active',true);
+    habits = habs||[];
+    if(habits.length&&members.length){
+      const {data:lg} = await sb.from('collab_habit_logs').select('habit_id,user_id,date').eq('room_id',room.id).gte('date',_getWeekStart());
+      (lg||[]).forEach(e=>{ if(!logs[e.user_id])logs[e.user_id]={};if(!logs[e.user_id][e.habit_id])logs[e.user_id][e.habit_id]={};logs[e.user_id][e.habit_id][e.date]=true;});
+    }
+  } catch(e){}
+
+  const today=_todayStr(), weekDays=_getWeekDays();
+  const scores = members.map(m=>{
+    let done=0,possible=habits.length*7;
+    habits.forEach(h=>weekDays.forEach(d=>{ if((logs[m.user_id] && logs[m.user_id][h.id] && logs[m.user_id][h.id][d])) done++; }));
+    const pct=possible>0?Math.round(done/possible*100):0;
+    const todayDone=habits.filter(h=>(logs[m.user_id] && logs[m.user_id][h.id] && logs[m.user_id][h.id][today])).length;
+    return{...m,done,pct,todayDone};
+  }).sort((a,b)=>b.pct-a.pct);
+  const maxPct=Math.max(...scores.map(s=>s.pct),1);
+
+  const avHtml=scores.map(s=>{ const u=s.users||{}; const av=u.avatar_url?`<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:6px">`:`<span style="font-size:13px">${u.avatar||'👤'}</span>`; return `<div class="chab-av" style="background:rgba(168,85,247,.12)" title="${u.username||'?'}">${av}</div>`; }).join('');
+
+  const medals=['🥇','🥈','🥉'];
+  const lbRows=scores.map((s,i)=>{ const u=s.users||{}; const isMe=s.user_id===(user && user.id); const av=u.avatar_url?`<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`:`<span style="font-size:18px">${u.avatar||'👤'}</span>`; return `<div class="chab-lb-row${isMe?' me':''}"><div class="chab-lb-rank">${medals[i]||i+1}</div><div class="chab-lb-av">${av}</div><div class="chab-lb-info"><div class="chab-lb-name">${u.username||'?'}${isMe?'<span class="chab-you-tag">ТЫ</span>':''}</div><div class="chab-lb-sub">${s.todayDone}/${habits.length} сегодня · 🔥 ${s.done} за неделю</div></div><div class="chab-lb-bar-wr"><div class="chab-lb-bar" style="width:${Math.round(s.pct/maxPct*100)}%"></div></div><div class="chab-lb-score">${s.pct}%</div></div>`; }).join('');
+
+  const habRows=habits.map(h=>{ const dots=scores.map(s=>{ const done=!!(logs[s.user_id] && logs[s.user_id][h.id] && logs[s.user_id][h.id][today]); const isMe=s.user_id===(user && user.id); const clickAttr=isMe?`onclick="chabToggle('${room.id}','${h.id}','${today}')" style="cursor:pointer"`:`title="${(s.users||{}).username||'?'}: ${done?'✓':'—'}"`; return `<div class="chab-dot ${done?'done':'pending'}" ${clickAttr}></div>`; }).join(''); return `<div class="chab-habit-row"><div style="width:32px;height:32px;border-radius:9px;background:${h.color||'#a855f7'}18;border:0.5px solid ${h.color||'#a855f7'}30;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${h.icon||'🎯'}</div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:var(--t1);letter-spacing:-.01em">${h.name}</div><div style="font-size:10px;color:var(--t3);margin-top:1px">Нажми чтобы отметить</div></div><div class="chab-habit-dots">${dots}</div></div>`; }).join('');
+
+  const isOwner=myRole==='owner';
+  const code=room.invite_code||'——';
+  const svgDel=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>`;
+
+  return `<div class="chab-room" id="chab-room-${room.id}">
+    <div class="chab-room-head">
+      <div class="chab-room-icon">${room.icon||'🤝'}</div>
+      <div style="flex:1;min-width:0">
+        <div class="chab-room-title">${room.name||'Совместный трекер'}</div>
+        <div class="chab-room-meta">${members.length} участников · ${habits.length} привычек</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="chab-members">${avHtml}</div>
+        <div class="chab-room-acts">
+          <button class="chab-btn-outline" style="padding:5px 10px;font-size:11px" onclick="chabShowCode('${code}')">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Пригласить
+          </button>
+          ${isOwner?`<button class="chab-btn-outline" style="padding:5px 10px;font-size:11px" onclick="chabAddHabit('${room.id}')">+ Привычка</button><button class="chab-btn-outline" style="padding:5px 10px;font-size:11px;color:var(--red);border-color:rgba(255,69,58,.2)" onclick="chabDeleteRoom('${room.id}')">${svgDel}</button>`:''}
+        </div>
+      </div>
+    </div>
+    ${lbRows?`<div class="chab-lb">${lbRows}</div>`:''}
+    ${habRows||`<div style="padding:20px;text-align:center;color:var(--t3);font-size:13px">${isOwner?`<button class="chab-btn-purple" style="padding:8px 16px;font-size:12px" onclick="chabAddHabit('${room.id}')">+ Добавить привычки</button>`:'Привычки ещё не добавлены'}</div>`}
+  </div>`;
+}
+
+window.chabToggle=async function(roomId,habitId,date){
+  const sb=getSB(),user=getUser(); if(!sb||!user)return;
+  try {
+    const {data:ex}=await sb.from('collab_habit_logs').select('id').eq('room_id',roomId).eq('habit_id',habitId).eq('user_id',user.id).eq('date',date).limit(1).then(function(r){return {data:(r.data&&r.data.length?r.data[0]:null),error:r.error};});
+    if(ex) await sb.from('collab_habit_logs').delete().eq('id',ex.id);
+    else await sb.from('collab_habit_logs').insert({room_id:roomId,habit_id:habitId,user_id:user.id,date});
+    setTimeout(renderCollabView,400);
+    try{window.showToast&&showToast(ex?'Отменено':'Выполнено!',ex?'↩️':'✅');}catch{}
+  }catch(e){console.error(e);}
+};
+
+window.chabShowCode=function(code){
+  showChabModal(`<div class="chab-modal-title">Пригласить в трекер</div>
+    <div class="chab-modal-sub">Поделись кодом — участник вводит его и сразу попадает в трекер</div>
+    <div style="text-align:center;margin-bottom:20px">
+      <div class="chab-code" onclick="navigator.clipboard.writeText('${code}').then(()=>{try{showToast('Скопировано','📋')}catch{}})">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".6"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        ${code}
+      </div>
+      <div style="font-size:11px;color:var(--t3);margin-top:8px">Нажми чтобы скопировать</div>
+    </div>
+    <div style="display:flex;justify-content:center"><button class="chab-btn-outline" onclick="hideChabModal()">Закрыть</button></div>`);
+};
+
+window.chabCreateRoom=function(){
+  window._chabRoomIcon='🤝';
+  showChabModal(`<div class="chab-modal-title">Новый совместный трекер</div>
+    <div class="chab-modal-sub">Создай трекер, добавь привычки и пригласи друзей соревноваться</div>
+    <input id="chabRoomName" placeholder="Название трекера" style="width:100%;padding:11px 13px;border-radius:10px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:var(--t1);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;box-sizing:border-box;margin-bottom:12px;transition:border-color .15s" onfocus="this.style.borderColor='rgba(168,85,247,.55)'" onblur="this.style.borderColor='rgba(255,255,255,.1)'" onkeydown="if(event.key==='Enter')chabDoCreate()">
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px">${['🤝','🏃','🧘','📚','💪','🔥','⚡','🌱','🎯','🧠'].map(e=>`<button onclick="this.parentNode.querySelectorAll('button').forEach(b=>b.style.outline='');this.style.outline='2px solid #a855f7';window._chabRoomIcon='${e}'" style="width:36px;height:36px;border-radius:9px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);font-size:18px;cursor:pointer">${e}</button>`).join('')}</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="chab-btn-outline" onclick="hideChabModal()">Отмена</button><button class="chab-btn-purple" onclick="chabDoCreate()">Создать</button></div>`);
+  setTimeout(function(){ var _el=document.getElementById('chabRoomName'); if(_el)_el.focus(); },100);
+};
+
+window.chabDoCreate=async function(){
+  var _inp1=document.getElementById('chabRoomName'); const name=_inp1?_inp1.value.trim():'';
+  if(!name)return;
+  const sb=getSB(),user=getUser(); if(!sb||!user)return;
+  try {
+    const code=mkCode();
+    const {data:room,error}=await sb.from('collab_habit_rooms').insert({name,icon:window._chabRoomIcon||'🤝',owner_id:user.id,invite_code:code}).select().single();
+    if(error)throw error;
+    await sb.from('collab_habit_members').insert({room_id:room.id,user_id:user.id,role:'owner'});
+    hideChabModal();
+    try{showToast('Трекер создан!','🤝');}catch{}
+    setTimeout(()=>{renderCollabView();setTimeout(()=>chabShowCode(code),600);},300);
+  }catch(e){console.error(e);try{showToast('Ошибка','❌');}catch{}}
+};
+
+window.chabJoinRoom=function(){
+  showChabModal(`<div class="chab-modal-title">Войти по коду</div>
+    <div class="chab-modal-sub">Введи код приглашения от участника трекера</div>
+    <input id="chabJoinCode" placeholder="XXXXXX" maxlength="6" style="width:100%;padding:14px 13px;border-radius:10px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#c084fc;font-size:22px;font-family:'DM Mono',monospace;outline:none;box-sizing:border-box;letter-spacing:.2em;text-align:center;text-transform:uppercase;margin-bottom:18px;transition:border-color .15s" onfocus="this.style.borderColor='rgba(168,85,247,.55)'" onblur="this.style.borderColor='rgba(255,255,255,.1)'" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')chabDoJoin()">
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="chab-btn-outline" onclick="hideChabModal()">Отмена</button><button class="chab-btn-purple" onclick="chabDoJoin()">Войти</button></div>`);
+  setTimeout(function(){ var _el=document.getElementById('chabJoinCode'); if(_el)_el.focus(); },100);
+};
+
+window.chabDoJoin=async function(){
+  var _inp2=document.getElementById('chabJoinCode'); const code=_inp2?_inp2.value.trim().toUpperCase():'';
+  if(code.length<6)return;
+  const sb=getSB(),user=getUser(); if(!sb||!user)return;
+  try {
+    const {data:room}=await sb.from('collab_habit_rooms').select('id,name').eq('invite_code',code).single();
+    if(!room){try{showToast('Неверный код','❌');}catch{}return;}
+    const {data:ex}=await sb.from('collab_habit_members').select('id').eq('room_id',room.id).eq('user_id',user.id).limit(1).then(function(r){return {data:(r.data&&r.data.length?r.data[0]:null),error:r.error};});
+    if(!ex) await sb.from('collab_habit_members').insert({room_id:room.id,user_id:user.id,role:'member'});
+    hideChabModal();
+    try{showToast(`Вступил в «${room.name}»!`,'🎉');}catch{}
+    setTimeout(renderCollabView,300);
+  }catch(e){console.error(e);try{showToast('Ошибка','❌');}catch{}}
+};
+
+window.chabAddHabit=function(roomId){
+  window._chabHabIcon='🎯';
+  showChabModal(`<div class="chab-modal-title">Добавить привычку</div>
+    <div class="chab-modal-sub">Общая привычка для всех участников трекера</div>
+    <input id="chabHabName" placeholder="Название привычки" style="width:100%;padding:11px 13px;border-radius:10px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:var(--t1);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;box-sizing:border-box;margin-bottom:10px;transition:border-color .15s" onfocus="this.style.borderColor='rgba(168,85,247,.55)'" onblur="this.style.borderColor='rgba(255,255,255,.1)'" onkeydown="if(event.key==='Enter')chabDoAddHabit('${roomId}')">
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">${['📚','🏃','🧘','💪','💧','🎯','✍️','☀️','🧠','🔥'].map(e=>`<button onclick="this.parentNode.querySelectorAll('button').forEach(b=>b.style.outline='');this.style.outline='2px solid #a855f7';window._chabHabIcon='${e}'" style="width:34px;height:34px;border-radius:8px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);font-size:16px;cursor:pointer">${e}</button>`).join('')}</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="chab-btn-outline" onclick="hideChabModal()">Отмена</button><button class="chab-btn-purple" onclick="chabDoAddHabit('${roomId}')">Добавить</button></div>`);
+  setTimeout(function(){ var _el=document.getElementById('chabHabName'); if(_el)_el.focus(); },100);
+};
+
+window.chabDoAddHabit=async function(roomId){
+  var _inp3=document.getElementById('chabHabName'); const name=_inp3?_inp3.value.trim():'';
+  if(!name)return;
+  const sb=getSB();
+  try {
+    await sb.from('collab_habits').insert({room_id:roomId,name,icon:window._chabHabIcon||'🎯',color:'#a855f7',active:true});
+    hideChabModal();
+    try{showToast('Привычка добавлена',window._chabHabIcon||'🎯');}catch{}
+    setTimeout(renderCollabView,300);
+  }catch(e){console.error(e);}
+};
+
+window.chabDeleteRoom=async function(roomId){
+  if(!confirm('Удалить этот совместный трекер? Все данные будут потеряны.'))return;
+  const sb=getSB(),user=getUser();
+  try { await sb.from('collab_habit_rooms').delete().eq('id',roomId).eq('owner_id',user.id); try{showToast('Трекер удалён','🗑️');}catch{} setTimeout(renderCollabView,300); }catch(e){console.error(e);}
+};
+
+function subscribeRealtime(roomIds){
+  if(!roomIds.length)return;
+  const sb=getSB();if(!sb)return;
+  if(_chabSub){try{sb.removeChannel(_chabSub);}catch{}}
+  _chabSub=sb.channel('collab_habits_rt').on('postgres_changes',{event:'*',schema:'public',table:'collab_habit_logs'},()=>{ if(_chabMode==='collab')renderCollabView(); }).subscribe();
+}
+
+function showChabModal(html){
+  const ov=document.getElementById('chabModalOv'),box=document.getElementById('chabModal');
+  if(!ov||!box)return;
+  box.innerHTML=html;
+  ov.style.display='flex';
+}
+window.hideChabModal=function(){
+  const ov=document.getElementById('chabModalOv');
+  if(ov)ov.style.display='none';
+};
+document.addEventListener('click',e=>{ if(e.target.id==='chabModalOv')window.hideChabModal(); });
+
+function _todayStr(){ const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function _getWeekStart(){ const d=new Date(),dow=d.getDay()||7;d.setDate(d.getDate()-dow+1);d.setHours(0,0,0,0);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function _getWeekDays(){ const d=new Date(),dow=d.getDay()||7;d.setDate(d.getDate()-dow+1);d.setHours(0,0,0,0);return Array.from({length:7},(_,i)=>{const x=new Date(d);x.setDate(x.getDate()+i);return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;}); }
+
+// Hook showTab
+const _origST=window.showTab;
+window.showTab=function(t,btn,skip){
+  if(_origST)_origST.call(this,t,btn,skip);
+  if(t==='habits'){
+    setTimeout(()=>{
+      const root=document.getElementById('hab-root');
+      if(root&&!document.getElementById('habModeBar'))renderModeBar(root);
+      if(_chabMode==='collab')renderCollabView();
+    },80);
+  }
+};
+
+window.renderCollabView=renderCollabView;
+})();
 </script>
