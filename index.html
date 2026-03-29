@@ -20768,27 +20768,47 @@ async function buildRoomCard(room, myRole, user){
   habits.forEach(h=>{ if((myLog[h.id]||{})[today]) myDoneToday++; });
   const myTodayPct = habits.length ? Math.round(myDoneToday/habits.length*100) : 0;
 
-  // My global streak (consecutive days with at least one habit done)
+  // ── My global streak — считаем корректно (сегодня не сделал ≠ стрик сброшен) ──
   let myGlobalStreak=0;
   {const d=new Date(); d.setHours(12,0,0,0);
    for(let i=0;i<200;i++){
      const key=dateStr(d);
      const anyDone=habits.some(h=>(myLog[h.id]||{})[key]);
-     if(anyDone) myGlobalStreak++; else if(i>0) break;
+     // i=0 = сегодня: не сделано сегодня — не рвём стрик (день ещё идёт)
+     if(anyDone) myGlobalStreak++;
+     else if(i>0) break; // вчера или раньше — стрик кончился
      d.setDate(d.getDate()-1);
    }}
 
-  // ── Group leaderboard scores (week) ──
+  // ── Стрик для конкретной привычки (то же правило) ──
+  // уже определён как chabStreak() ниже
+
+  // ── Group leaderboard scores ──
+  // possible = только прошедшие дни недели (не будущие), чтобы % был честный
   const weekDayStrs = weekDates.map(d=>dateStr(d));
+  const passedDayStrs = weekDayStrs.filter(d => d <= today); // только до сегодня включительно
+  const possibleDays = Math.max(passedDayStrs.length, 1);
+
   const scores = members.map(m=>{
-    let done=0, possible=habits.length*7;
-    habits.forEach(h=>weekDayStrs.forEach(d=>{
+    // done = сколько раз выполнено за прошедшие дни недели
+    let done=0;
+    habits.forEach(h=>passedDayStrs.forEach(d=>{
       if((logs[m.user_id]||{})[h.id]?.[d]) done++;
     }));
+    const possible = habits.length * possibleDays;
     const pct = possible>0 ? Math.round(done/possible*100) : 0;
     const todayDone = habits.filter(h=>((logs[m.user_id]||{})[h.id]||{})[today]).length;
-    return{...m, done, pct, todayDone};
-  }).sort((a,b)=>b.pct-a.pct);
+    // Персональный стрик участника (последовательные дни)
+    let streak=0;
+    {const dd=new Date(); dd.setHours(12,0,0,0);
+     for(let i=0;i<60;i++){
+       const k=dateStr(dd);
+       const anyD=habits.some(h=>(logs[m.user_id]||{})[h.id]?.[k]);
+       if(anyD) streak++; else if(i>0) break;
+       dd.setDate(dd.getDate()-1);
+     }}
+    return{...m, done, pct, todayDone, streak};
+  }).sort((a,b)=>b.pct-a.pct || b.streak-a.streak);
   const maxPct = Math.max(...scores.map(s=>s.pct), 1);
   const isOwner = myRole==='owner';
   const code = room.invite_code||'——';
@@ -20922,12 +20942,16 @@ async function buildRoomCard(room, myRole, user){
     const u=s.users||{};
     const isMe=s.user_id===myId;
     const av=u.avatar_url?`<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`:`<span style="font-size:18px">${u.avatar||'👤'}</span>`;
+    const streakTxt = s.streak > 0 ? `🔥 ${s.streak} стрик` : '— стрик';
+    const doneTxt = `✓ ${s.todayDone}/${habits.length} сегодня`;
+    const weekTxt = `${s.done} из ${habits.length * possibleDays} за неделю`;
     return `<div class="chab-lb-row${isMe?' me':''}">
       <div class="chab-lb-rank">${medals[i]||i+1}</div>
       <div class="chab-lb-av">${av}</div>
       <div class="chab-lb-info">
         <div class="chab-lb-name">${u.username||'?'}${isMe?'<span class="chab-you-tag">ТЫ</span>':''}</div>
-        <div class="chab-lb-sub">${s.todayDone}/${habits.length} сегодня · 🔥 ${s.done} за неделю</div>
+        <div class="chab-lb-sub">${doneTxt} · ${streakTxt}</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:1px">${weekTxt}</div>
       </div>
       <div class="chab-lb-bar-wr"><div class="chab-lb-bar" style="width:${Math.round(s.pct/maxPct*100)}%"></div></div>
       <div class="chab-lb-score">${s.pct}%</div>
@@ -20978,16 +21002,19 @@ async function buildRoomCard(room, myRole, user){
         <div class="chab-hero-sub">${myDoneToday} из ${habits.length} привычек выполнено</div>
         <div class="chab-hero-kpis">
           <div class="chab-hero-kpi">
-            <div class="chab-hero-kpi-val" style="color:var(--orange)">🔥 ${myGlobalStreak}</div>
-            <div class="chab-hero-kpi-lbl">Стрик</div>
+            <div class="chab-hero-kpi-val" style="color:var(--orange)">${myGlobalStreak > 0 ? '🔥 '+myGlobalStreak : '—'}</div>
+            <div class="chab-hero-kpi-lbl">Стрик дней</div>
           </div>
           <div class="chab-hero-kpi">
             <div class="chab-hero-kpi-val" style="color:#c084fc">${habits.length}</div>
             <div class="chab-hero-kpi-lbl">Привычек</div>
           </div>
           <div class="chab-hero-kpi">
-            <div class="chab-hero-kpi-val" style="color:var(--green)">${members.length}</div>
-            <div class="chab-hero-kpi-lbl">Участников</div>
+            <div class="chab-hero-kpi-val" style="color:var(--green)">${
+              // Мои выполнения за прошедшие дни недели
+              passedDayStrs.reduce((sum,d)=>sum+habits.filter(h=>(myLog[h.id]||{})[d]).length,0)
+            }/${habits.length * possibleDays}</div>
+            <div class="chab-hero-kpi-lbl">Неделя</div>
           </div>
         </div>
       </div>
