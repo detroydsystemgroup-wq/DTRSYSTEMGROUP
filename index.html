@@ -7433,15 +7433,27 @@ async function loadUser(userId){
     hours: Math.max(c.hours, Math.round((sessHrsByCat[c.id]||0)*100)/100)
   }));
   // Recover categories that appear in sessions but have no user_categories row
-  Object.entries(sessHrsByCat).forEach(([catId,hrs])=>{
-    if(!P.categories.find(c=>c.id===catId)){
-      const def=ALL_CATS.find(c=>c.id===catId);
-      if(def){
-        if(!P.activeCatIds.includes(catId)) P.activeCatIds.push(catId);
-        P.categories.push({...def, hours:Math.round(hrs*100)/100});
+  // ВАЖНО: восстанавливаем только если у пользователя нет НИ ОДНОЙ лиги
+  // (сценарий полной потери данных). Если лиги есть — не трогаем выбор пользователя.
+  if(P.activeCatIds.length === 0){
+    Object.entries(sessHrsByCat).forEach(([catId,hrs])=>{
+      if(!P.categories.find(c=>c.id===catId)){
+        const def=ALL_CATS.find(c=>c.id===catId);
+        if(def){
+          if(!P.activeCatIds.includes(catId)) P.activeCatIds.push(catId);
+          P.categories.push({...def, hours:Math.round(hrs*100)/100});
+        }
       }
-    }
-  });
+    });
+  } else {
+    // Только обновляем часы для существующих категорий, не добавляем новые
+    Object.entries(sessHrsByCat).forEach(([catId,hrs])=>{
+      const cat=P.categories.find(c=>c.id===catId);
+      if(cat){
+        cat.hours=Math.max(cat.hours, Math.round(hrs*100)/100);
+      }
+    });
+  }
 
   // Background: heal stale 0-hour rows in DB (fire-and-forget)
   // Supabase v2 Thenable does NOT support .catch() — use async IIFE
@@ -14562,7 +14574,6 @@ function _kbFmtDate(ts) {
       SB_USER = session.user;
       _loadUserRetryCount = 0;
       await loadUser(session.user.id);
-      // Загружаем счётчики участников и обновляем грид
       loadMemberCounts().then(() => { renderManageGrid(); renderQuickCats(); });
     }
     // Если сессии нет — onboard уже показан по умолчанию
