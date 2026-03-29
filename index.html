@@ -16342,45 +16342,191 @@ document.addEventListener('DOMContentLoaded',()=>{ setTimeout(()=>{ if(SB_USER&&
 }
 
 /* ── Feed ── */
-.soc-feed { padding: 16px 0; display: flex; flex-direction: column; gap: 2px; }
-.soc-event {
-  display: flex; align-items: flex-start; gap: 13px;
-  padding: 13px 20px;
-  border-radius: 0;
-  transition: background .15s;
-  cursor: default;
+.soc-feed { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+
+/* ── Feed Card base ── */
+.soc-card {
+  border-radius: 14px;
+  border: 0.5px solid rgba(255,255,255,.07);
+  overflow: hidden;
+  transition: transform .18s cubic-bezier(.34,1.2,.64,1), box-shadow .18s;
+  position: relative;
 }
-.soc-event:hover { background: rgba(255,255,255,.025); }
-.soc-ev-av {
-  width: 38px; height: 38px; border-radius: 10px;
-  background: var(--card); border: 0.5px solid var(--border);
+.soc-card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+
+/* ── Card header (avatar + name + time) ── */
+.soc-card-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px 10px;
+}
+.soc-card-av {
+  width: 34px; height: 34px; border-radius: 9px;
+  background: var(--card); border: 0.5px solid rgba(255,255,255,.1);
   display: flex; align-items: center; justify-content: center;
-  font-size: 20px; flex-shrink: 0; overflow: hidden;
+  font-size: 18px; flex-shrink: 0; overflow: hidden; cursor: pointer;
 }
-.soc-ev-body { flex: 1; min-width: 0; }
-.soc-ev-text {
-  font-size: 13px; color: var(--t1); line-height: 1.5;
-  margin-bottom: 3px;
+.soc-card-av:hover { opacity: .8; }
+.soc-card-who { flex: 1; min-width: 0; }
+.soc-card-name {
+  font-size: 13px; font-weight: 700; color: var(--t1);
+  cursor: pointer; display: inline-block;
 }
-.soc-ev-text b { font-weight: 700; cursor: pointer; }
-.soc-ev-text b:hover { color: var(--gold); }
-.soc-ev-meta { font-size: 11px; color: var(--t3); display: flex; align-items: center; gap: 8px; }
-.soc-ev-icon {
-  width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center; font-size: 18px;
+.soc-card-name:hover { color: var(--gold); }
+.soc-card-action { font-size: 11px; color: var(--t3); margin-top: 1px; }
+.soc-card-time { font-size: 11px; color: var(--t3); flex-shrink: 0; }
+
+/* ── Card body ── */
+.soc-card-body { padding: 0 14px 14px; }
+
+/* ── SESSION card ── */
+.soc-card-session {
+  background: var(--card);
 }
-.soc-divider {
-  height: 0.5px; background: var(--border);
-  margin: 4px 20px;
+.soc-session-hero {
+  border-radius: 10px; padding: 14px 16px;
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 10px; position: relative; overflow: hidden;
 }
+.soc-session-hero::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, currentColor, transparent 70%);
+  opacity: .07; pointer-events: none;
+}
+.soc-session-icon {
+  width: 48px; height: 48px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; flex-shrink: 0;
+}
+.soc-session-dur {
+  font-family: 'DM Mono', monospace;
+  font-size: 32px; font-weight: 400; line-height: 1;
+  letter-spacing: -.02em;
+}
+.soc-session-cat {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase;
+  opacity: .7; margin-top: 3px;
+}
+
+/* ── ACHIEVEMENT card ── */
+.soc-card-achievement {
+  background: linear-gradient(135deg, rgba(245,200,66,.06) 0%, var(--card) 60%);
+  border-color: rgba(245,200,66,.18) !important;
+}
+.soc-ach-hero {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 16px;
+  background: rgba(245,200,66,.04);
+  border-radius: 10px;
+  border: 0.5px solid rgba(245,200,66,.12);
+  margin-bottom: 0;
+}
+.soc-ach-icon {
+  font-size: 36px; flex-shrink: 0;
+  filter: drop-shadow(0 0 10px rgba(245,200,66,.4));
+}
+.soc-ach-name {
+  font-size: 15px; font-weight: 800;
+  color: var(--gold); letter-spacing: -.02em;
+}
+.soc-ach-desc { font-size: 12px; color: var(--t2); margin-top: 3px; }
+
+/* ── LEVEL UP card ── */
+.soc-card-levelup {
+  background: linear-gradient(135deg, rgba(168,85,247,.07) 0%, var(--card) 60%);
+  border-color: rgba(168,85,247,.2) !important;
+}
+.soc-lvl-hero {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 16px; border-radius: 10px;
+  background: rgba(168,85,247,.06);
+  border: 0.5px solid rgba(168,85,247,.15);
+}
+.soc-lvl-num {
+  font-family: 'DM Mono', monospace;
+  font-size: 36px; font-weight: 400;
+  color: var(--purple); line-height: 1;
+  flex-shrink: 0;
+}
+.soc-lvl-label {
+  font-size: 15px; font-weight: 800; color: var(--purple);
+}
+.soc-lvl-sub { font-size: 12px; color: var(--t2); margin-top: 3px; }
+
+/* ── STREAK card ── */
+.soc-card-streak {
+  background: linear-gradient(135deg, rgba(249,115,22,.07) 0%, var(--card) 60%);
+  border-color: rgba(249,115,22,.2) !important;
+}
+.soc-streak-hero {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 16px; border-radius: 10px;
+  background: rgba(249,115,22,.06);
+  border: 0.5px solid rgba(249,115,22,.15);
+}
+.soc-streak-num {
+  font-family: 'DM Mono', monospace;
+  font-size: 36px; font-weight: 400;
+  color: var(--orange); line-height: 1;
+  flex-shrink: 0;
+}
+.soc-streak-fire {
+  font-size: 30px;
+  animation: socFireFlicker 1.2s ease-in-out infinite alternate;
+  flex-shrink: 0;
+}
+@keyframes socFireFlicker {
+  from { transform: scale(1) rotate(-3deg); filter: drop-shadow(0 0 4px rgba(249,115,22,.5)); }
+  to   { transform: scale(1.08) rotate(3deg); filter: drop-shadow(0 0 10px rgba(249,115,22,.8)); }
+}
+.soc-streak-label { font-size: 15px; font-weight: 800; color: var(--orange); }
+.soc-streak-sub { font-size: 12px; color: var(--t2); margin-top: 3px; }
+
+/* ── RECORD card ── */
+.soc-card-record {
+  background: linear-gradient(135deg, rgba(6,182,212,.07) 0%, var(--card) 60%);
+  border-color: rgba(6,182,212,.2) !important;
+}
+.soc-rec-hero {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 16px; border-radius: 10px;
+  background: rgba(6,182,212,.06); border: 0.5px solid rgba(6,182,212,.15);
+}
+.soc-rec-num {
+  font-family: 'DM Mono', monospace;
+  font-size: 32px; font-weight: 400; color: var(--cyan); line-height: 1;
+}
+.soc-rec-label { font-size: 15px; font-weight: 800; color: var(--cyan); }
+.soc-rec-sub { font-size: 12px; color: var(--t2); margin-top: 3px; }
+
+/* ── Reactions bar ── */
+.soc-reactions {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 14px;
+  border-top: 0.5px solid rgba(255,255,255,.05);
+}
+.soc-react-btn {
+  display: flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 20px;
+  background: rgba(255,255,255,.04); border: 0.5px solid rgba(255,255,255,.08);
+  font-size: 12px; color: var(--t2); cursor: pointer;
+  font-family: 'DM Sans', sans-serif; font-weight: 500;
+  transition: all .18s;
+}
+.soc-react-btn:hover { background: rgba(255,255,255,.09); color: var(--t1); transform: scale(1.05); }
+.soc-react-btn.reacted {
+  background: rgba(245,200,66,.1); border-color: rgba(245,200,66,.3); color: var(--gold);
+}
+.soc-react-count { font-family: 'DM Mono', monospace; font-size: 11px; }
+.soc-react-sep { margin-left: auto; font-size: 11px; color: var(--t3); }
+
+/* ── Date separator ── */
 .soc-date-sep {
   font-size: 10px; font-weight: 700; letter-spacing: .08em;
   text-transform: uppercase; color: var(--t3);
-  padding: 10px 20px 4px; display: flex; align-items: center; gap: 8px;
+  padding: 6px 4px 2px; display: flex; align-items: center; gap: 8px;
 }
-.soc-date-sep::before {
-  content: ''; flex: 1; height: 0.5px; background: var(--border);
-}
+.soc-date-sep::after { content: ''; flex: 1; height: 0.5px; background: var(--border); }
 
 /* ── Friends tab ── */
 .soc-friends-wrap { padding: 16px 20px; }
@@ -16700,56 +16846,173 @@ function socRenderFeed(){
 }
 
 function socEventHTML(ev){
-  const av = socAvHtml(ev.avatar, ev.avatarUrl, 38, 10);
-  const uName = `<b onclick="socOpenUserProfile('${ev.user_id}')">${esc(ev.username)}</b>`;
   const time = socRelTime(ev.created_at);
-  let text = '', iconHTML = '';
+  const uid = ev.user_id;
+
+  // ── Avatar HTML ──
+  const avInner = ev.avatarUrl
+    ? `<img src="${ev.avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.parentNode.textContent='${(ev.avatar||'🎯').replace(/'/g,'')}'"> `
+    : esc(ev.avatar||'🎯');
+  const avHTML = `<div class="soc-card-av" onclick="socOpenUserProfile('${uid}')">${avInner}</div>`;
+
+  // ── Reactions ──
+  const reactKey = 'soc_react_' + ev.id;
+  const reacted = localStorage.getItem(reactKey) === '1';
+  const reactions = [
+    { emoji:'👏', key:'clap' },
+    { emoji:'🔥', key:'fire' },
+    { emoji:'💪', key:'strong' },
+  ];
+  const reactBtns = reactions.map(r => {
+    const rKey = 'soc_react_' + ev.id + '_' + r.key;
+    const isR = localStorage.getItem(rKey) === '1';
+    const cnt = parseInt(localStorage.getItem(rKey + '_cnt') || '0');
+    return `<button class="soc-react-btn${isR?' reacted':''}" onclick="socReact(this,'${ev.id}','${r.key}')" data-key="${rKey}">
+      ${r.emoji} ${cnt > 0 ? `<span class="soc-react-count">${cnt}</span>` : ''}
+    </button>`;
+  }).join('');
+  const reactionBar = `<div class="soc-reactions">${reactBtns}<span class="soc-react-sep">${time}</span></div>`;
+
+  // ── Card head ──
+  function cardHead(actionText){
+    return `<div class="soc-card-head">
+      ${avHTML}
+      <div class="soc-card-who">
+        <div class="soc-card-name" onclick="socOpenUserProfile('${uid}')">${esc(ev.username)}</div>
+        <div class="soc-card-action">${actionText}</div>
+      </div>
+    </div>`;
+  }
 
   switch(ev.type){
+
     case 'session': {
       const dur = ev.data.dur || 0;
       const h = Math.floor(dur/3600), m = Math.floor((dur%3600)/60);
-      const durStr = h > 0 ? `${h}ч ${m}м` : `${m}м`;
-      const catColor = (ALL_CATS || []).find(c=>c.id===ev.data.cat)?.color || '#F5C842';
-      iconHTML = `<div class="soc-ev-icon" style="background:${catColor}18;border:0.5px solid ${catColor}30;font-size:20px">${ev.data.catIcon||'⏱'}</div>`;
-      text = `${uName} занимался <span style="color:${catColor};font-weight:600">${esc(ev.data.catName||'?')}</span> · <span style="font-family:'DM Mono',monospace;color:var(--t1)">${durStr}</span>`;
-      break;
+      const durStr = h > 0 ? `${h}<small style="font-size:16px;opacity:.7">ч</small> ${m}<small style="font-size:16px;opacity:.7">м</small>` : `${m}<small style="font-size:16px;opacity:.7">м</small>`;
+      const cat = (ALL_CATS||[]).find(c=>c.id===ev.data.cat);
+      const color = cat?.color || '#F5C842';
+      return `<div class="soc-card soc-card-session" style="border-color:${color}22">
+        ${cardHead('завершил сессию')}
+        <div class="soc-card-body">
+          <div class="soc-session-hero" style="background:${color}10;border:0.5px solid ${color}22;color:${color}">
+            <div class="soc-session-icon" style="background:${color}18;border:0.5px solid ${color}30">${ev.data.catIcon||'⏱'}</div>
+            <div>
+              <div class="soc-session-dur" style="color:${color}">${durStr}</div>
+              <div class="soc-session-cat" style="color:${color}">${esc(ev.data.catName||'?')}</div>
+            </div>
+          </div>
+        </div>
+        ${reactionBar}
+      </div>`;
     }
-    case 'achievement': {
-      iconHTML = `<div class="soc-ev-icon" style="background:rgba(245,200,66,.12);border:0.5px solid rgba(245,200,66,.25);font-size:20px">${ev.data.icon||'🏆'}</div>`;
-      text = `${uName} получил награду <span style="color:var(--gold);font-weight:600">${esc(ev.data.name||'?')}</span>`;
-      break;
-    }
-    case 'level_up': {
-      iconHTML = `<div class="soc-ev-icon" style="background:rgba(168,85,247,.12);border:0.5px solid rgba(168,85,247,.25);font-size:20px">⚡</div>`;
-      text = `${uName} достиг <span style="color:var(--purple);font-weight:600">уровня ${ev.data.level||'?'} · ${esc(ev.data.name||'')}</span>`;
-      break;
-    }
-    case 'streak': {
-      iconHTML = `<div class="soc-ev-icon" style="background:rgba(249,115,22,.12);border:0.5px solid rgba(249,115,22,.25);font-size:20px">🔥</div>`;
-      text = `${uName} не прерывает серию уже <span style="color:var(--orange);font-weight:700">${ev.data.days||'?'} дней подряд</span>`;
-      break;
-    }
-    default:
-      text = `${uName} был активен`;
-      iconHTML = `<div class="soc-ev-icon" style="background:rgba(255,255,255,.06);font-size:20px">✨</div>`;
-  }
 
-  return `<div class="soc-event">
-    <div class="soc-ev-av" onclick="socOpenUserProfile('${ev.user_id}')" style="cursor:pointer">${ev.avatarUrl
-      ? `<img src="${ev.avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:9px" onerror="this.parentNode.textContent='${(ev.avatar||'🎯').replace(/'/g,'')}'">`
-      : esc(ev.avatar||'🎯')
-    }</div>
-    <div class="soc-ev-body">
-      <div class="soc-ev-text">${text}</div>
-      <div class="soc-ev-meta">
-        ${iconHTML ? '' : ''}
-        <span>${time}</span>
-      </div>
-    </div>
-    ${iconHTML}
-  </div>`;
+    case 'achievement': {
+      const achDef = (typeof ACH_DEF !== 'undefined' ? ACH_DEF : []).find(a=>a.id===ev.data.id);
+      const desc = achDef?.desc || '';
+      return `<div class="soc-card soc-card-achievement">
+        ${cardHead('получил достижение')}
+        <div class="soc-card-body">
+          <div class="soc-ach-hero">
+            <div class="soc-ach-icon">${ev.data.icon||'🏆'}</div>
+            <div>
+              <div class="soc-ach-name">${esc(ev.data.name||'?')}</div>
+              ${desc ? `<div class="soc-ach-desc">${esc(desc)}</div>` : ''}
+            </div>
+          </div>
+        </div>
+        ${reactionBar}
+      </div>`;
+    }
+
+    case 'level_up': {
+      return `<div class="soc-card soc-card-levelup">
+        ${cardHead('повысил уровень')}
+        <div class="soc-card-body">
+          <div class="soc-lvl-hero">
+            <div class="soc-lvl-num">${ev.data.level||'?'}</div>
+            <div>
+              <div class="soc-lvl-label">${esc(ev.data.name||'Новый уровень')}</div>
+              <div class="soc-lvl-sub">Уровень достигнут ⚡</div>
+            </div>
+          </div>
+        </div>
+        ${reactionBar}
+      </div>`;
+    }
+
+    case 'streak': {
+      const days = ev.data.days || 0;
+      const streakMsg = days >= 100 ? 'Легендарная серия!' : days >= 30 ? 'Месяц без пропусков!' : days >= 14 ? 'Две недели подряд!' : `${days} дней подряд`;
+      return `<div class="soc-card soc-card-streak">
+        ${cardHead('поддерживает стрик')}
+        <div class="soc-card-body">
+          <div class="soc-streak-hero">
+            <div class="soc-streak-fire">🔥</div>
+            <div class="soc-streak-num">${days}</div>
+            <div>
+              <div class="soc-streak-label">${streakMsg}</div>
+              <div class="soc-streak-sub">дней без пропуска</div>
+            </div>
+          </div>
+        </div>
+        ${reactionBar}
+      </div>`;
+    }
+
+    case 'record': {
+      const recType = ev.data.recType === 'session' ? 'Лучшая сессия' : ev.data.recType === 'week' ? 'Лучшая неделя' : 'Личный рекорд';
+      const val = ev.data.value || '';
+      return `<div class="soc-card soc-card-record">
+        ${cardHead('побил личный рекорд')}
+        <div class="soc-card-body">
+          <div class="soc-rec-hero">
+            <div style="font-size:28px;flex-shrink:0">🎯</div>
+            <div>
+              <div class="soc-rec-label">${recType}</div>
+              <div class="soc-rec-num">${esc(String(val))}</div>
+            </div>
+          </div>
+        </div>
+        ${reactionBar}
+      </div>`;
+    }
+
+    default:
+      return `<div class="soc-card soc-card-session">
+        ${cardHead('был активен')}
+        ${reactionBar}
+      </div>`;
+  }
 }
+
+// ── Reactions handler ──────────────────────────────────────────
+window.socReact = function(btn, evId, reactionKey){
+  const key = 'soc_react_' + evId + '_' + reactionKey;
+  const isReacted = localStorage.getItem(key) === '1';
+  const cnt = parseInt(localStorage.getItem(key + '_cnt') || '0');
+  if(isReacted){
+    localStorage.removeItem(key);
+    localStorage.setItem(key + '_cnt', Math.max(0, cnt - 1));
+    btn.classList.remove('reacted');
+  } else {
+    localStorage.setItem(key, '1');
+    localStorage.setItem(key + '_cnt', cnt + 1);
+    btn.classList.add('reacted');
+    // Mini bounce animation
+    btn.style.transform = 'scale(1.3)';
+    setTimeout(() => btn.style.transform = '', 200);
+  }
+  // Update count display
+  const newCnt = parseInt(localStorage.getItem(key + '_cnt') || '0');
+  const countEl = btn.querySelector('.soc-react-count');
+  if(newCnt > 0){
+    if(countEl) countEl.textContent = newCnt;
+    else btn.insertAdjacentHTML('beforeend', `<span class="soc-react-count">${newCnt}</span>`);
+  } else if(countEl){
+    countEl.remove();
+  }
+};
 
 // ─── FRIENDS ──────────────────────────────────────────────────
 async function socLoadFriends(){
@@ -17215,6 +17478,19 @@ window.socOnSessionSaved = function(catId, durSecs){
   const streak = P?.streak || 0;
   if([7,14,21,30,50,100].includes(streak)){
     window.socPostEvent('streak', { days: streak });
+  }
+  // Personal record — new best single session (> 1h)
+  if(durSecs > 3600 && P?.sessions){
+    const prevBest = P.sessions
+      .filter(s => s.cat === catId && s.dur < durSecs)
+      .reduce((a,s) => Math.max(a, s.dur||0), 0);
+    if(durSecs > prevBest){
+      const h = Math.floor(durSecs/3600), m = Math.floor((durSecs%3600)/60);
+      window.socPostEvent('record', {
+        recType: 'session', cat: catId, catName: cat.name,
+        value: h > 0 ? `${h}ч ${m}м` : `${m}м`,
+      });
+    }
   }
 };
 
