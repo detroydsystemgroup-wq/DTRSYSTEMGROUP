@@ -7729,7 +7729,6 @@ function toggleCatEpic(id){
             console.error('toggleCatEpic delete:', error);
           }
         }, e => {
-          // Network/rejection error rollback
           P.activeCatIds.splice(idx, 0, id);
           renderAll();
           showToast('Ошибка удаления категории','⚠️');
@@ -7744,7 +7743,10 @@ function toggleCatEpic(id){
       if(d) P.categories.push({...d,hours:0});
     }
     if(!SB_USER?.isDemoUser){
-      sb.from('user_categories').upsert({user_id:SB_USER.id,category_id:id,hours:0})
+      // onConflict обязателен — иначе 409 если строка уже существует
+      sb.from('user_categories')
+        .upsert({user_id:SB_USER.id,category_id:id,hours:P.categories.find(c=>c.id===id)?.hours||0},
+                {onConflict:'user_id,category_id'})
         .then(({error}) => {
           if(error){
             P.activeCatIds = P.activeCatIds.filter(x => x !== id);
