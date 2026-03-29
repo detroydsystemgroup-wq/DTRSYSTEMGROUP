@@ -15852,7 +15852,7 @@ window.showTab=function(t,btn){if(_st)_st.call(this,t,btn);if(t==='habits')setTi
 const LRN_KEY  = 'dtr_learn_v1';
 const AUTH_KEY = 'dtr_authors_v1';
 let _lrn  = { categories: [] };
-let _auth = { authors: [] }; // {id,name,url,color}
+let _auth = { authors: [] };
 let _lrnDBReady = false;
 let _lrnDBTimer = null;
 let _authDBTimer = null;
@@ -15860,15 +15860,8 @@ const LRN_COLORS = ['#58a6ff','#FBBF24','#A855F7','#22C55E','#F97316','#06B6D4',
 
 // ── Storage ───────────────────────────────────────────────────
 function _lrnUID(){ return Math.random().toString(36).slice(2,10); }
-
-function _lrnLoad(){
-  try { _lrn = JSON.parse(localStorage.getItem(LRN_KEY)||'{"categories":[]}'); } catch(e){ _lrn={categories:[]}; }
-  if(!_lrn.categories) _lrn.categories=[];
-}
-function _authLoad(){
-  try { _auth = JSON.parse(localStorage.getItem(AUTH_KEY)||'{"authors":[]}'); } catch(e){ _auth={authors:[]}; }
-  if(!_auth.authors) _auth.authors=[];
-}
+function _lrnLoad(){ try{ _lrn=JSON.parse(localStorage.getItem(LRN_KEY)||'{"categories":[]}'); }catch(e){ _lrn={categories:[]}; } if(!_lrn.categories)_lrn.categories=[]; }
+function _authLoad(){ try{ _auth=JSON.parse(localStorage.getItem(AUTH_KEY)||'{"authors":[]}'); }catch(e){ _auth={authors:[]}; } if(!_auth.authors)_auth.authors=[]; }
 function _lrnSave(){ localStorage.setItem(LRN_KEY,JSON.stringify(_lrn)); _lrnSaveToDB(); }
 function _authSave(){ localStorage.setItem(AUTH_KEY,JSON.stringify(_auth)); _authSaveToDB(); }
 
@@ -15876,36 +15869,22 @@ function _lrnSaveToDB(){
   if(!SB_USER||SB_USER.isDemoUser) return;
   clearTimeout(_lrnDBTimer);
   _lrnDBTimer=setTimeout(async()=>{
-    try{ await sb.from('user_learn_links').upsert({user_id:SB_USER.id,data:_lrn,updated_at:new Date().toISOString()},{onConflict:'user_id'}); }
+    try{ await sb.from('user_learn_links').upsert({user_id:SB_USER.id,data:{..._lrn,authors:_auth.authors},updated_at:new Date().toISOString()},{onConflict:'user_id'}); }
     catch(e){ console.warn('Learn save:',e); }
   },1500);
 }
-function _authSaveToDB(){
-  if(!SB_USER||SB_USER.isDemoUser) return;
-  clearTimeout(_authDBTimer);
-  _authDBTimer=setTimeout(async()=>{
-    try{ await sb.from('user_learn_links').upsert({user_id:SB_USER.id,data:{..._lrn,authors:_auth.authors},updated_at:new Date().toISOString()},{onConflict:'user_id'}); }
-    catch(e){ console.warn('Auth save:',e); }
-  },1500);
-}
+function _authSaveToDB(){ _lrnSaveToDB(); }
+
 async function _lrnLoadFromDB(){
   if(!SB_USER||SB_USER.isDemoUser){ _lrnDBReady=true; return; }
   try{
     const {data,error}=await sb.from('user_learn_links').select('data').eq('user_id',SB_USER.id).maybeSingle();
     if(!error&&data?.data){
       const r=data.data;
-      if(r.categories){
-        r.categories.forEach(rc=>{
-          const lc=_lrn.categories.find(c=>c.id===rc.id);
-          if(!lc){ _lrn.categories.push(rc); }
-          else{ (rc.links||[]).forEach(rl=>{ if(!lc.links.find(l=>l.id===rl.id)) lc.links.push(rl); }); }
-        });
-      }
-      if(r.authors){ // authors piggyback on same table
-        (r.authors||[]).forEach(ra=>{ if(!_auth.authors.find(a=>a.id===ra.id)) _auth.authors.push(ra); });
-        localStorage.setItem(AUTH_KEY,JSON.stringify(_auth));
-      }
+      if(r.categories) r.categories.forEach(rc=>{ const lc=_lrn.categories.find(c=>c.id===rc.id); if(!lc){ _lrn.categories.push(rc); }else{ (rc.links||[]).forEach(rl=>{ if(!lc.links.find(l=>l.id===rl.id)) lc.links.push(rl); }); } });
+      if(r.authors) (r.authors||[]).forEach(ra=>{ if(!_auth.authors.find(a=>a.id===ra.id)) _auth.authors.push(ra); });
       localStorage.setItem(LRN_KEY,JSON.stringify(_lrn));
+      localStorage.setItem(AUTH_KEY,JSON.stringify(_auth));
     }
   }catch(e){ console.warn('Learn load:',e); }
   finally{ _lrnDBReady=true; }
@@ -15913,321 +15892,261 @@ async function _lrnLoadFromDB(){
 
 // ── YouTube helpers ───────────────────────────────────────────
 function _lrnIsYT(url){ return /youtube\.com|youtu\.be/.test(url||''); }
-function _lrnYTThumb(url){
-  const vm=url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-  if(vm) return `https://img.youtube.com/vi/${vm[1]}/mqdefault.jpg`;
-  return null;
-}
+function _lrnYTThumb(url){ const vm=(url||'').match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/); return vm?`https://img.youtube.com/vi/${vm[1]}/mqdefault.jpg`:null; }
 function _lrnDomain(url){ try{ return new URL(url).hostname.replace('www.',''); }catch{ return url; } }
 function _lrnFavicon(url){ try{ return `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=32`; }catch{ return ''; } }
 function _lrnInitial(name){ return (name||'?')[0].toUpperCase(); }
 
-// ── Main render ───────────────────────────────────────────────
-function renderLearnTab(){
-  _lrnLoad(); _authLoad();
-  const root=document.getElementById('learn-root');
-  if(!root) return;
-  if(!_lrnDBReady) _lrnLoadFromDB().then(()=>{ _lrnLoad(); _authLoad(); renderLearnTab(); });
-
-  root.innerHTML=`
-  <style>
-    #lrn-wrap{display:flex;gap:0;min-height:calc(100vh - 140px);}
-
-    /* ── Sidebar ── */
-    #lrn-sidebar{width:220px;flex-shrink:0;padding:0 16px 20px 0;border-right:0.5px solid var(--border);}
-    .lrn-sb-title{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin:0 0 12px;padding:20px 0 0;}
-    .lrn-auth-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;cursor:pointer;transition:background .15s;text-decoration:none;}
-    .lrn-auth-item:hover{background:rgba(255,255,255,.06);}
-    .lrn-auth-av{width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;}
-    .lrn-auth-name{font-size:13px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
-    .lrn-auth-del{width:20px;height:20px;border-radius:5px;border:none;background:transparent;color:var(--t3);font-size:13px;cursor:pointer;display:none;align-items:center;justify-content:center;flex-shrink:0;}
-    .lrn-auth-item:hover .lrn-auth-del{display:flex;}
-    .lrn-auth-del:hover{background:rgba(239,68,68,.15);color:var(--red);}
-    .lrn-add-auth{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;cursor:pointer;color:var(--t3);font-size:13px;font-weight:500;border:none;background:transparent;font-family:'DM Sans',sans-serif;width:100%;text-align:left;transition:all .15s;margin-top:4px;}
-    .lrn-add-auth:hover{background:rgba(255,255,255,.06);color:var(--t2);}
-    .lrn-sb-divider{height:0.5px;background:var(--border);margin:16px 0;}
-
-    /* ── Main ── */
-    #lrn-main{flex:1;padding:20px 0 20px 24px;min-width:0;}
-    .lrn-main-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:10px;}
-    .lrn-page-title{font-size:20px;font-weight:800;color:var(--t1);letter-spacing:-.03em;}
-    .lrn-add-cat-btn{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:10px;border:0.5px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:var(--t1);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;}
-    .lrn-add-cat-btn:hover{background:rgba(255,255,255,.1);}
-
-    /* ── Section ── */
-    .lrn-section{margin-bottom:32px;}
-    .lrn-section-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
-    .lrn-section-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
-    .lrn-section-name{font-size:14px;font-weight:700;color:var(--t1);flex:1;}
-    .lrn-section-cnt{font-size:11px;color:var(--t3);font-family:'DM Mono',monospace;}
-    .lrn-section-acts{display:flex;gap:5px;}
-    .lrn-sec-btn{width:26px;height:26px;border-radius:7px;border:0.5px solid rgba(255,255,255,.09);background:transparent;color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+// ── CSS for card (injected once) ──────────────────────────────
+function _lrnInjectCSS(){
+  if(document.getElementById('lrn-css')) return;
+  const s=document.createElement('style');
+  s.id='lrn-css';
+  s.textContent=`
+    #lrn-wrap{display:flex;gap:0;min-height:calc(100vh - 160px);}
+    #lrn-sidebar{width:220px;min-width:220px;flex-shrink:0;padding:0 16px 20px 0;border-right:0.5px solid var(--border);}
+    .lrn-sb-ttl{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin:16px 0 10px;padding:0 2px;}
+    .lrn-auth-row{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:9px;cursor:pointer;text-decoration:none;transition:background .14s;}
+    .lrn-auth-row:hover{background:rgba(255,255,255,.06);}
+    .lrn-auth-av{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;}
+    .lrn-auth-name{font-size:13px;font-weight:600;color:var(--t1);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .lrn-auth-del{width:18px;height:18px;border-radius:4px;border:none;background:transparent;color:var(--t3);font-size:13px;cursor:pointer;display:none;align-items:center;justify-content:center;}
+    .lrn-auth-row:hover .lrn-auth-del{display:flex;}
+    .lrn-auth-del:hover{color:var(--red);}
+    .lrn-sb-addbtn{display:flex;align-items:center;gap:7px;padding:7px 8px;border-radius:9px;border:none;background:transparent;color:var(--t3);font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;width:100%;text-align:left;transition:all .14s;margin-top:2px;}
+    .lrn-sb-addbtn:hover{background:rgba(255,255,255,.05);color:var(--t2);}
+    .lrn-sb-divider{height:0.5px;background:var(--border);margin:12px 0;}
+    .lrn-sb-cat{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;transition:background .14s;}
+    .lrn-sb-cat:hover{background:rgba(255,255,255,.05);}
+    #lrn-main{flex:1;padding:20px 0 20px 24px;min-width:0;overflow:hidden;}
+    .lrn-main-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:10px;}
+    .lrn-page-ttl{font-size:20px;font-weight:800;color:var(--t1);letter-spacing:-.03em;}
+    .lrn-new-cat-btn{display:inline-flex;align-items:center;gap:7px;padding:8px 15px;border-radius:10px;border:0.5px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:var(--t1);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;}
+    .lrn-new-cat-btn:hover{background:rgba(255,255,255,.1);}
+    .lrn-sec{margin-bottom:28px;}
+    .lrn-sec-hdr{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+    .lrn-sec-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+    .lrn-sec-name{font-size:13px;font-weight:700;color:var(--t1);flex:1;}
+    .lrn-sec-cnt{font-size:10px;color:var(--t3);font-family:'DM Mono',monospace;}
+    .lrn-sec-acts{display:flex;gap:4px;}
+    .lrn-sec-btn{width:24px;height:24px;border-radius:6px;border:0.5px solid rgba(255,255,255,.08);background:transparent;color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .13s;}
     .lrn-sec-btn:hover{background:rgba(255,255,255,.08);color:var(--t2);}
-    .lrn-sec-btn.del:hover{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.25);color:var(--red);}
-
-    /* ── Cards row ── */
-    .lrn-row-wrap{position:relative;overflow:hidden;}
-    .lrn-row{display:flex;gap:12px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;}
+    .lrn-sec-btn.del:hover{background:rgba(239,68,68,.1);color:var(--red);}
+    /* ROW — CSS-only 5-card layout */
+    .lrn-row-wrap{overflow:hidden;}
+    .lrn-row{display:flex;gap:12px;overflow-x:auto;overflow-y:visible;padding-bottom:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
     .lrn-row::-webkit-scrollbar{display:none;}
-
-    /* ── YT-style card ── */
-    .lrn-yt-card{cursor:pointer;border-radius:12px;overflow:visible;transition:transform .2s cubic-bezier(.34,1.4,.64,1);flex-shrink:0;}
-    .lrn-yt-card:hover{transform:translateY(-3px);}
-    .lrn-yt-thumb{width:100%;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:rgba(255,255,255,.06);position:relative;margin-bottom:10px;}
-    .lrn-yt-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
-    .lrn-yt-thumb-icon{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:28px;opacity:.4;}
-    .lrn-yt-badge{position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,.85);color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;letter-spacing:.04em;}
-    .lrn-yt-title{font-size:13px;font-weight:700;color:var(--t1);line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:5px;padding:0 2px;}
-    .lrn-yt-meta{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--t3);padding:0 2px;}
-    .lrn-yt-meta img{width:13px;height:13px;border-radius:2px;}
-    .lrn-yt-actions{display:flex;gap:5px;margin-top:7px;padding:0 2px;}
-    .lrn-yt-act{flex:1;padding:6px 0;border-radius:7px;border:0.5px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04);color:var(--t3);font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:4px;transition:all .15s;}
-    .lrn-yt-act:hover{background:rgba(255,255,255,.09);color:var(--t1);}
-    .lrn-yt-act.del:hover{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.2);color:var(--red);}
-
-    /* ── Add card ── */
-    .lrn-add-card{height:192px;flex-shrink:0;border:1.5px dashed rgba(255,255,255,.1);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;color:var(--t3);font-size:12px;font-weight:600;transition:all .2s;background:transparent;font-family:'DM Sans',sans-serif;flex-shrink:0;}
-    .lrn-add-card:hover{border-color:rgba(255,255,255,.25);color:var(--t2);background:rgba(255,255,255,.03);}
-    .lrn-add-card-plus{width:36px;height:36px;border-radius:10px;border:1.5px dashed rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:20px;transition:all .2s;}
-    .lrn-add-card:hover .lrn-add-card-plus{border-color:rgba(255,255,255,.28);background:rgba(255,255,255,.05);}
-
-    /* ── Empty ── */
-    .lrn-empty-state{text-align:center;padding:60px 20px;}
-
-    /* ── Modal ── */
-    .lrn-ov{position:fixed;inset:0;z-index:9800;background:rgba(0,0,0,.75);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:20px;}
-    .lrn-modal-box{background:var(--panel);border:0.5px solid var(--border);border-radius:18px;padding:24px;width:100%;max-width:400px;box-shadow:0 40px 100px rgba(0,0,0,.8);}
-    .lrn-modal-ttl{font-size:16px;font-weight:800;color:var(--t1);margin-bottom:18px;letter-spacing:-.02em;}
-    .lrn-field{width:100%;padding:11px 14px;border-radius:10px;border:0.5px solid var(--border);background:var(--card);color:var(--t1);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;box-sizing:border-box;margin-bottom:11px;transition:border-color .15s;}
+    /* Each card = exactly 1/5 of the row container, minus 4/5 of gaps */
+    .lrn-card{flex:0 0 calc(20% - 9.6px);min-width:calc(20% - 9.6px);cursor:pointer;border-radius:12px;transition:transform .2s cubic-bezier(.34,1.4,.64,1);}
+    .lrn-card:hover{transform:translateY(-3px);}
+    .lrn-thumb{aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:rgba(255,255,255,.06);position:relative;margin-bottom:9px;}
+    .lrn-thumb img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s;}
+    .lrn-card:hover .lrn-thumb img{transform:scale(1.04);}
+    .lrn-thumb-ico{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:26px;opacity:.4;}
+    .lrn-yt-badge{position:absolute;bottom:5px;right:5px;background:rgba(0,0,0,.85);color:#fff;font-size:8px;font-weight:700;padding:2px 5px;border-radius:4px;}
+    .lrn-card-ttl{font-size:12px;font-weight:700;color:var(--t1);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:4px;padding:0 1px;}
+    .lrn-card-meta{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--t3);padding:0 1px;margin-bottom:6px;}
+    .lrn-card-meta img{width:12px;height:12px;border-radius:2px;}
+    .lrn-card-acts{display:flex;gap:5px;padding:0 1px;}
+    .lrn-card-act{flex:1;padding:5px 0;border-radius:7px;border:0.5px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:var(--t3);font-size:10px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:4px;transition:all .13s;}
+    .lrn-card-act:hover{background:rgba(255,255,255,.09);color:var(--t1);}
+    .lrn-card-act.del:hover{background:rgba(239,68,68,.08);color:var(--red);}
+    .lrn-add-card{flex:0 0 calc(20% - 9.6px);min-width:calc(20% - 9.6px);border:1.5px dashed rgba(255,255,255,.1);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;color:var(--t3);font-size:12px;font-weight:500;transition:all .18s;background:transparent;font-family:'DM Sans',sans-serif;padding:0;aspect-ratio:unset;height:172px;}
+    .lrn-add-card:hover{border-color:rgba(255,255,255,.22);color:var(--t2);background:rgba(255,255,255,.03);}
+    .lrn-empty{text-align:center;padding:60px 16px;}
+    .lrn-ov{position:fixed;inset:0;z-index:9800;background:rgba(0,0,0,.78);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:20px;}
+    .lrn-modal{background:var(--panel);border:0.5px solid var(--border);border-radius:18px;padding:22px;width:100%;max-width:390px;box-shadow:0 40px 100px rgba(0,0,0,.8);}
+    .lrn-modal-ttl{font-size:16px;font-weight:800;color:var(--t1);margin-bottom:16px;letter-spacing:-.02em;}
+    .lrn-field{width:100%;padding:11px 13px;border-radius:10px;border:0.5px solid var(--border);background:var(--card);color:var(--t1);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;box-sizing:border-box;margin-bottom:10px;transition:border-color .14s;}
     .lrn-field:focus{border-color:var(--gold);}
     .lrn-field::placeholder{color:var(--t3);}
     .lrn-modal-acts{display:flex;gap:8px;}
     .lrn-ok{flex:1;padding:11px;border-radius:10px;border:none;background:var(--gold);color:#09090B;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;}
     .lrn-ok:hover{opacity:.85;}
-    .lrn-cancel{padding:11px 16px;border-radius:10px;border:0.5px solid var(--border);background:transparent;color:var(--t2);font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;}
-  </style>
+    .lrn-cancel{padding:11px 14px;border-radius:10px;border:0.5px solid var(--border);background:transparent;color:var(--t2);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;}
+  `;
+  document.head.appendChild(s);
+}
 
-  <div id="lrn-wrap">
-    <!-- Sidebar -->
-    <div id="lrn-sidebar">
-      <div class="lrn-sb-title">Авторы</div>
-      ${_auth.authors.length===0
-        ? `<div style="font-size:12px;color:var(--t3);line-height:1.6;padding:0 2px 10px">Добавляй авторов — клик сразу откроет их канал</div>`
-        : _auth.authors.map(a=>`
-          <a class="lrn-auth-item" href="${a.url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
-            <div class="lrn-auth-av" style="background:${a.color}">${_lrnInitial(a.name)}</div>
-            <span class="lrn-auth-name">${a.name}</span>
-            <button class="lrn-auth-del" onclick="event.preventDefault();event.stopPropagation();lrnDelAuthor('${a.id}')" title="Удалить">×</button>
-          </a>`).join('')
-      }
-      <button class="lrn-add-auth" onclick="lrnAddAuthor()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Добавить автора
+// ── Render sidebar only ───────────────────────────────────────
+function _lrnRenderSidebar(){
+  const sb_el=document.getElementById('lrn-sidebar');
+  if(!sb_el) return;
+  sb_el.innerHTML=`
+    <div class="lrn-sb-ttl">Авторы</div>
+    ${_auth.authors.length===0
+      ? `<div style="font-size:11px;color:var(--t3);line-height:1.6;padding:0 2px 8px">Добавляй авторов — клик откроет их канал</div>`
+      : _auth.authors.map(a=>`
+        <a class="lrn-auth-row" href="${a.url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
+          <div class="lrn-auth-av" style="background:${a.color}">${_lrnInitial(a.name)}</div>
+          <span class="lrn-auth-name">${a.name}</span>
+          <button class="lrn-auth-del" onclick="event.preventDefault();event.stopPropagation();lrnDelAuthor('${a.id}')">×</button>
+        </a>`).join('')}
+    <button class="lrn-sb-addbtn" onclick="lrnAddAuthor()">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Добавить автора
+    </button>
+    <div class="lrn-sb-divider"></div>
+    <div class="lrn-sb-ttl" style="margin-top:4px">Категории</div>
+    ${_lrn.categories.map(c=>`
+      <div class="lrn-sb-cat" onclick="document.getElementById('lrn-s-${c.id}')?.scrollIntoView({behavior:'smooth',block:'start'})">
+        <div style="width:6px;height:6px;border-radius:50%;background:${c.color};flex-shrink:0"></div>
+        <span style="font-size:12px;font-weight:600;color:var(--t2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</span>
+        <span style="font-size:10px;color:var(--t3);font-family:'DM Mono',monospace">${(c.links||[]).length}</span>
+      </div>`).join('')}
+  `;
+}
+
+// ── Render main content only ──────────────────────────────────
+function _lrnRenderMain(){
+  const main=document.getElementById('lrn-main');
+  if(!main) return;
+  main.innerHTML=`
+    <div class="lrn-main-hdr">
+      <div class="lrn-page-ttl">Обучающие материалы</div>
+      <button class="lrn-new-cat-btn" onclick="lrnAddCat()">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Новая категория
       </button>
-      <div class="lrn-sb-divider"></div>
-      <div class="lrn-sb-title" style="padding-top:4px">Категории</div>
-      ${_lrn.categories.map(c=>`
-        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;cursor:pointer;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.05)'" onmouseout="this.style.background=''" onclick="document.getElementById('lrn-sec-${c.id}')?.scrollIntoView({behavior:'smooth',block:'start'})">
-          <div style="width:7px;height:7px;border-radius:50%;background:${c.color};flex-shrink:0"></div>
-          <span style="font-size:12px;font-weight:600;color:var(--t2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</span>
-          <span style="font-size:10px;color:var(--t3);font-family:'DM Mono',monospace">${(c.links||[]).length}</span>
-        </div>`).join('')}
     </div>
-
-    <!-- Main content -->
-    <div id="lrn-main">
-      <div class="lrn-main-header">
-        <div class="lrn-page-title">Обучающие материалы</div>
-        <button class="lrn-add-cat-btn" onclick="lrnAddCat()">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Новая категория
-        </button>
+    ${_lrn.categories.length===0?`
+      <div class="lrn-empty">
+        <div style="font-size:44px;margin-bottom:14px;opacity:.4">🎓</div>
+        <div style="font-size:15px;font-weight:800;color:var(--t2);margin-bottom:8px">Создай первую категорию</div>
+        <div style="font-size:13px;color:var(--t3);line-height:1.7;margin-bottom:18px">Например: <b style="color:var(--t2)">Английский</b>, <b style="color:var(--t2)">Программирование</b></div>
+        <button class="lrn-new-cat-btn" onclick="lrnAddCat()" style="margin:0 auto">+ Создать</button>
       </div>
-
-      ${_lrn.categories.length===0 ? `
-        <div class="lrn-empty-state">
-          <div style="font-size:48px;margin-bottom:16px;opacity:.4">🎓</div>
-          <div style="font-size:16px;font-weight:800;color:var(--t2);margin-bottom:8px">Создай первую категорию</div>
-          <div style="font-size:13px;color:var(--t3);line-height:1.7;margin-bottom:20px">Например: <b style="color:var(--t2)">Английский</b>, <b style="color:var(--t2)">Программирование</b>, <b style="color:var(--t2)">Маркетинг</b></div>
-          <button class="lrn-add-cat-btn" onclick="lrnAddCat()" style="margin:0 auto">+ Создать категорию</button>
-        </div>
-      ` : _lrn.categories.map(cat=>`
-        <div class="lrn-section" id="lrn-sec-${cat.id}">
-          <div class="lrn-section-head">
-            <div class="lrn-section-dot" style="background:${cat.color};box-shadow:0 0 7px ${cat.color}88"></div>
-            <div class="lrn-section-name">${cat.name}</div>
-            <div class="lrn-section-cnt">${(cat.links||[]).length}</div>
-            <div class="lrn-section-acts">
-              <button class="lrn-sec-btn" onclick="lrnRenameCat('${cat.id}')" title="Переименовать"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-              <button class="lrn-sec-btn del" onclick="lrnDeleteCat('${cat.id}')" title="Удалить"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
-            </div>
+    `:_lrn.categories.map(cat=>`
+      <div class="lrn-sec" id="lrn-s-${cat.id}">
+        <div class="lrn-sec-hdr">
+          <div class="lrn-sec-dot" style="background:${cat.color};box-shadow:0 0 6px ${cat.color}88"></div>
+          <div class="lrn-sec-name">${cat.name}</div>
+          <div class="lrn-sec-cnt">${(cat.links||[]).length}</div>
+          <div class="lrn-sec-acts">
+            <button class="lrn-sec-btn" onclick="lrnRenameCat('${cat.id}')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+            <button class="lrn-sec-btn del" onclick="lrnDeleteCat('${cat.id}')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
           </div>
-          <div class="lrn-row-wrap"><div class="lrn-row" id="lrn-r-${cat.id}">
+        </div>
+        <div class="lrn-row-wrap">
+          <div class="lrn-row">
             ${(cat.links||[]).map(link=>{
               const isYT=_lrnIsYT(link.url);
               const thumb=isYT?_lrnYTThumb(link.url):null;
-              return `<div class="lrn-yt-card" onclick="lrnOpenLink('${link.id}','${cat.id}')">
-                <div class="lrn-yt-thumb">
-                  ${thumb?`<img src="${thumb}" alt="" onerror="this.style.display='none';this.nextSibling.style.display='flex'">`:'' }
-                  <div class="lrn-yt-thumb-icon" style="${thumb?'display:none':''}">
-                    ${isYT?'▶️':'🔗'}
-                  </div>
+              return `<div class="lrn-card" onclick="lrnOpenLink('${link.id}','${cat.id}')">
+                <div class="lrn-thumb">
+                  ${thumb?`<img src="${thumb}" alt="" onerror="this.parentNode.querySelector('.lrn-thumb-ico').style.display='flex';this.style.display='none'">`:``}
+                  <div class="lrn-thumb-ico" style="${thumb?'display:none':''}>${isYT?'▶️':'🔗'}</div>
                   ${isYT?'<div class="lrn-yt-badge">YouTube</div>':''}
                 </div>
-                <div class="lrn-yt-title">${link.name}</div>
-                <div class="lrn-yt-meta">
+                <div class="lrn-card-ttl">${link.name}</div>
+                <div class="lrn-card-meta">
                   <img src="${_lrnFavicon(link.url)}" alt="" onerror="this.style.display='none'">
                   <span>${_lrnDomain(link.url)}</span>
                 </div>
-                <div class="lrn-yt-actions">
-                  <button class="lrn-yt-act" onclick="event.stopPropagation();lrnEditLink('${cat.id}','${link.id}')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Изменить</button>
-                  <button class="lrn-yt-act del" onclick="event.stopPropagation();lrnDeleteLink('${cat.id}','${link.id}')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+                <div class="lrn-card-acts">
+                  <button class="lrn-card-act" onclick="event.stopPropagation();lrnEditLink('${cat.id}','${link.id}')"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Изменить</button>
+                  <button class="lrn-card-act del" onclick="event.stopPropagation();lrnDeleteLink('${cat.id}','${link.id}')"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
                 </div>
               </div>`;
             }).join('')}
             <button class="lrn-add-card" onclick="lrnAddLink('${cat.id}')">
-              <div class="lrn-add-card-plus">+</div>
-              <span>Добавить</span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Добавить
             </button>
           </div>
         </div>
-      `).join('')}
-    </div>
-  </div>
+      </div>
+    `).join('')}
   `;
-  // Set card widths so exactly 5 fit in the visible area
-  requestAnimationFrame(_lrnSetCardWidths);
 }
 
-function _lrnSetCardWidths(){
-  const wrap = document.getElementById('lrn-main');
-  if(!wrap) return;
-  const available = wrap.offsetWidth - 32; // padding
-  const GAP = 12, COUNT = 5;
-  const cardW = Math.max(140, Math.floor((available - GAP*(COUNT-1)) / COUNT));
-  document.querySelectorAll('.lrn-yt-card, .lrn-add-card').forEach(c=>{
-    c.style.flex = `0 0 ${cardW}px`;
-    c.style.minWidth = `${cardW}px`;
-    c.style.width = `${cardW}px`;
-  });
+// ── Full page init (runs once) ────────────────────────────────
+function renderLearnTab(){
+  _lrnLoad(); _authLoad();
+  _lrnInjectCSS();
+  const root=document.getElementById('learn-root');
+  if(!root) return;
+
+  // Build skeleton only once
+  if(!document.getElementById('lrn-wrap')){
+    root.innerHTML=`<div id="lrn-wrap"><div id="lrn-sidebar"></div><div id="lrn-main"></div></div>`;
+  }
+
+  _lrnRenderSidebar();
+  _lrnRenderMain();
+
+  if(!_lrnDBReady){
+    _lrnLoadFromDB().then(()=>{ _lrnLoad(); _authLoad(); _lrnRenderSidebar(); _lrnRenderMain(); });
+  }
 }
 
-// ── Author actions ────────────────────────────────────────────
-window.lrnAddAuthor = function(){
-  _lrnModal('Добавить автора',[
-    {id:'aname',placeholder:'Имя автора (напр: Фёдорив)',type:'text'},
-    {id:'aurl', placeholder:'https://youtube.com/@fedoriv',type:'url'}
-  ],(vals)=>{
-    const name=vals.aname.trim(), url=vals.aurl.trim();
-    if(!name||!url) return;
-    const color=LRN_COLORS[_auth.authors.length%LRN_COLORS.length];
-    _auth.authors.push({id:_lrnUID(),name,url:url.startsWith('http')?url:'https://'+url,color});
-    _authSave(); renderLearnTab();
+// ── Actions ───────────────────────────────────────────────────
+window.lrnAddAuthor=function(){
+  _lrnModal('Добавить автора',[{id:'an',placeholder:'Имя автора',type:'text'},{id:'au',placeholder:'https://youtube.com/@channel',type:'url'}],(v)=>{
+    const name=v.an.trim(),url=v.au.trim(); if(!name||!url) return;
+    _auth.authors.push({id:_lrnUID(),name,url:url.startsWith('http')?url:'https://'+url,color:LRN_COLORS[_auth.authors.length%LRN_COLORS.length]});
+    _authSave(); _lrnRenderSidebar();
   });
 };
-window.lrnDelAuthor = function(id){
-  _auth.authors=_auth.authors.filter(a=>a.id!==id);
-  _authSave(); renderLearnTab();
-};
+window.lrnDelAuthor=function(id){ _auth.authors=_auth.authors.filter(a=>a.id!==id); _authSave(); _lrnRenderSidebar(); };
 
-// ── Category actions ──────────────────────────────────────────
-window.lrnAddCat = function(){
-  const color=LRN_COLORS[_lrn.categories.length%LRN_COLORS.length];
-  _lrnModal('Новая категория',[
-    {id:'cname',placeholder:'Английский, Программирование...',type:'text'}
-  ],(vals)=>{
-    const name=vals.cname.trim(); if(!name) return;
-    _lrn.categories.push({id:_lrnUID(),name,color,links:[]});
-    _lrnSave(); renderLearnTab();
+window.lrnAddCat=function(){
+  _lrnModal('Новая категория',[{id:'cn',placeholder:'Английский, Программирование...',type:'text'}],(v)=>{
+    const name=v.cn.trim(); if(!name) return;
+    _lrn.categories.push({id:_lrnUID(),name,color:LRN_COLORS[_lrn.categories.length%LRN_COLORS.length],links:[]});
+    _lrnSave(); _lrnRenderSidebar(); _lrnRenderMain();
   });
 };
-window.lrnRenameCat = function(id){
+window.lrnRenameCat=function(id){
   const cat=_lrn.categories.find(c=>c.id===id); if(!cat) return;
-  _lrnModal('Переименовать',[{id:'cname',placeholder:'Название',type:'text',value:cat.name}],(v)=>{
-    const name=v.cname.trim(); if(!name) return;
-    cat.name=name; _lrnSave(); renderLearnTab();
-  });
+  _lrnModal('Переименовать',[{id:'cn',placeholder:'Название',type:'text',value:cat.name}],(v)=>{ const n=v.cn.trim(); if(!n)return; cat.name=n; _lrnSave(); _lrnRenderSidebar(); _lrnRenderMain(); });
 };
-window.lrnDeleteCat = function(id){
-  const cat=_lrn.categories.find(c=>c.id===id); if(!cat) return;
-  if(!confirm(`Удалить «${cat.name}» и ${cat.links.length} ссылок?`)) return;
-  _lrn.categories=_lrn.categories.filter(c=>c.id!==id);
-  _lrnSave(); renderLearnTab();
+window.lrnDeleteCat=function(id){
+  const cat=_lrn.categories.find(c=>c.id===id); if(!cat)return;
+  if(!confirm(`Удалить «${cat.name}» и ${cat.links.length} ссылок?`))return;
+  _lrn.categories=_lrn.categories.filter(c=>c.id!==id); _lrnSave(); _lrnRenderSidebar(); _lrnRenderMain();
 };
-
-// ── Link actions ──────────────────────────────────────────────
-window.lrnOpenLink = function(lid,cid){
-  const link=_lrn.categories.find(c=>c.id===cid)?.links.find(l=>l.id===lid);
-  if(link) window.open(link.url,'_blank','noopener');
-};
-window.lrnAddLink = function(cid){
-  _lrnModal('Добавить ссылку',[
-    {id:'lname',placeholder:'Название',type:'text'},
-    {id:'lurl', placeholder:'https://youtube.com/...',type:'url'}
-  ],(v)=>{
-    const name=v.lname.trim(); let url=v.lurl.trim(); if(!name||!url) return;
+window.lrnOpenLink=function(lid,cid){ const l=_lrn.categories.find(c=>c.id===cid)?.links.find(l=>l.id===lid); if(l) window.open(l.url,'_blank','noopener'); };
+window.lrnAddLink=function(cid){
+  _lrnModal('Добавить ссылку',[{id:'ln',placeholder:'Название',type:'text'},{id:'lu',placeholder:'https://youtube.com/...',type:'url'}],(v)=>{
+    const name=v.ln.trim(); let url=v.lu.trim(); if(!name||!url)return;
     if(!/^https?:/i.test(url)) url='https://'+url;
-    const cat=_lrn.categories.find(c=>c.id===cid); if(!cat) return;
+    const cat=_lrn.categories.find(c=>c.id===cid); if(!cat)return;
     cat.links.push({id:_lrnUID(),name,url,createdAt:Date.now()});
-    _lrnSave(); renderLearnTab();
+    _lrnSave(); _lrnRenderMain(); _lrnRenderSidebar();
   });
 };
-window.lrnEditLink = function(cid,lid){
-  const cat=_lrn.categories.find(c=>c.id===cid);
-  const link=cat?.links.find(l=>l.id===lid); if(!link) return;
-  _lrnModal('Редактировать',[
-    {id:'lname',placeholder:'Название',type:'text',value:link.name},
-    {id:'lurl', placeholder:'https://...',type:'url',value:link.url}
-  ],(v)=>{
-    const name=v.lname.trim(); let url=v.lurl.trim(); if(!name||!url) return;
+window.lrnEditLink=function(cid,lid){
+  const cat=_lrn.categories.find(c=>c.id===cid); const link=cat?.links.find(l=>l.id===lid); if(!link)return;
+  _lrnModal('Редактировать',[{id:'ln',placeholder:'Название',type:'text',value:link.name},{id:'lu',placeholder:'https://...',type:'url',value:link.url}],(v)=>{
+    const name=v.ln.trim(); let url=v.lu.trim(); if(!name||!url)return;
     if(!/^https?:/i.test(url)) url='https://'+url;
-    link.name=name; link.url=url; _lrnSave(); renderLearnTab();
+    link.name=name; link.url=url; _lrnSave(); _lrnRenderMain();
   });
 };
-window.lrnDeleteLink = function(cid,lid){
-  const cat=_lrn.categories.find(c=>c.id===cid); if(!cat) return;
-  cat.links=cat.links.filter(l=>l.id!==lid);
-  _lrnSave(); renderLearnTab();
+window.lrnDeleteLink=function(cid,lid){
+  const cat=_lrn.categories.find(c=>c.id===cid); if(!cat)return;
+  cat.links=cat.links.filter(l=>l.id!==lid); _lrnSave(); _lrnRenderMain(); _lrnRenderSidebar();
 };
-window.lrnScroll = function(){};
 
 // ── Modal ─────────────────────────────────────────────────────
 function _lrnModal(title,fields,onOk){
-  document.getElementById('lrn-modal-ov')?.remove();
-  const ov=document.createElement('div');
-  ov.id='lrn-modal-ov'; ov.className='lrn-ov';
+  document.getElementById('lrn-ov')?.remove();
+  const ov=document.createElement('div'); ov.id='lrn-ov'; ov.className='lrn-ov';
   ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
-  ov.innerHTML=`<div class="lrn-modal-box">
-    <div class="lrn-modal-ttl">${title}</div>
-    ${fields.map(f=>`<input id="lrn-f-${f.id}" class="lrn-field" type="${f.type||'text'}" placeholder="${f.placeholder}" value="${f.value||''}" autocomplete="off">`).join('')}
-    <div class="lrn-modal-acts">
-      <button class="lrn-cancel" onclick="document.getElementById('lrn-modal-ov').remove()">Отмена</button>
-      <button class="lrn-ok" id="lrn-ok">Сохранить</button>
-    </div></div>`;
+  ov.innerHTML=`<div class="lrn-modal"><div class="lrn-modal-ttl">${title}</div>${fields.map(f=>`<input id="lrn-f-${f.id}" class="lrn-field" type="${f.type||'text'}" placeholder="${f.placeholder}" value="${f.value||''}" autocomplete="off">`).join('')}<div class="lrn-modal-acts"><button class="lrn-cancel" onclick="document.getElementById('lrn-ov').remove()">Отмена</button><button class="lrn-ok" id="lrn-ok">Сохранить</button></div></div>`;
   document.body.appendChild(ov);
   setTimeout(()=>document.getElementById(`lrn-f-${fields[0].id}`)?.focus(),80);
-  document.getElementById('lrn-ok').onclick=()=>{
-    const vals={}; fields.forEach(f=>vals[f.id]=document.getElementById(`lrn-f-${f.id}`)?.value||'');
-    onOk(vals); ov.remove();
-  };
+  document.getElementById('lrn-ok').onclick=()=>{ const vals={}; fields.forEach(f=>vals[f.id]=document.getElementById(`lrn-f-${f.id}`)?.value||''); onOk(vals); ov.remove(); };
   ov.addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('lrn-ok')?.click(); if(e.key==='Escape') ov.remove(); });
 }
 
-window.addEventListener('resize', ()=>{
-  if(document.getElementById('tab-learn')?.classList.contains('active')) _lrnSetCardWidths();
-});
-
-// ── Hook showTab ──────────────────────────────────────────────
+// ── showTab hook ──────────────────────────────────────────────
 const _origST=window.showTab;
-window.showTab=function(name,el,skip){
-  if(_origST) _origST.call(this,name,el,skip);
-  if(name==='learn') setTimeout(renderLearnTab,60);
-};
+window.showTab=function(name,el,skip){ if(_origST) _origST.call(this,name,el,skip); if(name==='learn') setTimeout(renderLearnTab,60); };
 
 // ── Pre-load ──────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded',()=>{
-  setTimeout(()=>{ if(window.SB_USER&&!SB_USER.isDemoUser) _lrnLoadFromDB(); },3000);
-});
+document.addEventListener('DOMContentLoaded',()=>{ setTimeout(()=>{ if(window.SB_USER&&!SB_USER.isDemoUser) _lrnLoadFromDB(); },3000); });
 
 })();
 </script>
