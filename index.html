@@ -12706,7 +12706,68 @@ function _kbLoad3() {
   try { _kb3 = JSON.parse(localStorage.getItem(KB_KEY)||'{}'); } catch(e) { _kb3={}; }
   ALL_CATS.forEach(c=>{ if(!_kb3[c.id]) _kb3[c.id]={folders:[]}; });
 }
-function _kbSave3() { localStorage.setItem(KB_KEY, JSON.stringify(_kb3)); }
+function _kbSave3() {
+  localStorage.setItem(KB_KEY, JSON.stringify(_kb3));
+  _kbSaveToDB();
+}
+
+// ── Supabase sync ─────────────────────────────────────────────
+let _kbDBSaveTimer = null;
+
+// Merge remote KB into local: note with higher updatedAt wins
+function _kbMergeRemote(remote) {
+  if (!remote || typeof remote !== 'object') return;
+  ALL_CATS.forEach(c => {
+    if (!remote[c.id]) return;
+    if (!_kb3[c.id]) _kb3[c.id] = { folders: [] };
+    (remote[c.id].folders || []).forEach(remF => {
+      const locF = _kb3[c.id].folders.find(f => f.id === remF.id);
+      if (!locF) {
+        _kb3[c.id].folders.push(remF);
+      } else {
+        // Merge notes
+        (remF.notes || []).forEach(remN => {
+          const locN = locF.notes.find(n => n.id === remN.id);
+          if (!locN) {
+            locF.notes.push(remN);
+          } else if ((remN.updatedAt||0) > (locN.updatedAt||0)) {
+            Object.assign(locN, remN);
+          }
+        });
+        // Folders deleted locally — keep remote if not in local
+      }
+    });
+  });
+}
+
+async function _kbLoadFromDB() {
+  if (!SB_USER || SB_USER.isDemoUser) return;
+  try {
+    const { data, error } = await sb.from('user_knowledge_base')
+      .select('data').eq('user_id', SB_USER.id).maybeSingle();
+    if (error) { console.warn('KB DB load error:', error); return; }
+    if (!data?.data) return;
+    _kbMergeRemote(data.data);
+    localStorage.setItem(KB_KEY, JSON.stringify(_kb3)); // update local cache
+    // Re-render if KB tab is open
+    const kbTab = document.getElementById('tab-knowledge');
+    if (kbTab && kbTab.classList.contains('active')) renderKnowledgeBase();
+  } catch(e) { console.warn('KB load from DB failed:', e); }
+}
+
+function _kbSaveToDB() {
+  if (!SB_USER || SB_USER.isDemoUser) return;
+  clearTimeout(_kbDBSaveTimer);
+  _kbDBSaveTimer = setTimeout(async () => {
+    try {
+      const { error } = await sb.from('user_knowledge_base').upsert(
+        { user_id: SB_USER.id, data: _kb3, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id' }
+      );
+      if (error) console.warn('KB DB save error:', error);
+    } catch(e) { console.warn('KB save to DB failed:', e); }
+  }, 1500); // debounce 1.5s
+}
 function _kbCatD(id) { return _kb3[id]||{folders:[]}; }
 function _kbGetFolder(cid,fid) { return _kbCatD(cid).folders.find(f=>f.id===fid); }
 function _kbGetNote(cid,fid,nid) { return _kbGetFolder(cid,fid)?.notes.find(n=>n.id===nid); }
@@ -12770,6 +12831,8 @@ function _kbHighlight(text, q) {
 // ══════════════════════════════════════════════════════════════
 function renderKnowledgeBase() {
   _kbLoad3();
+  // Load from Supabase and merge (non-blocking)
+  _kbLoadFromDB();
   const root = document.getElementById('kb-root');
   if(!root) return;
 
