@@ -12655,20 +12655,20 @@ function renderKnowledgeBase() {
       .k3lbl-r:hover{opacity:1;}
 
       /* Category */
-      .k3cb{display:flex;align-items:center;gap:8px;padding:7px 8px;width:100%;border-radius:9px;border:none;background:transparent;color:var(--t1);text-align:left;transition:background .13s;cursor:pointer;font-family:'Inter','DM Sans',sans-serif;font-size:12.5px;font-weight:500;line-height:1.4;}
+      .k3cb{display:flex;align-items:center;gap:8px;padding:7px 8px;width:100%;border-radius:9px;border:0.5px solid transparent;background:transparent;color:var(--t1);text-align:left;transition:all .14s;cursor:pointer;font-family:'Inter','DM Sans',sans-serif;font-size:12.5px;font-weight:500;line-height:1.4;}
       .k3cb:hover{background:var(--hover);}
-      .k3cb.k3on{background:rgba(245,200,66,.07);}
+      .k3cb.k3on{background:var(--hover);border-color:rgba(255,255,255,.07);font-weight:700;}
       .k3chv{transition:transform .22s cubic-bezier(.34,1.56,.64,1);flex-shrink:0;color:var(--t3);}
       .k3chv.open{transform:rotate(90deg);}
       .k3cat-nc{font-size:10px;font-family:'DM Mono',monospace;border-radius:4px;padding:1px 5px;font-weight:600;flex-shrink:0;}
 
       /* Folder */
-      .k3fb{display:flex;align-items:center;gap:7px;padding:5px 8px 5px 22px;width:100%;border-radius:8px;border:none;background:transparent;color:var(--t2);text-align:left;font-size:12.5px;font-weight:400;line-height:1.4;transition:all .12s;cursor:pointer;font-family:'Inter','DM Sans',sans-serif;position:relative;}
-      .k3fb::before{content:'';position:absolute;left:13px;top:50%;transform:translateY(-50%);width:2px;height:55%;border-radius:1px;background:transparent;transition:background .12s;}
+      .k3fb{display:flex;align-items:center;gap:7px;padding:5px 8px 5px 22px;width:100%;border-radius:8px;border:0.5px solid transparent;background:transparent;color:var(--t2);text-align:left;font-size:12px;font-weight:400;line-height:1.4;transition:all .13s;cursor:pointer;font-family:'Inter','DM Sans',sans-serif;position:relative;}
+      .k3fb::before{content:'';position:absolute;left:13px;top:50%;transform:translateY(-50%);width:2px;height:55%;border-radius:1px;background:transparent;transition:background .13s;}
       .k3fb:hover{background:var(--hover);color:var(--t1);}
-      .k3fb:hover::before{background:var(--t3);}
-      .k3fb.k3on{background:rgba(245,200,66,.07);color:var(--gold);}
-      .k3fb.k3on::before{background:var(--gold);}
+      .k3fb:hover::before{background:rgba(255,255,255,.2);}
+      .k3fb.k3on{background:rgba(245,200,66,.1);color:var(--gold);border-color:rgba(245,200,66,.18);font-weight:600;}
+      .k3fb.k3on::before{background:var(--gold);width:2.5px;}
       .k3fn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;}
       .k3fc{font-size:10px;color:var(--t3);font-family:'DM Mono',monospace;flex-shrink:0;font-weight:600;min-width:14px;text-align:right;}
 
@@ -12951,7 +12951,54 @@ function renderKnowledgeBase() {
       </aside>
     </div>
     <div id="kb3ov" onclick="if(event.target===this)_kbCM()"><div id="kb3modal"><div id="kb3mc"></div></div></div>
+    <div id="kb3tbtb" class="k3hide" style="display:none"></div>
   `;
+
+  // Init reading mode overlay once
+  if(!document.getElementById('kb3read')){
+    const rm=document.createElement('div');
+    rm.id='kb3read';
+    rm.style.cssText='position:fixed;inset:0;z-index:9990;display:none;flex-direction:column;overflow:hidden;background:#0f0f11;color:#E8E6DE;font-family:Inter,DM Sans,sans-serif';
+    rm.innerHTML=`<div id="kb3read-prog" style="position:fixed;top:0;left:0;height:2px;background:#F5C842;width:0;z-index:9991;transition:width .1s"></div>
+      <div id="kb3read-bar" style="display:flex;align-items:center;gap:10px;padding:12px 24px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0">
+        <button onclick="_kbReadClose()" style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:8px;border:0.5px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:inherit">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          Назад
+        </button>
+        <div id="kb3read-title" style="font-size:14px;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 12px"></div>
+        <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+          <button id="kb3rd-dark" onclick="_kbReadTheme('dark')" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.12);background:#F5C842;color:#09090B;font-size:12px;cursor:pointer">🌙</button>
+          <button id="kb3rd-sepia" onclick="_kbReadTheme('sepia')" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(0,0,0,.1);background:rgba(255,255,255,.07);color:inherit;font-size:12px;cursor:pointer">📜</button>
+          <button id="kb3rd-light" onclick="_kbReadTheme('light')" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(0,0,0,.1);background:rgba(255,255,255,.07);color:inherit;font-size:12px;cursor:pointer">☀️</button>
+          <div style="width:0.5px;height:16px;background:rgba(255,255,255,.1);margin:0 4px"></div>
+          <button id="kb3rd-sm" onclick="_kbReadSize(16)" style="padding:3px 8px;border-radius:6px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.06);font-size:11px;cursor:pointer;color:inherit">A</button>
+          <button id="kb3rd-md" onclick="_kbReadSize(19)" style="padding:3px 8px;border-radius:6px;border:0.5px solid rgba(245,200,66,.5);background:rgba(245,200,66,.12);font-size:13px;cursor:pointer;color:var(--gold)">A</button>
+          <button id="kb3rd-lg" onclick="_kbReadSize(22)" style="padding:3px 8px;border-radius:6px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.06);font-size:15px;cursor:pointer;color:inherit">A</button>
+          <div id="kb3read-meta" style="font-size:11px;opacity:.4;margin-left:10px;font-family:'DM Mono',monospace;white-space:nowrap"></div>
+        </div>
+      </div>
+      <div id="kb3read-body" style="flex:1;overflow-y:auto;padding:48px 24px 80px" onscroll="_kbReadScroll(this)">
+        <div id="kb3read-inner" style="max-width:680px;margin:0 auto;font-size:19px;line-height:2;letter-spacing:-.01em"></div>
+      </div>`;
+    document.body.appendChild(rm);
+    // Reading mode styles
+    const rs=document.createElement('style');
+    rs.textContent=`#kb3read-inner h1{font-size:36px;font-weight:800;letter-spacing:-.04em;margin:36px 0 16px;line-height:1.15}
+    #kb3read-inner h2{font-size:26px;font-weight:700;margin:30px 0 13px;letter-spacing:-.03em;line-height:1.25}
+    #kb3read-inner h3{font-size:20px;font-weight:650;margin:24px 0 10px}
+    #kb3read-inner p{margin-bottom:18px}
+    #kb3read-inner ul,#kb3read-inner ol{margin:0 0 18px 28px}
+    #kb3read-inner li{margin-bottom:9px}
+    #kb3read-inner blockquote{border-left:4px solid #F5C842;padding:14px 20px;margin:22px 0;border-radius:0 10px 10px 0;font-style:italic;opacity:.85}
+    #kb3read-inner code{font-family:'DM Mono',monospace;font-size:14px;background:rgba(128,128,128,.15);padding:2px 8px;border-radius:5px}
+    #kb3read-inner pre{background:rgba(0,0,0,.15);border-radius:12px;padding:20px;margin:20px 0;overflow-x:auto}
+    #kb3read-inner hr{border:none;border-top:1px solid rgba(128,128,128,.2);margin:32px 0}
+    #kb3read-inner table{width:100%;border-collapse:collapse;margin:20px 0}
+    #kb3read-inner th,#kb3read-inner td{padding:10px 14px;border:1px solid rgba(128,128,128,.2);font-size:16px}
+    #kb3read-inner th{font-weight:600;font-size:13px;background:rgba(128,128,128,.08)}
+    #kb3read-inner strong{font-weight:700}`;
+    document.head.appendChild(rs);
+  }
 
   _kbRS(); _kbRNL(); _kbRED();
 }
@@ -12999,7 +13046,7 @@ function _kbRS() {
     const maxNotes=Math.max(...ALL_CATS.map(x=>_kbCatNC(x.id)),1);
     const pct=maxNotes?Math.round(nc/maxNotes*100):0;
     h+=`<div>
-      <button class="k3cb ${_kbS.cat===c.id?'k3on':''}" onclick="_kbTogCat('${c.id}')">
+      <button class="k3cb ${_kbS.cat===c.id?'k3on':''}" onclick="_kbTogCat('${c.id}')" style="${_kbS.cat===c.id?`border-color:${c.color}30;background:${c.color}10`:''}">
         <span style="font-size:15px">${c.icon}</span>
         <span style="font-size:12px;font-weight:600;flex:1">${c.name}</span>
         ${nc?`<span class="k3cat-nc" style="background:${c.color}18;color:${c.color}">${nc}</span>`:''}
@@ -13344,40 +13391,67 @@ function _kbRFolderInline(cont) {
       :`<div style="padding:0 4px">${notes.map(_kbNC).join('')}</div>`)
     :emptyHtml;
 
-  cont.innerHTML=`<div class="k3nl-inline k3anim2">
-    <!-- Breadcrumb back -->
-    <button class="k3back-btn" onclick="_kbGoHome()">
-      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-      Обзор
-    </button>
-    <span style="font-size:11px;color:var(--t3);margin:0 4px">·</span>
-    <button class="k3back-btn" onclick="_kbTogCat('${c.id}')">
-      ${c.icon} ${c.name}
-    </button>
+  const totalWords=notes.reduce((a,n)=>a+_kbWC(n.body||''),0);
+  const readTime=Math.max(1,Math.ceil(totalWords/200));
 
-    <!-- Folder header -->
-    <div class="k3nl-inline-header">
-      <div>
-        <div class="k3nl-inline-title">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${c.color}" stroke-width="2" style="display:inline;vertical-align:-2px;margin-right:7px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>${_kbEsc2(f.title)}
+  cont.innerHTML=`<div class="k3nl-inline k3anim2" style="max-width:920px">
+
+    <!-- ── TOP NAV ── -->
+    <div style="display:flex;align-items:center;gap:4px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="k3back-btn" onclick="_kbGoHome()">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Обзор
+      </button>
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+      <button class="k3back-btn" onclick="_kbTogCat('${c.id}')">${c.icon} ${c.name}</button>
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
+      <span style="font-size:12px;font-weight:600;color:var(--t1)">📁 ${_kbEsc2(f.title)}</span>
+    </div>
+
+    <!-- ── FOLDER HERO ── -->
+    <div style="background:linear-gradient(135deg,${c.color}12 0%,${c.color}05 70%,transparent 100%);border:0.5px solid ${c.color}22;border-radius:14px;padding:18px 20px;margin-bottom:18px;position:relative;overflow:hidden">
+      <div style="position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:60px;opacity:.04;pointer-events:none">${c.icon}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:40px;height:40px;border-radius:10px;background:${c.color}18;border:0.5px solid ${c.color}30;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${c.color}" stroke-width="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          </div>
+          <div>
+            <div style="font-size:18px;font-weight:800;color:var(--t1);letter-spacing:-.03em;line-height:1.2">${_kbEsc2(f.title)}</div>
+            <div style="font-size:11px;color:var(--t3);margin-top:3px">${c.icon} ${c.name}</div>
+          </div>
         </div>
-        <div class="k3nl-inline-sub">${f.notes.length} заметок${_kbS.filterTag?` · #${_kbEsc2(_kbS.filterTag)}`:''}</div>
-      </div>
-      <div style="display:flex;gap:5px;margin-left:auto">
-        <button class="k3ico" onclick="_kbRenF('${c.id}','${f.id}')" title="Переименовать" style="width:26px;height:26px">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        </button>
-        <button class="k3ico k3danger" onclick="_kbCDF('${c.id}','${f.id}')" title="Удалить" style="width:26px;height:26px">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
-        </button>
+        <!-- stats row -->
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <div style="background:rgba(0,0,0,.25);border:0.5px solid rgba(255,255,255,.06);border-radius:8px;padding:6px 12px;text-align:center">
+            <div style="font-size:16px;font-weight:800;font-family:'DM Mono',monospace;color:${c.color};line-height:1">${f.notes.length}</div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-top:2px">Заметок</div>
+          </div>
+          <div style="background:rgba(0,0,0,.25);border:0.5px solid rgba(255,255,255,.06);border-radius:8px;padding:6px 12px;text-align:center">
+            <div style="font-size:16px;font-weight:800;font-family:'DM Mono',monospace;color:var(--purple);line-height:1">${totalWords>999?Math.round(totalWords/1000)+'к':totalWords}</div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-top:2px">Слов</div>
+          </div>
+          <div style="background:rgba(0,0,0,.25);border:0.5px solid rgba(255,255,255,.06);border-radius:8px;padding:6px 12px;text-align:center">
+            <div style="font-size:16px;font-weight:800;font-family:'DM Mono',monospace;color:var(--blue);line-height:1">~${readTime}</div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-top:2px">Мин чт.</div>
+          </div>
+          <div style="display:flex;gap:4px;margin-left:4px">
+            <button class="k3ico" onclick="_kbRenF('${c.id}','${f.id}')" title="Переименовать" style="width:28px;height:28px">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button class="k3ico k3danger" onclick="_kbCDF('${c.id}','${f.id}')" title="Удалить" style="width:28px;height:28px">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Controls -->
-    <div class="k3nl-inline-controls">
+    <!-- ── CONTROLS ── -->
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;padding:0 2px">
       <div class="k3sort-row" style="flex:1">
-        <button class="k3sc ${_kbS.sort==='updated'?'k3on':''}" onclick="_kbSetSort('updated')">Дате</button>
-        <button class="k3sc ${_kbS.sort==='created'?'k3on':''}" onclick="_kbSetSort('created')">Создан.</button>
+        <button class="k3sc ${_kbS.sort==='updated'?'k3on':''}" onclick="_kbSetSort('updated')">По дате</button>
+        <button class="k3sc ${_kbS.sort==='created'?'k3on':''}" onclick="_kbSetSort('created')">Созданию</button>
         <button class="k3sc ${_kbS.sort==='title'?'k3on':''}" onclick="_kbSetSort('title')">А–Я</button>
       </div>
       <button class="k3vt ${_kbS.viewMode==='list'?'k3on':''}" onclick="_kbSetView('list')" title="Список">
@@ -13386,12 +13460,13 @@ function _kbRFolderInline(cont) {
       <button class="k3vt ${_kbS.viewMode==='grid'?'k3on':''}" onclick="_kbSetView('grid')" title="Сетка">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
       </button>
-      <button class="k3btn k3gold" onclick="_kbNN()" style="padding:5px 12px;gap:5px;font-size:11.5px">
+      <button class="k3btn k3gold" onclick="_kbNN()" style="padding:6px 14px;gap:5px;font-size:12px">
         <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Новая
+        Новая заметка
       </button>
     </div>
 
+    <!-- ── NOTES ── -->
     ${notesHtml}
   </div>`;
 }
@@ -13515,6 +13590,9 @@ function _kbRED() {
       <button class="k3ico k3danger" onclick="_kbCDN()" title="Удалить" style="margin-left:auto">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg>
       </button>
+      <button class="k3ico" onclick="_kbReadMode()" title="Режим чтения" style="margin-left:4px;background:rgba(245,200,66,.08);color:var(--gold)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      </button>
     </div>`;
 
   if(_kbS.edit){
@@ -13566,7 +13644,13 @@ function _kbRED() {
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>
       </button>
       <div class="k3tbsep"></div>
-      <button class="k3tb" onclick="_kbR('removeFormat')" style="width:auto;padding:0 8px;font-size:10px;color:var(--t3)" title="Убрать форматирование">✕ Формат</button>`;
+      <button class="k3tb" onclick="_kbR('removeFormat')" style="width:auto;padding:0 8px;font-size:10px;color:var(--t3)" title="Убрать форматирование">✕ Формат</button>
+      <div class="k3tbsep"></div>
+      <button class="k3tb" onclick="_kbR('justifyLeft')" title="По левому краю"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg></button>
+      <button class="k3tb" onclick="_kbR('justifyCenter')" title="По центру"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg></button>
+      <button class="k3tb" onclick="_kbR('justifyRight')" title="По правому краю"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg></button>
+      <div class="k3tbsep"></div>
+      <button class="k3tb" onclick="_kbUppercase()" title="ЗАГЛАВНЫЕ" style="font-size:10px;font-weight:800;width:auto;padding:0 7px;letter-spacing:.04em">AA</button>`;
   } else {
     tb.style.display='none';
   }
@@ -13895,13 +13979,122 @@ function _kbSSV(t){
   else if(t==='duped'){el.textContent='✓ Дублировано';el.className='k3saved';setTimeout(()=>{el.textContent='';el.className='';},2000);}
 }
 function _kbR(cmd,val){document.getElementById('kb3area')?.focus();document.execCommand(cmd,false,val||null);}
+
+// ── Uppercase ────────────────────────────────────────
+function _kbUppercase(){
+  const ea=document.getElementById('kb3area');if(!ea)return;ea.focus();
+  const sel=window.getSelection();
+  if(!sel||sel.rangeCount===0||sel.isCollapsed){return;}
+  const range=sel.getRangeAt(0);
+  const txt=range.toString();if(!txt)return;
+  range.deleteContents();
+  range.insertNode(document.createTextNode(txt.toUpperCase()));
+  _kbEI();
+}
+
+// ── Table toolbar ────────────────────────────────────
+let _kbTBTBtarget=null;
+document.addEventListener('click',function(e){
+  if(e.target.closest('#kb3tbtb'))return;
+  const cell=e.target.closest('#kb3area td,#kb3area th');
+  if(cell){_kbShowTableTB(cell);}
+  else{_kbHideTBTB();}
+});
+function _kbShowTableTB(cell){
+  const tbtb=document.getElementById('kb3tbtb');if(!tbtb)return;
+  _kbTBTBtarget=cell;
+  const table=cell.closest('table');
+  tbtb.style.display='flex';tbtb.style.alignItems='center';tbtb.style.gap='3px';
+  tbtb.style.flexWrap='wrap';
+  tbtb.innerHTML=`<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)">Таблица</span>
+    <div style="width:0.5px;height:14px;background:var(--border);margin:0 3px"></div>
+    <button class="k3tb" onclick="_kbTBAddRow(false)" title="Строка выше">▲</button>
+    <button class="k3tb" onclick="_kbTBAddRow(true)" title="Строка ниже">▼</button>
+    <button class="k3tb" onclick="_kbTBAddCol(false)" title="Колонка слева">◀</button>
+    <button class="k3tb" onclick="_kbTBAddCol(true)" title="Колонка справа">▶</button>
+    <div style="width:0.5px;height:14px;background:var(--border);margin:0 3px"></div>
+    <button class="k3tb" onclick="_kbTBDelRow()" title="Удалить строку" style="color:var(--red);font-size:9px;width:auto;padding:0 5px">−Строка</button>
+    <button class="k3tb" onclick="_kbTBDelCol()" title="Удалить столбец" style="color:var(--red);font-size:9px;width:auto;padding:0 5px">−Столбец</button>
+    <div style="width:0.5px;height:14px;background:var(--border);margin:0 3px"></div>
+    <label class="k3tb" style="width:auto;padding:0 5px;gap:3px;cursor:pointer;font-size:9px;color:var(--t3)" title="Цвет рамки">
+      Рамка <input type="color" value="#3a3a40" onchange="_kbTBBorder(this.value)" style="width:13px;height:13px;border:none;padding:0;cursor:pointer;background:none;outline:none">
+    </label>
+    <label class="k3tb" style="width:auto;padding:0 5px;gap:3px;cursor:pointer;font-size:9px;color:var(--t3)" title="Фон ячейки">
+      Ячейка <input type="color" value="#1a1a1e" onchange="_kbTBCellBg(this.value)" style="width:13px;height:13px;border:none;padding:0;cursor:pointer;background:none;outline:none">
+    </label>
+    <div style="width:0.5px;height:14px;background:var(--border);margin:0 3px"></div>
+    <button class="k3tb" onclick="_kbTBDelTable()" style="color:var(--red);font-size:9px;width:auto;padding:0 6px">✕ Таблица</button>`;
+  const cellRect=cell.getBoundingClientRect();
+  tbtb.style.position='fixed';tbtb.style.top=(cellRect.top-40)+'px';tbtb.style.left=cellRect.left+'px';
+  tbtb.style.maxWidth='700px';tbtb.style.zIndex='500';
+}
+function _kbHideTBTB(){const t=document.getElementById('kb3tbtb');if(t)t.style.display='none';_kbTBTBtarget=null;}
+function _kbTBAddRow(below){const cell=_kbTBTBtarget;if(!cell)return;const row=cell.closest('tr');const cols=row.cells.length;const nr=document.createElement('tr');for(let i=0;i<cols;i++){const td=document.createElement('td');td.style.cssText='padding:10px 14px;border:1.5px solid rgba(255,255,255,.12)';td.textContent='';nr.appendChild(td);}if(below)row.after(nr);else row.before(nr);_kbEI();}
+function _kbTBAddCol(right){const cell=_kbTBTBtarget;if(!cell)return;const idx=cell.cellIndex;const table=cell.closest('table');table.querySelectorAll('tr').forEach((row,ri)=>{const nc=ri===0?document.createElement('th'):document.createElement('td');nc.style.cssText=ri===0?'background:rgba(255,255,255,.06);padding:10px 14px;border:1.5px solid rgba(255,255,255,.18);font-weight:600;font-size:11.5px;color:#A8A8B0':'padding:10px 14px;border:1.5px solid rgba(255,255,255,.12)';nc.textContent='';const ref=row.cells[right?idx+1:idx];if(ref)row.insertBefore(nc,ref);else row.appendChild(nc);});_kbEI();}
+function _kbTBDelRow(){const cell=_kbTBTBtarget;if(!cell)return;const row=cell.closest('tr');const table=cell.closest('table');if(table.querySelectorAll('tr').length<=1){_kbTBDelTable();return;}row.remove();_kbHideTBTB();_kbEI();}
+function _kbTBDelCol(){const cell=_kbTBTBtarget;if(!cell)return;const idx=cell.cellIndex;const table=cell.closest('table');if(table.rows[0]?.cells.length<=1){_kbTBDelTable();return;}table.querySelectorAll('tr').forEach(row=>{if(row.cells[idx])row.cells[idx].remove();});_kbHideTBTB();_kbEI();}
+function _kbTBDelTable(){const cell=_kbTBTBtarget;if(!cell)return;cell.closest('table')?.remove();_kbHideTBTB();_kbEI();}
+function _kbTBBorder(color){const cell=_kbTBTBtarget;if(!cell)return;cell.closest('table')?.querySelectorAll('td,th').forEach(c=>{c.style.border=`1.5px solid ${color}`;});_kbEI();}
+function _kbTBCellBg(color){const cell=_kbTBTBtarget;if(!cell)return;cell.style.backgroundColor=color;_kbEI();}
+
+// ── Reading mode ─────────────────────────────────────
+let _kbReadThemeState='dark';let _kbReadFontSize=19;
+function _kbReadMode(){
+  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);if(!n)return;
+  const rm=document.getElementById('kb3read');if(!rm)return;
+  document.getElementById('kb3read-inner').innerHTML=n.body||'<p style="opacity:.4;font-style:italic">Пусто</p>';
+  document.getElementById('kb3read-title').textContent=n.title||'Без названия';
+  const wc=_kbWC(n.body||'');
+  document.getElementById('kb3read-meta').textContent=wc+' слов · ~'+Math.max(1,Math.ceil(wc/200))+' мин';
+  rm.style.display='flex';
+  document.getElementById('kb3read-body')?.scrollTo(0,0);
+  document.getElementById('kb3read-prog').style.width='0%';
+}
+function _kbReadClose(){document.getElementById('kb3read').style.display='none';}
+function _kbReadTheme(t){
+  _kbReadThemeState=t;
+  const rm=document.getElementById('kb3read');if(!rm)return;
+  const bg={dark:'#0f0f11',sepia:'#F5EDD8',light:'#F9F7F2'};
+  const fg={dark:'#E8E6DE',sepia:'#3a2e1a',light:'#1a1a1a'};
+  rm.style.background=bg[t];rm.style.color=fg[t];
+  ['dark','sepia','light'].forEach(x=>{
+    const btn=document.getElementById('kb3rd-'+x);if(!btn)return;
+    btn.style.background=x===t?'#F5C842':'rgba(128,128,128,.1)';
+    btn.style.color=x===t?'#09090B':'inherit';
+    btn.style.borderColor=x===t?'#F5C842':'rgba(128,128,128,.15)';
+  });
+}
+function _kbReadSize(sz){
+  _kbReadFontSize=sz;
+  const inner=document.getElementById('kb3read-inner');if(inner)inner.style.fontSize=sz+'px';
+  [['sm',16],['md',19],['lg',22]].forEach(([id,s])=>{
+    const btn=document.getElementById('kb3rd-'+id);if(!btn)return;
+    btn.style.background=s===sz?'rgba(245,200,66,.15)':'rgba(128,128,128,.08)';
+    btn.style.borderColor=s===sz?'rgba(245,200,66,.5)':'rgba(128,128,128,.15)';
+    btn.style.color=s===sz?'#F5C842':'inherit';
+  });
+}
+function _kbReadScroll(el){
+  const prog=document.getElementById('kb3read-prog');if(!prog)return;
+  prog.style.width=Math.min(100,el.scrollTop/(el.scrollHeight-el.clientHeight)*100)+'%';
+}
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'&&document.getElementById('kb3read')?.style.display==='flex')_kbReadClose();
+});
 function _kbRB(tag){if(!tag)return;document.getElementById('kb3area')?.focus();document.execCommand('formatBlock',false,tag);}
 function _kbLink(){const url=prompt('URL ссылки:');if(url)_kbR('createLink',url);}
 function _kbHR(){document.getElementById('kb3area')?.focus();document.execCommand('insertHTML',false,'<hr style="border:none;border-top:0.5px solid #252529;margin:24px 0">');}
 function _kbInsTable(){
   document.getElementById('kb3area')?.focus();
+  const th='background:rgba(255,255,255,.06);padding:10px 14px;border:1.5px solid rgba(255,255,255,.2);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:#A8A8B0;text-align:left;min-width:90px';
+  const td='padding:10px 14px;border:1.5px solid rgba(255,255,255,.12);color:#F2F0E8;min-width:90px';
+  const td2='padding:10px 14px;border:1.5px solid rgba(255,255,255,.12);color:#F2F0E8;background:rgba(255,255,255,.02);min-width:90px';
   document.execCommand('insertHTML',false,
-    '<table><tr><th>Заголовок 1</th><th>Заголовок 2</th><th>Заголовок 3</th></tr><tr><td>Ячейка</td><td>Ячейка</td><td>Ячейка</td></tr><tr><td>Ячейка</td><td>Ячейка</td><td>Ячейка</td></tr></table>'
+    `<table style="width:100%;border-collapse:collapse;margin:18px 0">
+      <tr><th style="${th}">Заголовок 1</th><th style="${th}">Заголовок 2</th><th style="${th}">Заголовок 3</th></tr>
+      <tr><td style="${td}">Ячейка</td><td style="${td}">Ячейка</td><td style="${td}">Ячейка</td></tr>
+      <tr><td style="${td2}">Ячейка</td><td style="${td2}">Ячейка</td><td style="${td2}">Ячейка</td></tr>
+    </table><p></p>`
   );
 }
 
