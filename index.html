@@ -20624,18 +20624,51 @@ window.chabCreateRoom=function(){
 };
 
 window.chabDoCreate=async function(){
-  var _inp1=document.getElementById('chabRoomName'); const name=_inp1?_inp1.value.trim():'';
-  if(!name)return;
-  const sb=getSB(),user=getUser(); if(!sb||!user)return;
+  var _inp1=document.getElementById('chabRoomName');
+  var name=_inp1?_inp1.value.trim():'';
+  if(!name){ if(_inp1){_inp1.style.borderColor='rgba(255,69,58,.5)';_inp1.focus();} return; }
+
+  var sb=getSB(), user=getUser();
+  if(!sb){ showToast('Ошибка: нет подключения к базе','❌'); return; }
+  if(!user){ showToast('Ошибка: войдите в аккаунт','❌'); return; }
+
+  // Show loading state on button
+  var btn=document.querySelector('#chabModal .chab-btn-purple');
+  if(btn){ btn.textContent='Создаём...'; btn.disabled=true; }
+
   try {
-    const code=mkCode();
-    const {data:room,error}=await sb.from('collab_habit_rooms').insert({name,icon:window._chabRoomIcon||'🤝',owner_id:user.id,invite_code:code}).select().single();
-    if(error)throw error;
-    await sb.from('collab_habit_members').insert({room_id:room.id,user_id:user.id,role:'owner'});
+    var code=mkCode();
+    var res1=await sb.from('collab_habit_rooms').insert({
+      name:name,
+      icon:window._chabRoomIcon||'🤝',
+      owner_id:user.id,
+      invite_code:code
+    }).select();
+
+    if(res1.error) throw res1.error;
+    var room=res1.data&&res1.data[0];
+    if(!room) throw new Error('Комната не создана');
+
+    var res2=await sb.from('collab_habit_members').insert({
+      room_id:room.id,
+      user_id:user.id,
+      role:'owner'
+    });
+    if(res2.error) throw res2.error;
+
     hideChabModal();
-    try{showToast('Трекер создан!','🤝');}catch{}
-    setTimeout(()=>{renderCollabView();setTimeout(()=>chabShowCode(code),600);},300);
-  }catch(e){console.error(e);try{showToast('Ошибка','❌');}catch{}}
+    showToast('Трекер создан!','🤝');
+    setTimeout(function(){
+      renderCollabView();
+      setTimeout(function(){ chabShowCode(code); }, 600);
+    }, 300);
+
+  } catch(e){
+    console.error('chabDoCreate error:', e);
+    var msg=e&&e.message?e.message:'Неизвестная ошибка';
+    showToast('Ошибка: '+msg,'❌');
+    if(btn){ btn.textContent='Создать'; btn.disabled=false; }
+  }
 };
 
 window.chabJoinRoom=function(){
@@ -20647,18 +20680,43 @@ window.chabJoinRoom=function(){
 };
 
 window.chabDoJoin=async function(){
-  var _inp2=document.getElementById('chabJoinCode'); const code=_inp2?_inp2.value.trim().toUpperCase():'';
-  if(code.length<6)return;
-  const sb=getSB(),user=getUser(); if(!sb||!user)return;
+  var _inp2=document.getElementById('chabJoinCode');
+  var code=_inp2?_inp2.value.trim().toUpperCase():'';
+  if(code.length<6){ if(_inp2){_inp2.style.borderColor='rgba(255,69,58,.5)';_inp2.focus();} return; }
+
+  var sb=getSB(), user=getUser();
+  if(!sb){ showToast('Ошибка: нет подключения','❌'); return; }
+  if(!user){ showToast('Ошибка: войдите в аккаунт','❌'); return; }
+
+  var btn=document.querySelector('#chabModal .chab-btn-purple');
+  if(btn){ btn.textContent='Входим...'; btn.disabled=true; }
+
   try {
-    const {data:room}=await sb.from('collab_habit_rooms').select('id,name').eq('invite_code',code).single();
-    if(!room){try{showToast('Неверный код','❌');}catch{}return;}
-    const {data:ex}=await sb.from('collab_habit_members').select('id').eq('room_id',room.id).eq('user_id',user.id).limit(1).then(function(r){return {data:(r.data&&r.data.length?r.data[0]:null),error:r.error};});
-    if(!ex) await sb.from('collab_habit_members').insert({room_id:room.id,user_id:user.id,role:'member'});
+    var res1=await sb.from('collab_habit_rooms').select('id,name').eq('invite_code',code);
+    if(res1.error) throw res1.error;
+    var room=res1.data&&res1.data[0];
+    if(!room){ showToast('Неверный код приглашения','❌'); if(btn){btn.textContent='Войти';btn.disabled=false;} return; }
+
+    // Check if already member
+    var res2=await sb.from('collab_habit_members').select('id').eq('room_id',room.id).eq('user_id',user.id);
+    if(res2.error) throw res2.error;
+    var already=res2.data&&res2.data.length>0;
+
+    if(!already){
+      var res3=await sb.from('collab_habit_members').insert({room_id:room.id,user_id:user.id,role:'member'});
+      if(res3.error) throw res3.error;
+    }
+
     hideChabModal();
-    try{showToast(`Вступил в «${room.name}»!`,'🎉');}catch{}
-    setTimeout(renderCollabView,300);
-  }catch(e){console.error(e);try{showToast('Ошибка','❌');}catch{}}
+    showToast('Вступил в «'+room.name+'»!','🎉');
+    setTimeout(renderCollabView, 300);
+
+  } catch(e){
+    console.error('chabDoJoin error:', e);
+    var msg=e&&e.message?e.message:'Неизвестная ошибка';
+    showToast('Ошибка: '+msg,'❌');
+    if(btn){ btn.textContent='Войти'; btn.disabled=false; }
+  }
 };
 
 window.chabAddHabit=function(roomId){
@@ -20672,15 +20730,33 @@ window.chabAddHabit=function(roomId){
 };
 
 window.chabDoAddHabit=async function(roomId){
-  var _inp3=document.getElementById('chabHabName'); const name=_inp3?_inp3.value.trim():'';
-  if(!name)return;
-  const sb=getSB();
+  var _inp3=document.getElementById('chabHabName');
+  var name=_inp3?_inp3.value.trim():'';
+  if(!name){ if(_inp3){_inp3.style.borderColor='rgba(255,69,58,.5)';_inp3.focus();} return; }
+
+  var sb=getSB();
+  if(!sb){ showToast('Ошибка: нет подключения','❌'); return; }
+
+  var btn=document.querySelector('#chabModal .chab-btn-purple');
+  if(btn){ btn.textContent='Добавляем...'; btn.disabled=true; }
+
   try {
-    await sb.from('collab_habits').insert({room_id:roomId,name,icon:window._chabHabIcon||'🎯',color:'#a855f7',active:true});
+    var res=await sb.from('collab_habits').insert({
+      room_id:roomId,
+      name:name,
+      icon:window._chabHabIcon||'🎯',
+      color:'#a855f7',
+      active:true
+    });
+    if(res.error) throw res.error;
     hideChabModal();
-    try{showToast('Привычка добавлена',window._chabHabIcon||'🎯');}catch{}
-    setTimeout(renderCollabView,300);
-  }catch(e){console.error(e);}
+    showToast('Привычка добавлена',window._chabHabIcon||'🎯');
+    setTimeout(renderCollabView, 300);
+  } catch(e){
+    console.error('chabDoAddHabit error:', e);
+    showToast('Ошибка: '+(e&&e.message?e.message:''),'❌');
+    if(btn){ btn.textContent='Добавить'; btn.disabled=false; }
+  }
 };
 
 window.chabDeleteRoom=async function(roomId){
