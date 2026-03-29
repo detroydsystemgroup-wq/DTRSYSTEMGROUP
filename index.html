@@ -20842,6 +20842,11 @@ async function buildRoomCard(room, myRole, user){
   habits.forEach(h=>{ if((myLog[h.id]||{})[today]) myDoneToday++; });
   const myTodayPct = habits.length ? Math.round(myDoneToday/habits.length*100) : 0;
 
+  // ── Мои "идеальные дни" за неделю (все привычки выполнены в этот день) ──
+  const myPerfectDays = passedDayStrs.filter(d =>
+    habits.length > 0 && habits.every(h => (myLog[h.id]||{})[d])
+  ).length;
+
   // ── My global streak — считаем корректно (сегодня не сделал ≠ стрик сброшен) ──
   let myGlobalStreak=0;
   {const d=new Date(); d.setHours(12,0,0,0);
@@ -20881,7 +20886,12 @@ async function buildRoomCard(room, myRole, user){
        if(anyD) streak++; else if(i>0) break;
        dd.setDate(dd.getDate()-1);
      }}
-    return{...m, done, pct, todayDone, streak};
+    const perfectDays = passedDayStrs.filter(d =>
+      habits.length > 0 && habits.every(h => (logs[m.user_id]||{})[h.id]?.[d])
+    ).length;
+    // pct = % идеальных дней из прошедших дней недели
+    const weekPct = possibleDays > 0 ? Math.round(perfectDays / possibleDays * 100) : 0;
+    return{...m, done, pct: weekPct, todayDone, streak, perfectDays};
   }).sort((a,b)=>b.pct-a.pct || b.streak-a.streak);
   const maxPct = Math.max(...scores.map(s=>s.pct), 1);
   const isOwner = myRole==='owner';
@@ -21020,7 +21030,7 @@ async function buildRoomCard(room, myRole, user){
     const av=u.avatar_url?`<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`:`<span style="font-size:18px">${u.avatar||'👤'}</span>`;
     const streakTxt = s.streak > 0 ? `🔥 ${s.streak} стрик` : '— стрик';
     const doneTxt = `✓ ${s.todayDone}/${habits.length} сегодня`;
-    const weekTxt = `${s.done} из ${habits.length * possibleDays} за неделю`;
+    const weekTxt = `${s.perfectDays} из ${possibleDays} идеальных дней`;
     return `<div class="chab-lb-row${isMe?' me':''}">
       <div class="chab-lb-rank">${medals[i]||i+1}</div>
       <div class="chab-lb-av">${av}</div>
@@ -21096,10 +21106,8 @@ async function buildRoomCard(room, myRole, user){
             <div class="chab-hero-kpi-lbl">Привычек</div>
           </div>
           <div class="chab-hero-kpi">
-            <div class="chab-hero-kpi-val" style="color:var(--green)">${
-              passedDayStrs.reduce((sum,d)=>sum+habits.filter(h=>(myLog[h.id]||{})[d]).length,0)
-            }/${habits.length * possibleDays}</div>
-            <div class="chab-hero-kpi-lbl">Неделя</div>
+            <div class="chab-hero-kpi-val" style="color:var(--green)">${myPerfectDays}/${possibleDays}</div>
+            <div class="chab-hero-kpi-lbl">Идеал. дней</div>
           </div>
         </div>
       </div>
