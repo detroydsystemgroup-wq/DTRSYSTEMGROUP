@@ -20837,36 +20837,33 @@ async function buildRoomCard(room, myRole, user){
   const myId = user?.id;
   const myLog = logs[myId]||{};
 
+  // ── Прошедшие дни недели (нужны раньше для my stats) ──
+  const weekDayStrs = weekDates.map(d=>dateStr(d));
+  const passedDayStrs = weekDayStrs.filter(d => d <= today);
+  const possibleDays = Math.max(passedDayStrs.length, 1);
+
   // ── My stats today ──
   let myDoneToday=0;
   habits.forEach(h=>{ if((myLog[h.id]||{})[today]) myDoneToday++; });
   const myTodayPct = habits.length ? Math.round(myDoneToday/habits.length*100) : 0;
 
-  // ── Мои "идеальные дни" за неделю (все привычки выполнены в этот день) ──
+  // ── Мои "идеальные дни" за неделю ──
   const myPerfectDays = passedDayStrs.filter(d =>
     habits.length > 0 && habits.every(h => (myLog[h.id]||{})[d])
   ).length;
 
-  // ── My global streak — считаем корректно (сегодня не сделал ≠ стрик сброшен) ──
+  // ── My global streak ──
   let myGlobalStreak=0;
   {const d=new Date(); d.setHours(12,0,0,0);
    for(let i=0;i<200;i++){
      const key=dateStr(d);
      const anyDone=habits.some(h=>(myLog[h.id]||{})[key]);
-     // i=0 = сегодня: не сделано сегодня — не рвём стрик (день ещё идёт)
      if(anyDone) myGlobalStreak++;
-     else if(i>0) break; // вчера или раньше — стрик кончился
+     else if(i>0) break;
      d.setDate(d.getDate()-1);
    }}
 
-  // ── Стрик для конкретной привычки (то же правило) ──
-  // уже определён как chabStreak() ниже
-
   // ── Group leaderboard scores ──
-  // possible = только прошедшие дни недели (не будущие), чтобы % был честный
-  const weekDayStrs = weekDates.map(d=>dateStr(d));
-  const passedDayStrs = weekDayStrs.filter(d => d <= today); // только до сегодня включительно
-  const possibleDays = Math.max(passedDayStrs.length, 1);
 
   const scores = members.map(m=>{
     // done = сколько раз выполнено за прошедшие дни недели
