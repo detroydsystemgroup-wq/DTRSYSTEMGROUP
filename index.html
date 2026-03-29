@@ -17564,6 +17564,18 @@ function _lrnInjectCSS(){
   font-weight:700;
   color:#fff;
   box-shadow:0 2px 8px rgba(0,0,0,.3);
+  position:relative;
+  overflow:hidden;
+}
+/* Spinner shown while avatar loading */
+.lrn-auth-av-spinner{
+  width:14px;
+  height:14px;
+  border:2px solid rgba(255,255,255,.15);
+  border-top-color:rgba(255,255,255,.7);
+  border-radius:50%;
+  animation:spin .7s linear infinite;
+  flex-shrink:0;
 }
 .lrn-auth-info{ flex:1; min-width:0; }
 .lrn-auth-name{
@@ -18229,15 +18241,28 @@ function _lrnRenderSidebar(){
       <div class="lrn-sb-ttl">Авторы</div>
       ${totalAuth === 0
         ? `<div style="font-size:11.5px;color:var(--t3);line-height:1.65;padding:0 4px 8px;letter-spacing:-.005em">Добавляй авторов — клик откроет их канал</div>`
-        : _auth.authors.map(a=>`
-          <a class="lrn-auth-row" href="${a.url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
-            <div class="lrn-auth-av" style="background:${a.color}">${_lrnInitial(a.name)}</div>
-            <div class="lrn-auth-info">
-              <div class="lrn-auth-name">${a.name}</div>
-              <div class="lrn-auth-sub">Автор · ${_auth.authors.indexOf(a)+1}</div>
-            </div>
-            <button class="lrn-auth-del" onclick="event.preventDefault();event.stopPropagation();lrnDelAuthor('${a.id}')">${svgClose}</button>
-          </a>`).join('')}
+        : _auth.authors.map(a => {
+            // Avatar: photo if loaded, spinner if loading, letter if no avatar
+            let avInner;
+            if(a.avatarLoading){
+              avInner = `<div class="lrn-auth-av-spinner"></div>`;
+            } else if(a.avatarUrl){
+              avInner = `<img src="${a.avatarUrl}" alt="${a.name}" style="width:100%;height:100%;object-fit:cover;border-radius:9px" onerror="this.parentNode.innerHTML='${_lrnInitial(a.name)}'">`;
+            } else {
+              avInner = _lrnInitial(a.name);
+            }
+            return `
+            <a class="lrn-auth-row" href="${a.url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
+              <div class="lrn-auth-av" style="background:${a.avatarUrl?'transparent':a.color};overflow:hidden">
+                ${avInner}
+              </div>
+              <div class="lrn-auth-info">
+                <div class="lrn-auth-name">${a.name}</div>
+                <div class="lrn-auth-sub">${a.avatarLoading ? 'Загружаем аватар...' : 'Автор · ' + (_auth.authors.indexOf(a)+1)}</div>
+              </div>
+              <button class="lrn-auth-del" onclick="event.preventDefault();event.stopPropagation();lrnDelAuthor('${a.id}')">${svgClose}</button>
+            </a>`;
+          }).join('')}
       <button class="lrn-sb-addbtn" onclick="lrnAddAuthor()">
         ${svgPlus}
         Добавить автора
@@ -18386,19 +18411,94 @@ function renderLearnTab(){
   _lrnRenderMain();
 
   if(!_lrnDBReady){
-    _lrnLoadFromDB().then(()=>{ _lrnLoad(); _authLoad(); _lrnRenderSidebar(); _lrnRenderMain(); });
+    _lrnLoadFromDB().then(()=>{ _lrnLoad(); _authLoad(); _lrnRenderSidebar(); _lrnRenderMain(); setTimeout(_lrnRefreshMissingAvatars, 500); });
+  } else {
+    setTimeout(_lrnRefreshMissingAvatars, 300);
   }
 }
 
 // ── Actions ───────────────────────────────────────────────────
 window.lrnAddAuthor=function(){
-  _lrnModal('Добавить автора',[{id:'an',placeholder:'Имя автора',type:'text'},{id:'au',placeholder:'https://youtube.com/@channel',type:'url'}],(v)=>{
-    const name=v.an.trim(),url=v.au.trim(); if(!name||!url) return;
-    _auth.authors.push({id:_lrnUID(),name,url:url.startsWith('http')?url:'https://'+url,color:LRN_COLORS[_auth.authors.length%LRN_COLORS.length]});
-    _authSave(); _lrnRenderSidebar();
-  });
+  _lrnModal(
+    'Добавить автора',
+    [
+      {id:'an', placeholder:'Имя автора', type:'text'},
+      {id:'au', placeholder:'https://youtube.com/@channel', type:'url'}
+    ],
+    async (v) => {
+      const name = v.an.trim(), url = v.au.trim();
+      if(!name || !url) return;
+
+      const fullUrl = url.startsWith('http') ? url : 'https://' + url;
+      const newAuthor = {
+        id: _lrnUID(),
+        name,
+        url: fullUrl,
+        color: LRN_COLORS[_auth.authors.length % LRN_COLORS.length],
+        avatarUrl: null,
+        avatarLoading: true,
+      };
+      _auth.authors.push(newAuthor);
+      _authSave();
+      _lrnRenderSidebar(); // show immediately with letter placeholder
+
+      // Async: fetch YouTube channel avatar
+      const avatarUrl = await _lrnFetchChannelAvatar(fullUrl);
+      const found = _auth.authors.find(a => a.id === newAuthor.id);
+      if(found){
+        found.avatarUrl = avatarUrl || null;
+        found.avatarLoading = false;
+        _authSave();
+        _lrnRenderSidebar();
+      }
+    }
+  );
 };
+
+// ── Fetch YouTube channel avatar via CORS proxy ──────────────────
+async function _lrnFetchChannelAvatar(channelUrl){
+  if(!channelUrl || !channelUrl.includes('youtube')) return null;
+  try {
+    // allorigins.win is a free CORS proxy — fetches the channel page
+    const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(channelUrl)}`;
+    const res = await fetch(proxy, { signal: AbortSignal.timeout(8000) });
+    if(!res.ok) return null;
+    const data = await res.json();
+    const html = data.contents || '';
+
+    // og:image on a YouTube channel page = channel avatar (high-res)
+    const m1 = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i);
+    if(m1 && m1[1] && !m1[1].includes('placeholder')) return m1[1];
+
+    // Fallback: twitter:image
+    const m2 = html.match(/<meta\s+name="twitter:image"\s+content="([^"]+)"/i);
+    if(m2 && m2[1]) return m2[1];
+
+    // Fallback: yt-avatar inside JSON-LD or initial data
+    const m3 = html.match(/"avatar":\{"thumbnails":\[{"url":"([^"]+)"/);
+    if(m3 && m3[1]) return m3[1];
+
+  } catch(e){ /* timeout or network error — silently fail */ }
+  return null;
+}
 window.lrnDelAuthor=function(id){ _auth.authors=_auth.authors.filter(a=>a.id!==id); _authSave(); _lrnRenderSidebar(); };
+
+// ── On load: fetch missing avatars for existing authors ──────────
+async function _lrnRefreshMissingAvatars(){
+  const toFetch = _auth.authors.filter(a => !a.avatarUrl && !a.avatarLoading && a.url);
+  if(!toFetch.length) return;
+  for(const a of toFetch){
+    a.avatarLoading = true;
+  }
+  _lrnRenderSidebar();
+  for(const a of toFetch){
+    const url = await _lrnFetchChannelAvatar(a.url);
+    const found = _auth.authors.find(x => x.id === a.id);
+    if(found){ found.avatarUrl = url || null; found.avatarLoading = false; }
+  }
+  _authSave();
+  _lrnRenderSidebar();
+}
 
 window.lrnAddCat=function(){
   _lrnModal('Новая категория',[{id:'cn',placeholder:'Английский, Программирование...',type:'text'}],(v)=>{
