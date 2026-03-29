@@ -7722,7 +7722,6 @@ function toggleCatEpic(id){
         .eq('user_id',SB_USER.id).eq('category_id',id)
         .then(({error}) => {
           if(error){
-            // Rollback UI on error
             P.activeCatIds.splice(idx, 0, id);
             renderAll();
             showToast('Ошибка удаления категории','⚠️');
@@ -7743,7 +7742,6 @@ function toggleCatEpic(id){
       if(d) P.categories.push({...d,hours:0});
     }
     if(!SB_USER?.isDemoUser){
-      // onConflict обязателен — иначе 409 если строка уже существует
       sb.from('user_categories')
         .upsert({user_id:SB_USER.id,category_id:id,hours:P.categories.find(c=>c.id===id)?.hours||0},
                 {onConflict:'user_id,category_id'})
@@ -10806,6 +10804,7 @@ function showTab(name,el,skipHistory){
   if(name==='achievements'){renderAchFull();setTimeout(()=>staggerList('.ach2',35),50);}
   if(name==='leagues'){renderLeagues();setTimeout(()=>{staggerList('.lg-row',28);staggerList('.lg-section',50);},80);}
   if(name==='messages'){renderMsgTab();}
+  if(name==='manage'){renderManageGrid();loadMemberCounts().then(()=>{renderManageGrid();});}
   // Push to browser history so back button works
   if(!skipHistory && P){
     try{ history.pushState({tab:name},'',`#${name}`); }catch(e){}
@@ -14563,6 +14562,8 @@ function _kbFmtDate(ts) {
       SB_USER = session.user;
       _loadUserRetryCount = 0;
       await loadUser(session.user.id);
+      // Загружаем счётчики участников и обновляем грид
+      loadMemberCounts().then(() => { renderManageGrid(); renderQuickCats(); });
     }
     // Если сессии нет — onboard уже показан по умолчанию
   } catch(e) {
