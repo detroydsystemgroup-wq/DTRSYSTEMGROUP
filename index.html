@@ -9505,13 +9505,24 @@ function renderDash(){
         font-size="9" fill="rgba(255,255,255,.3)" font-family="DM Mono,monospace">${v < 1 ? v.toFixed(1) : v.toFixed(v < 5 ? 1 : 0)}</text>`;
   });
 
+  // ── Human-readable hour formatter ──────────────────────────
+  // 0.50 → "30 мин"   1.00 → "1 ч"   1.75 → "1 ч 45 мин"
+  function fmtH(h) {
+    const totalMin = Math.round(h * 60);
+    const hrs = Math.floor(totalMin / 60);
+    const min = totalMin % 60;
+    if (hrs === 0) return `${min} мин`;
+    if (min === 0) return `${hrs} ч`;
+    return `${hrs} ч ${min} мин`;
+  }
+
   // Bars
   segments.forEach((segs, i) => {
     const x = xPx(i).toFixed(1);
     const totalVal = segs.reduce((a, s) => a + s.val, 0);
     const tipData = barCats.map(c => {
       const v = data[c.id] ? data[c.id][i] : 0;
-      return v > 0 ? `${c.name}: ${v.toFixed(2)}ч` : '';
+      return v > 0 ? `${c.name}: ${fmtH(v)}` : '';
     }).filter(Boolean).join('&#10;');
     const labelDay = labels[i] || '';
 
@@ -9527,12 +9538,14 @@ function renderDash(){
         fill="${seg.color}" opacity="0.85" rx="${rx}" ry="${rx}"/>`;
     });
 
-    // Hover overlay (transparent, triggers tooltip)
+    // Hover overlay — only show tooltip when there is actual data
+    const hoverHandlers = totalVal > 0
+      ? `onmouseenter="showDashTip(event,\`${tipData}\`,\`${fmtH(totalVal)}\`,\`${labelDay}\`)" onmouseleave="hideDashTip()" onclick="showDashTip(event,\`${tipData}\`,\`${fmtH(totalVal)}\`,\`${labelDay}\`)"`
+      : `onmouseleave="hideDashTip()"`;
     barsHTML += `<rect x="${x}" y="${padT}" width="${barW.toFixed(1)}" height="${plotH}"
-      fill="transparent" rx="3" style="cursor:pointer"
-      onmouseenter="showDashTip(event,\`${tipData}\`,\`${totalVal > 0 ? totalVal.toFixed(2) + 'ч' : ''}\`,\`${labelDay}\`)"
-      onmouseleave="hideDashTip()"
-      onclick="showDashTip(event,\`${tipData}\`,\`${totalVal > 0 ? totalVal.toFixed(2) + 'ч' : ''}\`,\`${labelDay}\`)"/>`;
+      fill="transparent" rx="3" style="cursor:${totalVal > 0 ? 'pointer' : 'default'}"
+      ${hoverHandlers}/>`;
+
 
     // Highlight current day/bucket
     const isToday = isWeek && i === new Date().getDay() - 1;
@@ -18539,18 +18552,27 @@ function _lrnInjectCSS(){
   border-color:rgba(255,69,58,.2);
 }
 
-/* Card grid inside the section */
-.lrn-row-wrap{ padding:16px 18px 18px; }
+/* Card grid — horizontal scroll, 4 visible at once */
+.lrn-row-wrap{
+  padding:16px 18px 18px;
+  overflow-x:auto;
+  overflow-y:visible;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(245,200,66,.2) transparent;
+}
+.lrn-row-wrap::-webkit-scrollbar{ height:3px; }
+.lrn-row-wrap::-webkit-scrollbar-track{ background:transparent; }
+.lrn-row-wrap::-webkit-scrollbar-thumb{ background:rgba(245,200,66,.25); border-radius:3px; }
+.lrn-row-wrap::-webkit-scrollbar-thumb:hover{ background:rgba(245,200,66,.5); }
 .lrn-row{
-  display:grid;
-  grid-template-columns:repeat(4,1fr);
+  display:flex;
+  flex-wrap:nowrap;
   gap:12px;
 }
-@media(max-width:1100px){
-  .lrn-row{ grid-template-columns:repeat(3,1fr); }
-}
-@media(max-width:900px){
-  .lrn-row{ grid-template-columns:repeat(2,1fr); }
+.lrn-row .lrn-card,
+.lrn-row .lrn-add-card{
+  flex:0 0 var(--lrn-cw,200px);
+  width:var(--lrn-cw,200px);
 }
 @media(max-width:600px){
   .lrn-row-wrap{ padding:12px 12px 14px; }
@@ -18878,12 +18900,11 @@ function _lrnInjectCSS(){
 
 /* Mobile */
 @media(max-width:900px){
-  .lrn-row{ grid-template-columns:repeat(3,1fr); }
+  /* horizontal scroll preserved on all sizes */
 }
 @media(max-width:600px){
   #lrn-sidebar{ display:none; }
   #lrn-main{ padding:16px 0 24px; }
-  .lrn-row{ grid-template-columns:repeat(2,1fr); gap:8px; }
   .lrn-card-acts{ opacity:1 !important; transform:none !important; }
 }
   `;
@@ -19082,6 +19103,17 @@ function _lrnRenderMain(){
   `;
 }
 
+// ── Size cards so exactly 4 fit in view ──────────────────────
+function _lrnSizeCards(){
+  document.querySelectorAll('.lrn-row-wrap').forEach(function(wrap){
+    const available = wrap.clientWidth - 36; // subtract left+right padding (18+18)
+    const cardW = Math.floor((available - 12 * 3) / 4); // 3 gaps between 4 cards
+    wrap.querySelectorAll('.lrn-row').forEach(function(row){
+      row.style.setProperty('--lrn-cw', cardW + 'px');
+    });
+  });
+}
+
 // ── Full page init (runs once) ────────────────────────────────
 function renderLearnTab(){
   _lrnLoad(); _authLoad();
@@ -19096,9 +19128,10 @@ function renderLearnTab(){
 
   _lrnRenderSidebar();
   _lrnRenderMain();
+  setTimeout(_lrnSizeCards, 30);
 
   if(!_lrnDBReady){
-    _lrnLoadFromDB().then(()=>{ _lrnLoad(); _authLoad(); _lrnRenderSidebar(); _lrnRenderMain(); setTimeout(_lrnRefreshMissingAvatars, 500); });
+    _lrnLoadFromDB().then(()=>{ _lrnLoad(); _authLoad(); _lrnRenderSidebar(); _lrnRenderMain(); setTimeout(_lrnSizeCards, 30); setTimeout(_lrnRefreshMissingAvatars, 500); });
   } else {
     setTimeout(_lrnRefreshMissingAvatars, 300);
   }
