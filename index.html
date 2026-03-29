@@ -18539,21 +18539,98 @@ function _lrnInjectCSS(){
   border-color:rgba(255,69,58,.2);
 }
 
-/* Card grid inside the section */
-.lrn-row-wrap{ padding:16px 18px 18px; }
+/* Card grid inside the section — horizontal scroll */
+.lrn-row-wrap{
+  padding:16px 0 20px;
+  position:relative;
+}
+/* Fade hint on the right edge */
+.lrn-row-wrap::after{
+  content:'';
+  position:absolute;
+  top:0; right:0; bottom:4px;
+  width:64px;
+  background:linear-gradient(to right, transparent, var(--panel));
+  pointer-events:none;
+  z-index:2;
+  border-radius:0 0 14px 0;
+  opacity:var(--fade-op, 1);
+  transition:opacity .25s;
+}
+.lrn-row-scroll{
+  overflow-x:auto;
+  overflow-y:visible;
+  padding:0 18px 10px;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(245,200,66,.18) transparent;
+  scroll-behavior:smooth;
+  -webkit-overflow-scrolling:touch;
+}
+.lrn-row-scroll::-webkit-scrollbar{
+  height:4px;
+}
+.lrn-row-scroll::-webkit-scrollbar-track{
+  background:transparent;
+  margin:0 18px;
+}
+.lrn-row-scroll::-webkit-scrollbar-thumb{
+  background:rgba(245,200,66,.2);
+  border-radius:4px;
+}
+.lrn-row-scroll::-webkit-scrollbar-thumb:hover{
+  background:rgba(245,200,66,.4);
+}
 .lrn-row{
-  display:grid;
-  grid-template-columns:repeat(4,1fr);
+  display:flex;
+  flex-wrap:nowrap;
   gap:12px;
+  width:max-content;
 }
-@media(max-width:1100px){
-  .lrn-row{ grid-template-columns:repeat(3,1fr); }
+/* Each card — fixed width so exactly 4 fit in view */
+.lrn-row .lrn-card,
+.lrn-row .lrn-add-card{
+  flex:0 0 var(--lrn-card-w, 220px);
+  width:var(--lrn-card-w, 220px);
 }
+
+/* Scroll nav buttons */
+.lrn-scroll-nav{
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.lrn-scroll-btn{
+  width:28px;
+  height:28px;
+  border-radius:8px;
+  border:0.5px solid rgba(255,255,255,.1);
+  background:rgba(255,255,255,.05);
+  color:var(--t2);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  transition:all .16s;
+  flex-shrink:0;
+}
+.lrn-scroll-btn:hover{
+  border-color:rgba(245,200,66,.45);
+  background:rgba(245,200,66,.1);
+  color:var(--gold);
+  transform:translateY(-1px);
+}
+.lrn-scroll-btn:disabled{
+  opacity:.25;
+  cursor:default;
+  transform:none;
+}
+
 @media(max-width:900px){
-  .lrn-row{ grid-template-columns:repeat(2,1fr); }
+  .lrn-row-wrap::after{ width:40px; }
 }
 @media(max-width:600px){
-  .lrn-row-wrap{ padding:12px 12px 14px; }
+  .lrn-row-wrap{ padding:12px 0 16px; }
+  .lrn-row-scroll{ padding:0 12px 8px; }
   .lrn-row{ gap:8px; }
   .lrn-card-acts{ opacity:1 !important; transform:none !important; }
 }
@@ -18878,12 +18955,11 @@ function _lrnInjectCSS(){
 
 /* Mobile */
 @media(max-width:900px){
-  .lrn-row{ grid-template-columns:repeat(3,1fr); }
+  /* keep horizontal scroll on mobile — no grid override needed */
 }
 @media(max-width:600px){
   #lrn-sidebar{ display:none; }
   #lrn-main{ padding:16px 0 24px; }
-  .lrn-row{ grid-template-columns:repeat(2,1fr); gap:8px; }
   .lrn-card-acts{ opacity:1 !important; transform:none !important; }
 }
   `;
@@ -19037,49 +19113,96 @@ function _lrnRenderMain(){
             <button class="lrn-sec-btn" title="Переименовать" onclick="lrnRenameCat('${cat.id}')">${svgRename}</button>
             <button class="lrn-sec-btn del" title="Удалить" onclick="lrnDeleteCat('${cat.id}')">${svgDelete}</button>
           </div>
+          ${count > 0 ? `<div class="lrn-scroll-nav">
+            <button class="lrn-scroll-btn" id="lrn-prev-${cat.id}" onclick="_lrnScroll('${cat.id}',-1)" title="Назад" disabled>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <button class="lrn-scroll-btn" id="lrn-next-${cat.id}" onclick="_lrnScroll('${cat.id}',1)" title="Вперёд">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>` : ''}
         </div>
 
-        <div class="lrn-row-wrap">
-          <div class="lrn-row">
+        <div class="lrn-row-wrap" id="lrn-wrap-${cat.id}">
+          <div class="lrn-row-scroll" id="lrn-scroll-${cat.id}"
+               onscroll="_lrnScrollUpdate('${cat.id}')">
+            <div class="lrn-row">
 
-            ${(cat.links||[]).map(link=>{
-              const isYT = _lrnIsYT(link.url);
-              const thumb = isYT ? _lrnYTThumb(link.url) : null;
-              const domain = _lrnDomain(link.url);
-              const favicon = _lrnFavicon(link.url);
+              ${(cat.links||[]).map(link=>{
+                const isYT = _lrnIsYT(link.url);
+                const thumb = isYT ? _lrnYTThumb(link.url) : null;
+                const domain = _lrnDomain(link.url);
+                const favicon = _lrnFavicon(link.url);
 
-              return `
-                <div class="lrn-card" onclick="lrnOpenLink('${link.id}','${cat.id}')">
-                  <div class="lrn-thumb">
-                    ${thumb ? `<img src="${thumb}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ``}
-                    <div class="lrn-thumb-ico" style="${thumb?'display:none':'display:flex'}">${isYT ? svgPlay : svgLink}</div>
-                    ${isYT ? `<div class="lrn-thumb-play"><div class="lrn-thumb-play-btn">${svgPlay}</div></div>` : ``}
-                    <div class="lrn-yt-badge">${domain}</div>
-                  </div>
-                  <div class="lrn-card-body">
-                    <div class="lrn-card-ttl">${link.name}</div>
-                    <div class="lrn-card-meta">
-                      <img src="${favicon}" alt="" onerror="this.style.display='none'" loading="lazy">
-                      <span>${domain}</span>
+                return `
+                  <div class="lrn-card" onclick="lrnOpenLink('${link.id}','${cat.id}')">
+                    <div class="lrn-thumb">
+                      ${thumb ? `<img src="${thumb}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ``}
+                      <div class="lrn-thumb-ico" style="${thumb?'display:none':'display:flex'}">${isYT ? svgPlay : svgLink}</div>
+                      ${isYT ? `<div class="lrn-thumb-play"><div class="lrn-thumb-play-btn">${svgPlay}</div></div>` : ``}
+                      <div class="lrn-yt-badge">${domain}</div>
                     </div>
-                    <div class="lrn-card-acts">
-                      <button class="lrn-card-act" onclick="event.stopPropagation();lrnEditLink('${cat.id}','${link.id}')">${svgEdit} Изменить</button>
-                      <button class="lrn-card-act del" onclick="event.stopPropagation();lrnDeleteLink('${cat.id}','${link.id}')">${svgTrash}</button>
+                    <div class="lrn-card-body">
+                      <div class="lrn-card-ttl">${link.name}</div>
+                      <div class="lrn-card-meta">
+                        <img src="${favicon}" alt="" onerror="this.style.display='none'" loading="lazy">
+                        <span>${domain}</span>
+                      </div>
+                      <div class="lrn-card-acts">
+                        <button class="lrn-card-act" onclick="event.stopPropagation();lrnEditLink('${cat.id}','${link.id}')">${svgEdit} Изменить</button>
+                        <button class="lrn-card-act del" onclick="event.stopPropagation();lrnDeleteLink('${cat.id}','${link.id}')">${svgTrash}</button>
+                      </div>
                     </div>
-                  </div>
-                </div>`;
-            }).join('')}
+                  </div>`;
+              }).join('')}
 
-            <button class="lrn-add-card" onclick="lrnAddLink('${cat.id}')">
-              <div class="lrn-add-card-icon">${svgPlus}</div>
-              <span>Добавить</span>
-            </button>
+              <button class="lrn-add-card" onclick="lrnAddLink('${cat.id}')">
+                <div class="lrn-add-card-icon">${svgPlus}</div>
+                <span>Добавить</span>
+              </button>
 
+            </div>
           </div>
         </div>
       </div>`;
     }).join('')}
   `;
+}
+
+// ── Horizontal scroll helpers ─────────────────────────────────
+window._lrnScroll = function(catId, dir){
+  const el = document.getElementById('lrn-scroll-'+catId);
+  if(!el) return;
+  const cardW = el.querySelector('.lrn-card, .lrn-add-card');
+  const step = cardW ? (cardW.offsetWidth + 12) * 2 : 480;
+  el.scrollBy({ left: dir * step, behavior: 'smooth' });
+};
+
+window._lrnScrollUpdate = function(catId){
+  const el = document.getElementById('lrn-scroll-'+catId);
+  if(!el) return;
+  const prev = document.getElementById('lrn-prev-'+catId);
+  const next = document.getElementById('lrn-next-'+catId);
+  const wrap = document.getElementById('lrn-wrap-'+catId);
+  const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 8;
+  const atStart = el.scrollLeft <= 4;
+  if(prev) prev.disabled = atStart;
+  if(next) next.disabled = atEnd;
+  if(wrap) wrap.style.setProperty('--fade-op', atEnd ? '0' : '1');
+};
+
+// Auto-size cards to show exactly 4 per row on render
+function _lrnSizeCards(){
+  document.querySelectorAll('.lrn-row-scroll').forEach(function(scroll){
+    const avail = scroll.clientWidth - 36 - (12 * 3); // padding + 3 gaps
+    const w = Math.floor(avail / 4);
+    scroll.querySelectorAll('.lrn-row').forEach(function(row){
+      row.style.setProperty('--lrn-card-w', w + 'px');
+    });
+    // Init scroll state
+    const id = scroll.id.replace('lrn-scroll-','');
+    _lrnScrollUpdate(id);
+  });
 }
 
 // ── Full page init (runs once) ────────────────────────────────
@@ -19096,9 +19219,10 @@ function renderLearnTab(){
 
   _lrnRenderSidebar();
   _lrnRenderMain();
+  setTimeout(_lrnSizeCards, 50);
 
   if(!_lrnDBReady){
-    _lrnLoadFromDB().then(()=>{ _lrnLoad(); _authLoad(); _lrnRenderSidebar(); _lrnRenderMain(); setTimeout(_lrnRefreshMissingAvatars, 500); });
+    _lrnLoadFromDB().then(()=>{ _lrnLoad(); _authLoad(); _lrnRenderSidebar(); _lrnRenderMain(); setTimeout(_lrnSizeCards, 50); setTimeout(_lrnRefreshMissingAvatars, 500); });
   } else {
     setTimeout(_lrnRefreshMissingAvatars, 300);
   }
