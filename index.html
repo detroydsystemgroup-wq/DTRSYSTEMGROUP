@@ -7172,7 +7172,7 @@ body {
 }
 
 /* Entrance animation — clean fade up */
-.kpi, .si, .ai, .ach2, .mg-item, .lg-row {
+.kpi, .si, .ai, .mg-item, .lg-row {
   animation: dtrFadeUp .22s var(--ease-out) both !important;
 }
 @keyframes dtrFadeUp {
@@ -8626,18 +8626,17 @@ async function loadUser(userId){
     _loading: true  // флаг: данные ещё грузятся
   };
 
+  // Скрываем онбординг, показываем скелетон — данные придут в Фазе 2
   onboardEl.style.display='none';
   document.getElementById('catSel').style.display='none';
   appEl.style.display='';
   clearInterval(bTmr);
   applyTheme(); applyLang();
-  renderAll(); showTab('dash');
-  initRipple(); initKpiGlow();
-  // Онлайн счётчик сразу
+
+  // Фаза 1: только инфраструктура (без рендера цифр — они придут с данными)
   initPresence();
   initRealtimeMessages();
   initNotifications();
-  // Обновляем last_seen при открытии приложения
   if(!SB_USER.isDemoUser){
     sb.from('users').update({last_seen:new Date().toISOString()})
       .eq('id',SB_USER.id)
@@ -8789,13 +8788,13 @@ async function loadUser(userId){
     })();
   }
 
-  // Phase 2 complete — re-render with full data
-  // Invalidate league cache so arena recomputes with reconciled hours
+  // Phase 2 complete — первый и единственный рендер с реальными данными
   lgCache = {}; lgCacheTime = {};
-  // Call renderHeroZone() FIRST directly
   if(typeof renderHeroZone === 'function') renderHeroZone();
   renderAll();
-  // ── Dashboard entrance on data load (no border flash / no jump) ──
+  showTab('dash');
+  initRipple(); initKpiGlow();
+  restoreTimer();
   if(typeof window._dtrDashEntered !== 'undefined') window._dtrDashEntered = false;
   setTimeout(()=>{ if(typeof DTROrchestrate === 'function') DTROrchestrate(); }, 200);
   setTimeout(checkSundayBanner, 1500);
@@ -12611,30 +12610,6 @@ function showTab(name,el,skipHistory){
   }
   if(name==='achievements'){
     renderAchFull();
-    setTimeout(()=>{
-      // Summary strip — simple fade (no bounce)
-      document.querySelectorAll('.ach-sum-strip,.ach-sum-block').forEach((el,i)=>{
-        el.style.opacity='0'; el.style.transform='translateY(-6px)';
-      });
-      requestAnimationFrame(()=>{
-        document.querySelectorAll('.ach-sum-strip,.ach-sum-block').forEach((el,i)=>{
-          el.style.transition=`opacity .22s ease ${i*30}ms, transform .24s cubic-bezier(.22,1,.36,1) ${i*30}ms`;
-          el.style.opacity='1'; el.style.transform='translateY(0)';
-        });
-      });
-      // Achievement cards — lightweight fade+scale, capped at 20, no forced reflow
-      const achEls = Array.from(document.querySelectorAll('.ach2')).slice(0, 20);
-      achEls.forEach(el => { el.style.opacity='0'; el.style.transform='scale(0.96) translateY(8px)'; });
-      requestAnimationFrame(()=>{
-        achEls.forEach((el,i)=>{
-          el.style.transition=`opacity .22s ease ${i*12}ms, transform .24s cubic-bezier(.22,1,.36,1) ${i*12}ms`;
-          el.style.opacity='1'; el.style.transform='scale(1) translateY(0)';
-        });
-        setTimeout(()=> achEls.forEach(el=>{ el.style.transition=''; el.style.transform=''; }), 500);
-      });
-      // Progress bars
-      animateBars('.ach2-prog-fill', 200);
-    }, 40);
   }
   if(name==='leagues'){
     renderLeagues();
