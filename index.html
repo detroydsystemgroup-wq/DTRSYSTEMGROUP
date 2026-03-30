@@ -7840,12 +7840,11 @@ body {
       <div style="padding:12px 20px 0;position:relative">
         <button id="timerLeagueSel"
           onclick="showLeaguePickerThenStart()"
-          style="width:100%;padding:11px 16px;border-radius:12px;border:0.5px solid rgba(245,200,66,.18);background:rgba(245,200,66,.05);color:var(--t1);font-size:13px;font-weight:600;cursor:pointer;outline:none;font-family:'DM Sans',sans-serif;transition:all .2s;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px">
-          <span id="timerLeagueSelIcon">🎯</span>
-          <span id="timerLeagueSelLabel">ВЫБРАТЬ ЛИГУ</span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:auto;opacity:.5"><polyline points="6 9 12 15 18 9"/></svg>
+          style="width:100%;padding:12px 16px;border-radius:12px;border:0.5px solid rgba(245,200,66,.18);background:rgba(245,200,66,.05);color:var(--t1);font-size:13px;font-weight:600;cursor:pointer;outline:none;font-family:'DM Sans',sans-serif;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:10px">
+          <span id="timerLeagueSelIcon" style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg></span>
+          <span id="timerLeagueSelLabel" style="flex:1;text-align:center;letter-spacing:.04em">ВЫБРАТЬ ЛИГУ</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;opacity:.45"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
-        <span style="position:absolute;right:32px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:10px;color:var(--t3)">▾</span>
       </div>
 
       <!-- Mode: Free / Timer -->
@@ -11391,9 +11390,12 @@ function renderQuickCats() {
   if (!quickSel) quickSel = defCat();
   document.getElementById('quickCats').innerHTML =
     ALL_CATS.filter(c => P.activeCatIds.includes(c.id)).map(c =>
-      `<button class="tc-b ${c.id === quickSel ? 'sel' : ''}" onclick="selCat('${c.id}')" title="${c.name}">
-        <span style="display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center;color:currentColor">${ICONS[{read:"read",lang:"lang",code:"code",trading:"trading",cooking:"cooking",intellect:"intellect"}[c.id]]||c.icon}</span>
-        <span style="font-size:9px;font-weight:700;color:${c.id===quickSel?'var(--gold)':'var(--t3)'};letter-spacing:.2px;max-width:50px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name.slice(0,6)}</span>
+      `<button class="tc-b ${c.id === quickSel ? 'sel' : ''}" onclick="selCat('${c.id}')" title="${c.name}"
+        style="${c.id === quickSel ? `border-color:${c.color};background:${c.color}18;box-shadow:0 0 0 2px ${c.color}28` : ''}">
+        <span style="display:flex;align-items:center;justify-content:center;width:20px;height:20px;color:${c.id===quickSel?c.color:'var(--t2)'}">
+          ${(ICONS[c.id] || '').replace(/width="20" height="20"/, 'width="18" height="18"') || `<span style="font-size:16px">${c.icon}</span>`}
+        </span>
+        <span style="font-size:8.5px;font-weight:700;color:${c.id===quickSel?c.color:'var(--t3)'};letter-spacing:.3px;max-width:50px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center">${c.name.slice(0,6)}</span>
       </button>`
     ).join('');
   // Populate league selector
@@ -11403,15 +11405,21 @@ function renderQuickCats() {
     const selCat = quickSel ? ALL_CATS.find(c => c.id === quickSel) : null;
     const iconEl = document.getElementById('timerLeagueSelIcon');
     const lblEl  = document.getElementById('timerLeagueSelLabel');
+    // Default SVG icon when nothing selected
+    const _defaultSVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="3" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="21"/><line x1="3" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="21" y2="12"/></svg>';
     if(selCat) {
-      if(iconEl) iconEl.textContent = selCat.icon;
-      if(lblEl)  lblEl.textContent  = selCat.name.toUpperCase();
-      tls.style.borderColor = 'var(--gold)';
-      tls.style.color       = 'var(--gold)';
-      tls.style.background  = 'rgba(245,200,66,.08)';
+      // Use SVG from ICONS map, fallback to emoji
+      const svgIcon = (typeof ICONS !== 'undefined' && ICONS[selCat.id])
+        ? ICONS[selCat.id].replace(/width="20" height="20"/, 'width="18" height="18"')
+        : `<span style="font-size:17px">${selCat.icon}</span>`;
+      if(iconEl) iconEl.innerHTML = svgIcon;
+      if(lblEl)  lblEl.textContent = selCat.name.toUpperCase();
+      tls.style.borderColor = selCat.color || 'var(--gold)';
+      tls.style.color       = selCat.color || 'var(--gold)';
+      tls.style.background  = (selCat.color || '#F5C842') + '14';
     } else {
-      if(iconEl) iconEl.textContent = '🎯';
-      if(lblEl)  lblEl.textContent  = 'ВЫБРАТЬ ЛИГУ';
+      if(iconEl) iconEl.innerHTML = _defaultSVG;
+      if(lblEl)  lblEl.textContent = 'ВЫБРАТЬ ЛИГУ';
       tls.style.borderColor = 'rgba(245,200,66,.18)';
       tls.style.color       = 'var(--t1)';
       tls.style.background  = 'rgba(245,200,66,.05)';
