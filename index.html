@@ -23444,57 +23444,37 @@ window.renderCollabView=renderCollabView;
     requestAnimationFrame(tick);
   }
 
-  /* Animate hero stat elements — safe reveal, no value jumping, no hiding-forever bug */
+  /* Patch renderHeroZone — animate ONLY the numbers after values are set */
   function watchHeroStats() {
-    const ids = ['heroTodayHrs','heroStreakVal','heroWeekHrs','heroTotalHrs','totDisp','dailyDoneLabel'];
-    ids.forEach((id, idx) => {
-      const el = document.getElementById(id);
-      if (!el || el._countObserved) return;
-      el._countObserved = true;
-
-      // Don't pre-hide — value is already set by renderHeroZone.
-      // Only animate if the element is still a placeholder '—'
-      if (el.textContent.trim() !== '—') return; // already has real value, skip
-      el.style.opacity = '0';
-      el.style.transform = 'translateY(8px)';
-
-      const reveal = () => {
-        const delay = idx * 55;
-        setTimeout(() => {
-          el.style.transition = `opacity .5s ${EASE.expo}, transform .5s ${EASE.spring}`;
-          el.style.opacity = '1';
-          el.style.transform = 'translateY(0)';
-          // Clean up inline styles after animation so CSS can take over
-          setTimeout(() => {
-            el.style.transition = '';
-            el.style.transform  = '';
-          }, 600);
-        }, delay);
-      };
-
-      let triggered = false;
-      const obs = new MutationObserver(() => {
-        if (triggered) return;
-        const raw = el.textContent.trim();
-        // Trigger on ANY real value (including 0, 0.0) — only skip placeholder '—'
-        if (raw && raw !== '—') {
-          triggered = true;
-          obs.disconnect();
-          reveal();
-        }
-      });
-      obs.observe(el, { childList: true, characterData: true, subtree: true });
-
-      // Failsafe: always show after 2s even if observer never fires
-      setTimeout(() => {
-        if (!triggered) {
-          triggered = true;
-          obs.disconnect();
-          reveal();
-        }
-      }, 2000);
-    });
+    // Replaced by renderHeroZone patch below — this is a no-op
   }
+
+  const _origRHZ = window.renderHeroZone;
+  window.renderHeroZone = function() {
+    if (_origRHZ) _origRHZ.apply(this, arguments);
+    // Numbers: animate in after the original function sets real values
+    const statIds   = ['heroTodayHrs','heroStreakVal','heroWeekHrs','heroTotalHrs'];
+    const msgIds    = ['heroTodayMsg'];
+    statIds.forEach((id, i) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      // Force reflow then play animation
+      el.style.animation = 'none';
+      void el.offsetWidth;
+      el.style.animation = `dtrStatReveal .55s cubic-bezier(0.16,1,0.3,1) ${i * 65}ms both`;
+      // Clean animation property after it finishes so CSS doesn't lock the element
+      setTimeout(() => { if(el) el.style.animation = ''; }, 600 + i * 65);
+    });
+    // Message text: simple fade
+    msgIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.style.animation = 'none';
+      void el.offsetWidth;
+      el.style.animation = 'dtrStatReveal .4s cubic-bezier(0.16,1,0.3,1) 200ms both';
+      setTimeout(() => { if(el) el.style.animation = ''; }, 700);
+    });
+  };
 
   /* ════════════════════════════════════════════
      4. STAGGER CASCADE — core utility
@@ -23894,7 +23874,7 @@ window.renderCollabView=renderCollabView;
     initOnboarding();
 
     // Hero stat watchers
-    watchHeroStats();
+    // watchHeroStats replaced by renderHeroZone patch
 
     // Timer watcher
     watchTimer();
