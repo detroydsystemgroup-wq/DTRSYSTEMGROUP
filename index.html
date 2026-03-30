@@ -7375,23 +7375,7 @@ body {
   </div>
 </div>
 
-<div id="leagueHero">
-  <div class="lh-card" id="lhCard">
-    <div class="lh-eyebrow">🏆 Лидер твоей лиги</div>
-    <div class="lh-cat" id="lhCat">Программирование</div>
-    <div class="lh-avatar" id="lhAv">🐺</div>
-    <div class="lh-name" id="lhName">NightCoder</div>
-    <div class="lh-hrs" id="lhHrs">512</div>
-    <div class="lh-hrs-lbl">часов</div>
-    <div class="lh-streak" id="lhStreak">🔥 18 дней подряд</div>
-    <div class="lh-msg" id="lhMsg">Обгони его — и стань лидером своей лиги.</div>
-    <div class="lh-gap" id="lhGap">+265 ч <span class="lh-gap-lbl">чтобы догнать</span></div>
-    <div class="lh-actions">
-      <button class="lh-btn lh-btn-skip" onclick="closeHero()">Позже</button>
-      <button class="lh-btn lh-btn-go" onclick="closeHeroGoLeague()">Смотреть лигу →</button>
-    </div>
-  </div>
-</div>
+<!-- leagueHero removed -->
 
 <div id="app" style="display:none">
 
@@ -8564,7 +8548,6 @@ restoreTimer();
 initPresence();
 initRealtimeMessages();
 showTab('dash');
-  setTimeout(showLeagueHero,800);
   setTimeout(checkSundayBanner,1500);
 }
 
@@ -8658,7 +8641,6 @@ async function loadUser(userId){
   applyTheme(); applyLang();
   renderAll(); showTab('dash');
   initRipple(); initKpiGlow();
-  restoreTimer();
   // Онлайн счётчик сразу
   initPresence();
   initRealtimeMessages();
@@ -8837,7 +8819,6 @@ async function loadUser(userId){
       }, 1400);
     }
   }, 200);
-  setTimeout(showLeagueHero, 800);
   setTimeout(checkSundayBanner, 1500);
 
   } catch(e){
@@ -10590,77 +10571,12 @@ async function renderLgMini(){
 }
 
 // ══ LEAGUE HERO BANNER ═══════════════════════════════════════
-async function showLeagueHero(){
-  // ── Только в воскресенье и только при первом входе за это воскресенье ──
-  const today = new Date();
-  if(today.getDay() !== 0) return; // 0 = воскресенье
+// leagueHero removed — stubs to prevent errors
+async function showLeagueHero(){ return; }
+function _markHeroSeen(){}
+function closeHero(){}
+function closeHeroGoLeague(){}
 
-  const sundayKey = today.toISOString().slice(0,10); // YYYY-MM-DD
-  const seenKey = `dtr_lhero_${SB_USER?.id||'x'}_${sundayKey}`;
-  if(localStorage.getItem(seenKey)) return; // уже видел сегодня
-
-  const cats=activeCats();if(!cats.length)return;
-  let chosen=cats[0],chosenLeader=null,maxGap=0;
-  await Promise.all(cats.map(async c=>{
-    const players=await loadLeagueData(c.id);
-    // Only show real competitors who are NOT the current user
-    const others=players.filter(p=>!p.isMe&&p.hrs>0);
-    const leader=others[0];if(!leader)return;
-    const gap=(leader.hrs||0)-(c.hours||0);
-    if(gap>maxGap){maxGap=gap;chosen=c;chosenLeader=leader;}
-  }));
-  // Don't show hero if no real competitors with actual hours
-  if(!chosenLeader||maxGap<0.1)return;
-  const gap=maxGap.toFixed(1);
-  const card=document.getElementById('lhCard');
-  card.style.borderColor=chosen.color+'44';
-  document.getElementById('lhCat').textContent=chosen.icon+' Лига '+chosen.name;
-  document.getElementById('lhCat').style.color=chosen.color;
-  const lhAvEl = document.getElementById('lhAv');
-  if (chosenLeader.avUrl) {
-    lhAvEl.innerHTML = `<img src="${chosenLeader.avUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentNode.textContent='${chosenLeader.av}'">`;
-    lhAvEl.style.fontSize = '0';
-    lhAvEl.style.width = '80px';
-    lhAvEl.style.height = '80px';
-    lhAvEl.style.borderRadius = '50%';
-    lhAvEl.style.overflow = 'hidden';
-    lhAvEl.style.margin = '0 auto 10px';
-  } else {
-    lhAvEl.textContent = chosenLeader.av;
-    lhAvEl.style.cssText = '';
-  }
-  lhAvEl.style.textShadow = `0 0 20px ${chosen.color}88`;
-  document.getElementById('lhName').textContent=chosenLeader.name;
-  document.getElementById('lhHrs').textContent=chosenLeader.hrs;
-  document.getElementById('lhHrs').style.color=chosen.color;
-  document.getElementById('lhStreak').textContent=`🔥 ${chosenLeader.streak} дней дисциплина`;
-  document.getElementById('lhGap').innerHTML=`<span>${gap} ч</span><span class="lh-gap-lbl">до лидера</span>`;
-  document.getElementById('lhGap').style.color=chosen.color;
-  document.getElementById('lhMsg').textContent=chosenLeader.fake?`${chosenLeader.name} лидирует в лиге ${chosen.name}`:`Реальный игрок из ${chosen.name}`;
-  document.getElementById('leagueHero').style.display='flex';
-}
-
-function _markHeroSeen(){
-  const today = new Date();
-  const sundayKey = today.toISOString().slice(0,10);
-  localStorage.setItem(`dtr_lhero_${SB_USER?.id||'x'}_${sundayKey}`, '1');
-}
-
-function closeHero(){
-  document.getElementById('leagueHero').style.display='none';
-  _markHeroSeen();
-}
-// FIX: was referenced in HTML but never defined
-function closeHeroGoLeague(){
-  _markHeroSeen();
-  closeHero();
-  showTab('leagues');
-  const leagueTab=document.querySelector('.stab[onclick*="leagues"]');
-  if(leagueTab){
-    document.querySelectorAll('.stab').forEach(b=>b.classList.remove('active'));
-    leagueTab.classList.add('active');
-  }
-}
 
 
 // ══ SUNDAY TOP PLAYER BANNER ═══════════════════════════════
@@ -23044,18 +22960,15 @@ window.renderCollabView=renderCollabView;
   from { opacity: 0; backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
   to   { opacity: 1; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
 }
-.ov {
-  animation: dtrOverlayIn .3s ease both;
+.ov.show {
+  animation: dtrOverlayIn .28s ease both;
 }
-.modal,
-.sess-modal,
-.up-modal {
+.ov.show .modal,
+.ov.show .sess-modal {
   animation: dtrModalIn .44s var(--ease-spring) both !important;
 }
-/* For close — JS adds .dtr-modal-out class */
-.dtr-modal-out {
-  animation: dtrModalOut .22s ease both !important;
-}
+/* Explicit close animation — JS must add this class */
+.dtr-modal-out { animation: dtrModalOut .22s ease both !important; }
 
 /* ════════════════════════════════════════════════════
    TOAST — Premium notification redesign
@@ -23364,10 +23277,8 @@ window.renderCollabView=renderCollabView;
   to   { opacity: 1; transform: translateX(0); }
 }
 
-/* ════════════════════════════════════════════════════
-   PROFILE HEADER — Cinematic reveal
-════════════════════════════════════════════════════ */
-.ph-cover {
+/* Profile cover — only animate when profile is visible */
+.ph .ph-cover {
   animation: dtrCoverReveal .8s var(--ease-expo) both;
 }
 @keyframes dtrCoverReveal {
@@ -23478,20 +23389,20 @@ window.renderCollabView=renderCollabView;
 }
 
 /* ════════════════════════════════════════════════════
-   SUNDAY BANNER — Dramatic entrance
+   SUNDAY BANNER — Dramatic entrance (only when open)
 ════════════════════════════════════════════════════ */
-#sundayBanner .sw-card {
+#sundayBanner[style*="flex"] .sw-card {
   animation: dtrModalIn .5s var(--ease-spring) .1s both;
 }
 
 /* ════════════════════════════════════════════════════
-   USER PROFILE MODAL — Epic cover reveal
+   USER PROFILE MODAL — Epic cover reveal (only when open)
 ════════════════════════════════════════════════════ */
-.up-cover {
+#userProfileOv[style*="flex"] .up-cover {
   animation: dtrCoverReveal .7s var(--ease-expo) both;
 }
-.up-modal {
-  animation: dtrModalIn .42s var(--ease-spring) both !important;
+#userProfileOv[style*="flex"] .up-modal {
+  animation: dtrModalIn .42s var(--ease-spring) both;
 }
 
 /* ════════════════════════════════════════════════════
