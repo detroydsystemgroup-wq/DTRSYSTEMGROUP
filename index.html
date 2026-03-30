@@ -9207,11 +9207,8 @@ function _doRenderAll(){
   if(document.getElementById('tab-manage')?.classList.contains('active')) renderManageGrid();
   renderDash();
   setTimeout(renderDailyProgress, 100);
-  // Лиги рендерим только если вкладка активна — это async запрос к Supabase
-  const _activeTab = document.querySelector('.tc.active');
-  if(_activeTab && _activeTab.id === 'tab-leagues'){
-    renderLeagues();
-  }
+  // Лиги НЕ вызываем из renderAll — showTab('leagues') уже вызывает их напрямую.
+  // Двойной вызов = двойная загрузка. Мини-виджет обновляем всегда (он лёгкий).
   renderLgMini();
   renderXP();renderHeatmap();renderRings();renderRecords();renderForecast();renderMotivation();
   if(typeof renderHeroZone === 'function') renderHeroZone();
