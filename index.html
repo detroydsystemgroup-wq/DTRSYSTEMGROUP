@@ -21295,7 +21295,7 @@ async function buildRoomCard(room, myRole, user){
 
   // ── Column headers (Mon–Sun with dates) ──
   const NCOL='minmax(180px,1fr)';
-  const gridCols=`${NCOL} repeat(7,46px) 52px`;
+  const gridCols=`${NCOL} repeat(7,46px) 52px${isOwner?' 28px':''}`;
 
   const colHead = weekDates.map((d,i)=>{
     const isToday = dateStr(d)===today;
@@ -21332,12 +21332,15 @@ async function buildRoomCard(room, myRole, user){
       const clickFn = future ? '' : `chabToggleCell('${room.id}','${h.id}','${key}',this)`;
       let cls = 'chab-cell mine';
       if(done) cls+=' done';
-      if(isToday) cls+=' today';
       if(future) cls+=' future';
+      // today box-shadow uses habit color (inline, not CSS class)
+      const todayStyle = isToday ? `box-shadow:0 0 0 2.5px ${color}88,0 3px 12px ${color}22;` : '';
+      const hoverStyle = !done && !future ? `--chab-hover-bg:${color}1a;--chab-hover-border:${color}55;` : '';
 
       return `<div class="${cls}"
-        style="${done?`background:${color};border-color:${color};box-shadow:0 3px 14px ${color}55`:''}"
-        ${clickFn ? `onclick="${clickFn}"` : ''}>
+        style="${done?`background:${color};border-color:${color};box-shadow:0 3px 14px ${color}55`:todayStyle}"
+        ${clickFn ? `onclick="${clickFn}"` : ''}
+        ${!done&&!future?`onmouseover="this.style.background='${color}18';this.style.borderColor='${color}55'" onmouseout="this.style.background='';this.style.borderColor=''"`:''}>
         ${done
           ?`<span class="chab-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.95)" stroke-width="2.8" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></span>`
           :future
@@ -21385,6 +21388,13 @@ async function buildRoomCard(room, myRole, user){
           <div class="chab-prog-fill" style="width:${weekPct}%;background:${weekPct===100?`linear-gradient(90deg,${color}cc,${color})`:`${color}99`};box-shadow:${weekPct>0?`0 0 8px ${color}44`:'none'}"></div>
         </div>
       </div>
+      ${isOwner?`<button onclick="chabDeleteHabit('${room.id}','${h.id}')"
+        style="width:26px;height:26px;border-radius:7px;background:transparent;border:none;color:rgba(255,255,255,.18);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;padding:0"
+        onmouseover="this.style.background='rgba(239,68,68,.12)';this.style.color='var(--red)'"
+        onmouseout="this.style.background='transparent';this.style.color='rgba(255,255,255,.18)'"
+        title="Удалить привычку">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg>
+      </button>`:''}
     </div>`;
   }).join('');
 
@@ -21847,6 +21857,17 @@ window.chabDoAddHabit=async function(roomId){
     try{showToast('Ошибка: '+msg,'❌');}catch{}
     if(btn){ btn.textContent='Добавить'; btn.disabled=false; }
   }
+};
+
+window.chabDeleteHabit=async function(roomId, habitId){
+  if(!confirm('Удалить эту привычку из трекера?\nВся история выполнения будет потеряна.')) return;
+  var sb=getSB(), user=getUser(); if(!sb||!user) return;
+  try {
+    var res = await sb.from('collab_habits').update({active:false}).eq('id',habitId).eq('room_id',roomId);
+    if(res.error) throw res.error;
+    showToast('Привычка удалена','🗑️');
+    setTimeout(renderCollabView, 300);
+  } catch(e){ console.error('chabDeleteHabit:', e); showToast('Ошибка: '+(e&&e.message||''),'❌'); }
 };
 
 window.chabDeleteRoom=async function(roomId){
