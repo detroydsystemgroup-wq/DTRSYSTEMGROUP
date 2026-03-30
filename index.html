@@ -368,11 +368,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
   background:transparent;
 }
 .stab.active svg{stroke:var(--gold);}
-.stab.active::after{
-  content:'';position:absolute;top:0;left:20%;right:20%;
-  height:1.5px;border-radius:0 0 2px 2px;
-  background:linear-gradient(90deg,transparent,var(--gold),transparent);
-}
+/* stab active::after — replaced by bottom indicator in animation layer */
 .main{width:100%;padding:28px 36px;display:grid;grid-template-columns:1fr 320px;gap:24px;box-sizing:border-box;}
 .tc{display:none;} .tc.active{display:block;}
 #tab-knowledge{grid-column:1/-1 !important;width:100%;padding:0 !important;}
@@ -595,7 +591,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 
 /* ── TOTALS SIDEBAR ── */
 .tot-wr{text-align:center;padding:18px 12px;}
-.tot-num{font-family:'DM Mono',monospace;font-size:52px;font-weight:400;letter-spacing:-.02em;line-height:1;color:var(--green-l);text-shadow:0 0 20px rgba(74,222,128,.2);transition:all .3s;}
+.tot-num{font-family:'DM Mono',monospace;font-size:52px;font-weight:400;letter-spacing:-.02em;line-height:1;color:var(--green-l);transition:all .3s;}
 .tot-lbl{font-size:10px;color:rgba(var(--green-rgb, 34,197,94),.65);text-transform:uppercase;letter-spacing:2px;margin-top:3px;font-weight:600;}
 .tot-div{height:1px;background:var(--border);margin:10px 0;}
 .tot-streak{font-size:12px;color:var(--orange);display:flex;align-items:center;justify-content:center;gap:5px;font-weight:600;}
@@ -22709,39 +22705,9 @@ window.renderCollabView=renderCollabView;
   overflow: hidden;
   transition: border-color .4s ease, box-shadow .4s ease !important;
 }
-/* Ambient glow orb — left */
-#dashHeroZone::before {
-  content: '';
-  position: absolute;
-  width: 280px; height: 280px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(245,200,66,.09) 0%, transparent 70%);
-  top: -80px; left: -50px;
-  animation: dtrHeroOrb 9s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 0;
-  will-change: transform;
-}
-/* Ambient glow orb — right (blue) */
-#dashHeroZone::after {
-  content: '';
-  position: absolute;
-  width: 200px; height: 200px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(26,159,255,.06) 0%, transparent 70%);
-  bottom: -60px; right: 10px;
-  animation: dtrHeroOrb 12s ease-in-out infinite reverse;
-  pointer-events: none;
-  z-index: 0;
-  will-change: transform;
-}
-#dashHeroZone > * { position: relative; z-index: 1; }
+/* Ambient orbs removed per user request — no glow on hero zone */
 
-@keyframes dtrHeroOrb {
-  0%,100% { transform: translate(0, 0) scale(1); }
-  33%     { transform: translate(18px, -14px) scale(1.08); }
-  66%     { transform: translate(-8px, 10px) scale(0.94); }
-}
+/* @keyframes dtrHeroOrb removed */
 
 /* Hero enters with dramatic scale+blur */
 @keyframes dtrHeroWow {
@@ -22897,35 +22863,40 @@ window.renderCollabView=renderCollabView;
   transition: transform .08s ease !important;
 }
 
-/* Gold primary pulse ambient */
-.btn-auth, .nb-p {
-  box-shadow: 0 4px 20px rgba(245,200,66,.25);
+/* Gold buttons — clean shadow without constant glow */
+.btn-auth {
   transition: box-shadow .3s ease, transform .25s var(--ease-spring), background .2s ease !important;
 }
-.btn-auth:hover, .nb-p:hover {
-  box-shadow: 0 6px 28px rgba(245,200,66,.45) !important;
+.btn-auth:hover {
+  box-shadow: 0 6px 24px rgba(245,200,66,.35) !important;
 }
 
 /* ════════════════════════════════════════════════════
-   NAV TABS (stab) — Fluid pill indicator + icon spring
+   NAV TABS (stab) — Clean centered bottom indicator
 ════════════════════════════════════════════════════ */
 .stab {
   position: relative;
   overflow: visible;
 }
-/* Active indicator — gold underline */
+/* Kill ALL previous conflicting ::after rules */
 .stab::after {
   content: '';
   position: absolute;
-  bottom: 0; left: 50%;
-  width: 0; height: 2.5px;
-  background: linear-gradient(90deg, var(--gold-d), var(--gold), var(--gold-l));
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%) scaleX(0);
+  width: 24px; height: 2px;
+  background: var(--gold);
   border-radius: 2px 2px 0 0;
-  transform: translateX(-50%);
-  transition: width .32s var(--ease-spring);
+  transform-origin: center bottom;
+  transition: transform .3s var(--ease-spring), opacity .25s ease;
+  opacity: 0;
   pointer-events: none;
 }
-.stab.active::after { width: 55%; }
+.stab.active::after {
+  transform: translateX(-50%) scaleX(1);
+  opacity: 1;
+}
 /* Icon spring on active */
 .stab .tab-icon-wrap {
   transition: transform .28s var(--ease-spring), color .2s ease !important;
@@ -22933,8 +22904,8 @@ window.renderCollabView=renderCollabView;
   align-items: center;
   justify-content: center;
 }
-.stab:hover .tab-icon-wrap { transform: scale(1.18) translateY(-1px); }
-.stab.active .tab-icon-wrap { transform: scale(1.06) translateY(-1px); }
+.stab:hover .tab-icon-wrap { transform: scale(1.15) translateY(-1px); }
+.stab.active .tab-icon-wrap { transform: scale(1.05) translateY(-1px); }
 
 /* ════════════════════════════════════════════════════
    MODAL — Spring entrance / exit
@@ -23018,10 +22989,8 @@ window.renderCollabView=renderCollabView;
 #dailyProgressBar {
   position: relative;
   transition: width 1.3s var(--ease-expo) !important;
-  box-shadow: 0 0 10px rgba(245,200,66,.5), 0 0 3px rgba(245,200,66,.7);
 }
 .xp-fill {
-  box-shadow: 0 0 8px rgba(245,200,66,.35);
   transition: width 1.4s var(--ease-expo) !important;
 }
 /* Shimmer on fill bars */
@@ -23491,22 +23460,30 @@ window.renderCollabView=renderCollabView;
     requestAnimationFrame(tick);
   }
 
-  /* Observe hero stat elements and animate on first real value */
+  /* Animate hero stat elements on first real value — CSS fade+slide only, no value jumping */
   function watchHeroStats() {
     const ids = ['heroTodayHrs','heroStreakVal','heroWeekHrs','heroTotalHrs','totDisp','dailyDoneLabel'];
-    ids.forEach(id => {
+    ids.forEach((id, idx) => {
       const el = document.getElementById(id);
       if (!el || el._countObserved) return;
       el._countObserved = true;
+      // Pre-set invisible so the reveal is clean
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(10px)';
       let triggered = false;
       const obs = new MutationObserver(() => {
         if (triggered) return;
-        const raw = parseFloat(el.textContent.replace(/[^0-9.]/g, ''));
-        if (!isNaN(raw) && raw > 0) {
+        const raw = el.textContent.trim();
+        if (raw && raw !== '—' && raw !== '0' && raw !== '0.0') {
           triggered = true;
-          const stored = raw;
-          el.textContent = '0';
-          setTimeout(() => countUp(el, 0, stored, 900, null), 80);
+          obs.disconnect();
+          // Staggered reveal — no value change, just animate in
+          const delay = idx * 60;
+          setTimeout(() => {
+            el.style.transition = `opacity .55s ${EASE.expo}, transform .55s ${EASE.spring}`;
+            el.style.opacity = '1';
+            el.style.transform = 'translateY(0)';
+          }, delay);
         }
       });
       obs.observe(el, { childList: true, characterData: true, subtree: true });
@@ -23569,8 +23546,7 @@ window.renderCollabView=renderCollabView;
         hero.style.opacity = '1';
         hero.style.transform = 'translateY(0) scale(1)';
         hero.style.filter = 'blur(0)';
-        // Spawn particles after hero is visible
-        setTimeout(() => spawnParticles(hero, 7), 300);
+        // particles removed per user request
       }, 120);
     }
 
