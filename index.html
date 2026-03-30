@@ -2843,38 +2843,25 @@ body.modal-open{overflow:hidden!important;}
 html { scroll-behavior: smooth; }
 
 /* ══════════════════════════════════════════════════════════════
-   ✦ DTR — SMOOTH SCROLL SYSTEM
-   Единая система плавного скролла для всей платформы.
-   Принципы:
-   — scroll-behavior: smooth на всех контейнерах
-   — -webkit-overflow-scrolling: touch для iOS инерции
-   — overscroll-behavior: contain — нет "bubble" к body
-   — scrollbar-width: none на мобайл (уже есть), тонкий на десктоп
-   — will-change: scroll-position на критичных контейнерах
+   ✦ DTR — SMOOTH SCROLL SYSTEM v2
+   FIX: убран will-change (вызывал заморозку курсора).
+   FIX: убраны attribute-селекторы [style*=] (перехватывали pointer events).
+   Только scroll-behavior + iOS momentum + overscroll на конкретных блоках.
 ══════════════════════════════════════════════════════════════ */
 
-/* 1. Global — html и body */
+/* 1. Global */
 html, body {
   scroll-behavior: smooth !important;
 }
 
-/* 2. Все overflow-y:auto и overflow-y:scroll контейнеры */
-* {
-  scroll-behavior: smooth;
-}
-
-/* 3. Конкретные контейнеры платформы — максимальная плавность */
+/* 2. Конкретные вертикальные скролл-контейнеры */
 #onboard,
 #catSel,
-.main,
-.cb,
 #allSessList,
 #achFull,
 #achMini,
 .msg-conv-list,
 .msg-messages,
-.modal,
-.up-modal-inner,
 #cmdList,
 #kb3sbi,
 #kb3edb,
@@ -2886,67 +2873,48 @@ html, body {
 .soc-feed,
 .soc-friends-wrap,
 #hab-root,
-#lrn-main,
-#lrn-sidebar,
 .hab-analytics,
-.chab-members-list,
-[style*="overflow-y:auto"],
-[style*="overflow-y: auto"] {
+.chab-members-list {
   scroll-behavior: smooth !important;
   -webkit-overflow-scrolling: touch !important;
   overscroll-behavior-y: contain !important;
 }
 
-/* 4. Горизонтальные скроллы — tabs, heatmap, arena mode bar */
+/* 3. Горизонтальные скролл-контейнеры */
 .ph-tabs,
 .hm-grid,
 .arena-mode-bar,
 .t-cats,
-.msg-search,
-.soc-subtabs,
-[style*="overflow-x:auto"],
-[style*="overflow-x: auto"] {
+.soc-subtabs {
   scroll-behavior: smooth !important;
   -webkit-overflow-scrolling: touch !important;
   overscroll-behavior-x: contain !important;
-  scroll-snap-type: none;
 }
 
-/* 5. will-change только на активно скроллируемых — не вешать на всё */
-.msg-messages,
-.msg-conv-list,
-#kb3read-body,
-#allSessList,
-#achFull,
-#cmdList {
-  will-change: scroll-position;
-}
-
-/* 6. Убираем резкие прыжки при anchor-переходах */
+/* 4. Anchor — не прятаться за sticky nav */
 [id] {
-  scroll-margin-top: 70px; /* высота sticky nav */
+  scroll-margin-top: 70px;
 }
 
-/* 7. Скроллбар — тонкий и мягкий везде */
+/* 5. Скроллбар — тонкий на десктопе */
 @media (min-width: 601px) {
   ::-webkit-scrollbar { width: 4px; height: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
     background: rgba(255,255,255,.1);
     border-radius: 4px;
-    transition: background .2s;
   }
   ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.2); }
   * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.1) transparent; }
 }
 
-/* 8. Мобайл — скроллбары скрыты полностью */
+/* 6. Мобайл — скроллбары скрыты */
 @media (max-width: 600px) {
   ::-webkit-scrollbar { display: none !important; }
   * { scrollbar-width: none !important; }
 }
 
-/* END DTR SMOOTH SCROLL SYSTEM */
+/* END DTR SMOOTH SCROLL SYSTEM v2 */
 
 body {
   background: #07070A;
