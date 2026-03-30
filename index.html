@@ -14898,45 +14898,110 @@ function renderKnowledgeBase() {
   if(!document.getElementById('kb3read')){
     const rm=document.createElement('div');
     rm.id='kb3read';
-    rm.style.cssText='position:fixed;inset:0;z-index:9990;display:none;flex-direction:column;overflow:hidden;background:#0f0f11;color:#E8E6DE;font-family:Inter,DM Sans,sans-serif';
-    rm.innerHTML=`<div id="kb3read-prog" style="position:fixed;top:0;left:0;height:2px;background:#F5C842;width:0;z-index:9991;transition:width .1s"></div>
-      <div id="kb3read-bar" style="display:flex;align-items:center;gap:10px;padding:12px 24px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0">
-        <button onclick="_kbReadClose()" style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:8px;border:0.5px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:inherit">
+    rm.style.cssText='position:fixed;inset:0;z-index:9990;display:none;flex-direction:column;overflow:hidden;background:#0f0f12;color:#e8e6de;font-family:Inter,DM Sans,sans-serif;transition:background .3s,color .3s';
+    rm.innerHTML=`
+      <!-- прогресс чтения -->
+      <div id="kb3read-prog" style="position:fixed;top:0;left:0;height:2.5px;background:linear-gradient(90deg,#F5C842,#F97316);width:0;z-index:9991;transition:width .12s;border-radius:0 2px 2px 0"></div>
+
+      <!-- ── ТОП-БАР ── -->
+      <div id="kb3read-bar" style="display:flex;align-items:center;gap:12px;padding:12px 28px;border-bottom:0.5px solid rgba(255,255,255,.06);flex-shrink:0;backdrop-filter:blur(10px);background:inherit">
+
+        <!-- назад -->
+        <button onclick="_kbReadClose()" style="display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:9px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:inherit;transition:all .15s;flex-shrink:0"
+          onmouseover="this.style.background='rgba(255,255,255,.1)'" onmouseout="this.style.background='rgba(255,255,255,.05)'">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-          Назад
+          Выйти
         </button>
-        <div id="kb3read-title" style="font-size:14px;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 12px"></div>
+
+        <!-- заголовок -->
+        <div id="kb3read-title" style="font-size:14px;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:-.01em;opacity:.7;padding:0 8px"></div>
+
+        <!-- мета -->
+        <div id="kb3read-meta" style="font-size:11px;opacity:.35;font-family:'DM Mono',monospace;white-space:nowrap;flex-shrink:0"></div>
+
+        <div style="width:0.5px;height:20px;background:rgba(255,255,255,.08);flex-shrink:0"></div>
+
+        <!-- шрифт -->
         <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
-          <button id="kb3rd-dark" onclick="_kbReadTheme('dark')" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.12);background:#F5C842;color:#09090B;font-size:12px;cursor:pointer">🌙</button>
-          <button id="kb3rd-sepia" onclick="_kbReadTheme('sepia')" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(0,0,0,.1);background:rgba(255,255,255,.07);color:inherit;font-size:12px;cursor:pointer">📜</button>
-          <button id="kb3rd-light" onclick="_kbReadTheme('light')" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(0,0,0,.1);background:rgba(255,255,255,.07);color:inherit;font-size:12px;cursor:pointer">☀️</button>
-          <div style="width:0.5px;height:16px;background:rgba(255,255,255,.1);margin:0 4px"></div>
-          <button id="kb3rd-sm" onclick="_kbReadSize(16)" style="padding:3px 8px;border-radius:6px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.06);font-size:11px;cursor:pointer;color:inherit">A</button>
-          <button id="kb3rd-md" onclick="_kbReadSize(19)" style="padding:3px 8px;border-radius:6px;border:0.5px solid rgba(245,200,66,.5);background:rgba(245,200,66,.12);font-size:13px;cursor:pointer;color:var(--gold)">A</button>
-          <button id="kb3rd-lg" onclick="_kbReadSize(22)" style="padding:3px 8px;border-radius:6px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.06);font-size:15px;cursor:pointer;color:inherit">A</button>
-          <div id="kb3read-meta" style="font-size:11px;opacity:.4;margin-left:10px;font-family:'DM Mono',monospace;white-space:nowrap"></div>
+          <button class="kb3rd-font" onclick="_kbReadFont('sans')" data-font="sans" title="Без засечек" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;cursor:pointer;color:inherit;font-family:'DM Sans',sans-serif;transition:all .15s">Aa</button>
+          <button class="kb3rd-font" onclick="_kbReadFont('serif')" data-font="serif" title="С засечками" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;cursor:pointer;color:inherit;font-family:Georgia,serif;transition:all .15s">Aa</button>
+          <button class="kb3rd-font" onclick="_kbReadFont('mono')" data-font="mono" title="Моноширинный" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;cursor:pointer;color:inherit;font-family:'DM Mono',monospace;transition:all .15s">Aa</button>
         </div>
+
+        <div style="width:0.5px;height:20px;background:rgba(255,255,255,.08);flex-shrink:0"></div>
+
+        <!-- размер шрифта -->
+        <div style="display:flex;align-items:center;gap:3px;flex-shrink:0">
+          <button onclick="_kbReadSize(15)" class="kb3rd-sz" data-sz="15" style="padding:4px 8px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:10px;cursor:pointer;color:inherit;transition:all .15s">A</button>
+          <button onclick="_kbReadSize(18)" class="kb3rd-sz" data-sz="18" style="padding:4px 8px;border-radius:7px;border:0.5px solid rgba(245,200,66,.4);background:rgba(245,200,66,.1);font-size:12px;cursor:pointer;color:#F5C842;transition:all .15s">A</button>
+          <button onclick="_kbReadSize(22)" class="kb3rd-sz" data-sz="22" style="padding:4px 8px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:15px;cursor:pointer;color:inherit;transition:all .15s">A</button>
+        </div>
+
+        <div style="width:0.5px;height:20px;background:rgba(255,255,255,.08);flex-shrink:0"></div>
+
+        <!-- ширина колонки -->
+        <div style="display:flex;align-items:center;gap:3px;flex-shrink:0" title="Ширина текста">
+          <button onclick="_kbReadWidth(600)" class="kb3rd-w" data-w="600" style="padding:4px 7px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:11px;cursor:pointer;color:inherit;transition:all .15s">▌▌</button>
+          <button onclick="_kbReadWidth(720)" class="kb3rd-w" data-w="720" style="padding:4px 7px;border-radius:7px;border:0.5px solid rgba(245,200,66,.4);background:rgba(245,200,66,.1);font-size:11px;cursor:pointer;color:#F5C842;transition:all .15s">◀▶</button>
+          <button onclick="_kbReadWidth(900)" class="kb3rd-w" data-w="900" style="padding:4px 7px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:11px;cursor:pointer;color:inherit;transition:all .15s">▌　▌</button>
+        </div>
+
+        <div style="width:0.5px;height:20px;background:rgba(255,255,255,.08);flex-shrink:0"></div>
+
+        <!-- тема -->
+        <div style="display:flex;align-items:center;gap:3px;flex-shrink:0">
+          <button onclick="_kbReadTheme('dark')" id="kb3rd-dark" title="Тёмная" style="width:22px;height:22px;border-radius:50%;background:#1a1a22;border:2px solid #F5C842;cursor:pointer;transition:all .15s"></button>
+          <button onclick="_kbReadTheme('sepia')" id="kb3rd-sepia" title="Сепия" style="width:22px;height:22px;border-radius:50%;background:#F5EDD8;border:0.5px solid rgba(0,0,0,.15);cursor:pointer;transition:all .15s"></button>
+          <button onclick="_kbReadTheme('light')" id="kb3rd-light" title="Светлая" style="width:22px;height:22px;border-radius:50%;background:#F5F5F0;border:0.5px solid rgba(0,0,0,.12);cursor:pointer;transition:all .15s"></button>
+        </div>
+
       </div>
-      <div id="kb3read-body" style="flex:1;overflow-y:auto;padding:48px 24px 80px" onscroll="_kbReadScroll(this)">
-        <div id="kb3read-inner" style="max-width:680px;margin:0 auto;font-size:19px;line-height:2;letter-spacing:-.01em"></div>
+
+      <!-- ── КОНТЕНТ ── -->
+      <div id="kb3read-body" style="flex:1;overflow-y:auto;padding:60px 24px 120px" onscroll="_kbReadScroll(this)">
+        <div id="kb3read-inner" style="max-width:720px;margin:0 auto;font-size:18px;line-height:1.85;letter-spacing:-.01em"></div>
+      </div>
+
+      <!-- ── ПРОГРЕСС ВНИЗУ ── -->
+      <div style="position:fixed;bottom:0;left:0;right:0;height:40px;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity .3s" id="kb3read-footer">
+        <div style="font-size:11px;font-family:'DM Mono',monospace;opacity:.4" id="kb3read-pct">0%</div>
       </div>`;
     document.body.appendChild(rm);
-    // Reading mode styles
+
+    // Reading mode typography styles
     const rs=document.createElement('style');
-    rs.textContent=`#kb3read-inner h1{font-size:36px;font-weight:800;letter-spacing:-.04em;margin:36px 0 16px;line-height:1.15}
-    #kb3read-inner h2{font-size:26px;font-weight:700;margin:30px 0 13px;letter-spacing:-.03em;line-height:1.25}
-    #kb3read-inner h3{font-size:20px;font-weight:650;margin:24px 0 10px}
-    #kb3read-inner p{margin-bottom:18px}
-    #kb3read-inner ul,#kb3read-inner ol{margin:0 0 18px 28px}
-    #kb3read-inner li{margin-bottom:9px}
-    #kb3read-inner blockquote{border-left:4px solid #F5C842;padding:14px 20px;margin:22px 0;border-radius:0 10px 10px 0;font-style:italic;opacity:.85}
-    #kb3read-inner code{font-family:'DM Mono',monospace;font-size:14px;background:rgba(128,128,128,.15);padding:2px 8px;border-radius:5px}
-    #kb3read-inner pre{background:rgba(0,0,0,.15);border-radius:12px;padding:20px;margin:20px 0;overflow-x:auto}
-    #kb3read-inner hr{border:none;border-top:1px solid rgba(128,128,128,.2);margin:32px 0}
-    #kb3read-inner table{width:100%;border-collapse:collapse;margin:20px 0}
-    #kb3read-inner th,#kb3read-inner td{padding:10px 14px;border:1px solid rgba(128,128,128,.2);font-size:16px}
-    #kb3read-inner th{font-weight:600;font-size:13px;background:rgba(128,128,128,.08)}
-    #kb3read-inner strong{font-weight:700}`;
+    rs.textContent=`
+    #kb3read-body::-webkit-scrollbar{width:4px}
+    #kb3read-body::-webkit-scrollbar-track{background:transparent}
+    #kb3read-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:2px}
+    #kb3read-inner h1{font-size:2em;font-weight:800;letter-spacing:-.04em;margin:1.6em 0 .6em;line-height:1.15;color:inherit}
+    #kb3read-inner h2{font-size:1.5em;font-weight:700;margin:1.4em 0 .5em;letter-spacing:-.03em;line-height:1.25;color:inherit}
+    #kb3read-inner h3{font-size:1.2em;font-weight:650;margin:1.2em 0 .4em;line-height:1.3;color:inherit}
+    #kb3read-inner p{margin:0 0 1.1em;color:inherit}
+    #kb3read-inner ul,#kb3read-inner ol{margin:0 0 1.1em 1.6em}
+    #kb3read-inner li{margin-bottom:.5em}
+    #kb3read-inner blockquote{border-left:3px solid #F5C842;padding:14px 22px;margin:1.5em 0;border-radius:0 12px 12px 0;background:rgba(245,200,66,.04);font-style:italic;opacity:.85}
+    #kb3read-inner code{font-family:'DM Mono',monospace;font-size:.78em;background:rgba(128,128,128,.13);padding:2px 8px;border-radius:5px}
+    #kb3read-inner pre{background:rgba(0,0,0,.2);border-radius:14px;padding:22px;margin:1.4em 0;overflow-x:auto}
+    #kb3read-inner hr{border:none;border-top:0.5px solid rgba(128,128,128,.2);margin:2em 0}
+    #kb3read-inner strong{font-weight:700}
+    #kb3read-inner em{font-style:italic;opacity:.9}
+    #kb3read-inner a{color:#F5C842;text-decoration:underline;text-decoration-color:rgba(245,200,66,.35);text-underline-offset:3px}
+    #kb3read-inner table{width:100%;border-collapse:collapse;margin:1.4em 0}
+    #kb3read-inner th,#kb3read-inner td{padding:10px 14px;border:0.5px solid rgba(128,128,128,.2);text-align:left}
+    /* Font family variants */
+    #kb3read.font-sans #kb3read-inner{font-family:'DM Sans','Inter',sans-serif}
+    #kb3read.font-serif #kb3read-inner{font-family:Georgia,'Times New Roman',serif;letter-spacing:.01em}
+    #kb3read.font-mono #kb3read-inner{font-family:'DM Mono',monospace;font-size:.9em;line-height:1.9}
+    /* Theme variants */
+    #kb3read.theme-sepia #kb3read-inner blockquote{background:rgba(139,90,43,.06)}
+    #kb3read.theme-sepia #kb3read-inner a{color:#8B6914}
+    #kb3read.theme-light #kb3read-inner a{color:#7C5A00}
+    #kb3read.theme-light #kb3read-inner code{background:rgba(0,0,0,.07)}
+    #kb3read.theme-light #kb3read-inner pre{background:rgba(0,0,0,.05)}
+    /* Active states for toolbar buttons */
+    .kb3rd-font.active,.kb3rd-sz.active,.kb3rd-w.active{background:rgba(245,200,66,.12)!important;border-color:rgba(245,200,66,.4)!important;color:#F5C842!important}
+    `;
     document.head.appendChild(rs);
   }
 
@@ -16127,45 +16192,103 @@ function _kbTBBorder(color){const cell=_kbTBTBtarget;if(!cell)return;cell.closes
 function _kbTBCellBg(color){const cell=_kbTBTBtarget;if(!cell)return;cell.style.backgroundColor=color;_kbEI();}
 
 // ── Reading mode ─────────────────────────────────────
-let _kbReadThemeState='dark';let _kbReadFontSize=19;
+let _kbReadThemeState='dark';
+let _kbReadFontSize=18;
+let _kbReadFontFamily='sans';
+let _kbReadWidth=720;
+
 function _kbReadMode(){
   const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);if(!n)return;
   const rm=document.getElementById('kb3read');if(!rm)return;
   document.getElementById('kb3read-inner').innerHTML=n.body||'<p style="opacity:.4;font-style:italic">Пусто</p>';
   document.getElementById('kb3read-title').textContent=n.title||'Без названия';
   const wc=_kbWC(n.body||'');
-  document.getElementById('kb3read-meta').textContent=wc+' слов · ~'+Math.max(1,Math.ceil(wc/200))+' мин';
+  const mins=Math.max(1,Math.ceil(wc/200));
+  document.getElementById('kb3read-meta').textContent=wc+' слов · ~'+mins+' мин';
   rm.style.display='flex';
   document.getElementById('kb3read-body')?.scrollTo(0,0);
   document.getElementById('kb3read-prog').style.width='0%';
+  // Apply saved preferences
+  _kbReadApplyFont(_kbReadFontFamily);
+  _kbReadApplySize(_kbReadFontSize);
+  _kbReadApplyTheme(_kbReadThemeState);
+  _kbReadApplyWidth(_kbReadWidth);
 }
-function _kbReadClose(){document.getElementById('kb3read').style.display='none';}
+
+function _kbReadClose(){
+  const rm=document.getElementById('kb3read');
+  if(rm){ rm.style.opacity='0'; rm.style.transition='opacity .2s'; setTimeout(()=>{rm.style.display='none';rm.style.opacity='';rm.style.transition='';},200); }
+}
+
 function _kbReadTheme(t){
   _kbReadThemeState=t;
+  _kbReadApplyTheme(t);
+}
+function _kbReadApplyTheme(t){
   const rm=document.getElementById('kb3read');if(!rm)return;
-  const bg={dark:'#0f0f11',sepia:'#F5EDD8',light:'#F9F7F2'};
-  const fg={dark:'#E8E6DE',sepia:'#3a2e1a',light:'#1a1a1a'};
-  rm.style.background=bg[t];rm.style.color=fg[t];
+  const themes={
+    dark:{bg:'#0f0f12',fg:'#e8e6de',bar:'rgba(255,255,255,.06)'},
+    sepia:{bg:'#f5edd8',fg:'#3a2e1a',bar:'rgba(0,0,0,.08)'},
+    light:{bg:'#f8f8f5',fg:'#1a1a1a',bar:'rgba(0,0,0,.06)'}
+  };
+  const th=themes[t]||themes.dark;
+  rm.style.background=th.bg; rm.style.color=th.fg;
+  rm.className=rm.className.replace(/theme-\w+/g,'').trim()+' theme-'+t;
+  document.getElementById('kb3read-bar').style.borderBottomColor=th.bar;
+  // Update theme buttons
   ['dark','sepia','light'].forEach(x=>{
     const btn=document.getElementById('kb3rd-'+x);if(!btn)return;
-    btn.style.background=x===t?'#F5C842':'rgba(128,128,128,.1)';
-    btn.style.color=x===t?'#09090B':'inherit';
-    btn.style.borderColor=x===t?'#F5C842':'rgba(128,128,128,.15)';
+    btn.style.border=x===t?'2.5px solid #F5C842':'0.5px solid rgba(128,128,128,.25)';
+    btn.style.transform=x===t?'scale(1.15)':'scale(1)';
   });
 }
+
+function _kbReadFont(f){
+  _kbReadFontFamily=f;
+  _kbReadApplyFont(f);
+}
+function _kbReadApplyFont(f){
+  const rm=document.getElementById('kb3read');if(!rm)return;
+  rm.className=rm.className.replace(/font-\w+/g,'').trim()+' font-'+f;
+  document.querySelectorAll('.kb3rd-font').forEach(b=>{
+    const active=b.dataset.font===f;
+    b.style.background=active?'rgba(245,200,66,.12)':'rgba(255,255,255,.05)';
+    b.style.borderColor=active?'rgba(245,200,66,.4)':'rgba(255,255,255,.1)';
+    b.style.color=active?'#F5C842':'inherit';
+  });
+}
+
 function _kbReadSize(sz){
   _kbReadFontSize=sz;
+  _kbReadApplySize(sz);
+}
+function _kbReadApplySize(sz){
   const inner=document.getElementById('kb3read-inner');if(inner)inner.style.fontSize=sz+'px';
-  [['sm',16],['md',19],['lg',22]].forEach(([id,s])=>{
-    const btn=document.getElementById('kb3rd-'+id);if(!btn)return;
-    btn.style.background=s===sz?'rgba(245,200,66,.15)':'rgba(128,128,128,.08)';
-    btn.style.borderColor=s===sz?'rgba(245,200,66,.5)':'rgba(128,128,128,.15)';
-    btn.style.color=s===sz?'#F5C842':'inherit';
+  document.querySelectorAll('.kb3rd-sz').forEach(b=>{
+    const active=parseInt(b.dataset.sz)===sz;
+    b.style.background=active?'rgba(245,200,66,.12)':'rgba(255,255,255,.05)';
+    b.style.borderColor=active?'rgba(245,200,66,.4)':'rgba(255,255,255,.1)';
+    b.style.color=active?'#F5C842':'inherit';
   });
 }
+
+window._kbReadWidth=function(w){
+  _kbReadWidth=w;
+  const inner=document.getElementById('kb3read-inner');if(inner)inner.style.maxWidth=w+'px';
+  document.querySelectorAll('.kb3rd-w').forEach(b=>{
+    const active=parseInt(b.dataset.w)===w;
+    b.style.background=active?'rgba(245,200,66,.12)':'rgba(255,255,255,.05)';
+    b.style.borderColor=active?'rgba(245,200,66,.4)':'rgba(255,255,255,.1)';
+    b.style.color=active?'#F5C842':'inherit';
+  });
+};
+
 function _kbReadScroll(el){
   const prog=document.getElementById('kb3read-prog');if(!prog)return;
-  prog.style.width=Math.min(100,el.scrollTop/(el.scrollHeight-el.clientHeight)*100)+'%';
+  const pct=Math.min(100,el.scrollTop/(el.scrollHeight-el.clientHeight)*100)||0;
+  prog.style.width=pct+'%';
+  const pctEl=document.getElementById('kb3read-pct');
+  if(pctEl) pctEl.textContent=Math.round(pct)+'%';
 }
 document.addEventListener('keydown',function(e){
   if(e.key==='Escape'&&document.getElementById('kb3read')?.style.display==='flex')_kbReadClose();
