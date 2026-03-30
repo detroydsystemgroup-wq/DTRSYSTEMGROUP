@@ -14783,7 +14783,7 @@ function renderKnowledgeBase() {
       .k3font-btn:active{transform:scale(.97);}
       .k3font-list{position:absolute;top:calc(100% + 5px);left:0;background:rgba(14,14,20,.97);border:0.5px solid rgba(255,255,255,.1);border-radius:12px;padding:5px;min-width:200px;box-shadow:0 20px 60px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.06);z-index:9999;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);animation:dropIn .2s cubic-bezier(.34,1.15,.64,1) both;}
       @keyframes dropIn{from{opacity:0;transform:translateY(-6px) scale(.97)}to{opacity:1;transform:none}}
-      .k3font-opt{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:600;color:var(--t1);transition:background .12s;}
+      .k3font-opt{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:600;color:var(--t1);transition:background .12s;font-style:normal;}
       .k3font-opt span{font-size:11px;color:var(--t3);font-family:'DM Sans',sans-serif;font-weight:400;margin-left:8px;}
       .k3font-opt:hover{background:rgba(245,200,66,.1);}
       .k3font-opt.active{background:rgba(245,200,66,.12);color:var(--gold);}
@@ -14802,14 +14802,15 @@ function renderKnowledgeBase() {
       .k3style-bq{border-left:2.5px solid var(--gold);padding-left:10px;font-style:italic;color:var(--t2);}
       .k3style-pre{font-family:'DM Mono',monospace;font-size:12px;color:var(--gold-l);background:rgba(255,255,255,.04);}
       .k3tbsep{width:0.5px;height:15px;background:rgba(255,255,255,.07);margin:0 3px;align-self:center;flex-shrink:0;border-radius:1px;}
-      /* Todo — iOS style */
-      .k3todo{display:flex;align-items:center;gap:10px;margin:4px 0;padding:5px 8px;border-radius:8px;cursor:pointer;transition:background .12s;user-select:text;}
-      .k3todo:hover{background:rgba(255,255,255,.04);}
+      /* Todo — soft square style, deletable */
+      .k3todo{display:inline-flex;align-items:center;gap:9px;margin:3px 0;padding:4px 6px;border-radius:7px;cursor:default;transition:background .12s;user-select:text;vertical-align:middle;}
+      .k3todo:hover{background:rgba(255,255,255,.035);}
       .k3todo input[type=checkbox]{display:none;}
-      .k3todo::before{content:'';display:inline-flex;width:20px;height:20px;min-width:20px;border-radius:50%;border:1.5px solid rgba(255,255,255,.28);background:transparent;transition:all .2s cubic-bezier(.34,1.56,.64,1);flex-shrink:0;}
-      .k3todo.done::before{background:var(--gold);border-color:var(--gold);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:center;background-size:11px;}
-      .k3todo span{flex:1;outline:none;min-width:20px;transition:opacity .2s,color .2s;}
-      .k3todo.done span{text-decoration:line-through;opacity:.35;color:var(--t3);}
+      .k3todo-box{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;min-width:17px;border-radius:4px;border:1.5px solid rgba(255,255,255,.3);background:transparent;transition:all .18s cubic-bezier(.34,1.56,.64,1);flex-shrink:0;cursor:pointer;}
+      .k3todo.done .k3todo-box{background:var(--gold);border-color:var(--gold);}
+      .k3todo.done .k3todo-box::after{content:'';display:block;width:9px;height:9px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:center;background-size:9px;}
+      .k3todo span{flex:1;outline:none;min-width:20px;transition:opacity .18s,color .18s;font-style:normal;}
+      .k3todo.done span{text-decoration:line-through;opacity:.38;color:var(--t3);}
 
       /* ══ CONTENT VIEW ══ */
       .k3view{padding:24px 28px 60px;max-width:740px;font-size:15px;line-height:1.78;color:var(--t1);font-family:'Inter','DM Sans',sans-serif;font-weight:400;}
@@ -16305,9 +16306,15 @@ function _kbTogCat(cid){
   _kbRS();_kbRNL();_kbRED();
 }
 function _kbSF(cid,fid){
-  if(_kbS.edit&&_kbS.note) _kbFlush3();
-  _kbS.cat=cid;_kbS.folder=fid;_kbS.collapsed[cid]=false;
-  _kbS.note=null;_kbS.edit=false;
+  // Save current note silently if editing
+  if(_kbS.edit&&_kbS.note){
+    const ea=document.getElementById('kb3area'),ti=document.getElementById('kb3title');
+    const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);
+    if(n){if(ea)n.body=ea.innerHTML;if(ti)n.title=ti.value.trim()||'Без названия';n.updatedAt=Date.now();_kbSave3();}
+  }
+  // Now reset state — note MUST be null so _kbRED shows folder list
+  _kbS.cat=cid;_kbS.folder=fid;_kbS.note=null;_kbS.edit=false;
+  _kbS.collapsed[cid]=false;
   _kbRS();_kbRNL();_kbRED();
 }
 function _kbON(cid,fid,nid){
@@ -16377,57 +16384,87 @@ function _kbEK(e){
   if(e.key==='Tab'){e.preventDefault();document.execCommand('insertText',false,'    ');return;}
   if(e.key==='Escape'){_kbFlush3();_kbS.edit=false;_kbRED();return;}
 
-  // ── Get text of current line up to cursor ─────────────────────
+  // ── Get full text of current line (from last <br> to cursor) ─────
   function _lineText(){
-    const sel=window.getSelection();if(!sel||!sel.rangeCount)return'';
+    const sel=window.getSelection();
+    if(!sel||!sel.rangeCount) return '';
     const range=sel.getRangeAt(0);
-    const node=range.startContainer;
-    if(node.nodeType===3)return node.textContent.slice(0,range.startOffset);
-    let t='';
-    for(let i=0;i<range.startOffset&&i<node.childNodes.length;i++){
-      const ch=node.childNodes[i];
-      if(ch.nodeName==='BR')t='';else t+=ch.textContent||'';
+    const area=document.getElementById('kb3area');
+    if(!area) return '';
+    // Walk backwards from cursor collecting text until <br> or start
+    let node=range.startContainer;
+    let text='';
+    // If in text node, get text before cursor
+    if(node.nodeType===3){
+      text=node.textContent.slice(0,range.startOffset);
+      node=node.previousSibling;
+    } else {
+      // in element, collect from children before offset
+      for(let i=range.startOffset-1;i>=0;i--){
+        const ch=node.childNodes[i];
+        if(!ch) continue;
+        if(ch.nodeName==='BR') break;
+        text=(ch.textContent||'')+text;
+      }
+      node=null; // already processed
     }
-    return t;
+    // Keep walking previous siblings
+    while(node){
+      if(node.nodeName==='BR') break;
+      text=(node.textContent||'')+text;
+      node=node.previousSibling;
+    }
+    return text;
   }
 
-  // ── ENTER ──────────────────────────────────────────────────────
+  // ── ENTER key ────────────────────────────────────────────────────
   if(e.key==='Enter'){
-    const line=_lineText().trimEnd();
+    const line=_lineText();
+    const trimmed=line.trimStart();
 
-    // Numbered list: "1. text"
-    const numM=line.match(/^(\d+)\.\s+(.*)$/);
+    // Numbered list: "1. text" or "12. text"
+    const numM=trimmed.match(/^(\d+)\.\s(.*)$/);
     if(numM){
       e.preventDefault();
-      if(numM[2].trim()===''){
-        // Empty item → break out of list
-        document.execCommand('insertHTML',false,'<br><br>');
+      const content=numM[2];
+      if(content.trim()===''){
+        // Double enter (empty item) — exit list, remove the "N. " prefix
+        // Delete back to the number
+        const deleteLen=numM[0].length;
+        for(let i=0;i<deleteLen;i++) document.execCommand('delete',false);
+        document.execCommand('insertHTML',false,'<br>');
       } else {
-        document.execCommand('insertHTML',false,'<br>'+(parseInt(numM[1])+1)+'. ');
+        const next=parseInt(numM[1])+1;
+        document.execCommand('insertHTML',false,'<br>'+next+'. ');
       }
       return;
     }
 
-    // Bullet list: "- text" / "• text" / "* text"
-    const bulM=line.match(/^([-•*])\s+(.*)$/);
+    // Bullet list: "• text" / "- text" / "* text"  
+    const bulM=trimmed.match(/^([-•*])\s(.*)$/);
     if(bulM){
       e.preventDefault();
-      if(bulM[2].trim()===''){
-        document.execCommand('insertHTML',false,'<br><br>');
+      const content=bulM[2];
+      if(content.trim()===''){
+        // Double enter — exit list
+        const deleteLen=bulM[0].length;
+        for(let i=0;i<deleteLen;i++) document.execCommand('delete',false);
+        document.execCommand('insertHTML',false,'<br>');
       } else {
         document.execCommand('insertHTML',false,'<br>'+bulM[1]+' ');
       }
       return;
     }
-    return;
+    // Don't return here — let normal Enter work for regular paragraphs
   }
 
-  // ── SPACE → auto-transform ─────────────────────────────────────
+  // ── SPACE key → auto-transform ───────────────────────────────────
   if(e.key===' '){
-    const sel=window.getSelection();if(!sel||!sel.rangeCount)return;
+    const sel=window.getSelection();
+    if(!sel||!sel.rangeCount) return;
     const range=sel.getRangeAt(0);
     const node=range.startContainer;
-    if(node.nodeType!==3)return;
+    if(node.nodeType!==3) return;
     const text=node.textContent.slice(0,range.startOffset);
 
     // "- " → bullet
@@ -16441,15 +16478,21 @@ function _kbEK(e){
       return;
     }
 
-    // "[] " → todo checkbox
+    // "[] " → todo
     if(text==='[]'){
       e.preventDefault();
+      // Delete "[]"
+      const r2=range.cloneRange();
+      r2.setStart(node,range.startOffset-2);
+      r2.setEnd(node,range.startOffset);
+      r2.deleteContents();
       const id='todo_'+Date.now();
       document.execCommand('insertHTML',false,
-        '<label class="k3todo" contenteditable="false" onclick="_kbTodoClick(this)">'+
+        '<label class="k3todo" contenteditable="false">'+
         '<input type="checkbox" id="'+id+'" style="display:none">'+
-        '<span id="'+id+'_s" contenteditable="true"> </span>'+
-        '</label><br>');
+        '<span class="k3todo-box" onclick="_kbTodoClick(this.parentNode)"></span>'+
+        '<span id="'+id+'_s" contenteditable="true" style="font-style:normal"> </span>'+
+        '</label>');
       setTimeout(()=>{
         const sp=document.getElementById(id+'_s');
         if(sp){sp.focus();const r=document.createRange();r.selectNodeContents(sp);r.collapse(false);window.getSelection().removeAllRanges();window.getSelection().addRange(r);}
@@ -16491,10 +16534,11 @@ function _kbInsTodo(){
   const id='todo_'+Date.now();
   document.getElementById('kb3area')?.focus();
   document.execCommand('insertHTML',false,
-    '<label class="k3todo" contenteditable="false" onclick="_kbTodoClick(this)">'+
+    '<label class="k3todo" contenteditable="false">'+
     '<input type="checkbox" id="'+id+'" style="display:none">'+
-    '<span id="'+id+'_s" contenteditable="true"> </span>'+
-    '</label><br>');
+    '<span class="k3todo-box" onclick="_kbTodoClick(this.parentNode)"></span>'+
+    '<span id="'+id+'_s" contenteditable="true" style="font-style:normal"> </span>'+
+    '</label>');
   setTimeout(()=>{
     const sp=document.getElementById(id+'_s');
     if(sp){sp.focus();const r=document.createRange();r.selectNodeContents(sp);r.collapse(false);window.getSelection().removeAllRanges();window.getSelection().addRange(r);}
@@ -16503,7 +16547,6 @@ function _kbInsTodo(){
 }
 window._kbTodoClick=function(lbl){
   if(!lbl)return;
-  if(window.event&&window.event.target&&window.event.target.isContentEditable)return;
   const cb=lbl.querySelector('input[type=checkbox]');
   if(cb){cb.checked=!cb.checked;lbl.classList.toggle('done',cb.checked);}
   _kbEI();
@@ -16566,10 +16609,10 @@ function _kbSetFont(font){
   const f=_kbFontMap[font]||_kbFontMap.inter;
   // Apply to editor
   const ea=document.getElementById('kb3area');
-  if(ea){ ea.style.fontFamily=f.family; ea.style.fontSize=f.size; ea.style.lineHeight=f.lh; }
+  if(ea){ ea.style.fontFamily=f.family; ea.style.fontSize=f.size; ea.style.lineHeight=f.lh; ea.style.fontStyle='normal'; }
   // Apply to view
   const vw=document.querySelector('.k3view');
-  if(vw){ vw.style.fontFamily=f.family; vw.style.fontSize=f.size; vw.style.lineHeight=f.lh; }
+  if(vw){ vw.style.fontFamily=f.family; vw.style.fontSize=f.size; vw.style.lineHeight=f.lh; vw.style.fontStyle='normal'; }
   // Update dropdown UI
   _kbFontDDUpdate(font);
   // Update legacy select if exists
@@ -16584,9 +16627,9 @@ function _kbApplyFont(font){
   // Apply font on note open without saving
   const f=_kbFontMap[font||'inter']||_kbFontMap.inter;
   const ea=document.getElementById('kb3area');
-  if(ea){ ea.style.fontFamily=f.family; ea.style.fontSize=f.size; ea.style.lineHeight=f.lh; }
+  if(ea){ ea.style.fontFamily=f.family; ea.style.fontSize=f.size; ea.style.lineHeight=f.lh; ea.style.fontStyle='normal'; }
   const vw=document.querySelector('.k3view');
-  if(vw){ vw.style.fontFamily=f.family; vw.style.fontSize=f.size; vw.style.lineHeight=f.lh; }
+  if(vw){ vw.style.fontFamily=f.family; vw.style.fontSize=f.size; vw.style.lineHeight=f.lh; vw.style.fontStyle='normal'; }
   _kbFontDDUpdate(font||'inter');
   _kbS.font=font||'inter';
 }
