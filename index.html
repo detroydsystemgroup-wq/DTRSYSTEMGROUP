@@ -14693,7 +14693,17 @@ function renderKnowledgeBase() {
       /* ══ EDITOR / MAIN CONTENT ══ */
       #kb3ed{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);min-width:0;position:relative;}
       #kb3edt{padding:18px 26px 0;flex-shrink:0;}
-      #kb3tb{display:none;flex-wrap:wrap;gap:2px;padding:7px 14px;background:var(--panel);border-bottom:0.5px solid var(--border);flex-shrink:0;align-items:center;}
+      /* ── TOOLBAR — Apple redesign ── */
+      #kb3tb{
+        display:none;flex-wrap:wrap;gap:1px;
+        padding:6px 16px;
+        background:rgba(14,14,20,.98);
+        border-bottom:0.5px solid rgba(255,255,255,.055);
+        flex-shrink:0;align-items:center;
+        backdrop-filter:blur(20px);
+        -webkit-backdrop-filter:blur(20px);
+        box-shadow:0 1px 0 rgba(255,255,255,.03);
+      }
       /* FIX: proper flex chain — inner height:100% now resolves to real pixels */
       #kb3edb{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;position:relative;}
       #kb3edc{flex:1;min-height:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;}
@@ -14819,14 +14829,39 @@ function renderKnowledgeBase() {
       .k3ico.k3danger:hover{background:rgba(239,68,68,.12);color:var(--red);}
 
       /* ══ TOOLBAR ══ */
-      .k3tb{width:32px;height:32px;border-radius:8px;border:none;background:transparent;color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-family:'Inter','DM Sans',sans-serif;font-weight:600;transition:background-color .15s,border-color .15s,color .15s,opacity .15s cubic-bezier(.34,1.2,.64,1);flex-shrink:0;}
-      .k3tb:hover{background:rgba(255,255,255,.08);color:var(--t1);transform:scale(1.06);}
-      .k3tb:active{transform:scale(.95);}
+      .k3tb{
+        width:30px;height:30px;border-radius:7px;border:none;
+        background:transparent;color:rgba(255,255,255,.45);
+        cursor:pointer;display:flex;align-items:center;justify-content:center;
+        font-size:13px;font-family:'Inter','DM Sans',sans-serif;font-weight:600;
+        transition:background .12s,color .12s,transform .12s cubic-bezier(.34,1.56,.64,1);
+        flex-shrink:0;position:relative;
+      }
+      .k3tb:hover{
+        background:rgba(255,255,255,.09);
+        color:rgba(255,255,255,.9);
+        transform:scale(1.08);
+      }
+      .k3tb:active{transform:scale(.9);}
+      .k3tb.active{
+        background:rgba(245,200,66,.14);
+        color:var(--gold);
+        border:0.5px solid rgba(245,200,66,.28);
+      }
       .k3tbsel{padding:4px 10px;border-radius:8px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.1);color:var(--t1);font-size:12px;cursor:pointer;outline:none;height:32px;font-family:'Inter','DM Sans',sans-serif;flex-shrink:0;transition:border-color .15s;}
       .k3tbsel:hover{border-color:rgba(255,255,255,.2);}
       .k3font-dd{position:relative;flex-shrink:0;}
-      .k3font-btn{display:flex;align-items:center;gap:7px;padding:0 12px;height:32px;border-radius:8px;background:rgba(245,200,66,.07);border:0.5px solid rgba(245,200,66,.25);color:var(--t1);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background-color .15s,border-color .15s,color .15s,opacity .15s;white-space:nowrap;min-width:110px;justify-content:space-between;}
-      .k3font-btn:hover{background:rgba(245,200,66,.14);border-color:rgba(245,200,66,.45);}
+      .k3font-btn{
+        display:flex;align-items:center;gap:6px;padding:0 10px;height:28px;
+        border-radius:7px;
+        background:rgba(245,200,66,.08);border:0.5px solid rgba(245,200,66,.22);
+        color:var(--gold);font-size:12px;font-weight:600;cursor:pointer;
+        font-family:'DM Sans',sans-serif;
+        transition:background .14s,border-color .14s,transform .14s cubic-bezier(.34,1.56,.64,1);
+        white-space:nowrap;min-width:90px;justify-content:space-between;
+      }
+      .k3font-btn:hover{background:rgba(245,200,66,.14);border-color:rgba(245,200,66,.4);transform:scale(1.03);}
+      .k3font-btn:active{transform:scale(.97);}
       .k3font-list{position:absolute;top:calc(100% + 6px);left:0;background:rgba(18,18,24,.97);border:0.5px solid rgba(255,255,255,.1);border-radius:14px;padding:6px;min-width:210px;box-shadow:0 16px 48px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.06);z-index:9999;animation:dropIn .18s cubic-bezier(.34,1.15,.64,1) both;}
       @keyframes dropIn{from{opacity:0;transform:translateY(-6px) scale(.97)}to{opacity:1;transform:none}}
       .k3font-opt{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:600;color:var(--t1);transition:background .12s;}
@@ -14836,8 +14871,16 @@ function renderKnowledgeBase() {
       .k3font-opt.active span{color:var(--gold);opacity:.7;}
       /* Style dropdown */
       .k3style-dd{position:relative;flex-shrink:0;}
-      .k3style-btn{display:flex;align-items:center;gap:7px;padding:0 12px;height:32px;border-radius:8px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.1);color:var(--t2);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background-color .15s,border-color .15s,color .15s,opacity .15s;white-space:nowrap;min-width:80px;justify-content:space-between;}
-      .k3style-btn:hover{background:rgba(255,255,255,.1);color:var(--t1);}
+      .k3style-btn{
+        display:flex;align-items:center;gap:6px;padding:0 10px;height:28px;
+        border-radius:7px;
+        background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.1);
+        color:rgba(255,255,255,.55);font-size:12px;font-weight:600;cursor:pointer;
+        font-family:'DM Sans',sans-serif;
+        transition:background .14s,border-color .14s,color .14s,transform .14s cubic-bezier(.34,1.56,.64,1);
+        white-space:nowrap;min-width:72px;justify-content:space-between;
+      }
+      .k3style-btn:hover{background:rgba(255,255,255,.1);color:rgba(255,255,255,.9);transform:scale(1.03);}
       .k3style-list{position:absolute;top:calc(100% + 6px);left:0;background:rgba(18,18,24,.97);border:0.5px solid rgba(255,255,255,.1);border-radius:14px;padding:6px;min-width:160px;box-shadow:0 16px 48px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.06);z-index:9999;animation:dropIn .18s cubic-bezier(.34,1.15,.64,1) both;}
       .k3style-opt{padding:9px 12px;border-radius:9px;cursor:pointer;color:var(--t1);transition:background .12s;font-size:13px;}
       .k3style-opt:hover{background:rgba(255,255,255,.08);}
@@ -14846,12 +14889,47 @@ function renderKnowledgeBase() {
       .k3style-h3{font-size:13.5px;font-weight:650;}
       .k3style-bq{border-left:2.5px solid var(--gold);padding-left:10px;font-style:italic;color:var(--t2);}
       .k3style-pre{font-family:'DM Mono',monospace;font-size:12px;color:var(--gold-l);background:rgba(255,255,255,.04);}
-      .k3tbsep{width:0.5px;height:18px;background:rgba(255,255,255,.08);margin:0 4px;align-self:center;flex-shrink:0;}
-      /* Todo checkbox in editor */
-      .k3todo{display:flex;align-items:flex-start;gap:9px;margin:5px 0;padding:4px 0;}
-      .k3todo input[type=checkbox]{margin-top:3px;width:17px;height:17px;cursor:pointer;accent-color:var(--gold);flex-shrink:0;}
-      .k3todo.done > span{text-decoration:line-through;opacity:.45;}
-      #kb3area .k3todo{user-select:text;}
+      .k3tbsep{width:0.5px;height:16px;background:rgba(255,255,255,.07);margin:0 3px;align-self:center;flex-shrink:0;border-radius:1px;}
+      /* Todo — iOS style */
+      .k3todo{
+        display:flex;align-items:center;gap:10px;
+        margin:4px 0;padding:5px 8px;
+        border-radius:8px;
+        cursor:pointer;
+        transition:background .12s;
+        user-select:text;
+      }
+      .k3todo:hover{ background:rgba(255,255,255,.04); }
+      /* Hide native checkbox */
+      .k3todo input[type=checkbox]{ display:none; }
+      /* Custom iOS-style circle */
+      .k3todo::before{
+        content:'';
+        display:inline-flex;
+        width:19px;height:19px;min-width:19px;
+        border-radius:50%;
+        border:1.5px solid rgba(255,255,255,.25);
+        background:transparent;
+        transition:all .18s cubic-bezier(.34,1.56,.64,1);
+        flex-shrink:0;
+      }
+      .k3todo.done::before{
+        background:var(--gold);
+        border-color:var(--gold);
+        background-image:url("data:image/svg+xml,%3Csvg width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+        background-repeat:no-repeat;
+        background-position:center;
+        background-size:11px 11px;
+      }
+      .k3todo span{
+        flex:1;outline:none;min-width:20px;
+        transition:opacity .2s,color .2s;
+      }
+      .k3todo.done span{
+        text-decoration:line-through;
+        opacity:.38;
+        color:var(--t3);
+      }
 
       /* ══ CONTENT VIEW ══ */
       .k3view{padding:24px 28px 60px;max-width:740px;font-size:15px;line-height:1.78;color:var(--t1);font-family:'Inter','DM Sans',sans-serif;font-weight:400;}
@@ -14910,7 +14988,7 @@ function renderKnowledgeBase() {
       .k3view img{max-width:100%;border-radius:8px;margin:8px 0;}
 
       /* ══ EDITOR AREA ══ */
-      #kb3area{padding:28px 32px 80px;min-height:300px;outline:none;font-size:16px;line-height:1.85;color:var(--t1);max-width:780px;caret-color:var(--gold);font-family:'Inter','DM Sans',sans-serif;}
+      #kb3area{padding:28px 32px 80px;min-height:300px;outline:none;font-size:16px;line-height:1.85;color:var(--t1);max-width:780px;caret-color:var(--gold);font-family:'Inter','DM Sans',sans-serif;font-style:normal;font-weight:400;}
       #kb3area:empty::before{content:attr(data-ph);color:var(--t3);pointer-events:none;font-weight:400;font-style:italic;}
       #kb3edb:has(#kb3area){background:var(--bg);}
       #kb3area:focus{outline:none;}
@@ -15279,6 +15357,7 @@ function renderKnowledgeBase() {
         <!-- шрифт -->
         <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
           <button class="kb3rd-font" onclick="_kbReadFont('sans')" data-font="sans" title="Без засечек" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;cursor:pointer;color:inherit;font-family:'DM Sans',sans-serif;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">Aa</button>
+          <button class="kb3rd-font" onclick="_kbReadFont('nunito')" data-font="nunito" title="Nunito — мягкий" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;cursor:pointer;color:inherit;font-family:'Nunito','DM Sans',sans-serif;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">Nn</button>
           <button class="kb3rd-font" onclick="_kbReadFont('serif')" data-font="serif" title="С засечками" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;cursor:pointer;color:inherit;font-family:Georgia,serif;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">Aa</button>
           <button class="kb3rd-font" onclick="_kbReadFont('mono')" data-font="mono" title="Моноширинный" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;cursor:pointer;color:inherit;font-family:'DM Mono',monospace;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">Aa</button>
         </div>
@@ -15346,6 +15425,7 @@ function renderKnowledgeBase() {
     #kb3read-inner th,#kb3read-inner td{padding:10px 14px;border:0.5px solid rgba(128,128,128,.2);text-align:left}
     /* Font family variants */
     #kb3read.font-sans #kb3read-inner{font-family:'DM Sans','Inter',sans-serif}
+    #kb3read.font-nunito #kb3read-inner{font-family:'Nunito','DM Sans',sans-serif;letter-spacing:.01em}
     #kb3read.font-serif #kb3read-inner{font-family:Georgia,'Times New Roman',serif;letter-spacing:.01em}
     #kb3read.font-mono #kb3read-inner{font-family:'DM Mono',monospace;font-size:.9em;line-height:1.9}
     /* Theme variants */
@@ -16084,7 +16164,7 @@ function _kbRED() {
       <div id="kb3area" contenteditable="true"
         data-ph="Начни писать здесь... поддерживается форматирование через панель выше"
         onkeydown="_kbEK(event)" oninput="_kbEI()"
-        style="padding:24px 28px 60px;min-height:200px;outline:none;font-size:${_nf.size};line-height:${_nf.lh};color:var(--t1);max-width:740px;caret-color:var(--gold);font-family:${_nf.family};word-break:break-word;overflow-wrap:break-word;"
+        style="padding:24px 28px 60px;min-height:200px;outline:none;font-size:${_nf.size};line-height:${_nf.lh};color:var(--t1);max-width:740px;caret-color:var(--gold);font-family:${_nf.family};font-style:normal;font-weight:400;word-break:break-word;overflow-wrap:break-word;"
       >${n.body||''}</div>`;
     setTimeout(()=>{
       const e=document.getElementById('kb3area');
@@ -16375,8 +16455,9 @@ function _kbTogCat(cid){
 function _kbSF(cid,fid){
   if(_kbS.edit&&_kbS.note) _kbFlush3();
   _kbS.cat=cid;_kbS.folder=fid;_kbS.collapsed[cid]=false;
-  const f=_kbGetFolder(cid,fid);
-  if(_kbS.note&&!f?.notes.find(n=>n.id===_kbS.note)){_kbS.note=null;_kbS.edit=false;}
+  // FIX: always reset note when selecting a folder from the sidebar
+  // so the folder note list always shows, not the previous note
+  _kbS.note=null;_kbS.edit=false;
   _kbRS();_kbRNL();_kbRED();
 }
 function _kbON(cid,fid,nid){
@@ -16446,66 +16527,67 @@ function _kbEK(e){
   if(e.key==='Tab'){e.preventDefault();document.execCommand('insertText',false,'    ');}
   if(e.key==='Escape'){_kbFlush3();_kbS.edit=false;_kbRED();}
 
-  // ── Умное продолжение списков при Enter ──
-  if(e.key==='Enter'){
+  // ── Helper: get text of current line up to cursor ──────────────
+  function _curLineText(){
     const sel=window.getSelection();
-    if(!sel||!sel.rangeCount) return;
+    if(!sel||!sel.rangeCount) return '';
     const range=sel.getRangeAt(0);
-
-    // Надёжно получаем текст текущей строки до курсора
-    function getCurrentLineText(){
-      const container=range.startContainer;
-      if(container.nodeType===3){
-        // Текстовый узел — берём от начала до курсора
-        const fullText=container.textContent.slice(0,range.startOffset);
-        // Ищем последний перенос строки (br вызывает новый текстовый узел)
-        return fullText;
-      }
-      // Элемент — получаем текст из дочерних узлов до курсора
-      let text='';
-      for(let i=0;i<range.startOffset&&i<container.childNodes.length;i++){
-        const ch=container.childNodes[i];
-        if(ch.nodeName==='BR'){text='';}  // br = новая строка
-        else text+=ch.textContent||'';
-      }
-      return text;
+    const node=range.startContainer;
+    if(node.nodeType===3) return node.textContent.slice(0,range.startOffset);
+    let t='';
+    for(let i=0;i<range.startOffset&&i<node.childNodes.length;i++){
+      const ch=node.childNodes[i];
+      if(ch.nodeName==='BR') t=''; else t+=ch.textContent||'';
     }
+    return t;
+  }
 
-    const lineText = getCurrentLineText().trimEnd();
+  // ── ENTER key ──────────────────────────────────────────────────
+  if(e.key==='Enter'){
+    const lineText = _curLineText().trimEnd();
 
-    // 1. Нумерованный список — "1. " или "1. текст"
-    const numMatch = lineText.match(/^(\d+)\.\s(.*)$/);
-    if(numMatch){
-      const content = numMatch[2].trim();
-      if(content===''){
-        // Пустой пункт — выход из списка (убираем "N. " и делаем новый абзац)
-        e.preventDefault();
+    // 1. Нумерованный список "1. текст"
+    const numM = lineText.match(/^(\d+)\.\s+(.*)$/);
+    if(numM){
+      e.preventDefault();
+      if(numM[2].trim()===''){
+        // Пустой пункт → выход из списка
+        document.execCommand('selectAll',false);
+        const area=document.getElementById('kb3area');
+        // Удаляем только текущую строку "N. "
+        const sel2=window.getSelection();
+        const r2=sel2.getRangeAt(0).cloneRange();
+        r2.collapse(true);
+        // Move to start of "N. "
+        const n2=r2.startContainer;
+        if(n2.nodeType===3){
+          const off=r2.startOffset-(numM[0].length);
+          r2.setStart(n2,Math.max(0,off));
+          r2.setEnd(n2,r2.startOffset+numM[0].length+Math.max(0,off-r2.startOffset+numM[0].length));
+        }
+        sel2.removeAllRanges();sel2.addRange(r2);
         document.execCommand('insertHTML',false,'<br><br>');
       } else {
-        // Есть контент — продолжаем список без отступа
-        e.preventDefault();
-        const nextNum=parseInt(numMatch[1])+1;
-        document.execCommand('insertHTML',false,'<br>'+nextNum+'. ');
+        const next=parseInt(numM[1])+1;
+        document.execCommand('insertHTML',false,'<br>'+next+'. ');
       }
       return;
     }
 
-    // 2. Маркированный список — "- текст" / "• текст" / "* текст"
-    const bulletMatch = lineText.match(/^([-•*])\s(.*)$/);
-    if(bulletMatch){
-      const content = bulletMatch[2].trim();
-      if(content===''){
-        e.preventDefault();
+    // 2. Маркированный список "- / • / * текст"
+    const bulM = lineText.match(/^([-•*])\s+(.*)$/);
+    if(bulM){
+      e.preventDefault();
+      if(bulM[2].trim()===''){
         document.execCommand('insertHTML',false,'<br><br>');
       } else {
-        e.preventDefault();
-        document.execCommand('insertHTML',false,'<br>'+bulletMatch[1]+' ');
+        document.execCommand('insertHTML',false,'<br>'+bulM[1]+' ');
       }
       return;
     }
   }
 
-  // ── Авто-преобразование при пробеле ──
+  // ── SPACE key → auto-transform ─────────────────────────────────
   if(e.key===' '){
     const sel=window.getSelection();
     if(!sel||!sel.rangeCount) return;
@@ -16514,16 +16596,31 @@ function _kbEK(e){
     if(node.nodeType!==3) return;
     const text=node.textContent.slice(0,range.startOffset);
 
-    // "[] " → чекбокс
+    // "- " → bullet list (dash + space)
+    if(text==='-'){
+      e.preventDefault();
+      // Delete the dash
+      const r2=range.cloneRange();
+      r2.setStart(node,range.startOffset-1);
+      r2.setEnd(node,range.startOffset);
+      r2.deleteContents();
+      document.execCommand('insertHTML',false,'• ');
+      return;
+    }
+
+    // "[] " → todo checkbox
     if(text==='[]'){
       e.preventDefault();
       const id='todo_'+Date.now();
       document.execCommand('insertHTML',false,
-        '<label class="k3todo" contenteditable="false" style="display:flex;align-items:flex-start;gap:8px;margin:4px 0;cursor:pointer">'+
-        '<input type="checkbox" id="'+id+'" onchange="_kbTodoCh(this)" style="margin-top:3px;width:16px;height:16px;cursor:pointer;accent-color:var(--gold);flex-shrink:0">'+
-        '<span id="'+id+'_s" contenteditable="true" style="flex:1;outline:none;min-width:10px"> </span>'+
+        '<label class="k3todo" contenteditable="false" onclick="_kbTodoClick(this)">'+
+        '<input type="checkbox" id="'+id+'" style="display:none">'+
+        '<span id="'+id+'_s" contenteditable="true"> </span>'+
         '</label><br>');
-      setTimeout(()=>{const sp=document.getElementById(id+'_s');if(sp){sp.focus();const r=document.createRange();r.selectNodeContents(sp);r.collapse(false);const s=window.getSelection();s.removeAllRanges();s.addRange(r);}},10);
+      setTimeout(()=>{
+        const sp=document.getElementById(id+'_s');
+        if(sp){sp.focus();const r=document.createRange();r.selectNodeContents(sp);r.collapse(false);window.getSelection().removeAllRanges();window.getSelection().addRange(r);}
+      },10);
       return;
     }
   }
@@ -16561,20 +16658,33 @@ function _kbInsTodo(){
   const id='todo_'+Date.now();
   document.getElementById('kb3area')?.focus();
   document.execCommand('insertHTML',false,
-    '<label class="k3todo" style="display:flex;align-items:flex-start;gap:9px;margin:5px 0;padding:4px 0;cursor:pointer">'+
-    '<input type="checkbox" id="'+id+'" onchange="_kbTodoCh(this)" style="margin-top:3px;width:17px;height:17px;cursor:pointer;accent-color:#F5C842;flex-shrink:0">'+
-    '<span contenteditable="true" id="'+id+'_s" style="flex:1;outline:none;min-width:20px"> </span>'+
+    '<label class="k3todo" contenteditable="false" onclick="_kbTodoClick(this)">'+
+    '<input type="checkbox" id="'+id+'" style="display:none">'+
+    '<span id="'+id+'_s" contenteditable="true"> </span>'+
     '</label><br>');
-  setTimeout(()=>{const sp=document.getElementById(id+'_s');if(sp){sp.focus();const r=document.createRange();r.selectNodeContents(sp);r.collapse(false);const s=window.getSelection();s.removeAllRanges();s.addRange(r);}},20);
+  setTimeout(()=>{
+    const sp=document.getElementById(id+'_s');
+    if(sp){sp.focus();const r=document.createRange();r.selectNodeContents(sp);r.collapse(false);window.getSelection().removeAllRanges();window.getSelection().addRange(r);}
+  },20);
   _kbEI();
 }
+// iOS-style todo: click anywhere on the row toggles done state
+window._kbTodoClick=function(lbl){
+  if(!lbl) return;
+  // Don't toggle if user clicked on the text span to edit
+  if(window.event && window.event.target && window.event.target.isContentEditable) return;
+  const cb=lbl.querySelector('input[type=checkbox]');
+  if(cb){
+    cb.checked=!cb.checked;
+    lbl.classList.toggle('done', cb.checked);
+    // Animate the circle
+    lbl.style.transition='all .15s';
+  }
+  _kbEI();
+};
 window._kbTodoCh=function(cb){
   const lbl=cb.closest('label');
-  if(lbl){
-    const sp=lbl.querySelector('span');
-    if(sp) sp.style.textDecoration=cb.checked?'line-through':'';
-    if(sp) sp.style.opacity=cb.checked?'.4':'1';
-  }
+  if(lbl) lbl.classList.toggle('done', cb.checked);
   _kbEI();
 };
 
