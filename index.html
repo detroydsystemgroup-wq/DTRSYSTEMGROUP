@@ -1546,7 +1546,7 @@ body { transition:background .28s,color .28s; }
 .ai:active { transform:scale(.95); }
 .ach2 { transition:transform .2s,box-shadow .2s,border-color .2s,filter .2s; }
 .ach2:hover { transform:translateY(-3px); box-shadow:0 6px 22px rgba(0,0,0,.14); }
-.ach2.unlocked .ach2-icon { animation:bounceIn .55s cubic-bezier(.34,1.56,.64,1) both; }
+/* .ach2.unlocked .ach2-icon bounceIn removed — too heavy for many cards */
 
 /* ── LEAGUE ROWS ── */
 .lg-row { transition:background .15s,transform .12s; }
@@ -2245,11 +2245,7 @@ button, a, [onclick], .stab, .mg-item, .cat-item, .csg-item, .mb, .cf-btn, .lg-r
 
 /* ══ STAGGERED REVEAL — cascade entrance ════════════════════ */
 /* Sessions list */
-.si:nth-child(1)  { animation-delay:.02s } .si:nth-child(2)  { animation-delay:.04s }
-.si:nth-child(3)  { animation-delay:.06s } .si:nth-child(4)  { animation-delay:.08s }
-.si:nth-child(5)  { animation-delay:.10s } .si:nth-child(6)  { animation-delay:.12s }
-.si:nth-child(7)  { animation-delay:.14s } .si:nth-child(8)  { animation-delay:.16s }
-.si:nth-child(9)  { animation-delay:.18s } .si:nth-child(10) { animation-delay:.20s }
+/* .si nth-child animation-delays removed — staggerList() handles timing */
 
 /* Conv list */
 .msg-conv:nth-child(1) { animation: fadeUp .22s .02s ease both; }
@@ -2469,7 +2465,7 @@ button, a, [onclick], .stab, .mg-item, .cat-item, .csg-item, .mb, .cf-btn, .lg-r
 
 /* Achievement item bounce */
 .ai:not(.locked):hover{box-shadow:0 6px 16px rgba(0,0,0,.3)!important;filter:brightness(1.1);}
-.ai{transition:all .2s cubic-bezier(.34,1.56,.64,1)!important;}
+.ai{transition:background .15s ease, border-color .15s ease !important;}
 
 /* ach2 full card hover */
 .ach2:hover{transform:translateY(-3px) scale(1.005)!important;box-shadow:0 10px 28px rgba(0,0,0,.15)!important;}
@@ -2528,7 +2524,7 @@ button, a, [onclick], .stab, .mg-item, .cat-item, .csg-item, .mb, .cf-btn, .lg-r
 .lg-row:nth-child(8){animation-delay:.23s}
 
 /* Floating up entrance */
-.kpi,.si,.ai,.ach2,.mg-item,.lg-row{animation:fadeUp .26s ease both;}
+.kpi,.mg-item,.lg-row{animation:fadeUp .26s ease both;}
 
 /* Online dot pulse */
 .online-dot{
@@ -12597,23 +12593,48 @@ function showTab(name,el,skipHistory){
   if(name==='activity'){
     renderSessions(true);
     setTimeout(()=>{
-      staggerList('.si', 28, 'row');
-      staggerList('[id^="sec_"]', 35, 'sec');
-    }, 50);
+      // Lightweight: opacity+translateX only, fast, capped at 20 items, no forced reflow loop
+      const siEls = Array.from(document.querySelectorAll('.si')).slice(0, 20);
+      siEls.forEach((el, i) => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateX(-8px)';
+      });
+      requestAnimationFrame(() => {
+        siEls.forEach((el, i) => {
+          el.style.transition = `opacity .2s ease ${i*18}ms, transform .22s cubic-bezier(.22,1,.36,1) ${i*18}ms`;
+          el.style.opacity = '1';
+          el.style.transform = 'translateX(0)';
+        });
+        setTimeout(() => siEls.forEach(el => { el.style.transition=''; el.style.transform=''; }), 600);
+      });
+    }, 40);
   }
   if(name==='achievements'){
     renderAchFull();
     setTimeout(()=>{
-      // Summary strip — slide down
+      // Summary strip — simple fade (no bounce)
       document.querySelectorAll('.ach-sum-strip,.ach-sum-block').forEach((el,i)=>{
-        el.style.animation='none'; void el.offsetHeight;
-        el.style.animation=`dtrSlideDown .28s ${i*40}ms cubic-bezier(.22,1,.36,1) both`;
+        el.style.opacity='0'; el.style.transform='translateY(-6px)';
       });
-      // Achievement cards — pop in with stagger
-      staggerList('.ach2', 40, 'pop');
-      // Progress bars inside ach cards
+      requestAnimationFrame(()=>{
+        document.querySelectorAll('.ach-sum-strip,.ach-sum-block').forEach((el,i)=>{
+          el.style.transition=`opacity .22s ease ${i*30}ms, transform .24s cubic-bezier(.22,1,.36,1) ${i*30}ms`;
+          el.style.opacity='1'; el.style.transform='translateY(0)';
+        });
+      });
+      // Achievement cards — lightweight fade+scale, capped at 20, no forced reflow
+      const achEls = Array.from(document.querySelectorAll('.ach2')).slice(0, 20);
+      achEls.forEach(el => { el.style.opacity='0'; el.style.transform='scale(0.96) translateY(8px)'; });
+      requestAnimationFrame(()=>{
+        achEls.forEach((el,i)=>{
+          el.style.transition=`opacity .22s ease ${i*12}ms, transform .24s cubic-bezier(.22,1,.36,1) ${i*12}ms`;
+          el.style.opacity='1'; el.style.transform='scale(1) translateY(0)';
+        });
+        setTimeout(()=> achEls.forEach(el=>{ el.style.transition=''; el.style.transform=''; }), 500);
+      });
+      // Progress bars
       animateBars('.ach2-prog-fill', 200);
-    }, 50);
+    }, 40);
   }
   if(name==='leagues'){
     renderLeagues();
@@ -23048,33 +23069,15 @@ window.renderCollabView=renderCollabView;
 }
 
 /* ════════════════════════════════════════════════════
-   ACHIEVEMENT CARDS
+   ACHIEVEMENT CARDS — hover only, no entrance animation
 ════════════════════════════════════════════════════ */
 .ach2, .ai {
-  transition: transform .3s var(--ease-spring), box-shadow .28s ease, border-color .2s ease !important;
-  will-change: transform;
+  transition: transform .22s ease, box-shadow .2s ease, border-color .15s ease !important;
+  will-change: auto;
 }
 .ach2:hover, .ai:hover {
-  transform: translateY(-4px) scale(1.02) !important;
-  box-shadow: 0 10px 32px rgba(0,0,0,.4) !important;
-}
-/* Shimmer on locked achievement */
-.ach2.locked, .ai:not(.earned) {
-  position: relative;
-  overflow: hidden;
-}
-.ach2.locked::before, .ai:not(.earned)::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(105deg, transparent 38%, rgba(255,255,255,.025) 50%, transparent 62%);
-  transform: translateX(-120%);
-  animation: dtrLockedShimmer 4s ease-in-out infinite;
-  pointer-events: none;
-}
-@keyframes dtrLockedShimmer {
-  0%,100% { transform: translateX(-120%); }
-  50%     { transform: translateX(120%); }
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(0,0,0,.35) !important;
 }
 
 /* ════════════════════════════════════════════════════
@@ -23326,12 +23329,10 @@ window.renderCollabView=renderCollabView;
 /* ════════════════════════════════════════════════════
    COLLAB HABITS — Entrance
 ════════════════════════════════════════════════════ */
-.hm-cell, .si {
+.hm-cell {
   transition: transform .25s var(--ease-spring), box-shadow .22s ease !important;
 }
-.hm-cell:hover, .si:hover {
-  transform: scale(1.06) !important;
-}
+.hm-cell:hover { transform: scale(1.06) !important; }
 
 /* ════════════════════════════════════════════════════
    SUNDAY BANNER — Dramatic entrance (only when open)
@@ -23558,20 +23559,8 @@ window.renderCollabView=renderCollabView;
       stagger('.rec-card, .rec-item', { baseDelay: 80, step: 50, duration: 340, fromY: 12, scale: 0.96 });
     }, 620);
 
-    // Phase 5: sidebar cards (750ms)
-    setTimeout(() => {
-      [lgMini, achMini, sessList, dailyCard].forEach((el, i) => {
-        if (!el) return;
-        const parent = el.closest('.card') || el;
-        parent.style.opacity = '0';
-        parent.style.transform = 'translateY(12px)';
-        setTimeout(() => {
-          parent.style.transition = `opacity .4s ${EASE.expo}, transform .4s ${EASE.spring}`;
-          parent.style.opacity = '1';
-          parent.style.transform = 'translateY(0)';
-        }, i * 80);
-      });
-    }, 750);
+    // Phase 5: sidebar cards — appear instantly, no stagger (no jump on refresh)
+    // achMini (Зал Славы) stays static — no animation per user request
 
     // Section headers
     setTimeout(() => {
@@ -23786,7 +23775,7 @@ window.renderCollabView=renderCollabView;
   ════════════════════════════════════════════ */
   function initScrollReveal() {
     if (!window.IntersectionObserver) return;
-    const selectors = '.ach2,.ai,.mg-item,.cat-item,.insight-card,.rec-card,.rec-item,.csg-item';
+    const selectors = '.mg-item,.cat-item,.insight-card,.rec-card,.rec-item,.csg-item'; // .ach2/.ai removed — staggerList handles them
     const io = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
