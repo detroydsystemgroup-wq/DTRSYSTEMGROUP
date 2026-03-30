@@ -18863,18 +18863,21 @@ function _lrnInjectCSS(){
   overflow:hidden;
 }
 .lrn-row{
-  display:flex;
-  flex-wrap:nowrap;
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
   gap:12px;
 }
-.lrn-row .lrn-card,
-.lrn-row .lrn-add-card{
+/* Remove flex-specific sizing - grid handles it */
+.lrn-row .lrn-card{
   flex:0 0 var(--lrn-cw,200px);
   width:var(--lrn-cw,200px);
 }
+@media(max-width:900px){
+  .lrn-row{ grid-template-columns:repeat(3,1fr); }
+}
 @media(max-width:600px){
   .lrn-row-wrap{ padding:12px 12px 14px; }
-  .lrn-row{ gap:8px; }
+  .lrn-row{ grid-template-columns:repeat(2,1fr); gap:8px; }
   .lrn-card-acts{ opacity:1 !important; transform:none !important; }
 }
 
@@ -19389,31 +19392,24 @@ function _lrnRenderMain(){
                 </div>`;
             }).join('')}
 
-            <button class="lrn-add-card" onclick="lrnAddLink('${cat.id}')">
-              <div class="lrn-add-card-icon">${svgPlus}</div>
-              <span>Добавить</span>
-            </button>
-
           </div>
+        </div>
+
+        <!-- Add button OUTSIDE the row — won't shift card sizes -->
+        <div style="padding:0 18px 16px">
+          <button class="lrn-add-card" onclick="lrnAddLink('${cat.id}')" style="width:100%">
+            <div class="lrn-add-card-icon">${svgPlus}</div>
+            <span>Добавить материал</span>
+          </button>
         </div>
       </div>`;
     }).join('')}
   `;
 }
 
-// ── Size cards so exactly 4 fit in view ──────────────────────
-function _lrnSizeCards(){
-  document.querySelectorAll('.lrn-row-wrap').forEach(function(wrap){
-    const available = wrap.clientWidth - 36; // subtract left+right padding (18+18)
-    if(available <= 0) return;
-    const cardW = Math.floor((available - 12 * 3) / 4); // 3 gaps between 4 cards
-    wrap.querySelectorAll('.lrn-row').forEach(function(row){
-      row.style.setProperty('--lrn-cw', Math.max(cardW, 160) + 'px');
-    });
-  });
-}
-// Recalculate on window resize
-window.addEventListener('resize', function(){ if(document.getElementById('lrn-wrap')) _lrnSizeCards(); });
+// ── Size cards: handled by CSS grid (repeat(4,1fr)) — no JS needed ──
+function _lrnSizeCards(){ /* no-op: CSS grid handles layout */ }
+
 
 // ── Full page init (runs once) ────────────────────────────────
 function renderLearnTab(){
