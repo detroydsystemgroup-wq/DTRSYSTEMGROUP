@@ -8821,6 +8821,22 @@ async function loadUser(userId){
   // Call renderHeroZone() FIRST directly
   if(typeof renderHeroZone === 'function') renderHeroZone();
   renderAll();
+  // ── WOW Dashboard entrance — triggered once real data is painted ──
+  if(typeof window._dtrDashEntered !== 'undefined') window._dtrDashEntered = false;
+  setTimeout(()=>{
+    if(typeof DTROrchestrate === 'function') DTROrchestrate();
+    // Pulse gold border on hero zone for ~1.2s then settle
+    const hz = document.getElementById('dashHeroZone');
+    if(hz){
+      hz.style.transition='border-color .6s ease, box-shadow .6s ease';
+      hz.style.borderColor='rgba(245,200,66,.35)';
+      hz.style.boxShadow='0 0 0 1px rgba(245,200,66,.12), 0 8px 40px rgba(245,200,66,.08)';
+      setTimeout(()=>{
+        hz.style.borderColor='';
+        hz.style.boxShadow='';
+      }, 1400);
+    }
+  }, 200);
   setTimeout(showLeagueHero, 800);
   setTimeout(checkSundayBanner, 1500);
 
@@ -12626,7 +12642,10 @@ function showToast(msg,icon='✅',isAch=false,sub=''){
   if(tBox) tBox.style.background=TOAST_COLORS[icon]||'rgba(245,200,66,.1)';
   if(tSub){ if(sub){tSub.textContent=sub;tSub.style.display='block';}else{tSub.style.display='none';} }
   t.className='toast show'+(isAch?' ach':'');
-  toastTmr=setTimeout(()=>t.classList.remove('show'),3200);
+  toastTmr=setTimeout(()=>{
+    t.style.animation='dtrToastOut .26s cubic-bezier(0.42,0,0.58,1) both';
+    setTimeout(()=>{t.classList.remove('show');t.style.animation='';},260);
+  },3100);
 }
 
 // ══ TABS ════════════════════════════════════════════════════
@@ -22751,5 +22770,1273 @@ window.showTab=function(t,btn,skip){
 };
 
 window.renderCollabView=renderCollabView;
+})();
+</script>
+
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   DTR ULTRA MOTION SYSTEM v4.0 — Apple-grade animation layer
+   Принципы: только transform+opacity (GPU), spring физика,
+   stagger cascade, purposeful motion, zero jank.
+   Инжект поверх существующей системы — только расширяет.
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Extended easing tokens ── */
+:root {
+  --ease-spring:   cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-expo:     cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-quart:    cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-back:     cubic-bezier(0.34, 1.4,  0.64, 1);
+  --ease-smooth:   cubic-bezier(0.42, 0, 0.58, 1);
+  --t-fast: 180ms;
+  --t-med:  320ms;
+  --t-slow: 520ms;
+}
+
+/* ════════════════════════════════════════════════════
+   DASHBOARD HERO ZONE — WOW ENTRANCE + AMBIENT
+════════════════════════════════════════════════════ */
+#dashHeroZone {
+  position: relative;
+  overflow: hidden;
+  transition: border-color .4s ease, box-shadow .4s ease !important;
+}
+/* Ambient glow orb — left */
+#dashHeroZone::before {
+  content: '';
+  position: absolute;
+  width: 280px; height: 280px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(245,200,66,.09) 0%, transparent 70%);
+  top: -80px; left: -50px;
+  animation: dtrHeroOrb 9s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+  will-change: transform;
+}
+/* Ambient glow orb — right (blue) */
+#dashHeroZone::after {
+  content: '';
+  position: absolute;
+  width: 200px; height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(26,159,255,.06) 0%, transparent 70%);
+  bottom: -60px; right: 10px;
+  animation: dtrHeroOrb 12s ease-in-out infinite reverse;
+  pointer-events: none;
+  z-index: 0;
+  will-change: transform;
+}
+#dashHeroZone > * { position: relative; z-index: 1; }
+
+@keyframes dtrHeroOrb {
+  0%,100% { transform: translate(0, 0) scale(1); }
+  33%     { transform: translate(18px, -14px) scale(1.08); }
+  66%     { transform: translate(-8px, 10px) scale(0.94); }
+}
+
+/* Hero enters with dramatic scale+blur */
+@keyframes dtrHeroWow {
+  0%   { opacity: 0; transform: translateY(22px) scale(0.96); filter: blur(8px); }
+  60%  { filter: blur(0); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+/* Stat numbers reveal — slide up from below */
+@keyframes dtrStatReveal {
+  from { opacity: 0; transform: translateY(14px); filter: blur(4px); }
+  to   { opacity: 1; transform: translateY(0);    filter: blur(0);   }
+}
+/* KPI card cascades in with spring */
+@keyframes dtrKpiCascade {
+  0%   { opacity: 0; transform: translateY(20px) scale(0.93); }
+  65%  { transform: translateY(-3px) scale(1.01); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+/* Chart section fades up */
+@keyframes dtrChartIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* Category item slides in from left */
+@keyframes dtrCatSlide {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+/* League row cascades left */
+@keyframes dtrLeagueRow {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+/* Section header sweeps in */
+@keyframes dtrSecHeader {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+/* Insight card pops */
+@keyframes dtrInsightPop {
+  0%   { opacity: 0; transform: scale(0.88) translateY(10px); }
+  65%  { transform: scale(1.02) translateY(-1px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ── Dashboard section header styling ── */
+[id^="sec_"] {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: .1em !important;
+  text-transform: uppercase !important;
+  color: var(--t3) !important;
+  padding: 22px 0 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  animation: dtrSecHeader .3s var(--ease-expo) both;
+}
+
+/* ════════════════════════════════════════════════════
+   TAB TRANSITION — Upgraded to Apple fluid
+════════════════════════════════════════════════════ */
+/* Override existing dtrTabIn with richer animation */
+@keyframes dtrTabIn {
+  0%   { opacity: 0; transform: translateY(20px) scale(0.985); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.tc.active {
+  animation: dtrTabIn .35s var(--ease-expo) both !important;
+}
+
+/* ════════════════════════════════════════════════════
+   CARD — Apple-style lift with gold micro-border
+════════════════════════════════════════════════════ */
+.card {
+  transition:
+    transform .32s var(--ease-spring),
+    box-shadow .32s ease,
+    border-color .25s ease !important;
+  will-change: transform;
+}
+.card:hover {
+  transform: translateY(-3px) !important;
+  box-shadow:
+    0 12px 40px rgba(0,0,0,.55),
+    0 2px 8px rgba(0,0,0,.35),
+    0 0 0 0.5px rgba(245,200,66,.07) !important;
+}
+
+/* ════════════════════════════════════════════════════
+   KPI CARDS — 3D perspective tilt (JS-driven) + glow
+════════════════════════════════════════════════════ */
+.kpi {
+  transition:
+    transform .25s var(--ease-quart),
+    box-shadow .25s ease,
+    border-color .2s ease !important;
+  cursor: default;
+  will-change: transform;
+}
+.kpi:hover {
+  box-shadow: 0 14px 44px rgba(0,0,0,.55), 0 4px 14px rgba(0,0,0,.35) !important;
+  border-color: rgba(245,200,66,.18) !important;
+}
+
+/* ════════════════════════════════════════════════════
+   BUTTONS — Ripple + Shimmer + Spring
+════════════════════════════════════════════════════ */
+.btn-auth, .btn-cs, .lh-btn-go {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+/* Shimmer sweep on gold buttons */
+.btn-auth::after, .btn-cs::after, .lh-btn-go::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 38%,
+    rgba(255,255,255,.16) 50%,
+    transparent 62%
+  );
+  transform: translateX(-120%);
+  transition: transform .55s ease;
+  pointer-events: none;
+  border-radius: inherit;
+}
+.btn-auth:hover::after, .btn-cs:hover::after, .lh-btn-go:hover::after {
+  transform: translateX(120%);
+}
+/* Ripple element (injected by JS) */
+.dtr-ripple {
+  position: absolute;
+  border-radius: 50%;
+  transform: scale(0);
+  animation: dtrRippleAnim .55s var(--ease-expo) forwards;
+  background: rgba(255,255,255,.22);
+  pointer-events: none;
+  z-index: 10;
+}
+@keyframes dtrRippleAnim {
+  to { transform: scale(4.5); opacity: 0; }
+}
+/* Press feedback */
+.btn-auth:active, .btn-cs:active, .lh-btn-go:active {
+  transform: scale(0.97) translateY(0) !important;
+  transition: transform .08s ease !important;
+}
+.btn-ol:active, .btn-demo:active {
+  transform: scale(0.97) !important;
+  transition: transform .08s ease !important;
+}
+
+/* Gold primary pulse ambient */
+.btn-auth, .nb-p {
+  box-shadow: 0 4px 20px rgba(245,200,66,.25);
+  transition: box-shadow .3s ease, transform .25s var(--ease-spring), background .2s ease !important;
+}
+.btn-auth:hover, .nb-p:hover {
+  box-shadow: 0 6px 28px rgba(245,200,66,.45) !important;
+}
+
+/* ════════════════════════════════════════════════════
+   NAV TABS (stab) — Fluid pill indicator + icon spring
+════════════════════════════════════════════════════ */
+.stab {
+  position: relative;
+  overflow: visible;
+}
+/* Active indicator — gold underline */
+.stab::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 50%;
+  width: 0; height: 2.5px;
+  background: linear-gradient(90deg, var(--gold-d), var(--gold), var(--gold-l));
+  border-radius: 2px 2px 0 0;
+  transform: translateX(-50%);
+  transition: width .32s var(--ease-spring);
+  pointer-events: none;
+}
+.stab.active::after { width: 55%; }
+/* Icon spring on active */
+.stab .tab-icon-wrap {
+  transition: transform .28s var(--ease-spring), color .2s ease !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.stab:hover .tab-icon-wrap { transform: scale(1.18) translateY(-1px); }
+.stab.active .tab-icon-wrap { transform: scale(1.06) translateY(-1px); }
+
+/* ════════════════════════════════════════════════════
+   MODAL — Spring entrance / exit
+════════════════════════════════════════════════════ */
+@keyframes dtrModalIn {
+  0%   { opacity: 0; transform: scale(0.88) translateY(28px); filter: blur(6px); }
+  65%  { filter: blur(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+}
+@keyframes dtrModalOut {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to   { opacity: 0; transform: scale(0.94) translateY(12px); }
+}
+@keyframes dtrOverlayIn {
+  from { opacity: 0; backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
+  to   { opacity: 1; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+}
+.ov {
+  animation: dtrOverlayIn .3s ease both;
+}
+.modal,
+.sess-modal,
+.up-modal {
+  animation: dtrModalIn .44s var(--ease-spring) both !important;
+}
+/* For close — JS adds .dtr-modal-out class */
+.dtr-modal-out {
+  animation: dtrModalOut .22s ease both !important;
+}
+
+/* ════════════════════════════════════════════════════
+   TOAST — Premium notification redesign
+════════════════════════════════════════════════════ */
+.toast {
+  /* Enhanced spring entrance from bottom-right */
+  transition: none !important;
+  border-radius: 14px !important;
+  border: 0.5px solid rgba(245,200,66,.18) !important;
+  box-shadow:
+    0 4px 32px rgba(0,0,0,.55),
+    0 0 0 0.5px rgba(255,255,255,.04),
+    inset 0 1px 0 rgba(255,255,255,.04) !important;
+}
+.toast.show {
+  animation: dtrToastIn .44s var(--ease-spring) both !important;
+}
+/* Override to hidden: smooth exit */
+.toast:not(.show) {
+  animation: dtrToastOut .26s var(--ease-smooth) both !important;
+}
+@keyframes dtrToastIn {
+  0%   { opacity: 0; transform: translateY(28px) scale(0.88); filter: blur(6px); }
+  65%  { filter: blur(0); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+@keyframes dtrToastOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(14px) scale(0.94); }
+}
+/* Animated progress bar inside toast */
+.dtr-toast-progress {
+  position: absolute;
+  bottom: 0; left: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--gold-d), var(--gold), var(--gold-l));
+  border-radius: 0 0 14px 14px;
+  animation: dtrToastProgress 3.1s linear both;
+}
+@keyframes dtrToastProgress {
+  from { width: 100%; opacity: 1; }
+  to   { width: 0%;   opacity: 0.4; }
+}
+/* Ach toast — gold glow */
+.toast.ach {
+  border-color: rgba(245,200,66,.4) !important;
+  box-shadow:
+    0 4px 32px rgba(0,0,0,.55),
+    0 0 24px rgba(245,200,66,.12) !important;
+}
+
+/* ════════════════════════════════════════════════════
+   PROGRESS BARS — Glow edge + shimmer
+════════════════════════════════════════════════════ */
+#dailyProgressBar {
+  position: relative;
+  transition: width 1.3s var(--ease-expo) !important;
+  box-shadow: 0 0 10px rgba(245,200,66,.5), 0 0 3px rgba(245,200,66,.7);
+}
+.xp-fill {
+  box-shadow: 0 0 8px rgba(245,200,66,.35);
+  transition: width 1.4s var(--ease-expo) !important;
+}
+/* Shimmer on fill bars */
+.insight-bar-fill,
+.ci-bar,
+.lr-bar {
+  position: relative;
+  overflow: hidden;
+}
+.insight-bar-fill::after,
+.ci-bar::after {
+  content: '';
+  position: absolute;
+  top: 0; right: -20px;
+  width: 20px; height: 100%;
+  background: rgba(255,255,255,.4);
+  filter: blur(3px);
+  border-radius: 2px;
+  animation: dtrBarEdge 2.2s ease-in-out infinite;
+}
+@keyframes dtrBarEdge {
+  0%,100% { opacity: 0; }
+  40%,60% { opacity: 1; }
+}
+
+/* ════════════════════════════════════════════════════
+   LEAGUE ROWS — Spring slide
+════════════════════════════════════════════════════ */
+.lg-row {
+  transition:
+    background .18s ease,
+    transform .28s var(--ease-spring),
+    border-left-color .2s ease !important;
+  will-change: transform;
+}
+.lg-row:hover { transform: translateX(7px) !important; }
+.lg-row.me {
+  border-left: 2.5px solid rgba(245,200,66,.6) !important;
+  background: rgba(245,200,66,.04) !important;
+}
+
+/* ════════════════════════════════════════════════════
+   CATEGORY ITEMS — Hover lift
+════════════════════════════════════════════════════ */
+.cat-item {
+  transition: all .28s var(--ease-spring) !important;
+  will-change: transform;
+}
+.cat-item:hover {
+  transform: translateX(5px) !important;
+  background: var(--hover) !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,.3) !important;
+}
+
+/* ════════════════════════════════════════════════════
+   MANAGE GRID ITEMS — 3D card hover
+════════════════════════════════════════════════════ */
+.mg-item {
+  transition: transform .3s var(--ease-spring), box-shadow .28s ease, border-color .22s ease !important;
+  will-change: transform;
+}
+.mg-item:hover {
+  transform: translateY(-4px) scale(1.015) !important;
+  box-shadow: 0 10px 32px rgba(0,0,0,.45) !important;
+}
+.mg-item.on {
+  border-color: rgba(245,200,66,.6) !important;
+  box-shadow: 0 0 0 1px rgba(245,200,66,.15), 0 6px 24px rgba(0,0,0,.35) !important;
+}
+
+/* ════════════════════════════════════════════════════
+   ACHIEVEMENT CARDS
+════════════════════════════════════════════════════ */
+.ach2, .ai {
+  transition: transform .3s var(--ease-spring), box-shadow .28s ease, border-color .2s ease !important;
+  will-change: transform;
+}
+.ach2:hover, .ai:hover {
+  transform: translateY(-4px) scale(1.02) !important;
+  box-shadow: 0 10px 32px rgba(0,0,0,.4) !important;
+}
+/* Shimmer on locked achievement */
+.ach2.locked, .ai:not(.earned) {
+  position: relative;
+  overflow: hidden;
+}
+.ach2.locked::before, .ai:not(.earned)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 38%, rgba(255,255,255,.025) 50%, transparent 62%);
+  transform: translateX(-120%);
+  animation: dtrLockedShimmer 4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes dtrLockedShimmer {
+  0%,100% { transform: translateX(-120%); }
+  50%     { transform: translateX(120%); }
+}
+
+/* ════════════════════════════════════════════════════
+   TIMER — Breathing glow when active
+════════════════════════════════════════════════════ */
+.t-disp.run {
+  animation: dtrTimerBreath 2.2s ease-in-out infinite !important;
+}
+@keyframes dtrTimerBreath {
+  0%,100% {
+    text-shadow: 0 0 20px rgba(245,200,66,.3), 0 0 60px rgba(245,200,66,.08);
+    transform: scale(1);
+  }
+  50% {
+    text-shadow: 0 0 40px rgba(245,200,66,.7), 0 0 100px rgba(245,200,66,.2);
+    transform: scale(1.008);
+  }
+}
+/* Timer digit tick — JS adds/removes class */
+.t-disp .dtr-tick {
+  display: inline-block;
+  animation: dtrDigitTick .14s var(--ease-spring) both;
+}
+@keyframes dtrDigitTick {
+  0%  { transform: translateY(-4px) scaleY(1.1); opacity: 0.6; }
+  100%{ transform: translateY(0) scaleY(1); opacity: 1; }
+}
+
+/* ════════════════════════════════════════════════════
+   CATEGORY SELECTION (csg) — Rich micro-interactions
+════════════════════════════════════════════════════ */
+.csg-item {
+  transition: transform .32s var(--ease-spring), box-shadow .28s ease, border-color .22s ease !important;
+  will-change: transform;
+}
+.csg-item:hover {
+  transform: translateY(-4px) scale(1.01) !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,.4) !important;
+}
+.csg-item.sel {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 22px rgba(0,0,0,.35) !important;
+}
+.csg-emo {
+  display: inline-block;
+  transition: transform .3s var(--ease-spring);
+}
+.csg-item:hover .csg-emo {
+  transform: scale(1.2) rotate(-8deg) translateY(-2px);
+}
+.csg-item.sel .csg-emo {
+  transform: scale(1.1) rotate(-4deg);
+}
+
+/* ════════════════════════════════════════════════════
+   INPUT FIELDS — Apple-precision focus ring
+════════════════════════════════════════════════════ */
+.fi {
+  transition: border-color .22s ease, box-shadow .32s var(--ease-spring), background .2s ease !important;
+}
+.fi:focus {
+  border-color: rgba(245,200,66,.55) !important;
+  box-shadow: 0 0 0 4px rgba(245,200,66,.07), 0 1px 4px rgba(0,0,0,.3) !important;
+  background: rgba(22,22,26,.98) !important;
+}
+
+/* ════════════════════════════════════════════════════
+   SEGMENT CONTROLS — Active pill glow
+════════════════════════════════════════════════════ */
+.seg-btn {
+  transition: color .2s ease, background .22s ease, box-shadow .25s ease !important;
+}
+.seg-btn.active {
+  background: var(--gold) !important;
+  color: #0A0A0B !important;
+  box-shadow: 0 2px 14px rgba(245,200,66,.35) !important;
+  transform: none !important;
+}
+
+/* ════════════════════════════════════════════════════
+   ARENA MODE BUTTONS — Spring active
+════════════════════════════════════════════════════ */
+.arena-mode-btn {
+  transition: all .28s var(--ease-spring) !important;
+}
+.arena-mode-btn:hover { transform: translateY(-1px) !important; }
+.arena-mode-btn.active { transform: translateY(-1px) !important; }
+
+/* ════════════════════════════════════════════════════
+   NAV GLASSMORPHISM — Depth-enhanced
+════════════════════════════════════════════════════ */
+.nav {
+  background: rgba(9,9,11,.88) !important;
+  backdrop-filter: blur(40px) saturate(220%) brightness(1.04) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(220%) brightness(1.04) !important;
+  border-bottom: 0.5px solid rgba(245,200,66,.1) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.02), 0 4px 24px rgba(0,0,0,.45) !important;
+}
+/* Logo entrance */
+.nav-logo {
+  transition: opacity .2s ease !important;
+}
+.nav-logo:hover { opacity: 0.82 !important; }
+
+/* ════════════════════════════════════════════════════
+   ONBOARDING — Orchestrated entrance
+════════════════════════════════════════════════════ */
+@keyframes dtrBannerWrapIn {
+  from { opacity: 0; transform: translateY(28px) scale(0.97); filter: blur(6px); }
+  to   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+@keyframes dtrAuthBoxIn {
+  from { opacity: 0; transform: translateY(32px) scale(0.95); filter: blur(8px); }
+  to   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+.dtr-banner-enter { animation: dtrBannerWrapIn .65s var(--ease-spring) .05s both; }
+.dtr-auth-enter   { animation: dtrAuthBoxIn   .65s var(--ease-spring) .2s  both; }
+
+/* ════════════════════════════════════════════════════
+   AMBIENT FLOATING PARTICLES (hero zone)
+════════════════════════════════════════════════════ */
+.dtr-particle {
+  position: absolute;
+  width: 2.5px; height: 2.5px;
+  border-radius: 50%;
+  background: var(--gold);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation: dtrParticleFloat linear infinite;
+}
+@keyframes dtrParticleFloat {
+  0%   { opacity: 0; transform: translateY(0) translateX(0) scale(1); }
+  10%  { opacity: 0.7; }
+  85%  { opacity: 0.25; }
+  100% { opacity: 0; transform: translateY(-90px) translateX(var(--drift, 18px)) scale(0.5); }
+}
+
+/* ════════════════════════════════════════════════════
+   MOTIVATIONAL BANNER
+════════════════════════════════════════════════════ */
+.mot-banner {
+  animation: dtrMotIn .55s var(--ease-spring) .15s both;
+}
+@keyframes dtrMotIn {
+  from { opacity: 0; transform: translateX(-18px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ════════════════════════════════════════════════════
+   PROFILE HEADER — Cinematic reveal
+════════════════════════════════════════════════════ */
+.ph-cover {
+  animation: dtrCoverReveal .8s var(--ease-expo) both;
+}
+@keyframes dtrCoverReveal {
+  from { opacity: 0; filter: blur(10px) brightness(0.4); }
+  60%  { filter: blur(2px) brightness(0.8); }
+  to   { opacity: 1; filter: blur(0) brightness(1); }
+}
+.ph-stat {
+  animation: dtrStatPop .4s var(--ease-spring) both;
+}
+.ph-stat:nth-child(1) { animation-delay: .12s; }
+.ph-stat:nth-child(2) { animation-delay: .22s; }
+.ph-stat:nth-child(3) { animation-delay: .32s; }
+@keyframes dtrStatPop {
+  from { opacity: 0; transform: translateY(12px) scale(0.88); }
+  65%  { transform: translateY(-2px) scale(1.02); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ════════════════════════════════════════════════════
+   SKELETON LOADING — Shimmer effect
+════════════════════════════════════════════════════ */
+.dtr-skel {
+  background: linear-gradient(90deg,
+    var(--card) 25%,
+    var(--hover) 50%,
+    var(--card) 75%
+  );
+  background-size: 300% 100%;
+  animation: dtrSkelShimmer 1.6s ease-in-out infinite;
+  border-radius: 8px;
+}
+@keyframes dtrSkelShimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+/* ════════════════════════════════════════════════════
+   SCROLL REVEAL — IntersectionObserver helper
+════════════════════════════════════════════════════ */
+.dtr-will-reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity .5s var(--ease-expo), transform .5s var(--ease-spring);
+}
+.dtr-will-reveal.dtr-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ════════════════════════════════════════════════════
+   NOTIFICATION BADGE — Pop in
+════════════════════════════════════════════════════ */
+#msgTabBadge, #socialTabBadge {
+  animation: dtrBadgePop .45s var(--ease-spring) both;
+}
+@keyframes dtrBadgePop {
+  from { transform: scale(0) rotate(-15deg); }
+  65%  { transform: scale(1.25) rotate(5deg); }
+  to   { transform: scale(1) rotate(0deg); }
+}
+
+/* ════════════════════════════════════════════════════
+   MESSAGE BUBBLES — Stagger reveal
+════════════════════════════════════════════════════ */
+.msg-bubble {
+  animation: dtrMsgIn .32s var(--ease-spring) both;
+}
+@keyframes dtrMsgIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ════════════════════════════════════════════════════
+   STAGGER UTILITIES (applied via JS data-attr)
+════════════════════════════════════════════════════ */
+[data-stagger="0"]  { animation-delay: 0ms; }
+[data-stagger="1"]  { animation-delay: 55ms; }
+[data-stagger="2"]  { animation-delay: 110ms; }
+[data-stagger="3"]  { animation-delay: 165ms; }
+[data-stagger="4"]  { animation-delay: 220ms; }
+[data-stagger="5"]  { animation-delay: 275ms; }
+[data-stagger="6"]  { animation-delay: 330ms; }
+[data-stagger="7"]  { animation-delay: 385ms; }
+
+/* ════════════════════════════════════════════════════
+   TIMER PANEL — Glow border when running
+════════════════════════════════════════════════════ */
+.timer-panel {
+  transition: border-color .5s ease, box-shadow .5s ease !important;
+}
+.timer-panel.running {
+  border-color: rgba(245,200,66,.3) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(245,200,66,.12),
+    0 0 0 0.5px rgba(245,200,66,.12),
+    0 0 30px rgba(245,200,66,.06) !important;
+}
+
+/* ════════════════════════════════════════════════════
+   COLLAB HABITS — Entrance
+════════════════════════════════════════════════════ */
+.hm-cell, .si {
+  transition: transform .25s var(--ease-spring), box-shadow .22s ease !important;
+}
+.hm-cell:hover, .si:hover {
+  transform: scale(1.06) !important;
+}
+
+/* ════════════════════════════════════════════════════
+   SUNDAY BANNER — Dramatic entrance
+════════════════════════════════════════════════════ */
+#sundayBanner .sw-card {
+  animation: dtrModalIn .5s var(--ease-spring) .1s both;
+}
+
+/* ════════════════════════════════════════════════════
+   USER PROFILE MODAL — Epic cover reveal
+════════════════════════════════════════════════════ */
+.up-cover {
+  animation: dtrCoverReveal .7s var(--ease-expo) both;
+}
+.up-modal {
+  animation: dtrModalIn .42s var(--ease-spring) both !important;
+}
+
+/* ════════════════════════════════════════════════════
+   REDUCED MOTION SAFETY
+════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+  }
+}
+</style>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   DTR ANIMATION ORCHESTRATOR v4.0 — Apple-grade motion engine
+   Принципы: RAF-based, GPU-only (transform+opacity), purposeful
+   stagger cascade, zero layout thrash, spring physics everywhere
+═══════════════════════════════════════════════════════════════ */
+(function DTRMotion() {
+  'use strict';
+
+  const raf = (fn) => requestAnimationFrame(fn);
+  const EASE = {
+    spring:  'cubic-bezier(0.34, 1.56, 0.64, 1)',
+    expo:    'cubic-bezier(0.16, 1, 0.3, 1)',
+    quart:   'cubic-bezier(0.25, 1, 0.5, 1)',
+    smooth:  'cubic-bezier(0.42, 0, 0.58, 1)',
+  };
+
+  /* ════════════════════════════════════════════
+     1. BUTTON RIPPLE — Global pointer handler
+  ════════════════════════════════════════════ */
+  document.addEventListener('pointerdown', (e) => {
+    const btn = e.target.closest(
+      '.btn-auth,.btn-cs,.lh-btn-go,.nb-p,.seg-btn,.btn-ol,.btn-demo,.t-sbtn,.arena-mode-btn'
+    );
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height) * 2.2;
+    const x = e.clientX - rect.left - size / 2;
+    const y = e.clientY - rect.top  - size / 2;
+    const r = document.createElement('span');
+    r.className = 'dtr-ripple';
+    Object.assign(r.style, {
+      width: size + 'px', height: size + 'px',
+      left: x + 'px',    top:  y + 'px',
+    });
+    btn.style.overflow = 'hidden';
+    btn.style.position = btn.style.position || 'relative';
+    btn.appendChild(r);
+    setTimeout(() => r.remove(), 600);
+  }, { passive: true });
+
+  /* ════════════════════════════════════════════
+     2. KPI CARD 3D TILT — Perspective physics
+  ════════════════════════════════════════════ */
+  function initKpiTilt(root) {
+    const target = root || document;
+    target.querySelectorAll('.kpi').forEach(card => {
+      if (card._tiltInit) return;
+      card._tiltInit = true;
+      card.addEventListener('mousemove', (e) => {
+        const r = card.getBoundingClientRect();
+        const dx = (e.clientX - (r.left + r.width  / 2)) / (r.width  / 2);
+        const dy = (e.clientY - (r.top  + r.height / 2)) / (r.height / 2);
+        card.style.transition = 'none';
+        card.style.transform =
+          `perspective(700px) rotateX(${-dy * 7}deg) rotateY(${dx * 7}deg) translateY(-3px)`;
+      });
+      card.addEventListener('mouseleave', () => {
+        card.style.transition = `transform .45s ${EASE.spring}`;
+        card.style.transform = 'perspective(700px) rotateX(0deg) rotateY(0deg) translateY(0px)';
+      });
+    });
+  }
+
+  /* ════════════════════════════════════════════
+     3. NUMBER COUNTER — Eased count-up
+  ════════════════════════════════════════════ */
+  function countUp(el, from, to, ms, decimals) {
+    if (!el || isNaN(to) || to === 0) return;
+    const start = performance.now();
+    const diff  = to - from;
+    const dec   = decimals ?? (to % 1 !== 0 ? 1 : 0);
+    function tick(now) {
+      const p = Math.min((now - start) / ms, 1);
+      const eased = 1 - Math.pow(2, -10 * p);           // ease-out-expo
+      el.textContent = (from + diff * eased).toFixed(dec);
+      if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  /* Observe hero stat elements and animate on first real value */
+  function watchHeroStats() {
+    const ids = ['heroTodayHrs','heroStreakVal','heroWeekHrs','heroTotalHrs','totDisp','dailyDoneLabel'];
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el || el._countObserved) return;
+      el._countObserved = true;
+      let triggered = false;
+      const obs = new MutationObserver(() => {
+        if (triggered) return;
+        const raw = parseFloat(el.textContent.replace(/[^0-9.]/g, ''));
+        if (!isNaN(raw) && raw > 0) {
+          triggered = true;
+          const stored = raw;
+          el.textContent = '0';
+          setTimeout(() => countUp(el, 0, stored, 900, null), 80);
+        }
+      });
+      obs.observe(el, { childList: true, characterData: true, subtree: true });
+    });
+  }
+
+  /* ════════════════════════════════════════════
+     4. STAGGER CASCADE — core utility
+  ════════════════════════════════════════════ */
+  function stagger(selector, { baseDelay = 0, step = 55, duration = 380,
+    fromX = 0, fromY = 16, scale = 0.95, root = document } = {}) {
+    const els = root.querySelectorAll(selector);
+    if (!els.length) return;
+    els.forEach((el, i) => {
+      const delay = baseDelay + i * step;
+      el.style.opacity = '0';
+      el.style.transform = `translate(${fromX}px, ${fromY}px) scale(${scale})`;
+      setTimeout(() => {
+        el.style.transition =
+          `opacity ${duration}ms ${EASE.expo}, transform ${duration}ms ${EASE.spring}`;
+        el.style.opacity = '1';
+        el.style.transform = 'translate(0,0) scale(1)';
+        setTimeout(() => {
+          el.style.transition = '';
+          el.style.transform  = '';
+        }, duration + delay + 50);
+      }, delay);
+    });
+  }
+
+  /* ════════════════════════════════════════════
+     5. DASHBOARD ENTRANCE ORCHESTRATOR
+  ════════════════════════════════════════════ */
+  let _dashEntered = false;
+
+  function orchestrateDashboard() {
+    if (_dashEntered) return;
+    _dashEntered = true;
+
+    const hero    = document.getElementById('dashHeroZone');
+    const kpiRow  = document.getElementById('kpiRow');
+    const chart   = document.querySelector('.bar-chart');
+    const cats    = document.getElementById('catBreakdown');
+    const insight = document.getElementById('insightRow');
+    const recs    = document.getElementById('recGrid');
+    const forecast= document.getElementById('forecastRow');
+    const mot     = document.getElementById('motBanner');
+    const lgMini  = document.getElementById('lgMini');
+    const achMini = document.getElementById('achMini');
+    const sessList= document.getElementById('sessList');
+    const dailyCard = document.querySelector('#dailyProgressBar')?.closest('.card');
+
+    // Phase 1: hero zone WOW (100ms)
+    if (hero) {
+      hero.style.opacity = '0';
+      hero.style.transform = 'translateY(22px) scale(0.96)';
+      hero.style.filter = 'blur(8px)';
+      setTimeout(() => {
+        hero.style.transition = `opacity .65s ${EASE.expo}, transform .65s ${EASE.spring}, filter .5s ease`;
+        hero.style.opacity = '1';
+        hero.style.transform = 'translateY(0) scale(1)';
+        hero.style.filter = 'blur(0)';
+        // Spawn particles after hero is visible
+        setTimeout(() => spawnParticles(hero, 7), 300);
+      }, 120);
+    }
+
+    // Phase 2: KPI row (stagger cascade, 280ms start)
+    setTimeout(() => {
+      stagger('.kpi', { baseDelay: 0, step: 65, duration: 400, fromY: 18, scale: 0.93 });
+      setTimeout(initKpiTilt, 600);
+    }, 280);
+
+    // Phase 3: chart + cat (450ms)
+    setTimeout(() => {
+      const chartWrap = chart ? chart.parentElement : null;
+      if (chartWrap) {
+        chartWrap.style.opacity = '0';
+        chartWrap.style.transform = 'translateY(14px)';
+        chartWrap.style.transition = `opacity .5s ${EASE.expo}, transform .5s ${EASE.spring}`;
+        raf(() => {
+          chartWrap.style.opacity = '1';
+          chartWrap.style.transform = 'translateY(0)';
+        });
+      }
+      stagger('.cat-item', { baseDelay: 60, step: 50, duration: 360, fromX: -12, fromY: 0, scale: 1 });
+    }, 450);
+
+    // Phase 4: insights + recs (620ms)
+    setTimeout(() => {
+      stagger('.insight-card, .ins-card, .kpi.insight', { baseDelay: 0, step: 60, duration: 360, fromY: 14, scale: 0.95 });
+      stagger('.rec-card, .rec-item', { baseDelay: 80, step: 50, duration: 340, fromY: 12, scale: 0.96 });
+    }, 620);
+
+    // Phase 5: sidebar cards (750ms)
+    setTimeout(() => {
+      [lgMini, achMini, sessList, dailyCard].forEach((el, i) => {
+        if (!el) return;
+        const parent = el.closest('.card') || el;
+        parent.style.opacity = '0';
+        parent.style.transform = 'translateY(12px)';
+        setTimeout(() => {
+          parent.style.transition = `opacity .4s ${EASE.expo}, transform .4s ${EASE.spring}`;
+          parent.style.opacity = '1';
+          parent.style.transform = 'translateY(0)';
+        }, i * 80);
+      });
+    }, 750);
+
+    // Section headers
+    setTimeout(() => {
+      document.querySelectorAll('[id^="sec_"]').forEach((el, i) => {
+        el.style.animationDelay = (i * 60) + 'ms';
+        el.classList.add('dtr-anim-sec');
+      });
+    }, 380);
+
+    // Animate progress bars after a beat
+    setTimeout(animateBars, 900);
+  }
+
+  // Expose globally so external code can reset + re-trigger
+  window.DTROrchestrate = orchestrateDashboard;
+  Object.defineProperty(window, '_dtrDashEntered', {
+    get: () => _dashEntered,
+    set: (v) => { _dashEntered = v; },
+    configurable: true,
+  });
+
+  /* ════════════════════════════════════════════
+     6. AMBIENT PARTICLES — hero zone
+  ════════════════════════════════════════════ */
+  function spawnParticles(container, count) {
+    if (!container || container._particlesInit) return;
+    container._particlesInit = true;
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('span');
+      p.className = 'dtr-particle';
+      const left   = 15 + Math.random() * 70;
+      const delay  = Math.random() * 5;
+      const dur    = 3.5 + Math.random() * 5;
+      const drift  = (Math.random() - 0.5) * 70;
+      const size   = 1.5 + Math.random() * 2;
+      Object.assign(p.style, {
+        left:             left + '%',
+        bottom:           (5 + Math.random() * 20) + '%',
+        '--drift':        drift + 'px',
+        animationDelay:   delay + 's',
+        animationDuration: dur + 's',
+        width:  size + 'px',
+        height: size + 'px',
+        opacity: '0',
+      });
+      container.style.position = 'relative';
+      container.appendChild(p);
+    }
+  }
+
+  /* ════════════════════════════════════════════
+     7. PROGRESS BAR ANIMATOR
+  ════════════════════════════════════════════ */
+  function animateBars() {
+    document.querySelectorAll('.ci-bar, .lr-bar, .cbd-bar').forEach((bar, i) => {
+      const target = bar.style.width || '0%';
+      if (!bar._animated) {
+        bar._animated = true;
+        bar.style.width = '0';
+        setTimeout(() => {
+          bar.style.transition = `width .7s ${EASE.expo}`;
+          bar.style.width = target;
+        }, i * 60);
+      }
+    });
+    // Chart bars scaleY
+    document.querySelectorAll('.bc-bar').forEach((bar, i) => {
+      if (!bar._animated) {
+        bar._animated = true;
+        const origH = bar.style.height;
+        bar.style.transformOrigin = 'bottom';
+        bar.style.transform = 'scaleY(0)';
+        setTimeout(() => {
+          bar.style.transition = `transform .55s ${EASE.spring}`;
+          bar.style.transform = 'scaleY(1)';
+        }, i * 45);
+      }
+    });
+  }
+
+  /* ════════════════════════════════════════════
+     8. LEAGUE ROWS STAGGER
+  ════════════════════════════════════════════ */
+  function staggerLeagueRows(root) {
+    const r = root || document;
+    const rows = r.querySelectorAll('.lg-row:not([data-staggered])');
+    rows.forEach((row, i) => {
+      row.setAttribute('data-staggered', '1');
+      row.style.opacity = '0';
+      row.style.transform = 'translateX(-14px)';
+      setTimeout(() => {
+        row.style.transition = `opacity .35s ${EASE.expo}, transform .35s ${EASE.spring}`;
+        row.style.opacity = '1';
+        row.style.transform = 'translateX(0)';
+      }, 40 + i * 42);
+    });
+  }
+
+  /* ════════════════════════════════════════════
+     9. TOAST ENHANCEMENT — Progress bar + spring
+  ════════════════════════════════════════════ */
+  const _origShowToast = window.showToast;
+  window.showToast = function(msg, icon, isAch, sub) {
+    if (_origShowToast) _origShowToast.call(this, msg, icon, isAch, sub);
+    // Add progress bar to toast after it shows
+    const toast = document.getElementById('toast');
+    if (!toast) return;
+    // Remove old progress bar if exists
+    const old = toast.querySelector('.dtr-toast-progress');
+    if (old) old.remove();
+    const bar = document.createElement('div');
+    bar.className = 'dtr-toast-progress';
+    toast.style.position = 'relative';
+    toast.appendChild(bar);
+  };
+
+  /* ════════════════════════════════════════════
+     10. TAB TRANSITION ENHANCER
+  ════════════════════════════════════════════ */
+  const _origShowTab = window.showTab;
+  window.showTab = function(name, el, skip) {
+    if (_origShowTab) _origShowTab.call(this, name, el, skip);
+
+    // Re-init tilt + run stagger for the activated tab
+    setTimeout(() => {
+      const pane = document.getElementById('tab-' + name);
+      if (!pane) return;
+      initKpiTilt(pane);
+      staggerLeagueRows(pane);
+
+      if (name === 'dash') {
+        _dashEntered = false;  // allow re-entrance on revisit
+        orchestrateDashboard();
+      }
+      if (name === 'leagues') {
+        staggerLeagueRows(pane);
+      }
+    }, 80);
+  };
+
+  /* ════════════════════════════════════════════
+     11. MutationObserver — Watch rendered content
+  ════════════════════════════════════════════ */
+  const _contentObserver = new MutationObserver((mutations) => {
+    let hasKpi = false, hasLg = false, hasBars = false;
+    mutations.forEach(m => {
+      m.addedNodes.forEach(node => {
+        if (!node.querySelector) return;
+        if (node.querySelector('.kpi') || node.classList?.contains('kpi')) hasKpi = true;
+        if (node.querySelector('.lg-row') || node.classList?.contains('lg-row')) hasLg = true;
+        if (node.querySelector('.ci-bar, .lr-bar, .bc-bar')) hasBars = true;
+        if (node.querySelector('.msg-bubble')) {
+          node.querySelectorAll('.msg-bubble').forEach((b, i) => {
+            b.style.animationDelay = (i * 40) + 'ms';
+          });
+        }
+      });
+    });
+    if (hasKpi) setTimeout(() => { stagger('.kpi:not([data-staggered])', { baseDelay:0, step:60, fromY:16, scale:0.94 }); setTimeout(initKpiTilt, 400); }, 30);
+    if (hasLg)  setTimeout(() => staggerLeagueRows(), 30);
+    if (hasBars) setTimeout(animateBars, 80);
+  });
+
+  /* ════════════════════════════════════════════
+     12. ONBOARDING — orchestrated entrance
+  ════════════════════════════════════════════ */
+  function initOnboarding() {
+    const onboard = document.getElementById('onboard');
+    if (!onboard || onboard._animated) return;
+    onboard._animated = true;
+    const bannerWrap = onboard.querySelector('.banner-wrap');
+    const authWrap   = onboard.querySelector('.auth-wrap');
+    if (bannerWrap) bannerWrap.classList.add('dtr-banner-enter');
+    if (authWrap)   authWrap.classList.add('dtr-auth-enter');
+  }
+
+  /* ════════════════════════════════════════════
+     13. TIMER PANEL — visual state enhancement
+  ════════════════════════════════════════════ */
+  function watchTimer() {
+    const panel  = document.querySelector('.timer-panel');
+    const display = document.getElementById('qDisp');
+    if (!display) return;
+
+    let last = '';
+    let isRunning = false;
+
+    const runObs = new MutationObserver(() => {
+      const nowRunning = display.classList.contains('run');
+      if (nowRunning !== isRunning) {
+        isRunning = nowRunning;
+        if (panel) panel.classList.toggle('running', isRunning);
+      }
+      // Digit tick on second change
+      const cur = display.textContent;
+      if (cur !== last) {
+        last = cur;
+        if (isRunning) {
+          display.style.transition = 'transform .08s ease';
+          display.style.transform  = 'scale(1.025)';
+          setTimeout(() => {
+            display.style.transform  = 'scale(1)';
+          }, 100);
+        }
+      }
+    });
+    runObs.observe(display, { childList: true, characterData: true, subtree: true, attributes: true });
+  }
+
+  /* ════════════════════════════════════════════
+     14. SCROLL REVEAL
+  ════════════════════════════════════════════ */
+  function initScrollReveal() {
+    if (!window.IntersectionObserver) return;
+    const selectors = '.ach2,.ai,.mg-item,.cat-item,.insight-card,.rec-card,.rec-item,.csg-item';
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const el = entry.target;
+          if (!el._revealed) {
+            el._revealed = true;
+            el.classList.add('dtr-will-reveal');
+            setTimeout(() => el.classList.add('dtr-revealed'), 40);
+          }
+          io.unobserve(el);
+        }
+      });
+    }, { threshold: 0.08, rootMargin: '0px 0px -20px 0px' });
+
+    document.querySelectorAll(selectors).forEach(el => {
+      if (!el._ioInit) { el._ioInit = true; io.observe(el); }
+    });
+  }
+
+  /* ════════════════════════════════════════════
+     15. PATCH: renderDash — trigger animations
+  ════════════════════════════════════════════ */
+  const _origRenderDash = window.renderDash;
+  window.renderDash = function() {
+    const result = _origRenderDash ? _origRenderDash.apply(this, arguments) : undefined;
+    setTimeout(() => {
+      initKpiTilt();
+      animateBars();
+      stagger('.cat-item', { baseDelay: 100, step: 45, fromX: -10, fromY: 0, scale: 1, duration: 350 });
+    }, 120);
+    return result;
+  };
+
+  /* ════════════════════════════════════════════
+     16. PATCH: renderLeagues — stagger rows
+  ════════════════════════════════════════════ */
+  const _origRenderLeagues = window.renderLeagues;
+  window.renderLeagues = function() {
+    const result = _origRenderLeagues ? _origRenderLeagues.apply(this, arguments) : undefined;
+    setTimeout(staggerLeagueRows, 100);
+    return result;
+  };
+
+  /* ════════════════════════════════════════════
+     17. AVATAR SELECT — spring pop
+  ════════════════════════════════════════════ */
+  document.addEventListener('click', (e) => {
+    const avOpt = e.target.closest('.av-opt');
+    if (!avOpt) return;
+    avOpt.style.transform = 'scale(0.82)';
+    avOpt.style.transition = `transform .35s ${EASE.spring}`;
+    setTimeout(() => { avOpt.style.transform = 'scale(1.08)'; }, 40);
+    setTimeout(() => { avOpt.style.transform = 'scale(1)'; }, 180);
+  }, { passive: true });
+
+  /* ════════════════════════════════════════════
+     18. CHART HEADER (seg-btn) — pill transition
+  ════════════════════════════════════════════ */
+  document.addEventListener('click', (e) => {
+    const segBtn = e.target.closest('.seg-btn');
+    if (!segBtn) return;
+    // Quick ripple-feedback on period toggle
+    segBtn.style.transform = 'scale(0.94)';
+    segBtn.style.transition = `transform .2s ${EASE.spring}`;
+    setTimeout(() => { segBtn.style.transform = ''; }, 200);
+  }, { passive: true });
+
+  /* ════════════════════════════════════════════
+     INIT
+  ════════════════════════════════════════════ */
+  function init() {
+    // Observe main content areas
+    const areas = [
+      document.querySelector('.main'),
+      document.getElementById('tab-dash'),
+      document.getElementById('tab-leagues'),
+      document.getElementById('leaguesContent'),
+      document.getElementById('achFull'),
+      document.getElementById('achMini'),
+      document.getElementById('lgMini'),
+    ].filter(Boolean);
+    areas.forEach(a => _contentObserver.observe(a, { childList: true, subtree: true }));
+
+    // Onboarding
+    initOnboarding();
+
+    // Hero stat watchers
+    watchHeroStats();
+
+    // Timer watcher
+    watchTimer();
+
+    // Dashboard entrance (if already active)
+    const dash = document.getElementById('tab-dash');
+    if (dash && dash.classList.contains('active')) {
+      setTimeout(orchestrateDashboard, 600);
+    }
+
+    // Scroll reveal
+    setTimeout(initScrollReveal, 1200);
+
+    // KPI tilt — initial run
+    setTimeout(initKpiTilt, 800);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    setTimeout(init, 0);
+  }
+
 })();
 </script>
