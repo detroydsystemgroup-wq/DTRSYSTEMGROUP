@@ -4540,14 +4540,16 @@ body.focus-mode #focusModeBtn { background: rgba(245,200,66,.1); border-color: r
     inset 0 0.5px 0 rgba(255,255,255,.08);
   /* Animation state */
   opacity: 0;
-  transform: scale(.94) translateY(-8px);
-  transition: opacity .22s var(--ease-out, cubic-bezier(.4,0,.2,1)),
-              transform .28s var(--ease-bounce, cubic-bezier(.34,1.15,.64,1));
+  transform: scale(.92) translateY(-12px);
+  transition: opacity .24s cubic-bezier(.4,0,.2,1),
+              transform .32s cubic-bezier(.34,1.25,.64,1);
   will-change: transform, opacity;
 }
 #cmdPalette.open .cmd-box {
   opacity: 1;
   transform: scale(1) translateY(0);
+  transition: opacity .22s cubic-bezier(.4,0,.2,1),
+              transform .30s cubic-bezier(.34,1.25,.64,1);
 }
 #cmdPalette.closing .cmd-box {
   opacity: 0;
@@ -4555,6 +4557,18 @@ body.focus-mode #focusModeBtn { background: rgba(245,200,66,.1); border-color: r
   transition: opacity .16s ease, transform .16s ease;
 }
 #cmdPalette.closing::before { opacity: 0; }
+
+/* ── Staggered item entrance animation ── */
+@keyframes cmdItemIn {
+  from { opacity: 0; transform: translateY(6px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);   }
+}
+.cmd-item {
+  animation: cmdItemIn .22s cubic-bezier(.34,1.15,.64,1) both;
+}
+.cmd-group-label {
+  animation: cmdItemIn .18s cubic-bezier(.34,1.15,.64,1) both;
+}
 
 /* Search row */
 .cmd-input-wrap {
@@ -11547,19 +11561,51 @@ function openMobileTimerSheet() {
 
 // ── Command Palette ────────────────────────────────────────────
 // ── COMMAND PALETTE — Apple Spotlight ──────────────────────────
+// ── SVG icon set for command palette ──────────────────────────
+const _CMD_ICONS = {
+  dash:     `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>`,
+  leagues:  `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21H5a2 2 0 0 1-2-2v-1a5 5 0 0 1 5-5h8a5 5 0 0 1 5 5v1a2 2 0 0 1-2 2h-3"/><circle cx="12" cy="7" r="4"/><polyline points="8 21 12 17 16 21"/></svg>`,
+  activity: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
+  achieve:  `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>`,
+  manage:   `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`,
+  messages: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+  social:   `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+  knowledge:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`,
+  habits:   `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+  learn:    `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`,
+  timer:    `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>`,
+  pause:    `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`,
+  stop:     `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`,
+  theme:    `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`,
+  settings: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
+  logout:   `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>`,
+  profile:  `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+  search:   `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
+  play:     `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>`,
+  collab:   `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+};
+
 const CMD_LIST = [
-  // Navigation
-  { cat:'Навигация', label:'Дашборд',      desc:'Статистика и прогресс',     icon:'📊', color:'c-blue',   shortcut:'1', action:()=>showTab('dash') },
-  { cat:'Навигация', label:'Арена',         desc:'Лиги, рейтинги, соревнования', icon:'⚔️', color:'c-red',    shortcut:'2', action:()=>showTab('leagues') },
-  { cat:'Навигация', label:'История',       desc:'Все прошлые сессии',        icon:'📜', color:'c-purple', shortcut:'3', action:()=>showTab('activity') },
-  { cat:'Навигация', label:'Награды',       desc:'Достижения и трофеи',       icon:'🏆', color:'c-gold',   shortcut:'4', action:()=>showTab('achievements') },
-  { cat:'Навигация', label:'Управление',    desc:'Категории и настройки целей',icon:'⚙️', color:'c-orange', shortcut:'5', action:()=>showTab('manage') },
-  { cat:'Навигация', label:'Сообщения',     desc:'Чат с участниками клуба',   icon:'💬', color:'c-cyan',   shortcut:'6', action:()=>showTab('messages') },
-  { cat:'Навигация', label:'Социальное',    desc:'Лента, друзья, подписки',   icon:'👥', color:'c-green',  shortcut:'7', action:()=>showTab('social') },
-  // Actions
-  { cat:'Действия',  label:'Старт таймера', desc:'Запустить сессию прямо сейчас', icon:'▶️', color:'c-gold', shortcut:'T', action:()=>{ showTab('dash'); setTimeout(toggleQuick,200); } },
-  // Account
-  { cat:'Аккаунт',   label:'Выйти из аккаунта', desc:null, icon:'🚪', color:'c-red', action:()=>doLogout() },
+  // ── Навигация ──────────────────────────────────────────────────
+  { cat:'Навигация', label:'Дашборд',              desc:'Статистика, прогресс, KPI',          icon:_CMD_ICONS.dash,      color:'c-blue',   shortcut:'1', action:()=>showTab('dash') },
+  { cat:'Навигация', label:'Арена',                desc:'Лиги, рейтинги, соревнования',       icon:_CMD_ICONS.leagues,   color:'c-red',    shortcut:'2', action:()=>showTab('leagues') },
+  { cat:'Навигация', label:'История сессий',       desc:'Все прошлые записи',                  icon:_CMD_ICONS.activity,  color:'c-purple', shortcut:'3', action:()=>showTab('activity') },
+  { cat:'Навигация', label:'Награды',              desc:'Достижения и трофеи',                 icon:_CMD_ICONS.achieve,   color:'c-gold',   shortcut:'4', action:()=>showTab('achievements') },
+  { cat:'Навигация', label:'Управление лигами',    desc:'Включить / выключить категории',      icon:_CMD_ICONS.manage,    color:'c-orange', shortcut:'5', action:()=>showTab('manage') },
+  { cat:'Навигация', label:'Сообщения',            desc:'Чат с участниками клуба',             icon:_CMD_ICONS.messages,  color:'c-cyan',   shortcut:'6', action:()=>showTab('messages') },
+  { cat:'Навигация', label:'Социальное',           desc:'Лента, друзья, подписки',             icon:_CMD_ICONS.social,    color:'c-green',  shortcut:'7', action:()=>showTab('social') },
+  { cat:'Навигация', label:'База знаний',          desc:'Статьи, заметки, материалы клуба',    icon:_CMD_ICONS.knowledge, color:'c-blue',   shortcut:'8', action:()=>showTab('knowledge') },
+  { cat:'Навигация', label:'Привычки',             desc:'Трекер ежедневных привычек',          icon:_CMD_ICONS.habits,    color:'c-green',  shortcut:'9', action:()=>showTab('habits') },
+  { cat:'Навигация', label:'Обучающие материалы',  desc:'Видео, авторы, категории курсов',     icon:_CMD_ICONS.learn,     color:'c-purple', shortcut:'0', action:()=>showTab('learn') },
+  // ── Таймер ────────────────────────────────────────────────────
+  { cat:'Таймер', label:'Запустить сессию',        desc:'Старт таймера на дашборде',           icon:_CMD_ICONS.play,      color:'c-gold',   shortcut:'T', action:()=>{ showTab('dash'); setTimeout(toggleQuick,200); } },
+  { cat:'Таймер', label:'Поставить на паузу',      desc:'Пауза текущего таймера',              icon:_CMD_ICONS.pause,     color:'c-orange', action:()=>{ if(typeof pauseTimer==='function') pauseTimer(); } },
+  { cat:'Таймер', label:'Остановить таймер',       desc:'Завершить сессию и сохранить',        icon:_CMD_ICONS.stop,      color:'c-red',    action:()=>{ if(typeof stopTimer==='function') stopTimer(); } },
+  // ── Настройки ─────────────────────────────────────────────────
+  { cat:'Настройки', label:'Переключить тему',     desc:'Тёмная / светлая тема',               icon:_CMD_ICONS.theme,     color:'c-gold',   shortcut:'L', action:()=>toggleTheme() },
+  { cat:'Настройки', label:'Настройки',            desc:'Цель, уведомления, аккаунт',          icon:_CMD_ICONS.settings,  color:'c-orange', action:()=>{ showTab('dash'); setTimeout(()=>{ const s=document.getElementById('settingsPanel'); if(s){ settingsOpen=false; toggleSettings(); } },200); } },
+  // ── Аккаунт ───────────────────────────────────────────────────
+  { cat:'Аккаунт', label:'Выйти из аккаунта',      desc:'Завершить сеанс',                     icon:_CMD_ICONS.logout,    color:'c-red',    action:()=>doLogout() },
 ];
 
 let _cmdIdx = -1;
@@ -11628,9 +11674,11 @@ function filterCmds(q) {
   });
 
   let html = '';
+  let itemDelay = 0; // stagger delay counter
   const cats = Object.keys(groups);
   cats.forEach((cat, gi) => {
-    html += `<div class="cmd-group-label">${cat}</div>`;
+    html += `<div class="cmd-group-label" style="animation-delay:${itemDelay * 22}ms">${cat}</div>`;
+    itemDelay++;
     groups[cat].forEach(c => {
       const shortcutHtml = c.shortcut
         ? `<span class="cmd-item-shortcut">${c.shortcut}</span>`
@@ -11638,18 +11686,23 @@ function filterCmds(q) {
       const descHtml = c.desc
         ? `<div class="cmd-item-desc">${c.desc}</div>`
         : '';
+      // SVG icons render as HTML; emoji icons render as text
+      const isHtml = c.icon && c.icon.trim().startsWith('<');
+      const iconInner = isHtml ? c.icon : `<span style="font-size:16px;line-height:1">${c.icon}</span>`;
       html += `
         <div class="cmd-item" data-idx="${c._idx}"
+          style="animation-delay:${itemDelay * 22}ms"
           onmouseenter="_cmdHover(this)"
           onmouseleave="_cmdUnhover(this)"
           onclick="_execCmd(${c._idx})">
-          <div class="cmd-item-icon-box ${c.color}">${c.icon}</div>
+          <div class="cmd-item-icon-box ${c.color}" style="display:flex;align-items:center;justify-content:center">${iconInner}</div>
           <div class="cmd-item-text">
             <div class="cmd-item-label">${c.label}</div>
             ${descHtml}
           </div>
           ${shortcutHtml}
         </div>`;
+      itemDelay++;
     });
     if (gi < cats.length - 1) html += '<div class="cmd-divider"></div>';
   });
