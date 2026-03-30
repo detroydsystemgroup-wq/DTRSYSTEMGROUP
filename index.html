@@ -7803,7 +7803,6 @@ body {
   Арена
 </span></div>
         <div class="cb">
-          <div style="font-size:13px;color:var(--t2);margin-bottom:14px;line-height:1.5">Выбери направления — ты попадёшь в арену с людьми у которых те же цели.</div>
           <div class="mg-grid" id="manageGrid"></div>
         </div>
       </div>
@@ -9892,143 +9891,141 @@ function renderSessions(all=false){
 
 // ══ MANAGE ══════════════════════════════════════════════════
 function renderManageGrid(){
-  const el=document.getElementById('manageGrid');if(!el)return;
-  if(!P||!P.activeCatIds){el.innerHTML='';return;} // not loaded yet
+  const el = document.getElementById('manageGrid'); if(!el) return;
+  if(!P || !P.activeCatIds){ el.innerHTML = ''; return; }
   const isMobile = window.innerWidth <= 600;
 
-  // Set grid layout
-  el.style.gridTemplateColumns = isMobile ? '1fr' : 'repeat(2,1fr)';
-  el.style.gap = isMobile ? '8px' : '12px';
-
-  // Epic header
-  const header=`
-    <div style="grid-column:1/-1;text-align:center;padding:8px 0 20px;position:relative">
-      <div style="font-size:11px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Выбери своё направление</div>
-      <div style="font-family:'DM Sans',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.03em;background:linear-gradient(135deg,var(--gold),var(--gold-l),var(--gold));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">Каждый выбор меняет твою арену</div>
-      <div style="font-size:12px;color:var(--t2);margin-top:6px">Ты попадёшь в лигу с людьми у которых те же цели</div>
-    </div>`;
-
-  el.innerHTML=header+ALL_CATS.map(c=>{
-    const on=P.activeCatIds.includes(c.id);
-    const hrs=P.categories.find(x=>x.id===c.id)?.hours||0;
-    const mc=c.members||0;
-    const catColor=c.color;
-    const iconKey={read:'read',lang:'lang',code:'code',trading:'trading',cooking:'cooking',intellect:'intellect'}[c.id];
-
-    // ── MOBILE card — compact, no particles, no stats ──────
-    if(isMobile){
-      return `<div class="mg-item ${on?'on':''} mg-card-epic"
-        style="position:relative;overflow:hidden;border-radius:14px;padding:14px;cursor:pointer;
-          background:${on?`linear-gradient(135deg,${catColor}18,${catColor}08,var(--card))`:'var(--card)'};
-          border:${on?`1.5px solid ${catColor}66`:'1.5px solid var(--border)'};
-          box-shadow:${on?`0 6px 24px ${catColor}22,inset 0 1px 0 ${catColor}20`:'0 2px 8px rgba(0,0,0,.2)'};
-          transition:background-color .25s,border-color .25s,color .25s,box-shadow .25s,opacity .25s cubic-bezier(.34,1.56,.64,1)"
-        onclick="toggleCatEpic('${c.id}')">
-        ${on?`<div style="position:absolute;inset:0;background:radial-gradient(ellipse 60% 80% at 10% 50%,${catColor}0e,transparent 70%);pointer-events:none"></div>`:''}
-        <div style="display:flex;align-items:center;gap:12px;min-height:48px">
-          <div style="width:40px;height:40px;min-width:40px;border-radius:11px;flex-shrink:0;
-            background:${on?`linear-gradient(135deg,${catColor}33,${catColor}18)`:'rgba(255,255,255,.05)'};
-            border:0.5px solid ${on?catColor+'44':'var(--border-l)'};
-            display:flex;align-items:center;justify-content:center;font-size:20px;
-            box-shadow:${on?`0 0 12px ${catColor}44`:''};transition:background-color .25s,border-color .25s,color .25s,box-shadow .25s,opacity .25s">
-            ${ICONS[iconKey]||''}
-          </div>
-          <div style="flex:1;min-width:0">
-            <div style="font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;letter-spacing:-.01em;
-              color:${on?catColor:'var(--t1)'};text-shadow:${on?`0 0 10px ${catColor}66`:''};
-              white-space:normal;line-height:1.2;word-break:break-word">${c.name}</div>
-            <div style="font-size:10px;color:var(--t3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-              ${c.desc||'Направление развития'}</div>
-          </div>
-        </div>
-        ${on?`<div style="position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,${catColor},transparent);box-shadow:0 0 8px ${catColor}"></div>`:''}
-      </div>`;
-    }
-
-    // ── DESKTOP card — full with stats, particles, button ──
-    const particles=on?Array.from({length:5},(_,i)=>`
-      <div style="position:absolute;width:${2+i%2}px;height:${2+i%2}px;border-radius:50%;
-        background:${catColor};opacity:${0.3+i*.1};
-        top:${10+i*18}%;left:${85+i*2}%;
-        animation:floatParticle ${2+i*.4}s ease-in-out infinite;
-        animation-delay:${i*.3}s"></div>`).join(''):'';
-
-    return `<div class="mg-item ${on?'on':''} mg-card-epic"
-      style="position:relative;overflow:hidden;border-radius:16px;padding:20px 18px;cursor:pointer;
-        background:${on?`linear-gradient(135deg,${catColor}18,${catColor}08,var(--card))`:'var(--card)'};
-        border:${on?`1.5px solid ${catColor}66`:'1.5px solid var(--border)'};
-        box-shadow:${on?`0 8px 32px ${catColor}22,inset 0 1px 0 ${catColor}20`:'0 2px 8px rgba(0,0,0,.2)'};
-        transition:background-color .3s,border-color .3s,color .3s,box-shadow .3s,opacity .3s cubic-bezier(.34,1.56,.64,1)"
-      onclick="toggleCatEpic('${c.id}')">
-
-      ${on?`<div style="position:absolute;inset:0;background:radial-gradient(ellipse 60% 80% at 20% 50%,${catColor}10,transparent 70%);pointer-events:none"></div>`:''}
-      ${particles}
-
-      <!-- Check badge -->
-      <div style="position:absolute;top:12px;right:12px;width:22px;height:22px;border-radius:50%;
-        background:${on?catColor:'var(--border)'};
-        display:flex;align-items:center;justify-content:center;
-        font-size:11px;font-weight:700;color:${on?'#09090B':'var(--t3)'};
-        box-shadow:${on?`0 0 12px ${catColor}88`:''};transition:background-color .3s,border-color .3s,color .3s,box-shadow .3s,opacity .3s">
-        ${on?'✓':''}
-      </div>
-
-      <!-- Icon + name -->
-      <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
-        <div style="width:48px;height:48px;border-radius:14px;flex-shrink:0;
-          background:${on?`linear-gradient(135deg,${catColor}33,${catColor}18)`:'rgba(255,255,255,.05)'};
-          border:0.5px solid ${on?catColor+'44':'var(--border-l)'};
-          display:flex;align-items:center;justify-content:center;font-size:24px;
-          box-shadow:${on?`0 0 16px ${catColor}44`:''};transition:background-color .3s,border-color .3s,color .3s,box-shadow .3s,opacity .3s">
-          ${ICONS[iconKey]||''}</div>
-        <div>
-          <div style="font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;letter-spacing:-.01em;
-            color:${on?catColor:'var(--t1)'};text-shadow:${on?`0 0 12px ${catColor}66`:''};
-            transition:background-color .3s,border-color .3s,color .3s,box-shadow .3s,opacity .3s">${c.name}</div>
-          <div style="font-size:11px;color:var(--t3);margin-top:2px">${c.desc||'Направление развития'}</div>
-        </div>
-      </div>
-
-      <!-- Stats row -->
-      <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
-        <div style="width:90px;flex-shrink:0;padding:10px 12px;border-radius:10px;text-align:center;
-          background:${on?catColor+'0d':'rgba(255,255,255,.03)'};
-          border:0.5px solid ${on?catColor+'25':'var(--border-l)'}">
-          <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:400;line-height:1;color:${on?catColor:'var(--t2)'}">
-            ${mc>0?mc.toLocaleString('ru'):'0'}</div>
-          <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:4px;white-space:nowrap">участников</div>
-        </div>
-        <div style="flex:1;padding:10px 12px;border-radius:10px;text-align:center;
-          background:${on?catColor+'0d':'rgba(255,255,255,.03)'};
-          border:0.5px solid ${on?catColor+'25':'var(--border-l)'}">
-          <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:400;line-height:1;color:${on?catColor:'var(--t2)'}">
-            ${hrs>0?hrs.toFixed(1):'0'}</div>
-          <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:4px">твоих часов</div>
-        </div>
-        <div style="padding:8px 14px;border-radius:10px;font-size:12px;font-weight:800;
-          letter-spacing:.5px;text-align:center;cursor:pointer;white-space:nowrap;
-          background:${on?catColor+'22':'rgba(255,255,255,.05)'};
-          border:1.5px solid ${on?catColor+'55':'var(--border)'};
-          color:${on?catColor:'var(--t2)'};
-          box-shadow:${on?`0 0 14px ${catColor}33`:''}">
-          ${on?'✦ АКТИВНА':'＋ Войти'}
-        </div>
-      </div>
-
-      ${on?`<div style="position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,${catColor},transparent);box-shadow:0 0 8px ${catColor}"></div>`:''}
-    </div>`;
-  }).join('');
-
-  // Animations
-  if(!document.getElementById('manageAnimStyle')){
-    const s=document.createElement('style');
-    s.id='manageAnimStyle';
-    s.textContent=`
-      @keyframes floatParticle{0%,100%{transform:translateY(0) scale(1);opacity:.3}50%{transform:translateY(-8px) scale(1.2);opacity:.7}}
-      .mg-item:hover{transform:translateY(-4px) scale(1.01)!important;transition:all .22s cubic-bezier(.34,1.56,.64,1)!important}
+  // Inject animation styles once
+  if(!document.getElementById('_mgAnimCSS')){
+    const s = document.createElement('style');
+    s.id = '_mgAnimCSS';
+    s.textContent = `
+      @keyframes mgCardIn {
+        0%   { opacity:0; transform:translateY(22px) scale(.94); }
+        60%  { opacity:1; transform:translateY(-4px) scale(1.01); }
+        100% { opacity:1; transform:translateY(0)    scale(1); }
+      }
+      @keyframes mgActiveGlow {
+        0%,100% { box-shadow: var(--mg-shadow-idle); }
+        50%     { box-shadow: var(--mg-shadow-pulse); }
+      }
+      @keyframes mgCheckIn {
+        0%   { opacity:0; transform:scale(0) rotate(-20deg); }
+        70%  { transform:scale(1.25) rotate(4deg); }
+        100% { opacity:1; transform:scale(1) rotate(0); }
+      }
+      .mg-card-new {
+        animation: mgCardIn .42s cubic-bezier(.34,1.18,.64,1) both;
+      }
+      .mg-card-new:hover {
+        transform: translateY(-5px) scale(1.012) !important;
+        transition: transform .22s cubic-bezier(.34,1.56,.64,1) !important;
+      }
+      .mg-check-anim { animation: mgCheckIn .36s cubic-bezier(.34,1.56,.64,1) both; }
     `;
     document.head.appendChild(s);
   }
+
+  el.style.gridTemplateColumns = isMobile ? '1fr' : 'repeat(2,1fr)';
+  el.style.gap = isMobile ? '10px' : '14px';
+
+  el.innerHTML = ALL_CATS.map((c, i) => {
+    const on  = P.activeCatIds.includes(c.id);
+    const hrs = P.categories.find(x => x.id === c.id)?.hours || 0;
+    const mc  = c.members || 0;
+    const col = c.color;
+    const iconKey = {read:'read',lang:'lang',code:'code',trading:'trading',cooking:'cooking',intellect:'intellect'}[c.id];
+    const delay = i * 55;
+
+    // Stat line — combined, no boxes
+    const statLine = on
+      ? `<span style="color:${col};font-weight:600">${hrs > 0 ? hrs.toFixed(1) + ' ч' : 'начни сессию'}</span>`
+        + (mc > 0 ? `<span style="color:var(--t3);margin-left:6px">· ${mc} участников</span>` : '')
+      : mc > 0
+        ? `<span style="color:var(--t3)">${mc} участников</span>`
+        : `<span style="color:var(--t3)">Войди первым</span>`;
+
+    return `<div class="mg-card-new"
+      onclick="toggleCatEpic('${c.id}')"
+      style="
+        position:relative;overflow:hidden;
+        border-radius:${isMobile?'16px':'18px'};
+        padding:${isMobile?'16px':'20px'};
+        cursor:pointer;
+        background:${on
+          ? `linear-gradient(145deg,${col}16,${col}06,var(--panel))`
+          : 'var(--panel)'};
+        border:${on ? `1.5px solid ${col}55` : '0.5px solid var(--border)'};
+        box-shadow:${on
+          ? `0 8px 32px ${col}20, 0 0 0 0.5px ${col}20, inset 0 1px 0 ${col}15`
+          : '0 1px 4px rgba(0,0,0,.3)'};
+        --mg-shadow-idle: 0 8px 32px ${col}20,inset 0 1px 0 ${col}15;
+        --mg-shadow-pulse: 0 10px 40px ${col}38,0 0 0 1px ${col}30,inset 0 1px 0 ${col}22;
+        animation-delay:${delay}ms;
+        transition:border-color .22s,box-shadow .22s,background .22s">
+
+      ${on ? `<div style="position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 15% 40%,${col}0c,transparent 65%);pointer-events:none"></div>` : ''}
+
+      ${on ? `<div style="position:absolute;bottom:0;left:0;right:0;height:1.5px;
+        background:linear-gradient(90deg,transparent 0%,${col}88 30%,${col} 50%,${col}88 70%,transparent 100%);
+        box-shadow:0 0 12px ${col}66;pointer-events:none"></div>` : ''}
+
+      <div style="display:flex;align-items:center;gap:${isMobile?'12px':'16px'}">
+
+        <!-- Icon -->
+        <div style="
+          width:${isMobile?'44px':'52px'};height:${isMobile?'44px':'52px'};
+          border-radius:${isMobile?'13px':'15px'};flex-shrink:0;
+          display:flex;align-items:center;justify-content:center;
+          color:${col};
+          background:${on ? `linear-gradient(145deg,${col}28,${col}12)` : 'rgba(255,255,255,.04)'};
+          border:${on ? `1px solid ${col}44` : '0.5px solid rgba(255,255,255,.08)'};
+          box-shadow:${on ? `0 0 20px ${col}40,inset 0 1px 0 ${col}22` : 'none'};
+          transition:box-shadow .22s,background .22s">
+          ${(ICONS[iconKey]||'').replace('width="20" height="20"',`width="${isMobile?20:22}" height="${isMobile?20:22}"`)}
+        </div>
+
+        <!-- Text -->
+        <div style="flex:1;min-width:0">
+          <div style="
+            font-size:${isMobile?'14px':'15px'};font-weight:700;letter-spacing:-.015em;
+            color:${on ? col : 'var(--t1)'};
+            margin-bottom:3px;line-height:1.2;
+            ${on ? `text-shadow:0 0 14px ${col}44` : ''}">
+            ${c.name}
+          </div>
+          <div style="font-size:11px;color:var(--t3);margin-bottom:6px;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            ${c.desc || 'Направление развития'}
+          </div>
+          <div style="font-size:11.5px;display:flex;align-items:center;flex-wrap:wrap;gap:2px">
+            ${statLine}
+          </div>
+        </div>
+
+        <!-- State indicator -->
+        <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:5px">
+          ${on
+            ? `<div class="mg-check-anim" style="
+                width:28px;height:28px;border-radius:50%;
+                background:${col};
+                display:flex;align-items:center;justify-content:center;
+                box-shadow:0 0 16px ${col}66">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#09090B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <div style="font-size:8.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:${col}">активна</div>`
+            : `<div style="
+                width:28px;height:28px;border-radius:50%;
+                border:1.5px solid rgba(255,255,255,.12);
+                display:flex;align-items:center;justify-content:center">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </div>
+              <div style="font-size:8.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--t3)">войти</div>`}
+        </div>
+
+      </div>
+    </div>`;
+  }).join('');
 }
 
 
