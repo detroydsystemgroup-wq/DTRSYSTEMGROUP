@@ -12256,7 +12256,7 @@ function renderMCats() {
   document.getElementById('mCatGrid').innerHTML =
     ALL_CATS.filter(c => P.activeCatIds.includes(c.id)).map(c =>
       `<button class="mb ${c.id === mSel ? 'sel' : ''}" onclick="setMC('${c.id}')" style="${c.id === mSel ? `border-color:${c.color}` : ''}">
-        <span class="mbi" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px">${ICONS[{read:"read",lang:"lang",code:"code",trading:"trading",cooking:"cooking",intellect:"intellect"}[c.id]]||c.icon}</span>${c.name}</button>`
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;color:${c.color}">${(ICONS[{read:"read",lang:"lang",code:"code",trading:"trading",cooking:"cooking",intellect:"intellect"}[c.id]]||"").replace('width="20" height="20"','width="16" height="16"')}</span>${c.name}</button>`
     ).join('');
 }
 function setMC(id) { if (!mRun) { mSel = id; renderMCats(); } }
@@ -15407,7 +15407,7 @@ function _kbRS() {
     const pct=maxNotes?Math.round(nc/maxNotes*100):0;
     h+=`<div>
       <button class="k3cb ${_kbS.cat===c.id?'k3on':''}" onclick="_kbTogCat('${c.id}')" style="${_kbS.cat===c.id?`border-color:${c.color}30;background:${c.color}10`:''}">
-        <span style="font-size:18px">${c.icon}</span>
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;color:${c.color}">${(typeof ICONS!=="undefined"&&ICONS[c.id])?ICONS[c.id].replace('width="20" height="20"','width="15" height="15"'):""}</span>
         <span style="font-size:13.5px;font-weight:600;flex:1">${c.name}</span>
         ${nc?`<span class="k3cat-nc" style="background:${c.color}18;color:${c.color}">${nc}</span>`:''}
         <svg class="k3chv ${open?'open':''}" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
@@ -15435,7 +15435,7 @@ function _kbRS() {
     </div>`;
     pins.slice(0,5).forEach(n=>{
       h+=`<button class="k3fb ${_kbS.note===n.id?'k3on':''}" onclick="_kbON('${n.catId}','${n.folderId}','${n.id}')">
-        <span style="font-size:14px">${n.catIcon}</span>
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
         <span class="k3fn">${_kbEsc2(n.title||'Без названия')}</span>
       </button>`;
     });
@@ -15450,7 +15450,7 @@ function _kbRS() {
     </div>`;
     rec.forEach(n=>{
       h+=`<button class="k3fb ${_kbS.note===n.id?'k3on':''}" onclick="_kbON('${n.catId}','${n.folderId}','${n.id}')">
-        <span style="font-size:14px">${n.catIcon}</span>
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
         <span class="k3fn">${_kbEsc2(n.title||'Без названия')}</span>
         <span class="k3fc">${_kbD(n.updatedAt||n.createdAt)}</span>
       </button>`;
@@ -15615,7 +15615,7 @@ function _kbRCatOverview(cont) {
 
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;position:relative">
         <div style="display:flex;align-items:center;gap:16px">
-          <div style="width:52px;height:52px;border-radius:14px;background:${c.color}20;border:0.5px solid ${c.color}40;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0">${c.icon}</div>
+          <div style="width:52px;height:52px;border-radius:14px;background:${c.color}20;border:0.5px solid ${c.color}40;display:flex;align-items:center;justify-content:center;color:${c.color};flex-shrink:0">${(typeof ICONS!=="undefined"&&ICONS[c.id])?ICONS[c.id].replace('width="20" height="20"','width="24" height="24"'):""}</div>
           <div>
             <div style="font-size:22px;font-weight:800;letter-spacing:-.04em;color:var(--t1);line-height:1.2;margin-bottom:4px">${c.name}</div>
             <div style="font-size:12px;color:var(--t3)">${c.desc||'Нет описания'}</div>
@@ -15676,7 +15676,7 @@ function _kbRCatOverview(cont) {
             onmouseover="this.style.background='var(--hover)';this.style.borderColor='var(--border)'"
             onmouseout="this.style.background='';this.style.borderColor='transparent'"
             onclick="_kbON('${n.catId}','${n.folderId}','${n.id}')">
-            <div style="width:32px;height:32px;border-radius:8px;background:${c.color}15;border:0.5px solid ${c.color}25;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">${c.icon}</div>
+            <div style="width:32px;height:32px;border-radius:8px;background:${c.color}15;border:0.5px solid ${c.color}25;display:flex;align-items:center;justify-content:center;color:${c.color};flex-shrink:0">${(typeof ICONS!=="undefined"&&ICONS[c.id])?ICONS[c.id].replace('width="20" height="20"','width="16" height="16"'):""}</div>
             <div style="flex:1;min-width:0">
               <div style="font-size:13px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc2(n.title||'Без названия')}</div>
               <div style="font-size:11px;color:var(--t3);margin-top:1px">
@@ -16205,7 +16205,9 @@ function _kbRHome(cont) {
             onmouseover="this.style.background='${c.color}15';this.style.borderColor='${c.color}66';this.style.transform='translateY(-4px) scale(1.02)';this.style.boxShadow='0 10px 28px rgba(0,0,0,.3)'"
             onmouseout="this.style.background='rgba(255,255,255,.03)';this.style.borderColor='${c.color}22';this.style.transform='';this.style.boxShadow=''">
             <div style="position:absolute;left:0;top:0;bottom:0;width:2.5px;background:${c.color};border-radius:2px 0 0 2px;opacity:.8"></div>
-            <div style="font-size:18px;line-height:1;margin-bottom:6px">${c.icon}</div>
+            <div style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:9px;background:${c.color}18;color:${c.color};margin-bottom:8px">
+              ${(typeof ICONS!=='undefined'&&ICONS[c.id])?ICONS[c.id].replace('width="20" height="20"','width="18" height="18"'):''}
+            </div>
             <div style="font-size:12.5px;font-weight:700;color:var(--t1);letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px">${c.name}</div>
             <div style="font-size:10px;color:var(--t3);margin-bottom:7px">${nc} зам. · ${nf} пап.</div>
             <div style="height:2px;background:rgba(255,255,255,.06);border-radius:1px;overflow:hidden">
@@ -16230,12 +16232,16 @@ function _kbRHome(cont) {
           <div onclick="_kbON('${n.catId}','${n.folderId}','${n.id}')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(245,200,66,.04);border:0.5px solid rgba(245,200,66,.1);border-radius:10px;cursor:pointer;transition:background-color .15s,border-color .15s,color .15s,opacity .15s"
             onmouseover="this.style.background='rgba(245,200,66,.08)';this.style.borderColor='rgba(245,200,66,.25)'"
             onmouseout="this.style.background='rgba(245,200,66,.04)';this.style.borderColor='rgba(245,200,66,.1)'">
-            <div style="font-size:18px;flex-shrink:0">${n.catIcon}</div>
+            <div style="width:28px;height:28px;border-radius:8px;background:rgba(245,200,66,.1);border:0.5px solid rgba(245,200,66,.2);display:flex;align-items:center;justify-content:center;color:var(--gold);flex-shrink:0">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            </div>
             <div style="flex:1;min-width:0">
               <div style="font-size:13px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc2(n.title||'Без названия')}</div>
               <div style="font-size:10px;color:var(--t3);margin-top:1px">${n.catName}</div>
             </div>
-            <div style="font-size:11px;color:var(--t3);font-family:'DM Mono',monospace;flex-shrink:0">📌</div>
+            <div style="display:flex;align-items:center;justify-content:center;color:var(--gold);opacity:.7;flex-shrink:0">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17H19V13L17 7H7L5 13Z"/><line x1="5" y1="7" x2="19" y2="7"/></svg>
+            </div>
           </div>`).join('')}
         </div>
       </div>`:''}
@@ -16251,7 +16257,9 @@ function _kbRHome(cont) {
           <div onclick="_kbON('${n.catId}','${n.folderId}','${n.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(255,255,255,.025);border:0.5px solid rgba(255,255,255,.06);border-radius:10px;cursor:pointer;transition:background-color .2s,border-color .2s,color .2s,box-shadow .2s,opacity .2s cubic-bezier(.34,1.15,.64,1)"
             onmouseover="this.style.background='rgba(255,255,255,.06)';this.style.borderColor='rgba(255,255,255,.12)';this.style.transform='translateX(4px)'"
             onmouseout="this.style.background='rgba(255,255,255,.025)';this.style.borderColor='rgba(255,255,255,.06)';this.style.transform=''">
-            <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${n.catIcon}</div>
+            <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </div>
             <div style="flex:1;min-width:0">
               <div style="font-size:13px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc2(n.title||'Без названия')}</div>
               <div style="font-size:10px;color:var(--t3);margin-top:1px">${n.catName} · ${n.folderTitle}</div>
@@ -16267,7 +16275,9 @@ function _kbRHome(cont) {
   if(!tn){
     h+=`<div class="k3home-sec">
       <div style="background:var(--panel);border:0.5px solid var(--border);border-radius:14px;padding:28px;text-align:center;">
-        <div style="font-size:40px;margin-bottom:14px;opacity:.2">📚</div>
+        <div style="display:flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:18px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.08);margin:0 auto 14px;opacity:.35">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </div>
         <div style="font-size:16px;font-weight:700;color:var(--t2);margin-bottom:8px">База знаний пуста</div>
         <div style="font-size:13px;color:var(--t3);margin-bottom:20px;max-width:280px;margin-left:auto;margin-right:auto">Начни с создания первой заметки или выбери шаблон</div>
         <div style="display:flex;gap:8px;justify-content:center">
