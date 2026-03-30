@@ -18981,9 +18981,11 @@ function _authLoad(){ try{ _auth=JSON.parse(localStorage.getItem(AUTH_KEY)||'{"a
 function _lrnSave(){ localStorage.setItem(LRN_KEY,JSON.stringify(_lrn)); _lrnSaveToDB(); }
 function _authSave(){
   // Strip runtime-only fields before persisting
+  // FIX: also persist avatarFailed so we don't retry on every page load
   const clean = { authors: _auth.authors.map(a => ({
     id: a.id, name: a.name, url: a.url, color: a.color,
-    avatarUrl: a.avatarUrl || null   // persist avatar, never persist avatarLoading
+    avatarUrl: a.avatarUrl || null,
+    avatarFailed: a.avatarFailed || false   // remember failed fetches — stop retrying
   }))};
   localStorage.setItem(AUTH_KEY, JSON.stringify(clean));
   _authSaveToDB();
@@ -19837,7 +19839,7 @@ function _lrnRenderSidebar(){
             if(a.avatarLoading){
               avInner = `<div class="lrn-auth-av-spinner"></div>`;
             } else if(a.avatarUrl){
-              avInner = `<img src="${a.avatarUrl}" alt="${a.name}" style="width:100%;height:100%;object-fit:cover;border-radius:9px" onerror="this.parentNode.innerHTML='${_lrnInitial(a.name)}'">`;
+              avInner = `<img src="${a.avatarUrl}" alt="${a.name}" style="width:100%;height:100%;object-fit:cover;border-radius:9px" onerror="this.parentNode.innerHTML='${_lrnInitial(a.name)}';this.parentNode.style.background='${a.color}'">`;
             } else {
               avInner = _lrnInitial(a.name);
             }
@@ -19849,6 +19851,7 @@ function _lrnRenderSidebar(){
               <div class="lrn-auth-info">
                 <div class="lrn-auth-name">${a.name}</div>
                 <div class="lrn-auth-sub">${a.avatarLoading ? 'Загружаем аватар...' : 'Автор · ' + (_auth.authors.indexOf(a)+1)}</div>
+                ${a.avatarFailed && !a.avatarLoading ? `<div style="font-size:9.5px;color:var(--t3);margin-top:1px">аватар недоступен</div>` : ''}
               </div>
               <button class="lrn-auth-del" onclick="event.preventDefault();event.stopPropagation();lrnDelAuthor('${a.id}')">${svgClose}</button>
             </a>`;
@@ -20041,9 +20044,13 @@ window.lrnAddAuthor=function(){
       try {
         const avatarUrl = await _lrnFetchChannelAvatar(fullUrl);
         const found = _auth.authors.find(a => a.id === newAuthor.id);
-        if(found) found.avatarUrl = avatarUrl || null;
+        if(found){
+          found.avatarUrl = avatarUrl || null;
+          if(!avatarUrl) found.avatarFailed = true; // all proxies failed
+        }
       } catch(e) {
-        // silently skip
+        const found = _auth.authors.find(a => a.id === newAuthor.id);
+        if(found) found.avatarFailed = true;
       } finally {
         const found = _auth.authors.find(a => a.id === newAuthor.id);
         if(found) found.avatarLoading = false;
@@ -20058,51 +20065,53 @@ window.lrnAddAuthor=function(){
 async function _lrnFetchChannelAvatar(channelUrl){
   if(!channelUrl) return null;
 
-  // Helper: fetch with manual timeout (AbortSignal.timeout not supported everywhere)
-  const fetchWithTimeout = (url, ms=7000) => {
+  const fetchWithTimeout = (url, ms=8000) => {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), ms);
-    return fetch(url, { signal: ctrl.signal })
-      .finally(() => clearTimeout(t));
+    return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(t));
   };
 
-  // Extract HTML from a proxy and parse og:image
-  const parseOgImage = (html) => {
+  // FIX: expanded patterns for current YouTube HTML (2025)
+  const parseAvatar = (html) => {
     if(!html || typeof html !== 'string') return null;
-    // Match various formats YouTube uses for og:image
+    const unescape = s => s.replace(/\\u003d/g,'=').replace(/\\\//g,'/').replace(/\\u0026/g,'&');
     const patterns = [
-      /property="og:image"\s+content="([^"]+)"/i,
-      /content="([^"]+)"\s+property="og:image"/i,
-      /property='og:image'\s+content='([^']+)'/i,
-      /"og:image","content":"(https:\\\/\\\/yt3[^"]+)"/i,
-      /yt3\.googleusercontent\.com\/ytc\/[A-Za-z0-9_\-]+=s[0-9]+-c-k-c[0-9a-f]+-no/,
+      /property="og:image"\s+content="(https:[^"]+)"/i,
+      /content="(https:[^"]+)"\s+property="og:image"/i,
+      /property='og:image'\s+content='(https:[^']+)'/i,
+      /"width":\d+,"height":\d+,"url":"(https:\\\/\\\/yt3\.googleusercontent[^"]+)"/i,
+      /"channelAvatarUrl":"(https:\\\/\\\/yt3[^"]+)"/i,
+      /"(https:\\\/\\\/yt3\.googleusercontent\.com\\\/ytc\\\/[^"]{20,})"/,
+      /(https:\/\/yt3\.googleusercontent\.com\/ytc\/[A-Za-z0-9_\-]{20,})/,
     ];
     for(const p of patterns){
       const m = html.match(p);
-      if(m && m[1] && m[1].startsWith('http')) return m[1].replace(/\\u003d/g,'=').replace(/\\\//g,'/');
-      if(m && m[0] && m[0].startsWith('http')) return m[0];
+      const raw = m && (m[1] || m[0]);
+      if(raw && raw.startsWith('http')){
+        const cleaned = unescape(raw);
+        return cleaned.replace(/=s\d+(-[a-z]+-[a-z0-9]+-no)?/i, '=s240-c-k-c0x00ffffff-no-rj');
+      }
     }
     return null;
   };
 
   // Proxy list — try in order, first success wins
   const proxies = [
-    // corsproxy.io — returns raw HTML directly
     () => fetchWithTimeout(`https://corsproxy.io/?${encodeURIComponent(channelUrl)}`)
-            .then(r => r.ok ? r.text() : Promise.reject()),
-    // allorigins raw — also returns raw HTML
-    () => fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(channelUrl)}`)
-            .then(r => r.ok ? r.text() : Promise.reject()),
-    // allorigins JSON — parse .contents
+            .then(r => r.ok ? r.text() : Promise.reject('corsproxy ' + r.status)),
     () => fetchWithTimeout(`https://api.allorigins.win/get?url=${encodeURIComponent(channelUrl)}`)
             .then(r => r.ok ? r.json() : Promise.reject())
             .then(d => d.contents || ''),
+    () => fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(channelUrl)}`)
+            .then(r => r.ok ? r.text() : Promise.reject()),
+    () => fetchWithTimeout(`https://thingproxy.freeboard.io/fetch/${channelUrl}`)
+            .then(r => r.ok ? r.text() : Promise.reject()),
   ];
 
   for(const getHtml of proxies){
     try {
       const html = await getHtml();
-      const img = parseOgImage(html);
+      const img = parseAvatar(html);
       if(img) return img;
     } catch(e){ /* try next proxy */ }
   }
@@ -20111,29 +20120,33 @@ async function _lrnFetchChannelAvatar(channelUrl){
 window.lrnDelAuthor=function(id){ _auth.authors=_auth.authors.filter(a=>a.id!==id); _authSave(); _lrnRenderSidebar(); };
 
 // ── On load: fetch missing avatars for existing authors ──────────
+// FIX: skip authors marked avatarFailed (saves them from retrying every load)
+// FIX: mark avatarFailed=true when all proxies return null, so we stop retrying
 async function _lrnRefreshMissingAvatars(){
-  // Only authors without a stored avatar URL (ignore runtime avatarLoading flag)
-  const toFetch = _auth.authors.filter(a => !a.avatarUrl && a.url);
+  const toFetch = _auth.authors.filter(a => !a.avatarUrl && !a.avatarFailed && a.url);
   if(!toFetch.length) return;
 
-  for(const a of toFetch){
-    a.avatarLoading = true;
-  }
+  for(const a of toFetch){ a.avatarLoading = true; }
   _lrnRenderSidebar();
 
   for(const a of toFetch){
     try {
       const url = await _lrnFetchChannelAvatar(a.url);
       const found = _auth.authors.find(x => x.id === a.id);
-      if(found){ found.avatarUrl = url || null; }
+      if(found){
+        found.avatarUrl = url || null;
+        // If all proxies returned null — mark as failed so we stop retrying
+        if(!url) found.avatarFailed = true;
+      }
     } catch(e){
-      // silently skip
+      const found = _auth.authors.find(x => x.id === a.id);
+      if(found) found.avatarFailed = true;
     } finally {
       const found = _auth.authors.find(x => x.id === a.id);
       if(found) found.avatarLoading = false;
     }
   }
-  _authSave();      // saves without avatarLoading (cleaned in _authSave)
+  _authSave();
   _lrnRenderSidebar();
 }
 
@@ -20680,10 +20693,21 @@ window.renderSocialTab = function(){
       <div id="soc-subcontent" style="min-height:200px"></div>
     </div>`;
 
-  socRenderSubTab();
+  // Show skeleton immediately while data loads (avoids flash of "Лента пуста")
   if(!SOC.initialized && !socIsDemo()){
+    // First visit: show loading state right away
+    const el = document.getElementById('soc-subcontent');
+    if(el) el.innerHTML = '<div style="display:flex;flex-direction:column;gap:10px;padding:16px">' +
+      '<div style="height:72px;background:rgba(255,255,255,.04);border-radius:12px;animation:skeletonShimmer 1.4s ease infinite"></div>' +
+      '<div style="height:72px;background:rgba(255,255,255,.04);border-radius:12px;animation:skeletonShimmer 1.4s ease infinite"></div>' +
+      '<div style="height:72px;background:rgba(255,255,255,.04);border-radius:12px;animation:skeletonShimmer 1.4s ease infinite"></div>' +
+      '</div>';
     SOC.initialized = true;
     socLoadAll();
+  } else {
+    // Repeated visit: render cached data immediately, refresh feed in background
+    socRenderSubTab();
+    if(!socIsDemo()) socLoadAll();
   }
 };
 
@@ -20701,11 +20725,12 @@ function socRenderSubTab(){
 // ─── LOAD ALL DATA ────────────────────────────────────────────
 async function socLoadAll(){
   if(socIsDemo()) return;
+  // FIX: socLoadFeed reads SOC.friends + SOC.follows — load them first
   await Promise.all([
     socLoadFriends(),
     socLoadFollows(),
-    socLoadFeed(),
   ]);
+  await socLoadFeed();
   socUpdateBadge();
 }
 
