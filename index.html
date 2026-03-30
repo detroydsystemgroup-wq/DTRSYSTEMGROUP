@@ -14854,10 +14854,94 @@ function renderKnowledgeBase() {
       #kb3cat-scroll{scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
       #kb3cat-scroll::-webkit-scrollbar{width:3px;}
       #kb3cat-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
       /* ══ ANIMATIONS ══ */
-      @keyframes k3fade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+      @keyframes k3fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
       @keyframes k3fadein{from{opacity:0}to{opacity:1}}
-      .k3anim{animation:k3fade .18s ease;}
+      @keyframes k3slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+      @keyframes k3slideRight{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}
+      @keyframes k3pop{0%{transform:scale(.94);opacity:0}60%{transform:scale(1.02)}100%{transform:scale(1);opacity:1}}
+      @keyframes k3shimmer{0%{background-position:200% center}100%{background-position:-200% center}}
+      @keyframes k3glow{0%,100%{box-shadow:0 0 0 0 rgba(245,200,66,0)}50%{box-shadow:0 0 20px 4px rgba(245,200,66,.12)}}
+      @keyframes k3float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+      @keyframes k3pulse-dot{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.4);opacity:.7}}
+
+      .k3anim{animation:k3fade .22s cubic-bezier(.34,1.15,.64,1) both;}
+      .k3anim2{animation:k3slideUp .28s cubic-bezier(.34,1.1,.64,1) both;}
+
+      /* Staggered children animations */
+      .k3home > *{animation:k3slideUp .32s cubic-bezier(.34,1.1,.64,1) both;}
+      .k3home > *:nth-child(1){animation-delay:.04s}
+      .k3home > *:nth-child(2){animation-delay:.08s}
+      .k3home > *:nth-child(3){animation-delay:.12s}
+      .k3home > *:nth-child(4){animation-delay:.16s}
+      .k3home > *:nth-child(5){animation-delay:.20s}
+
+      /* KPI cards — stagger */
+      .k3kpi-card{animation:k3pop .3s cubic-bezier(.34,1.15,.64,1) both;}
+
+      /* Category cards — float on hover */
+      [onclick*="_kbTogCat"]{
+        transition:all .25s cubic-bezier(.34,1.15,.64,1) !important;
+      }
+
+      /* Recent note rows */
+      .k3rec-row{transition:all .18s cubic-bezier(.34,1.15,.64,1) !important;}
+      .k3rec-row:hover{transform:translateX(4px) !important;}
+
+      /* Sidebar nav items */
+      .k3fb{transition:all .18s cubic-bezier(.34,1.15,.64,1) !important;}
+      .k3fb:hover{transform:translateX(3px) !important;}
+      .k3fb.k3on{animation:k3glow 2.5s ease infinite;}
+
+      /* Note cards in list */
+      .k3nc{transition:all .2s cubic-bezier(.34,1.15,.64,1) !important;}
+      .k3nc:hover{transform:translateX(3px) !important;}
+
+      /* Back button */
+      .k3back-btn{transition:all .18s cubic-bezier(.34,1.15,.64,1) !important;}
+      .k3back-btn:hover{transform:translateX(-3px) !important;color:var(--t1) !important;}
+
+      /* Folder header icon — pulse dot on active category */
+      .k3nlh-icon{animation:k3float 4s ease-in-out infinite;}
+
+      /* Shimmer on KPI values */
+      .k3kpi-v{
+        background-size:200% auto;
+        transition:transform .2s ease;
+      }
+      .k3kpi-card:hover .k3kpi-v{transform:scale(1.08);}
+
+      /* Smooth main content transitions */
+      #kb3main > *{transition:opacity .2s ease;}
+
+      /* Pin cards */
+      .k3pin-card{
+        transition:all .25s cubic-bezier(.34,1.15,.64,1) !important;
+      }
+      .k3pin-card:hover{
+        transform:translateY(-4px) scale(1.01) !important;
+        box-shadow:0 12px 32px rgba(0,0,0,.35) !important;
+      }
+
+      /* Buttons */
+      .k3btn{transition:all .2s cubic-bezier(.34,1.15,.64,1) !important;}
+      .k3btn:hover{transform:translateY(-2px) scale(1.02) !important;opacity:1 !important;}
+      .k3btn:active{transform:scale(.97) !important;}
+
+      /* Gold button shimmer */
+      .k3gold{
+        background:linear-gradient(90deg,var(--gold-d),var(--gold),#ffe066,var(--gold),var(--gold-d)) !important;
+        background-size:300% auto !important;
+        transition:background-position .5s ease, transform .2s cubic-bezier(.34,1.15,.64,1) !important;
+      }
+      .k3gold:hover{background-position:right center !important;transform:translateY(-2px) scale(1.02) !important;}
+
+      /* Progress bar animation */
+      .k3prog-f,.k3prog-fill{
+        animation:k3slideRight .6s cubic-bezier(.4,0,.2,1) both;
+        animation-delay:.2s;
+      }
 
       /* ══ MOVE NOTE SELECT ══ */
       .k3sel{width:100%;padding:9px 13px;border-radius:9px;background:var(--card);border:0.5px solid var(--border);color:var(--t1);font-size:13px;outline:none;transition:border-color .13s;font-family:'Inter','DM Sans',sans-serif;cursor:pointer;margin-bottom:8px;}
@@ -15811,28 +15895,28 @@ function _kbRHome(cont) {
 
     <!-- ══ СТАТИСТИКА ══ -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px">
-      <div style="background:rgba(245,200,66,.06);border:0.5px solid rgba(245,200,66,.15);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+      <div style="background:rgba(245,200,66,.06);border:0.5px solid rgba(245,200,66,.15);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;animation:k3pop .3s .04s cubic-bezier(.34,1.15,.64,1) both;transition:all .22s cubic-bezier(.34,1.15,.64,1)" onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.25)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
         <div style="font-size:28px;font-weight:400;font-family:'DM Mono',monospace;color:var(--gold);line-height:1">${tn}</div>
         <div>
           <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)">Заметок</div>
           <div style="font-size:10px;color:var(--t3);margin-top:1px">${tcat} категорий</div>
         </div>
       </div>
-      <div style="background:rgba(59,130,246,.06);border:0.5px solid rgba(59,130,246,.15);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+      <div style="background:rgba(59,130,246,.06);border:0.5px solid rgba(59,130,246,.15);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;animation:k3pop .3s .09s cubic-bezier(.34,1.15,.64,1) both;transition:all .22s cubic-bezier(.34,1.15,.64,1)" onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.25)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
         <div style="font-size:28px;font-weight:400;font-family:'DM Mono',monospace;color:var(--blue);line-height:1">${tf}</div>
         <div>
           <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)">Папок</div>
           <div style="font-size:10px;color:var(--t3);margin-top:1px">для организации</div>
         </div>
       </div>
-      <div style="background:rgba(168,85,247,.06);border:0.5px solid rgba(168,85,247,.15);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+      <div style="background:rgba(168,85,247,.06);border:0.5px solid rgba(168,85,247,.15);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;animation:k3pop .3s .14s cubic-bezier(.34,1.15,.64,1) both;transition:all .22s cubic-bezier(.34,1.15,.64,1)" onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.25)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
         <div style="font-size:28px;font-weight:400;font-family:'DM Mono',monospace;color:var(--purple);line-height:1">${tw>999?Math.round(tw/1000)+'к':tw}</div>
         <div>
           <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)">Слов</div>
           <div style="font-size:10px;color:var(--t3);margin-top:1px">написано всего</div>
         </div>
       </div>
-      <div style="background:rgba(34,197,94,.06);border:0.5px solid rgba(34,197,94,.15);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+      <div style="background:rgba(34,197,94,.06);border:0.5px solid rgba(34,197,94,.15);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;animation:k3pop .3s .19s cubic-bezier(.34,1.15,.64,1) both;transition:all .22s cubic-bezier(.34,1.15,.64,1)" onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.25)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
         <div style="font-size:28px;font-weight:400;font-family:'DM Mono',monospace;color:var(--green);line-height:1">${tu}</div>
         <div>
           <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)">Сегодня</div>
@@ -15848,13 +15932,13 @@ function _kbRHome(cont) {
         Категории
       </div>
       <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px">
-        ${ALL_CATS.map(c=>{
+        ${ALL_CATS.map((c,ci)=>{
           const nc=_kbCatNC(c.id);
           const nf=_kbCatD(c.id).folders.length;
           const maxNotes=Math.max(...ALL_CATS.map(x=>_kbCatNC(x.id)),1);
           const pct=Math.round(nc/maxNotes*100);
-          return `<div onclick="_kbTogCat('${c.id}')" style="background:rgba(255,255,255,.03);border:0.5px solid ${c.color}22;border-radius:14px;padding:12px 14px;cursor:pointer;transition:all .2s cubic-bezier(.34,1.15,.64,1);position:relative;overflow:hidden"
-            onmouseover="this.style.background='${c.color}12';this.style.borderColor='${c.color}55';this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,.2)'"
+          return `<div onclick="_kbTogCat('${c.id}')" style="background:rgba(255,255,255,.03);border:0.5px solid ${c.color}22;border-radius:14px;padding:12px 14px;cursor:pointer;transition:all .25s cubic-bezier(.34,1.15,.64,1);position:relative;overflow:hidden;animation:k3pop .32s ${.04+ci*.055}s cubic-bezier(.34,1.15,.64,1) both"
+            onmouseover="this.style.background='${c.color}15';this.style.borderColor='${c.color}66';this.style.transform='translateY(-4px) scale(1.02)';this.style.boxShadow='0 10px 28px rgba(0,0,0,.3)'"
             onmouseout="this.style.background='rgba(255,255,255,.03)';this.style.borderColor='${c.color}22';this.style.transform='';this.style.boxShadow=''">
             <div style="position:absolute;left:0;top:0;bottom:0;width:2.5px;background:${c.color};border-radius:2px 0 0 2px;opacity:.8"></div>
             <div style="font-size:18px;line-height:1;margin-bottom:6px">${c.icon}</div>
@@ -15900,9 +15984,9 @@ function _kbRHome(cont) {
         </div>
         <div style="display:flex;flex-direction:column;gap:3px">
           ${rec.slice(0,5).map(n=>`
-          <div onclick="_kbON('${n.catId}','${n.folderId}','${n.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(255,255,255,.025);border:0.5px solid rgba(255,255,255,.06);border-radius:10px;cursor:pointer;transition:all .15s"
-            onmouseover="this.style.background='rgba(255,255,255,.05)';this.style.borderColor='rgba(255,255,255,.1)'"
-            onmouseout="this.style.background='rgba(255,255,255,.025)';this.style.borderColor='rgba(255,255,255,.06)'">
+          <div onclick="_kbON('${n.catId}','${n.folderId}','${n.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(255,255,255,.025);border:0.5px solid rgba(255,255,255,.06);border-radius:10px;cursor:pointer;transition:all .2s cubic-bezier(.34,1.15,.64,1)"
+            onmouseover="this.style.background='rgba(255,255,255,.06)';this.style.borderColor='rgba(255,255,255,.12)';this.style.transform='translateX(4px)'"
+            onmouseout="this.style.background='rgba(255,255,255,.025)';this.style.borderColor='rgba(255,255,255,.06)';this.style.transform=''">
             <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${n.catIcon}</div>
             <div style="flex:1;min-width:0">
               <div style="font-size:13px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc2(n.title||'Без названия')}</div>
@@ -16720,7 +16804,7 @@ function _kbUseTpl(idx){
       <div style="font-size:11.5px;color:var(--t3)">Выбери категорию</div>
     </div>
     <div style="display:flex;flex-direction:column;gap:4px">
-      ${ALL_CATS.map(c=>{const d=_kbCatD(c.id);return `<button onclick="_kbQCPTpl('${c.id}',${idx})"
+      ${ALL_CATS.map((c,ci)=>{const d=_kbCatD(c.id);return `<button onclick="_kbQCPTpl('${c.id}',${idx})"
         style="display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:9px;background:var(--card);border:0.5px solid var(--border);cursor:pointer;width:100%;font-family:'DM Sans',sans-serif;text-align:left;transition:all .12s"
         onmouseover="this.style.borderColor='${c.color}44';this.style.background='${c.color}08'"
         onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--card)'">
@@ -16758,7 +16842,7 @@ function _kbNewNoteQuick(){
       <div style="font-size:11.5px;color:var(--t3)">Выбери категорию</div>
     </div>
     <div style="display:flex;flex-direction:column;gap:4px">
-      ${ALL_CATS.map(c=>{const d=_kbCatD(c.id);return `<button onclick="_kbQCP('${c.id}')"
+      ${ALL_CATS.map((c,ci)=>{const d=_kbCatD(c.id);return `<button onclick="_kbQCP('${c.id}')"
         style="display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:9px;background:var(--card);border:0.5px solid var(--border);cursor:pointer;width:100%;font-family:'DM Sans',sans-serif;text-align:left;transition:all .12s"
         onmouseover="this.style.borderColor='${c.color}44';this.style.background='${c.color}08'"
         onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--card)'">
