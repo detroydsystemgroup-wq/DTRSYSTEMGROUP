@@ -22878,23 +22878,24 @@ window.renderCollabView=renderCollabView;
   position: relative;
   overflow: visible;
 }
-/* Kill ALL previous conflicting ::after rules */
+/* Tab indicator — proportional width, symmetric, crisp */
 .stab::after {
   content: '';
   position: absolute;
   bottom: 0;
-  left: 50%;
-  transform: translateX(-50%) scaleX(0);
-  width: 24px; height: 2px;
-  background: var(--gold);
+  left: 15%;
+  right: 15%;
+  height: 2.5px;
+  background: linear-gradient(90deg, transparent, var(--gold) 20%, var(--gold) 80%, transparent);
   border-radius: 2px 2px 0 0;
-  transform-origin: center bottom;
-  transition: transform .3s var(--ease-spring), opacity .25s ease;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform .32s var(--ease-spring), opacity .22s ease;
   opacity: 0;
   pointer-events: none;
 }
 .stab.active::after {
-  transform: translateX(-50%) scaleX(1);
+  transform: scaleX(1);
   opacity: 1;
 }
 /* Icon spring on active */
@@ -23460,33 +23461,53 @@ window.renderCollabView=renderCollabView;
     requestAnimationFrame(tick);
   }
 
-  /* Animate hero stat elements on first real value — CSS fade+slide only, no value jumping */
+  /* Animate hero stat elements — safe reveal, no value jumping, no hiding-forever bug */
   function watchHeroStats() {
     const ids = ['heroTodayHrs','heroStreakVal','heroWeekHrs','heroTotalHrs','totDisp','dailyDoneLabel'];
     ids.forEach((id, idx) => {
       const el = document.getElementById(id);
       if (!el || el._countObserved) return;
       el._countObserved = true;
-      // Pre-set invisible so the reveal is clean
+
+      // Start invisible for a clean entrance
       el.style.opacity = '0';
-      el.style.transform = 'translateY(10px)';
+      el.style.transform = 'translateY(8px)';
+
+      const reveal = () => {
+        const delay = idx * 55;
+        setTimeout(() => {
+          el.style.transition = `opacity .5s ${EASE.expo}, transform .5s ${EASE.spring}`;
+          el.style.opacity = '1';
+          el.style.transform = 'translateY(0)';
+          // Clean up inline styles after animation so CSS can take over
+          setTimeout(() => {
+            el.style.transition = '';
+            el.style.transform  = '';
+          }, 600);
+        }, delay);
+      };
+
       let triggered = false;
       const obs = new MutationObserver(() => {
         if (triggered) return;
         const raw = el.textContent.trim();
-        if (raw && raw !== '—' && raw !== '0' && raw !== '0.0') {
+        // Trigger on ANY real value (including 0, 0.0) — only skip placeholder '—'
+        if (raw && raw !== '—') {
           triggered = true;
           obs.disconnect();
-          // Staggered reveal — no value change, just animate in
-          const delay = idx * 60;
-          setTimeout(() => {
-            el.style.transition = `opacity .55s ${EASE.expo}, transform .55s ${EASE.spring}`;
-            el.style.opacity = '1';
-            el.style.transform = 'translateY(0)';
-          }, delay);
+          reveal();
         }
       });
       obs.observe(el, { childList: true, characterData: true, subtree: true });
+
+      // Failsafe: always show after 2s even if observer never fires
+      setTimeout(() => {
+        if (!triggered) {
+          triggered = true;
+          obs.disconnect();
+          reveal();
+        }
+      }, 2000);
     });
   }
 
