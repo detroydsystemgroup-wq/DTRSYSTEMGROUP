@@ -14578,9 +14578,16 @@ function renderKnowledgeBase() {
       .k3tb:active{transform:scale(.95);}
       .k3tbsel{padding:4px 10px;border-radius:8px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.1);color:var(--t1);font-size:12px;cursor:pointer;outline:none;height:32px;font-family:'Inter','DM Sans',sans-serif;flex-shrink:0;transition:border-color .15s;}
       .k3tbsel:hover{border-color:rgba(255,255,255,.2);}
-      .k3font-sel{padding:4px 10px;border-radius:8px;background:rgba(245,200,66,.06);border:0.5px solid rgba(245,200,66,.2);color:var(--t1);font-size:12.5px;font-weight:600;cursor:pointer;outline:none;height:32px;flex-shrink:0;min-width:150px;transition:all .15s;letter-spacing:-.01em;}
-      .k3font-sel:hover,.k3font-sel:focus{border-color:rgba(245,200,66,.45);background:rgba(245,200,66,.1);}
-      .k3font-sel option{font-size:13px;}
+      .k3font-dd{position:relative;flex-shrink:0;}
+      .k3font-btn{display:flex;align-items:center;gap:7px;padding:0 12px;height:32px;border-radius:8px;background:rgba(245,200,66,.07);border:0.5px solid rgba(245,200,66,.25);color:var(--t1);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;white-space:nowrap;min-width:110px;justify-content:space-between;}
+      .k3font-btn:hover{background:rgba(245,200,66,.14);border-color:rgba(245,200,66,.45);}
+      .k3font-list{position:absolute;top:calc(100% + 6px);left:0;background:rgba(18,18,24,.97);border:0.5px solid rgba(255,255,255,.1);border-radius:14px;padding:6px;min-width:210px;box-shadow:0 16px 48px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.06);z-index:9999;animation:dropIn .18s cubic-bezier(.34,1.15,.64,1) both;}
+      @keyframes dropIn{from{opacity:0;transform:translateY(-6px) scale(.97)}to{opacity:1;transform:none}}
+      .k3font-opt{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:600;color:var(--t1);transition:background .12s;}
+      .k3font-opt span{font-size:11px;color:var(--t3);font-family:'DM Sans',sans-serif;font-weight:400;margin-left:8px;}
+      .k3font-opt:hover{background:rgba(245,200,66,.1);}
+      .k3font-opt.active{background:rgba(245,200,66,.12);color:var(--gold);}
+      .k3font-opt.active span{color:var(--gold);opacity:.7;}
       .k3tbsep{width:0.5px;height:18px;background:rgba(255,255,255,.08);margin:0 4px;align-self:center;flex-shrink:0;}
       /* Todo checkbox in editor */
       .k3todo{display:flex;align-items:flex-start;gap:9px;margin:5px 0;padding:4px 0;}
@@ -15630,14 +15637,20 @@ function _kbRED() {
     tb.style.display='flex';
     tb.innerHTML=`
       <!-- Font selector -->
-      <select class="k3font-sel" onchange="_kbSetFont(this.value)" id="kb3fontsel" title="Выбрать шрифт">
-        <option value="inter" style="font-family:Inter">Inter — Современный</option>
-        <option value="lora" style="font-family:Lora">Lora — Элегантный</option>
-        <option value="merriweather" style="font-family:Merriweather">Merriweather — Для чтения</option>
-        <option value="playfair" style="font-family:'Playfair Display'">Playfair — Классика</option>
-        <option value="nunito" style="font-family:Nunito">Nunito — Мягкий</option>
-        <option value="crimson" style="font-family:'Crimson Pro'">Crimson — Изысканный</option>
-      </select>
+      <div class="k3font-dd" id="kb3fontdd">
+        <button class="k3font-btn" id="kb3fontbtn" onclick="_kbFontDDToggle(event)" type="button">
+          <span id="kb3fontlabel">Inter</span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="k3font-list" id="kb3fontlist" style="display:none">
+          <div class="k3font-opt" onclick="_kbSetFont('inter')" data-font="inter" style="font-family:'Inter','DM Sans',sans-serif">Inter <span>Современный</span></div>
+          <div class="k3font-opt" onclick="_kbSetFont('lora')" data-font="lora" style="font-family:'Lora',Georgia,serif">Lora <span>Элегантный</span></div>
+          <div class="k3font-opt" onclick="_kbSetFont('merriweather')" data-font="merriweather" style="font-family:'Merriweather',Georgia,serif">Merriweather <span>Для чтения</span></div>
+          <div class="k3font-opt" onclick="_kbSetFont('playfair')" data-font="playfair" style="font-family:'Playfair Display',Georgia,serif">Playfair <span>Классика</span></div>
+          <div class="k3font-opt" onclick="_kbSetFont('nunito')" data-font="nunito" style="font-family:'Nunito','DM Sans',sans-serif">Nunito <span>Мягкий</span></div>
+          <div class="k3font-opt" onclick="_kbSetFont('crimson')" data-font="crimson" style="font-family:'Crimson Pro',Georgia,serif">Crimson <span>Изысканный</span></div>
+        </div>
+      </div>
       <div class="k3tbsep"></div>
       <select class="k3tbsel" onchange="_kbRB(this.value);this.value=''">
         <option value="">Стиль ▾</option>
@@ -16063,41 +16076,56 @@ function _kbEK(e){
     const sel=window.getSelection();
     if(!sel||!sel.rangeCount) return;
     const range=sel.getRangeAt(0);
-    const node=range.startContainer;
-    const textNode = node.nodeType===3 ? node : node.firstChild;
-    const lineText = (textNode?.textContent||node?.textContent||'').trimEnd();
 
-    // 1. Нумерованный список: "1. текст" → Enter → "2. "
-    const numMatch = lineText.match(/^(\d+)\.\s+(.+)$/);
+    // Надёжно получаем текст текущей строки до курсора
+    function getCurrentLineText(){
+      const container=range.startContainer;
+      if(container.nodeType===3){
+        // Текстовый узел — берём от начала до курсора
+        const fullText=container.textContent.slice(0,range.startOffset);
+        // Ищем последний перенос строки (br вызывает новый текстовый узел)
+        return fullText;
+      }
+      // Элемент — получаем текст из дочерних узлов до курсора
+      let text='';
+      for(let i=0;i<range.startOffset&&i<container.childNodes.length;i++){
+        const ch=container.childNodes[i];
+        if(ch.nodeName==='BR'){text='';}  // br = новая строка
+        else text+=ch.textContent||'';
+      }
+      return text;
+    }
+
+    const lineText = getCurrentLineText().trimEnd();
+
+    // 1. Нумерованный список — "1. " или "1. текст"
+    const numMatch = lineText.match(/^(\d+)\.\s(.*)$/);
     if(numMatch){
-      e.preventDefault();
-      const nextNum = parseInt(numMatch[1])+1;
-      document.execCommand('insertHTML',false,'<br>'+nextNum+'. ');
+      const content = numMatch[2].trim();
+      if(content===''){
+        // Пустой пункт — выход из списка (убираем "N. " и делаем новый абзац)
+        e.preventDefault();
+        document.execCommand('insertHTML',false,'<br><br>');
+      } else {
+        // Есть контент — продолжаем список без отступа
+        e.preventDefault();
+        const nextNum=parseInt(numMatch[1])+1;
+        document.execCommand('insertHTML',false,'<br>'+nextNum+'. ');
+      }
       return;
     }
 
-    // 2. Пустой нумерованный пункт "2. " → Enter → выход из списка
-    const emptyNum = lineText.match(/^(\d+)\.\s*$/);
-    if(emptyNum){
-      e.preventDefault();
-      // удаляем последнюю строку и вставляем пустой абзац
-      document.execCommand('insertHTML',false,'<br><br>');
-      return;
-    }
-
-    // 3. Маркированный список "- текст" или "• текст" → Enter → "- "
-    const bulletMatch = lineText.match(/^([-•*])\s+(.+)$/);
+    // 2. Маркированный список — "- текст" / "• текст" / "* текст"
+    const bulletMatch = lineText.match(/^([-•*])\s(.*)$/);
     if(bulletMatch){
-      e.preventDefault();
-      document.execCommand('insertHTML',false,'<br>'+bulletMatch[1]+' ');
-      return;
-    }
-
-    // 4. Пустой пункт "- " → выход
-    const emptyBullet = lineText.match(/^[-•*]\s*$/);
-    if(emptyBullet){
-      e.preventDefault();
-      document.execCommand('insertHTML',false,'<br><br>');
+      const content = bulletMatch[2].trim();
+      if(content===''){
+        e.preventDefault();
+        document.execCommand('insertHTML',false,'<br><br>');
+      } else {
+        e.preventDefault();
+        document.execCommand('insertHTML',false,'<br>'+bulletMatch[1]+' ');
+      }
       return;
     }
   }
@@ -16175,6 +16203,32 @@ window._kbTodoCh=function(cb){
   _kbEI();
 };
 
+function _kbFontDDToggle(e){
+  e.stopPropagation();
+  const list=document.getElementById('kb3fontlist');
+  if(!list) return;
+  const isOpen = list.style.display !== 'none';
+  list.style.display = isOpen ? 'none' : 'block';
+}
+function _kbFontDDClose(){
+  const list=document.getElementById('kb3fontlist');
+  if(list) list.style.display='none';
+}
+document.addEventListener('click', function(e){
+  if(!e.target.closest('#kb3fontdd')) _kbFontDDClose();
+});
+function _kbFontDDUpdate(font){
+  const labels = {inter:'Inter',lora:'Lora',merriweather:'Merriweather',playfair:'Playfair',nunito:'Nunito',crimson:'Crimson'};
+  const lbl = document.getElementById('kb3fontlabel');
+  if(lbl) lbl.textContent = labels[font]||'Inter';
+  const f = _kbFontMap[font]||_kbFontMap.inter;
+  if(lbl) lbl.style.fontFamily = f.family;
+  document.querySelectorAll('.k3font-opt').forEach(o=>{
+    o.classList.toggle('active', o.dataset.font===font);
+  });
+  _kbFontDDClose();
+}
+
 function _kbSetFont(font){
   if(!font)return;
   _kbS.font=font;
@@ -16185,7 +16239,9 @@ function _kbSetFont(font){
   // Apply to view
   const vw=document.querySelector('.k3view');
   if(vw){ vw.style.fontFamily=f.family; vw.style.fontSize=f.size; vw.style.lineHeight=f.lh; }
-  // Update selector UI
+  // Update dropdown UI
+  _kbFontDDUpdate(font);
+  // Update legacy select if exists
   const sel=document.getElementById('kb3fontsel');
   if(sel)sel.value=font;
   // Save per note
@@ -16200,8 +16256,7 @@ function _kbApplyFont(font){
   if(ea){ ea.style.fontFamily=f.family; ea.style.fontSize=f.size; ea.style.lineHeight=f.lh; }
   const vw=document.querySelector('.k3view');
   if(vw){ vw.style.fontFamily=f.family; vw.style.fontSize=f.size; vw.style.lineHeight=f.lh; }
-  const sel=document.getElementById('kb3fontsel');
-  if(sel)sel.value=font||'inter';
+  _kbFontDDUpdate(font||'inter');
   _kbS.font=font||'inter';
 }
 
