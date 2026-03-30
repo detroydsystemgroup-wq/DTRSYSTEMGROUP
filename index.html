@@ -9320,7 +9320,7 @@ function renderTotals(){
   document.getElementById('streakDisp').textContent=`🔥 ${P.streak} дней подряд`;
   // Показываем общее число активных дней отдельно от дисциплины
   const activeDaysEl=document.getElementById('activeDaysDisp');
-  if(activeDaysEl) activeDaysEl.textContent=`📅 ${P.totalActiveDays||0} активных дней всего`;
+  if(activeDaysEl) activeDaysEl.innerHTML=`<span style="display:inline-flex;align-items:center;gap:4px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> \${P.totalActiveDays||0} активных дней всего</span>`;;
   const _ws2=new Date(getWeekStart());
   const _we2=new Date(getWeekStart()+6*86400000);
   const _wLabel=`${_ws2.getDate()}–${_we2.getDate()} ${_we2.toLocaleDateString('ru',{month:'short'}).replace(' г.','')}`;
@@ -11974,7 +11974,10 @@ function showLeaguePickerThenStart() {
             border-radius:12px;cursor:pointer;font-family:'DM Sans',sans-serif;
             transition:background-color .18s,border-color .18s,color .18s,box-shadow .18s,opacity .18s;text-align:left;
           " onmouseover="this.style.borderColor='${c.color}'" onmouseout="this.style.borderColor='${quickSel===c.id?c.color:'var(--border)'}'">
-            <span style="font-size:22px;flex-shrink:0">${c.icon}</span>
+            <span style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;
+              border-radius:7px;background:${c.color}18;color:${c.color};flex-shrink:0">
+              ${(typeof ICONS !== 'undefined' && ICONS[c.id]) ? ICONS[c.id].replace(/width="20" height="20"/g,'width="15" height="15"') : c.icon}
+            </span>
             <span style="font-size:12px;font-weight:700;color:var(--t1);line-height:1.3">${c.name}</span>
           </button>`).join('')}
       </div>
@@ -13565,7 +13568,12 @@ async function renderForecast(){
     const cls=diff>0.1?'up':diff<-0.1?'dn':'eq';
     const diffLbl=diff>0?`+${diff}ч`:diff<0?`${diff}ч`:'±0ч';
     return `<div class="cmp-card" style="--cmp-c:${cat.color}">
-      <div class="cmp-title" style="color:${cat.color}">${cat.icon} ${cat.name}</div>
+      <div class="cmp-title" style="color:${cat.color};display:flex;align-items:center;gap:6px">
+        <span style="display:flex;align-items:center;justify-content:center;width:14px;height:14px;color:${cat.color}">
+          ${(typeof ICONS !== 'undefined' && ICONS[cat.id]) ? ICONS[cat.id].replace(/width="20" height="20"/g,'width="14" height="14"') : ''}
+        </span>
+        ${cat.name}
+      </div>
       <div class="cmp-bars">${bar(myCatHrs,avgCatHrs,myCatHrs+'ч',avgCatHrs+'ч',cat.color)}</div>
       <div style="margin-top:5px;font-size:10px;color:var(--t3)">Среднее по лиге за ${days} дн.: ${avgCatHrs}ч · ${othersCount} игроков</div>
       <span class="cmp-diff ${cls}">${diffLbl} ${cls==='up'?'выше среднего':cls==='dn'?'ниже среднего':'на уровне'}</span>
@@ -13589,21 +13597,21 @@ async function renderForecast(){
     </div>
 
     <div class="cmp-card">
-      <div class="cmp-title" style="color:var(--gold)">⏱ Общие часы за период</div>
+      <div class="cmp-title" style="color:var(--gold);display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Общие часы за период</div>
       <div class="cmp-bars">${bar(myHrs,avgHrs,myHrs+'ч',avgHrs+'ч','var(--gold)')}</div>
       <div style="margin-top:5px;font-size:10px;color:var(--t3)">Среднее по лигам: ${avgHrs}ч</div>
       <span class="cmp-diff ${myHrs>=avgHrs?'up':'dn'}">${myHrs>=avgHrs?'+':''}${(myHrs-avgHrs).toFixed(1)}ч ${myHrs>=avgHrs?'выше среднего':'ниже среднего'}</span>
     </div>
 
     <div class="cmp-card">
-      <div class="cmp-title" style="color:#f85149">🔥 Дисциплина — последовательность</div>
+      <div class="cmp-title" style="color:#f85149;display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg> Дисциплина — последовательность</div>
       <div class="cmp-bars">${bar(myStreak,avgStreakReal,myStreak+' д',avgStreakReal+' д','#f85149')}</div>
       <div style="margin-top:5px;font-size:10px;color:var(--t3)">Средняя дисциплина в лиге: ${avgStreakReal} дней</div>
       <span class="cmp-diff ${streakCls}">${streakDiff>0?'+':''}${streakDiff} д ${streakCls==='up'?'выше среднего':streakCls==='dn'?'ниже среднего':'на уровне'}</span>
     </div>
 
     <div class="cmp-card">
-      <div class="cmp-title" style="color:var(--blue)">📅 Активных дней</div>
+      <div class="cmp-title" style="color:var(--blue);display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Активных дней</div>
       <div class="cmp-bars">${bar(myActiveDays,avgActiveDays,myActiveDays+' д',avgActiveDays+' д','var(--blue)')}</div>
       <div style="margin-top:5px;font-size:10px;color:var(--t3)">Среднее по лиге: ${avgActiveDays} дней активности</div>
       <span class="cmp-diff ${daysCls}">${daysDiff>0?'+':''}${daysDiff} д ${daysCls==='up'?'выше среднего':daysCls==='dn'?'ниже среднего':'на уровне'}</span>
@@ -15498,7 +15506,10 @@ function _kbRCatNotes(hdr, body) {
 
   hdr.innerHTML=`
     <div class="k3nlh-row">
-      <span style="font-size:16px;flex-shrink:0">${c.icon}</span>
+      <span style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;
+        border-radius:8px;background:${c.color}18;color:${c.color};flex-shrink:0">
+        ${(typeof ICONS !== 'undefined' && ICONS[c.id]) ? ICONS[c.id].replace(/width="20" height="20"/g,'width="16" height="16"') : c.icon}
+      </span>
       <div class="k3nlh-title" style="color:${c.color}">${c.name}</div>
       <button class="k3ico" onclick="_kbNF('${c.id}')" title="Новая папка" style="width:24px;height:24px;border-radius:6px">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -15569,7 +15580,12 @@ function _kbRCatOverview(cont) {
         База знаний
       </button>
       <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
-      <span style="font-size:12px;font-weight:600;color:var(--t2)">${c.icon} ${c.name}</span>
+      <span style="font-size:12px;font-weight:600;color:var(--t2);display:flex;align-items:center;gap:5px">
+        <span style="display:flex;align-items:center;justify-content:center;width:14px;height:14px;color:${c.color}">
+          ${(typeof ICONS !== 'undefined' && ICONS[c.id]) ? ICONS[c.id].replace(/width="20" height="20"/g,'width="13" height="13"') : c.icon}
+        </span>
+        ${c.name}
+      </span>
     </div>
 
     <!-- ── HERO SECTION ── -->
@@ -15755,7 +15771,12 @@ function _kbRFolderInline(cont) {
         Обзор
       </button>
       <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
-      <button class="k3back-btn" onclick="_kbTogCat('${c.id}')">${c.icon} ${c.name}</button>
+      <button class="k3back-btn" onclick="_kbTogCat('${c.id}')" style="display:flex;align-items:center;gap:7px">
+        <span style="display:flex;align-items:center;justify-content:center;width:18px;height:18px;color:${c.color};flex-shrink:0">
+          ${(typeof ICONS !== 'undefined' && ICONS[c.id]) ? ICONS[c.id].replace(/width="20" height="20"/g,'width="16" height="16"') : c.icon}
+        </span>
+        ${c.name}
+      </button>
       <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
       <span style="font-size:12px;font-weight:600;color:var(--t1)">📁 ${_kbEsc2(f.title)}</span>
     </div>
@@ -15898,7 +15919,12 @@ function _kbRED() {
         Обзор
       </button>
       <span style="font-size:11px;color:var(--t3)">·</span>
-      <button class="k3back-btn" onclick="_kbTogCat('${c.id}')">${c.icon} ${c.name}</button>
+      <button class="k3back-btn" onclick="_kbTogCat('${c.id}')" style="display:flex;align-items:center;gap:7px">
+        <span style="display:flex;align-items:center;justify-content:center;width:18px;height:18px;color:${c.color};flex-shrink:0">
+          ${(typeof ICONS !== 'undefined' && ICONS[c.id]) ? ICONS[c.id].replace(/width="20" height="20"/g,'width="16" height="16"') : c.icon}
+        </span>
+        ${c.name}
+      </button>
       <span style="font-size:11px;color:var(--t3)">·</span>
       <button class="k3back-btn" onclick="_kbSF('${c.id}','${f.id}')">
         <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="${c.color}" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
