@@ -4962,6 +4962,86 @@ body.focus-mode #focusModeBtn { background: rgba(245,200,66,.1); border-color: r
 } /* end min-width 601px */
 
 
+
+/* ══════════════════════════════════════════════════════════════
+   ✦ DTR MOTION SYSTEM — Professional Animation Language
+   Единый словарь движения для всей платформы.
+   Принципы: только transform + opacity (GPU), spring easing,
+   stagger cascade, purposeful motion per content type.
+══════════════════════════════════════════════════════════════ */
+
+/* ── Easing tokens ───────────────────────────────────────────── */
+:root {
+  --spring:  cubic-bezier(.34,1.18,.64,1);
+  --smooth:  cubic-bezier(.4,0,.2,1);
+  --swift:   cubic-bezier(.55,0,.1,1);
+  --enter:   cubic-bezier(.22,1,.36,1);
+}
+
+/* ── Core keyframes ──────────────────────────────────────────── */
+@keyframes dtrSlideUp {
+  from { opacity:0; transform:translateY(20px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+@keyframes dtrSlideDown {
+  from { opacity:0; transform:translateY(-14px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+@keyframes dtrFadeScale {
+  from { opacity:0; transform:translateY(12px) scale(.96); }
+  to   { opacity:1; transform:translateY(0)    scale(1); }
+}
+@keyframes dtrSlideInLeft {
+  from { opacity:0; transform:translateX(-16px); }
+  to   { opacity:1; transform:translateX(0); }
+}
+@keyframes dtrSlideInRight {
+  from { opacity:0; transform:translateX(16px); }
+  to   { opacity:1; transform:translateX(0); }
+}
+@keyframes dtrPopIn {
+  0%   { opacity:0; transform:scale(.82) translateY(8px); }
+  60%  { opacity:1; transform:scale(1.03) translateY(-2px); }
+  100% { opacity:1; transform:scale(1)    translateY(0); }
+}
+@keyframes dtrNumberReveal {
+  from { opacity:0; transform:translateY(14px); filter:blur(4px); }
+  to   { opacity:1; transform:translateY(0);    filter:blur(0); }
+}
+@keyframes dtrBarGrow {
+  from { transform:scaleX(0); transform-origin:left; }
+  to   { transform:scaleX(1); transform-origin:left; }
+}
+@keyframes dtrBarRise {
+  from { transform:scaleY(0); transform-origin:bottom; }
+  to   { transform:scaleY(1); transform-origin:bottom; }
+}
+@keyframes dtrHeroIn {
+  from { opacity:0; transform:translateY(-10px) scale(.985); }
+  to   { opacity:1; transform:translateY(0)     scale(1); }
+}
+@keyframes dtrSectionIn {
+  from { opacity:0; transform:translateX(-10px); }
+  to   { opacity:1; transform:translateX(0); }
+}
+@keyframes dtrTabIn {
+  from { opacity:0; transform:translateY(16px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+/* ── Utility classes ─────────────────────────────────────────── */
+.dtr-anim-hero   { animation: dtrHeroIn    .32s var(--enter)  both; }
+.dtr-anim-card   { animation: dtrFadeScale .28s var(--spring) both; }
+.dtr-anim-row    { animation: dtrSlideInLeft .24s var(--smooth) both; }
+.dtr-anim-pop    { animation: dtrPopIn     .34s var(--spring) both; }
+.dtr-anim-num    { animation: dtrNumberReveal .3s var(--smooth) both; }
+.dtr-anim-sec    { animation: dtrSectionIn .22s var(--swift)  both; }
+
+/* ── Tab pane enter ──────────────────────────────────────────── */
+.tc.active { animation: dtrTabIn .26s var(--enter) both; }
+
+/* END DTR MOTION SYSTEM */
+
 /* ══ EXPORT + PWA UI ══════════════════════════════════════════ */
 .export-btn {
   display: inline-flex; align-items: center; gap: 6px;
@@ -12570,17 +12650,108 @@ function showTab(name,el,skipHistory){
     void pane.offsetWidth;
     pane.style.animation='none';
     void pane.offsetWidth;
-    pane.style.animation='fadeUp .22s ease both';
-    setTimeout(()=>{if(pane)pane.style.animation='';},300);
+    pane.style.animation='dtrTabIn .28s cubic-bezier(.22,1,.36,1) both';
+    setTimeout(()=>{if(pane)pane.style.animation='';},400);
   }
   if(el)el.classList.add('active');
   else{const s=document.querySelector('.stab[onclick*="\''+name+'\'"]');if(s)s.classList.add('active');}
-  if(name==='dash'){renderDash();if(typeof renderHeroZone==='function'&&P&&!P._loading)renderHeroZone();setTimeout(()=>{staggerList('.kpi',40);staggerList('.si',25);initKpiGlow();renderDailyProgress();},60);}
-  if(name==='activity'){renderSessions(true);setTimeout(()=>staggerList('.si',25),50);}
-  if(name==='achievements'){renderAchFull();setTimeout(()=>staggerList('.ach2',35),50);}
-  if(name==='leagues'){renderLeagues();setTimeout(()=>{staggerList('.lg-row',28);staggerList('.lg-section',50);},80);}
-  if(name==='messages'){renderMsgTab();}
-  if(name==='manage'){renderManageGrid();loadMemberCounts().then(()=>{renderManageGrid();});}
+  if(name==='dash'){
+    renderDash();
+    if(typeof renderHeroZone==='function'&&P&&!P._loading) renderHeroZone();
+    setTimeout(()=>{
+      // Hero banner — slides down
+      document.querySelectorAll('.mot-banner,.card:first-child').forEach((el,i)=>{
+        el.style.animation='none'; void el.offsetHeight;
+        el.style.animation=`dtrHeroIn .34s ${i*40}ms cubic-bezier(.22,1,.36,1) both`;
+      });
+      // KPI cards — cascade fade+scale
+      staggerList('.kpi', 55, 'card');
+      // Session list — slide from left
+      staggerList('.si', 30, 'row');
+      // Section labels — fast left slide
+      staggerList('[id^="sec_"]', 40, 'sec');
+      // Numbers inside KPI — blur reveal
+      animateNumbers('.kpi .kpi-val, .kpi [style*="font-family:\'DM Mono\'"], .tot-num', 100);
+      // Progress bars
+      animateBars('.ci-bar, .lr-bar, .xp-fill, .cbd-bar', 80);
+      initKpiGlow();
+      renderDailyProgress();
+    }, 60);
+  }
+  if(name==='activity'){
+    renderSessions(true);
+    setTimeout(()=>{
+      staggerList('.si', 28, 'row');
+      staggerList('[id^="sec_"]', 35, 'sec');
+    }, 50);
+  }
+  if(name==='achievements'){
+    renderAchFull();
+    setTimeout(()=>{
+      // Summary strip — slide down
+      document.querySelectorAll('.ach-sum-strip,.ach-sum-block').forEach((el,i)=>{
+        el.style.animation='none'; void el.offsetHeight;
+        el.style.animation=`dtrSlideDown .28s ${i*40}ms cubic-bezier(.22,1,.36,1) both`;
+      });
+      // Achievement cards — pop in with stagger
+      staggerList('.ach2', 40, 'pop');
+      // Progress bars inside ach cards
+      animateBars('.ach2-prog-fill', 200);
+    }, 50);
+  }
+  if(name==='leagues'){
+    renderLeagues();
+    setTimeout(()=>{
+      // Section headers
+      staggerList('.lg-section', 60, 'sec');
+      // League rows — slide from left
+      staggerList('.lg-row', 22, 'row');
+      // Bars in rows
+      animateBars('.lr-bar', 150);
+    }, 80);
+  }
+  if(name==='messages'){
+    renderMsgTab();
+    setTimeout(()=>{
+      staggerList('.msg-conv', 30, 'row');
+    }, 60);
+  }
+  if(name==='manage'){
+    renderManageGrid();
+    loadMemberCounts().then(()=>{
+      renderManageGrid();
+      setTimeout(()=> staggerList('.mg-item', 45, 'card'), 40);
+    });
+    setTimeout(()=> staggerList('.mg-item', 45, 'card'), 60);
+  }
+  if(name==='social'){
+    setTimeout(()=>{
+      staggerList('.soc-card', 40, 'card');
+      staggerList('.soc-user-row,.soc-req-row', 35, 'row');
+    }, 100);
+  }
+  if(name==='habits'){
+    setTimeout(()=>{
+      // Hero banner
+      document.querySelectorAll('.hab-hero,.hab-hero-top').forEach((el,i)=>{
+        el.style.animation='none'; void el.offsetHeight;
+        el.style.animation=`dtrHeroIn .32s ${i*50}ms cubic-bezier(.22,1,.36,1) both`;
+      });
+      staggerList('.hab-row', 35, 'row');
+      staggerList('.hab-kpi', 40, 'card');
+    }, 80);
+  }
+  if(name==='knowledge'){
+    setTimeout(()=>{
+      staggerList('.k3card,.k3home-cat', 40, 'card');
+      staggerList('.k3article-row', 30, 'row');
+    }, 120);
+  }
+  if(name==='learn'){
+    setTimeout(()=>{
+      staggerList('.lrn-card,.lrn-item', 40, 'card');
+    }, 80);
+  }
   // Push to browser history so back button works
   if(!skipHistory && P){
     try{ history.pushState({tab:name},'',`#${name}`); }catch(e){}
@@ -13065,11 +13236,45 @@ function initKpiGlow(){
   });
 }
 
-function staggerList(selector,delay=40){
+// ── DTR Motion System — stagger helper ──────────────────────────
+// animType: 'card' | 'row' | 'pop' | 'num' | 'sec' | 'slide-right'
+function staggerList(selector, delay=40, animType='card'){
+  const anims = {
+    card:        (i) => `dtrFadeScale   .30s ${i*delay}ms cubic-bezier(.34,1.18,.64,1) both`,
+    row:         (i) => `dtrSlideInLeft .26s ${i*delay}ms cubic-bezier(.22,1,.36,1) both`,
+    pop:         (i) => `dtrPopIn       .34s ${i*delay}ms cubic-bezier(.34,1.18,.64,1) both`,
+    num:         (i) => `dtrNumberReveal .28s ${i*delay}ms cubic-bezier(.4,0,.2,1) both`,
+    sec:         (i) => `dtrSectionIn   .22s ${i*delay}ms cubic-bezier(.55,0,.1,1) both`,
+    'slide-right':(i)=> `dtrSlideInRight .26s ${i*delay}ms cubic-bezier(.22,1,.36,1) both`,
+  };
+  const fn = anims[animType] || anims.card;
   document.querySelectorAll(selector).forEach((el,i)=>{
     el.style.animation='none';
-    el.offsetHeight;
-    el.style.animation=`fadeUp .28s ${i*delay}ms ease both`;
+    void el.offsetHeight; // force reflow
+    el.style.animation = fn(i);
+  });
+}
+
+// ── Animate progress bars (scaleX from 0 to actual width) ─────
+function animateBars(selector, delay=0){
+  document.querySelectorAll(selector).forEach((el,i)=>{
+    const w = el.style.width || el.getAttribute('data-width') || '0%';
+    el.style.width = '0%';
+    el.style.transition = 'none';
+    void el.offsetHeight;
+    setTimeout(()=>{
+      el.style.transition = `width .9s cubic-bezier(.34,1.18,.64,1) ${i*60}ms`;
+      el.style.width = w;
+    }, delay + i*40);
+  });
+}
+
+// ── Animate numbers (count-up reveal) ─────────────────────────
+function animateNumbers(selector, delay=0){
+  document.querySelectorAll(selector).forEach((el,i)=>{
+    el.style.animation='none';
+    void el.offsetHeight;
+    el.style.animation = `dtrNumberReveal .32s ${delay + i*35}ms cubic-bezier(.4,0,.2,1) both`;
   });
 }
 
