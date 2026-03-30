@@ -14588,6 +14588,18 @@ function renderKnowledgeBase() {
       .k3font-opt:hover{background:rgba(245,200,66,.1);}
       .k3font-opt.active{background:rgba(245,200,66,.12);color:var(--gold);}
       .k3font-opt.active span{color:var(--gold);opacity:.7;}
+      /* Style dropdown */
+      .k3style-dd{position:relative;flex-shrink:0;}
+      .k3style-btn{display:flex;align-items:center;gap:7px;padding:0 12px;height:32px;border-radius:8px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.1);color:var(--t2);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;white-space:nowrap;min-width:80px;justify-content:space-between;}
+      .k3style-btn:hover{background:rgba(255,255,255,.1);color:var(--t1);}
+      .k3style-list{position:absolute;top:calc(100% + 6px);left:0;background:rgba(18,18,24,.97);border:0.5px solid rgba(255,255,255,.1);border-radius:14px;padding:6px;min-width:160px;box-shadow:0 16px 48px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.06);z-index:9999;animation:dropIn .18s cubic-bezier(.34,1.15,.64,1) both;}
+      .k3style-opt{padding:9px 12px;border-radius:9px;cursor:pointer;color:var(--t1);transition:background .12s;font-size:13px;}
+      .k3style-opt:hover{background:rgba(255,255,255,.08);}
+      .k3style-h1{font-size:17px;font-weight:800;letter-spacing:-.03em;}
+      .k3style-h2{font-size:15px;font-weight:700;letter-spacing:-.02em;}
+      .k3style-h3{font-size:13.5px;font-weight:650;}
+      .k3style-bq{border-left:2.5px solid var(--gold);padding-left:10px;font-style:italic;color:var(--t2);}
+      .k3style-pre{font-family:'DM Mono',monospace;font-size:12px;color:var(--gold-l);background:rgba(255,255,255,.04);}
       .k3tbsep{width:0.5px;height:18px;background:rgba(255,255,255,.08);margin:0 4px;align-self:center;flex-shrink:0;}
       /* Todo checkbox in editor */
       .k3todo{display:flex;align-items:flex-start;gap:9px;margin:5px 0;padding:4px 0;}
@@ -15652,15 +15664,20 @@ function _kbRED() {
         </div>
       </div>
       <div class="k3tbsep"></div>
-      <select class="k3tbsel" onchange="_kbRB(this.value);this.value=''">
-        <option value="">Стиль ▾</option>
-        <option value="p">Абзац</option>
-        <option value="h1">Заголовок 1</option>
-        <option value="h2">Заголовок 2</option>
-        <option value="h3">Заголовок 3</option>
-        <option value="blockquote">Цитата</option>
-        <option value="pre">Код-блок</option>
-      </select>
+      <div class="k3style-dd" id="kb3styledd">
+        <button class="k3style-btn" onclick="_kbStyleDDToggle(event)" type="button">
+          <span id="kb3stylelabel">Стиль</span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="k3style-list" id="kb3stylelist" style="display:none">
+          <div class="k3style-opt" onclick="_kbRBNamed('p','Абзац')">Абзац</div>
+          <div class="k3style-opt k3style-h1" onclick="_kbRBNamed('h1','H1')">Заголовок 1</div>
+          <div class="k3style-opt k3style-h2" onclick="_kbRBNamed('h2','H2')">Заголовок 2</div>
+          <div class="k3style-opt k3style-h3" onclick="_kbRBNamed('h3','H3')">Заголовок 3</div>
+          <div class="k3style-opt k3style-bq" onclick="_kbRBNamed('blockquote','Цитата')">Цитата</div>
+          <div class="k3style-opt k3style-pre" onclick="_kbRBNamed('pre','Код')">Код-блок</div>
+        </div>
+      </div>
       <div class="k3tbsep"></div>
       <button class="k3tb" onclick="_kbR('bold')" title="Жирный Ctrl+B"><b>B</b></button>
       <button class="k3tb" onclick="_kbR('italic')" title="Курсив Ctrl+I"><i style="font-style:italic">I</i></button>
@@ -16214,9 +16231,29 @@ function _kbFontDDClose(){
   const list=document.getElementById('kb3fontlist');
   if(list) list.style.display='none';
 }
+function _kbStyleDDToggle(e){
+  e.stopPropagation();
+  const list=document.getElementById('kb3stylelist');
+  if(!list) return;
+  const isOpen = list.style.display !== 'none';
+  // Close font dd if open
+  _kbFontDDClose();
+  list.style.display = isOpen ? 'none' : 'block';
+}
+function _kbStyleDDClose(){
+  const list=document.getElementById('kb3stylelist');
+  if(list) list.style.display='none';
+}
 document.addEventListener('click', function(e){
   if(!e.target.closest('#kb3fontdd')) _kbFontDDClose();
+  if(!e.target.closest('#kb3styledd')) _kbStyleDDClose();
 });
+function _kbRBNamed(tag, label){
+  _kbRB(tag);
+  const lbl=document.getElementById('kb3stylelabel');
+  if(lbl) lbl.textContent=label;
+  _kbStyleDDClose();
+}
 function _kbFontDDUpdate(font){
   const labels = {inter:'Inter',lora:'Lora',merriweather:'Merriweather',playfair:'Playfair',nunito:'Nunito',crimson:'Crimson'};
   const lbl = document.getElementById('kb3fontlabel');
