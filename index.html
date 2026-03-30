@@ -21312,13 +21312,14 @@ async function buildRoomCard(room, myRole, user){
     const myStreak = chabStreak(h.id, myId);
     const myHabLog = myLog[h.id]||{};
 
-    let wDone=0;
+    let wDone=0, wPassed=0;
     const cells = weekDates.map((d,i)=>{
       const key = dateStr(d);
       const isToday = key===today;
       const future = d>now && !isToday;
       const done = !!(myHabLog[key]);
-      if(done) wDone++;
+      // Считаем только прошедшие дни (не будущие)
+      if(!future){ wPassed++; if(done) wDone++; }
 
       // Member pips for this day (other members)
       const otherMembers = members.filter(m=>m.user_id!==myId);
@@ -21351,10 +21352,10 @@ async function buildRoomCard(room, myRole, user){
       </div>`;
     }).join('');
 
-    const weekPct = Math.round(wDone/7*100);
+    const weekPct = wPassed > 0 ? Math.round(wDone/wPassed*100) : 0;
     const doneToday = !!(myHabLog[today]);
     const atRiskRow = myStreak>=3 && !doneToday;
-    const perfectRow = wDone===7;
+    const perfectRow = wPassed>0 && wDone===wPassed;
     let rowClass = 'chab-hab-row';
     if(atRiskRow) rowClass+=' at-risk';
     else if(perfectRow) rowClass+=' perfect';
@@ -21860,14 +21861,31 @@ window.chabDoAddHabit=async function(roomId){
 };
 
 window.chabDeleteHabit=async function(roomId, habitId){
-  if(!confirm('Удалить эту привычку из трекера?\nВся история выполнения будет потеряна.')) return;
+  if(!confirm('Удалить эту привычку?\nВся история выполнения будет потеряна.')) return;
   var sb=getSB(), user=getUser(); if(!sb||!user) return;
   try {
-    var res = await sb.from('collab_habits').update({active:false}).eq('id',habitId).eq('room_id',roomId);
-    if(res.error) throw res.error;
-    showToast('Привычка удалена','🗑️');
+    // Сначала пробуем soft-delete (UPDATE active=false)
+    var res = await sb.from('collab_habits')
+      .update({active:false})
+      .eq('id', habitId)
+      .eq('room_id', roomId);
+
+    // Если RLS блокирует UPDATE — пробуем жёсткое удаление
+    if(res.error){
+      var res2 = await sb.from('collab_habits')
+        .delete()
+        .eq('id', habitId)
+        .eq('room_id', roomId);
+      if(res2.error) throw res2.error;
+    }
+
+    try{showToast('Привычка удалена','🗑️');}catch{}
     setTimeout(renderCollabView, 300);
-  } catch(e){ console.error('chabDeleteHabit:', e); showToast('Ошибка: '+(e&&e.message||''),'❌'); }
+  } catch(e){
+    console.error('chabDeleteHabit:', e);
+    var msg = e&&e.message ? e.message : 'Ошибка удаления';
+    try{showToast('Ошибка: '+msg,'❌');}catch{}
+  }
 };
 
 window.chabDeleteRoom=async function(roomId){
