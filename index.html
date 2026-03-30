@@ -2841,6 +2841,113 @@ body.modal-open{overflow:hidden!important;}
 
 /* ── Global base ── */
 html { scroll-behavior: smooth; }
+
+/* ══════════════════════════════════════════════════════════════
+   ✦ DTR — SMOOTH SCROLL SYSTEM
+   Единая система плавного скролла для всей платформы.
+   Принципы:
+   — scroll-behavior: smooth на всех контейнерах
+   — -webkit-overflow-scrolling: touch для iOS инерции
+   — overscroll-behavior: contain — нет "bubble" к body
+   — scrollbar-width: none на мобайл (уже есть), тонкий на десктоп
+   — will-change: scroll-position на критичных контейнерах
+══════════════════════════════════════════════════════════════ */
+
+/* 1. Global — html и body */
+html, body {
+  scroll-behavior: smooth !important;
+}
+
+/* 2. Все overflow-y:auto и overflow-y:scroll контейнеры */
+* {
+  scroll-behavior: smooth;
+}
+
+/* 3. Конкретные контейнеры платформы — максимальная плавность */
+#onboard,
+#catSel,
+.main,
+.cb,
+#allSessList,
+#achFull,
+#achMini,
+.msg-conv-list,
+.msg-messages,
+.modal,
+.up-modal-inner,
+#cmdList,
+#kb3sbi,
+#kb3edb,
+#kb3tocb,
+.k3home,
+#kb3read-body,
+#kb3cat-scroll,
+#soc-subcontent,
+.soc-feed,
+.soc-friends-wrap,
+#hab-root,
+#lrn-main,
+#lrn-sidebar,
+.hab-analytics,
+.chab-members-list,
+[style*="overflow-y:auto"],
+[style*="overflow-y: auto"] {
+  scroll-behavior: smooth !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior-y: contain !important;
+}
+
+/* 4. Горизонтальные скроллы — tabs, heatmap, arena mode bar */
+.ph-tabs,
+.hm-grid,
+.arena-mode-bar,
+.t-cats,
+.msg-search,
+.soc-subtabs,
+[style*="overflow-x:auto"],
+[style*="overflow-x: auto"] {
+  scroll-behavior: smooth !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior-x: contain !important;
+  scroll-snap-type: none;
+}
+
+/* 5. will-change только на активно скроллируемых — не вешать на всё */
+.msg-messages,
+.msg-conv-list,
+#kb3read-body,
+#allSessList,
+#achFull,
+#cmdList {
+  will-change: scroll-position;
+}
+
+/* 6. Убираем резкие прыжки при anchor-переходах */
+[id] {
+  scroll-margin-top: 70px; /* высота sticky nav */
+}
+
+/* 7. Скроллбар — тонкий и мягкий везде */
+@media (min-width: 601px) {
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,.1);
+    border-radius: 4px;
+    transition: background .2s;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.2); }
+  * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.1) transparent; }
+}
+
+/* 8. Мобайл — скроллбары скрыты полностью */
+@media (max-width: 600px) {
+  ::-webkit-scrollbar { display: none !important; }
+  * { scrollbar-width: none !important; }
+}
+
+/* END DTR SMOOTH SCROLL SYSTEM */
+
 body {
   background: #07070A;
   font-family: 'DM Sans', sans-serif;
@@ -11131,7 +11238,7 @@ async function loadMessages(partnerId){
     });
 
     elNow.innerHTML = chunks.join('');
-    elNow.scrollTop = elNow.scrollHeight;
+    elNow.scrollTo({ top: elNow.scrollHeight, behavior: 'smooth' });
   }catch(e){
     console.error('loadMessages:',e);
     const elNow=document.getElementById('msgMessages');
@@ -16530,7 +16637,7 @@ function _kbReadMode(){
   const mins=Math.max(1,Math.ceil(wc/200));
   document.getElementById('kb3read-meta').textContent=wc+' слов · ~'+mins+' мин';
   rm.style.display='flex';
-  document.getElementById('kb3read-body')?.scrollTo(0,0);
+  document.getElementById('kb3read-body')?.scrollTo({ top: 0, behavior: 'smooth' });
   document.getElementById('kb3read-prog').style.width='0%';
   // Apply saved preferences
   _kbReadApplyFont(_kbReadFontFamily);
