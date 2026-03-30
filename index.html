@@ -15693,92 +15693,126 @@ function _kbRHome(cont) {
   const tcat=ALL_CATS.filter(c=>_kbCatNC(c.id)>0).length;
 
   let h=`<div class="k3home k3anim2">
-    <div class="k3home-hero">
+
+    <!-- ══ HEADER ══ -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
       <div>
-        <div class="k3home-title">База знаний</div>
-        <div class="k3home-sub">Твоё персональное хранилище знаний</div>
+        <div style="font-size:24px;font-weight:800;letter-spacing:-.04em;color:var(--t1);line-height:1.2">База знаний</div>
+        <div style="font-size:12px;color:var(--t3);margin-top:3px">Твоё персональное хранилище</div>
       </div>
-      <button class="k3btn k3gold" onclick="_kbNewNoteQuick()" style="gap:7px;padding:9px 16px;font-size:13px">
+      <button class="k3btn k3gold" onclick="_kbNewNoteQuick()" style="gap:6px;padding:9px 16px;font-size:13px">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Новая заметка
       </button>
     </div>
 
-    <!-- ── Категории первыми — сразу видны без скролла ── -->
-    <div class="k3home-sec" style="margin-bottom:14px">
-      <div class="k3home-sh">Категории</div>
-      <div class="k3cat-grid">
+    <!-- ══ СТАТИСТИКА ══ -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px">
+      <div style="background:rgba(245,200,66,.06);border:0.5px solid rgba(245,200,66,.15);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+        <div style="font-size:28px;font-weight:400;font-family:'DM Mono',monospace;color:var(--gold);line-height:1">${tn}</div>
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)">Заметок</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:1px">${tcat} категорий</div>
+        </div>
+      </div>
+      <div style="background:rgba(59,130,246,.06);border:0.5px solid rgba(59,130,246,.15);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+        <div style="font-size:28px;font-weight:400;font-family:'DM Mono',monospace;color:var(--blue);line-height:1">${tf}</div>
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)">Папок</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:1px">для организации</div>
+        </div>
+      </div>
+      <div style="background:rgba(168,85,247,.06);border:0.5px solid rgba(168,85,247,.15);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+        <div style="font-size:28px;font-weight:400;font-family:'DM Mono',monospace;color:var(--purple);line-height:1">${tw>999?Math.round(tw/1000)+'к':tw}</div>
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)">Слов</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:1px">написано всего</div>
+        </div>
+      </div>
+      <div style="background:rgba(34,197,94,.06);border:0.5px solid rgba(34,197,94,.15);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+        <div style="font-size:28px;font-weight:400;font-family:'DM Mono',monospace;color:var(--green);line-height:1">${tu}</div>
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)">Сегодня</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:1px">обновлено</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ КАТЕГОРИИ ══ -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--t3);display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="display:inline-block;width:3px;height:12px;border-radius:2px;background:var(--gold);opacity:.6"></span>
+        Категории
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px">
         ${ALL_CATS.map(c=>{
           const nc=_kbCatNC(c.id);
           const nf=_kbCatD(c.id).folders.length;
           const maxNotes=Math.max(...ALL_CATS.map(x=>_kbCatNC(x.id)),1);
           const pct=Math.round(nc/maxNotes*100);
-          return `<div class="k3cat-card" onclick="_kbTogCat('${c.id}')"
-            style="--cat-c:${c.color};border-color:${c.color}18"
-            onmouseover="this.style.borderColor='${c.color}66';this.style.background='${c.color}10'"
-            onmouseout="this.style.borderColor='${c.color}18';this.style.background='rgba(255,255,255,.03)'">
-            <div class="k3cat-icon">${c.icon}</div>
-            <div class="k3cat-name">${c.name}</div>
-            <div class="k3cat-cnt">${nc} зам. · ${nf} пап.</div>
-            <div class="k3prog"><div class="k3prog-f" style="width:${pct}%;background:${c.color}"></div></div>
+          return `<div onclick="_kbTogCat('${c.id}')" style="background:rgba(255,255,255,.03);border:0.5px solid ${c.color}22;border-radius:14px;padding:12px 14px;cursor:pointer;transition:all .2s cubic-bezier(.34,1.15,.64,1);position:relative;overflow:hidden"
+            onmouseover="this.style.background='${c.color}12';this.style.borderColor='${c.color}55';this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,.2)'"
+            onmouseout="this.style.background='rgba(255,255,255,.03)';this.style.borderColor='${c.color}22';this.style.transform='';this.style.boxShadow=''">
+            <div style="position:absolute;left:0;top:0;bottom:0;width:2.5px;background:${c.color};border-radius:2px 0 0 2px;opacity:.8"></div>
+            <div style="font-size:18px;line-height:1;margin-bottom:6px">${c.icon}</div>
+            <div style="font-size:12.5px;font-weight:700;color:var(--t1);letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px">${c.name}</div>
+            <div style="font-size:10px;color:var(--t3);margin-bottom:7px">${nc} зам. · ${nf} пап.</div>
+            <div style="height:2px;background:rgba(255,255,255,.06);border-radius:1px;overflow:hidden">
+              <div style="height:100%;width:${pct}%;background:${c.color};border-radius:1px;transition:width .6s ease"></div>
+            </div>
           </div>`;
         }).join('')}
       </div>
     </div>
 
-    <!-- ── KPI (компактнее) ── -->
-    <div class="k3home-kpi">
-      <div class="k3kpi-card">
-        <div class="k3kpi-v" style="color:var(--gold)">${tn}</div>
-        <div class="k3kpi-l">Заметок</div>
-      </div>
-      <div class="k3kpi-card">
-        <div class="k3kpi-v" style="color:var(--blue)">${tf}</div>
-        <div class="k3kpi-l">Папок</div>
-      </div>
-      <div class="k3kpi-card">
-        <div class="k3kpi-v" style="color:var(--purple)">${tw>999?Math.round(tw/1000)+'к':tw}</div>
-        <div class="k3kpi-l">Слов</div>
-      </div>
-      <div class="k3kpi-card">
-        <div class="k3kpi-v" style="color:var(--green)">${tu}</div>
-        <div class="k3kpi-l">Сегодня</div>
-      </div>
-    </div>`;
-
-  if(pins.length){
-    h+=`<div class="k3home-sec">
-      <div class="k3home-sh">Закреплённые</div>
-      <div class="k3pin-grid">
-        ${pins.map(n=>`
-          <div class="k3pin-card" onclick="_kbON('${n.catId}','${n.folderId}','${n.id}')">
-            <div class="k3pin-icon">${n.catIcon}</div>
-            <div class="k3pin-title">${_kbEsc2(n.title||'Без названия')}</div>
-            <div class="k3pin-meta">${n.catName} · ${_kbD(n.updatedAt||n.createdAt)}</div>
-          </div>`).join('')}
-      </div>
-    </div>`;
-  }
-
-  if(rec.length){
-    h+=`<div class="k3home-sec">
-      <div class="k3home-sh">Последние заметки <span class="k3home-sh-r" onclick="_kbGoAll()">Все →</span></div>
-      <div class="k3rec-list">
-        ${rec.map(n=>`
-          <div class="k3rec-row" onclick="_kbON('${n.catId}','${n.folderId}','${n.id}')">
-            <div class="k3rec-icon">${n.catIcon}</div>
+    <!-- ══ ЗАКРЕПЛЁННЫЕ + ПОСЛЕДНИЕ в двух колонках ══ -->
+    ${(pins.length||rec.length)?`
+    <div style="display:grid;grid-template-columns:${pins.length&&rec.length?'1fr 2fr':'1fr'};gap:12px">
+      ${pins.length?`
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--t3);display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="display:inline-block;width:3px;height:12px;border-radius:2px;background:var(--gold);opacity:.6"></span>
+          Закреплённые
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          ${pins.map(n=>`
+          <div onclick="_kbON('${n.catId}','${n.folderId}','${n.id}')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(245,200,66,.04);border:0.5px solid rgba(245,200,66,.1);border-radius:10px;cursor:pointer;transition:all .15s"
+            onmouseover="this.style.background='rgba(245,200,66,.08)';this.style.borderColor='rgba(245,200,66,.25)'"
+            onmouseout="this.style.background='rgba(245,200,66,.04)';this.style.borderColor='rgba(245,200,66,.1)'">
+            <div style="font-size:18px;flex-shrink:0">${n.catIcon}</div>
             <div style="flex:1;min-width:0">
-              <div class="k3rec-title">${_kbEsc2(n.title||'Без названия')}</div>
-              <div class="k3rec-cat">${n.catName} · ${n.folderTitle}</div>
+              <div style="font-size:13px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc2(n.title||'Без названия')}</div>
+              <div style="font-size:10px;color:var(--t3);margin-top:1px">${n.catName}</div>
             </div>
-            <div class="k3rec-time">${_kbD(n.updatedAt||n.createdAt)}</div>
+            <div style="font-size:11px;color:var(--t3);font-family:'DM Mono',monospace;flex-shrink:0">📌</div>
           </div>`).join('')}
-      </div>
-    </div>`;
-  }
+        </div>
+      </div>`:''}
+      ${rec.length?`
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--t3);display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="display:inline-block;width:3px;height:12px;border-radius:2px;background:var(--gold);opacity:.6"></span>
+          Последние заметки
+          <span onclick="_kbGoAll()" style="margin-left:auto;font-size:11px;font-weight:600;text-transform:none;letter-spacing:.01em;color:var(--gold);cursor:pointer;opacity:.75;transition:opacity .12s" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.75'">Все →</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:3px">
+          ${rec.slice(0,5).map(n=>`
+          <div onclick="_kbON('${n.catId}','${n.folderId}','${n.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(255,255,255,.025);border:0.5px solid rgba(255,255,255,.06);border-radius:10px;cursor:pointer;transition:all .15s"
+            onmouseover="this.style.background='rgba(255,255,255,.05)';this.style.borderColor='rgba(255,255,255,.1)'"
+            onmouseout="this.style.background='rgba(255,255,255,.025)';this.style.borderColor='rgba(255,255,255,.06)'">
+            <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${n.catIcon}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc2(n.title||'Без названия')}</div>
+              <div style="font-size:10px;color:var(--t3);margin-top:1px">${n.catName} · ${n.folderTitle}</div>
+            </div>
+            <div style="font-size:11px;color:var(--t3);font-family:'DM Mono',monospace;flex-shrink:0">${_kbD(n.updatedAt||n.createdAt)}</div>
+          </div>`).join('')}
+        </div>
+      </div>`:''}
+    </div>`:''}
+    `;
 
-  // (категории уже выведены вверху)
-
+  // (закреплённые и последние уже выведены выше)
   if(!tn){
     h+=`<div class="k3home-sec">
       <div style="background:var(--panel);border:0.5px solid var(--border);border-radius:14px;padding:28px;text-align:center;">
