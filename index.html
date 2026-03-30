@@ -18713,7 +18713,8 @@ function _lrnInjectCSS(){
   flex:1;
   padding:24px 40px 32px 28px;
   min-width:0;
-  overflow:hidden;
+  overflow-x:hidden;
+  overflow-y:visible;
 }
 
 /* Header */
@@ -18859,15 +18860,8 @@ function _lrnInjectCSS(){
 /* Card grid — horizontal scroll, 4 visible at once */
 .lrn-row-wrap{
   padding:16px 18px 18px;
-  overflow-x:auto;
-  overflow-y:visible;
-  scrollbar-width:thin;
-  scrollbar-color:rgba(245,200,66,.2) transparent;
+  overflow:hidden;
 }
-.lrn-row-wrap::-webkit-scrollbar{ height:3px; }
-.lrn-row-wrap::-webkit-scrollbar-track{ background:transparent; }
-.lrn-row-wrap::-webkit-scrollbar-thumb{ background:rgba(245,200,66,.25); border-radius:3px; }
-.lrn-row-wrap::-webkit-scrollbar-thumb:hover{ background:rgba(245,200,66,.5); }
 .lrn-row{
   display:flex;
   flex-wrap:nowrap;
@@ -19411,12 +19405,15 @@ function _lrnRenderMain(){
 function _lrnSizeCards(){
   document.querySelectorAll('.lrn-row-wrap').forEach(function(wrap){
     const available = wrap.clientWidth - 36; // subtract left+right padding (18+18)
+    if(available <= 0) return;
     const cardW = Math.floor((available - 12 * 3) / 4); // 3 gaps between 4 cards
     wrap.querySelectorAll('.lrn-row').forEach(function(row){
-      row.style.setProperty('--lrn-cw', cardW + 'px');
+      row.style.setProperty('--lrn-cw', Math.max(cardW, 160) + 'px');
     });
   });
 }
+// Recalculate on window resize
+window.addEventListener('resize', function(){ if(document.getElementById('lrn-wrap')) _lrnSizeCards(); });
 
 // ── Full page init (runs once) ────────────────────────────────
 function renderLearnTab(){
