@@ -635,8 +635,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .btn-g:hover{color:var(--t1);}
 
 /* ── ACH ── */
-.ai{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;background:linear-gradient(135deg,rgba(245,200,66,.06),rgba(0,0,0,0));border:0.5px solid rgba(245,200,66,.15);border-radius:10px;cursor:pointer;transition:all .2s cubic-bezier(.34,1.56,.64,1);text-align:center;position:relative;}
-.ai:hover:not(.locked){background:var(--hover);transform:translateY(-2px);}
+.ai{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;background:linear-gradient(135deg,rgba(245,200,66,.06),rgba(0,0,0,0));border:0.5px solid rgba(245,200,66,.15);border-radius:10px;cursor:pointer;transition:all .18s ease;text-align:center;position:relative;overflow:hidden;}
+.ai:hover:not(.locked){background:var(--hover);transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.3);}
 .ai.locked{opacity:.2;filter:grayscale(1);background:rgba(0,0,0,.1);border-color:var(--border-l);}
 .ai-icon{font-size:22px;position:relative;}
 .ai-dot{position:absolute;top:-3px;right:-3px;width:8px;height:8px;background:var(--green);border:1.5px solid var(--card);border-radius:50%;}
@@ -1546,7 +1546,7 @@ body { transition:background .28s,color .28s; }
 
 /* ── ACHIEVEMENTS ── */
 .ai { transition:transform .18s,filter .18s,opacity .18s; }
-.ai:hover:not(.locked) { transform:scale(1.1) translateY(-2px); }
+.ai:hover:not(.locked) { transform:translateY(-1px); }
 .ai:active { transform:scale(.95); }
 .ach2 { transition:transform .2s,box-shadow .2s,border-color .2s,filter .2s; }
 .ach2:hover { transform:translateY(-3px); box-shadow:0 6px 22px rgba(0,0,0,.14); }
@@ -2455,7 +2455,7 @@ button, a, [onclick], .stab, .mg-item, .cat-item, .csg-item, .mb, .cf-btn, .lg-r
 
 
 /* ── Achievement blocks (4 per row) ── */
-.ach-block{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:6px;padding:0;}
+.ach-block{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:6px;padding:0;overflow:hidden;}
 .ach-block:last-child{margin-bottom:0;}
 
 
@@ -7972,7 +7972,7 @@ body {
         <span style="font-size:12px;color:var(--blue);cursor:pointer" onclick="showTab('achievements')">Все →</span>
       </div>
       <div class="cb" style="padding:8px 10px 10px">
-        <div id="achMini" style="max-height:420px;overflow-y:auto"></div>
+        <div id="achMini" style="max-height:420px;overflow-y:auto;overflow-x:hidden"></div>
       </div>
     </div>
 
@@ -19569,17 +19569,17 @@ window.lrnAddCat=function(){
   _lrnModal('Новая категория',[{id:'cn',placeholder:'Английский, Программирование...',type:'text'}],(v)=>{
     const name=v.cn.trim(); if(!name) return;
     _lrn.categories.push({id:_lrnUID(),name,color:LRN_COLORS[_lrn.categories.length%LRN_COLORS.length],links:[]});
-    _lrnSave(); _lrnRenderSidebar(); _lrnRenderMain();
+    _lrnSave(); _lrnRenderSidebar(); _lrnRenderMain(); setTimeout(_lrnSizeCards,30);
   });
 };
 window.lrnRenameCat=function(id){
   const cat=_lrn.categories.find(c=>c.id===id); if(!cat) return;
-  _lrnModal('Переименовать',[{id:'cn',placeholder:'Название',type:'text',value:cat.name}],(v)=>{ const n=v.cn.trim(); if(!n)return; cat.name=n; _lrnSave(); _lrnRenderSidebar(); _lrnRenderMain(); });
+  _lrnModal('Переименовать',[{id:'cn',placeholder:'Название',type:'text',value:cat.name}],(v)=>{ const n=v.cn.trim(); if(!n)return; cat.name=n; _lrnSave(); _lrnRenderSidebar(); _lrnRenderMain(); setTimeout(_lrnSizeCards,30); });
 };
 window.lrnDeleteCat=function(id){
   const cat=_lrn.categories.find(c=>c.id===id); if(!cat)return;
   if(!confirm(`Удалить «${cat.name}» и ${cat.links.length} ссылок?`))return;
-  _lrn.categories=_lrn.categories.filter(c=>c.id!==id); _lrnSave(); _lrnRenderSidebar(); _lrnRenderMain();
+  _lrn.categories=_lrn.categories.filter(c=>c.id!==id); _lrnSave(); _lrnRenderSidebar(); _lrnRenderMain(); setTimeout(_lrnSizeCards,30);
 };
 window.lrnOpenLink=function(lid,cid){ const l=_lrn.categories.find(c=>c.id===cid)?.links.find(l=>l.id===lid); if(l) window.open(l.url,'_blank','noopener'); };
 window.lrnAddLink=function(cid){
@@ -19588,7 +19588,7 @@ window.lrnAddLink=function(cid){
     if(!/^https?:/i.test(url)) url='https://'+url;
     const cat=_lrn.categories.find(c=>c.id===cid); if(!cat)return;
     cat.links.push({id:_lrnUID(),name,url,createdAt:Date.now()});
-    _lrnSave(); _lrnRenderMain(); _lrnRenderSidebar();
+    _lrnSave(); _lrnRenderMain(); _lrnRenderSidebar(); setTimeout(_lrnSizeCards, 30);
   });
 };
 window.lrnEditLink=function(cid,lid){
@@ -19596,12 +19596,13 @@ window.lrnEditLink=function(cid,lid){
   _lrnModal('Редактировать',[{id:'ln',placeholder:'Название',type:'text',value:link.name},{id:'lu',placeholder:'https://...',type:'url',value:link.url}],(v)=>{
     const name=v.ln.trim(); let url=v.lu.trim(); if(!name||!url)return;
     if(!/^https?:/i.test(url)) url='https://'+url;
-    link.name=name; link.url=url; _lrnSave(); _lrnRenderMain();
+    link.name=name; link.url=url; _lrnSave(); _lrnRenderMain(); setTimeout(_lrnSizeCards,30);
   });
 };
 window.lrnDeleteLink=function(cid,lid){
   const cat=_lrn.categories.find(c=>c.id===cid); if(!cat)return;
   cat.links=cat.links.filter(l=>l.id!==lid); _lrnSave(); _lrnRenderMain(); _lrnRenderSidebar();
+  setTimeout(_lrnSizeCards, 30);
 };
 
 // ── Modal ─────────────────────────────────────────────────────
