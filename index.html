@@ -8799,22 +8799,9 @@ async function loadUser(userId){
   // Call renderHeroZone() FIRST directly
   if(typeof renderHeroZone === 'function') renderHeroZone();
   renderAll();
-  // ── WOW Dashboard entrance — triggered once real data is painted ──
+  // ── Dashboard entrance on data load (no border flash / no jump) ──
   if(typeof window._dtrDashEntered !== 'undefined') window._dtrDashEntered = false;
-  setTimeout(()=>{
-    if(typeof DTROrchestrate === 'function') DTROrchestrate();
-    // Pulse gold border on hero zone for ~1.2s then settle
-    const hz = document.getElementById('dashHeroZone');
-    if(hz){
-      hz.style.transition='border-color .6s ease, box-shadow .6s ease';
-      hz.style.borderColor='rgba(245,200,66,.35)';
-      hz.style.boxShadow='0 0 0 1px rgba(245,200,66,.12), 0 8px 40px rgba(245,200,66,.08)';
-      setTimeout(()=>{
-        hz.style.borderColor='';
-        hz.style.boxShadow='';
-      }, 1400);
-    }
-  }, 200);
+  setTimeout(()=>{ if(typeof DTROrchestrate === 'function') DTROrchestrate(); }, 200);
   setTimeout(checkSundayBanner, 1500);
 
   } catch(e){
@@ -12590,11 +12577,9 @@ function showTab(name,el,skipHistory){
     renderDash();
     if(typeof renderHeroZone==='function'&&P&&!P._loading) renderHeroZone();
     setTimeout(()=>{
-      // Hero banner — slides down
-      document.querySelectorAll('.mot-banner,.card:first-child').forEach((el,i)=>{
-        el.style.animation='none'; void el.offsetHeight;
-        el.style.animation=`dtrHeroIn .34s ${i*40}ms cubic-bezier(.22,1,.36,1) both`;
-      });
+      // Motivational banner only — hero card stays stable (no opacity flash)
+      const motEl = document.querySelector('.mot-banner');
+      if(motEl){ motEl.style.animation='none'; void motEl.offsetHeight; motEl.style.animation='dtrHeroIn .3s cubic-bezier(.22,1,.36,1) both'; }
       // KPI cards — cascade fade+scale
       staggerList('.kpi', 55, 'card');
       // Session list — slide from left
@@ -23231,9 +23216,7 @@ window.renderCollabView=renderCollabView;
 /* ════════════════════════════════════════════════════
    MOTIVATIONAL BANNER
 ════════════════════════════════════════════════════ */
-.mot-banner {
-  animation: dtrMotIn .55s var(--ease-spring) .15s both;
-}
+/* mot-banner animation handled by JS on tab switch — no auto-play */
 @keyframes dtrMotIn {
   from { opacity: 0; transform: translateX(-18px); }
   to   { opacity: 1; transform: translateX(0); }
@@ -23469,7 +23452,9 @@ window.renderCollabView=renderCollabView;
       if (!el || el._countObserved) return;
       el._countObserved = true;
 
-      // Start invisible for a clean entrance
+      // Don't pre-hide — value is already set by renderHeroZone.
+      // Only animate if the element is still a placeholder '—'
+      if (el.textContent.trim() !== '—') return; // already has real value, skip
       el.style.opacity = '0';
       el.style.transform = 'translateY(8px)';
 
@@ -23557,18 +23542,13 @@ window.renderCollabView=renderCollabView;
     const sessList= document.getElementById('sessList');
     const dailyCard = document.querySelector('#dailyProgressBar')?.closest('.card');
 
-    // Phase 1: hero zone WOW (100ms)
+    // Phase 1: hero zone — always visible, no jump (was hiding then showing which caused flash)
     if (hero) {
-      hero.style.opacity = '0';
-      hero.style.transform = 'translateY(22px) scale(0.96)';
-      hero.style.filter = 'blur(8px)';
-      setTimeout(() => {
-        hero.style.transition = `opacity .65s ${EASE.expo}, transform .65s ${EASE.spring}, filter .5s ease`;
-        hero.style.opacity = '1';
-        hero.style.transform = 'translateY(0) scale(1)';
-        hero.style.filter = 'blur(0)';
-        // particles removed per user request
-      }, 120);
+      // Ensure it's never hidden from a previous stagger call
+      hero.style.opacity = '';
+      hero.style.transform = '';
+      hero.style.filter = '';
+      hero.style.transition = '';
     }
 
     // Phase 2: KPI row (stagger cascade, 280ms start)
