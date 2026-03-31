@@ -7713,8 +7713,8 @@ body {
             </div>
             <!-- League dropdown -->
             <div id="leagueSelWrap" style="position:relative">
-              <div style="display:inline-flex;align-items:center;background:rgba(255,255,255,.07);border-radius:11px;padding:3px;border:0.5px solid rgba(255,255,255,.08);">
-                <button onclick="toggleLeagueDrop()" id="lgDropBtn" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:none;background:transparent;color:rgba(255,255,255,.45);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:color .2s;white-space:nowrap;letter-spacing:.01em">
+              <div style="display:inline-flex;align-items:center;background:rgba(255,255,255,.07);border-radius:11px;padding:3px;border:0.5px solid rgba(255,255,255,.08);transition:background .25s,box-shadow .25s,border-color .25s;">
+                <button onclick="toggleLeagueDrop()" id="lgDropBtn" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:none;background:transparent;color:rgba(255,255,255,.45);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:color .25s;white-space:nowrap;letter-spacing:.01em">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>
                   <span id="lgDropLabel">Все лиги</span>
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
@@ -13965,17 +13965,58 @@ function renderCatFilter(){
         ${isActive?`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`:''}
       </div>`;
     }).join('');
-    // Update button label
+    // Update button label + color + icon
     if(lbl){
       const sel=cats.find(c=>c.id===dashCatFilter);
       lbl.textContent=sel?sel.name:' Все лиги';
     }
     if(btn){
-      btn.style.color=dashCatFilter?'#09090B':'rgba(255,255,255,.45)';
+      const sel=cats.find(c=>c.id===dashCatFilter);
       const wrap=btn.parentElement;
-      if(wrap){
-        wrap.style.background=dashCatFilter?'var(--gold)':'rgba(255,255,255,.07)';
-        wrap.style.boxShadow=dashCatFilter?'0 1px 6px rgba(245,200,66,.3)':'none';
+      if(sel){
+        // League selected — use its color as bg
+        const col=sel.color;
+        // Luma check: light color → dark text, dark color → white text
+        const hex=col.replace('#','');
+        const r=parseInt(hex.substr(0,2),16),g=parseInt(hex.substr(2,2),16),b=parseInt(hex.substr(4,2),16);
+        const luma=0.299*r+0.587*g+0.114*b;
+        const textCol=luma>155?'rgba(0,0,0,.85)':'rgba(255,255,255,.95)';
+        btn.style.color=textCol;
+        if(wrap){
+          wrap.style.background=col;
+          wrap.style.boxShadow=`0 2px 12px ${col}66`;
+          wrap.style.borderColor='transparent';
+        }
+        // Replace leading SVG with league's own SVG icon
+        const firstSvg=btn.querySelector('svg');
+        if(firstSvg && typeof ICONS!=='undefined' && ICONS[sel.id]){
+          const tmp=document.createElement('div');
+          tmp.innerHTML=ICONS[sel.id].replace(/width="20" height="20"/g,'width="13" height="13"');
+          const newSvg=tmp.querySelector('svg');
+          if(newSvg){
+            newSvg.style.strokeWidth='2.5';
+            firstSvg.replaceWith(newSvg);
+          }
+        }
+        // Tint all svgs in btn to match textCol
+        btn.querySelectorAll('svg').forEach(s=>{ s.style.color=textCol; });
+      } else {
+        // All leagues — neutral
+        btn.style.color='rgba(255,255,255,.45)';
+        if(wrap){
+          wrap.style.background='rgba(255,255,255,.07)';
+          wrap.style.boxShadow='none';
+          wrap.style.borderColor='rgba(255,255,255,.08)';
+        }
+        // Restore trophy SVG
+        const firstSvg=btn.querySelector('svg');
+        if(firstSvg){
+          const tmp=document.createElement('div');
+          tmp.innerHTML=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>`;
+          const newSvg=tmp.querySelector('svg');
+          if(newSvg)firstSvg.replaceWith(newSvg);
+        }
+        btn.querySelectorAll('svg').forEach(s=>{ s.style.color=''; });
       }
     }
   }
