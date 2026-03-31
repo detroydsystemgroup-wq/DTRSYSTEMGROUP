@@ -3762,31 +3762,52 @@ body, .card, .nav, .kpi, .timer-panel, .modal, .ch, .cb,
 
 /* ── 2. SEGMENTED CONTROL ── */
 .seg-ctrl {
-  display: flex;
-  background: rgba(255,255,255,.06);
-  border-radius: 10px;
-  padding: 3px; gap: 2px;
+  display: inline-flex;
+  position: relative;
+  background: rgba(255,255,255,.07);
+  border-radius: 11px;
+  padding: 3px;
+  gap: 0;
   border: 0.5px solid rgba(255,255,255,.08);
+  overflow: hidden;
+}
+/* Sliding indicator pill */
+.seg-ctrl::before {
+  content: '';
+  position: absolute;
+  top: 3px; bottom: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+  border-radius: 8px;
+  background: var(--gold);
+  box-shadow: 0 1px 6px rgba(245,200,66,.3);
+  transition: transform .26s cubic-bezier(.34,1.2,.64,1);
+  pointer-events: none;
+}
+.seg-ctrl[data-p="month"]::before {
+  transform: translateX(100%);
 }
 .seg-btn {
-  flex: 1; padding: 6px 12px;
+  flex: 1; padding: 6px 16px;
   border-radius: 8px;
-  font-size: 12px; font-weight: 600;
+  font-size: 12px; font-weight: 700;
   text-align: center;
-  color: var(--t2);
+  color: rgba(255,255,255,.45);
   cursor: pointer;
   border: none; background: transparent;
   font-family: 'DM Sans', sans-serif;
-  transition:background-color .2s,border-color .2s,color .2s,box-shadow .2s,opacity .2s cubic-bezier(.34,1.2,.64,1);
+  transition: color .2s;
   white-space: nowrap;
+  position: relative; z-index: 1;
+  letter-spacing: .01em;
 }
 .seg-btn.active {
-  background: rgba(245,200,66,.12);
-  color: var(--gold);
-  border: 0.5px solid rgba(245,200,66,.25);
-  box-shadow: 0 1px 4px rgba(0,0,0,.2);
+  color: #09090B;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
-.seg-btn:hover:not(.active) { color: var(--t1); }
+.seg-btn:hover:not(.active) { color: rgba(255,255,255,.7); }
 
 /* ── 3. TOAST from top — iOS style ── */
 .toast {
@@ -7144,23 +7165,46 @@ body {
 
 /* ── 19. SEGMENTED CONTROL ─────────────────────────────────── */
 .seg-ctrl {
-  background: rgba(255,255,255,.05) !important;
-  border: 0.5px solid rgba(255,255,255,.07) !important;
-  border-radius: 9px !important;
+  background: rgba(255,255,255,.07) !important;
+  border: 0.5px solid rgba(255,255,255,.08) !important;
+  border-radius: 11px !important;
   padding: 3px !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+.seg-ctrl::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 3px !important; bottom: 3px !important;
+  left: 3px !important;
+  width: calc(50% - 3px) !important;
+  border-radius: 8px !important;
+  background: var(--gold) !important;
+  box-shadow: 0 1px 6px rgba(245,200,66,.3) !important;
+  transition: transform .26s cubic-bezier(.34,1.2,.64,1) !important;
+  pointer-events: none !important;
+}
+.seg-ctrl[data-p="month"]::before {
+  transform: translateX(100%) !important;
 }
 .seg-btn {
-  border-radius: 7px !important;
-  font-size: 12.5px !important;
-  font-weight: 600 !important;
-  letter-spacing: -.01em !important;
-  color: var(--t2) !important;
-  padding: 5px 12px !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: .01em !important;
+  color: rgba(255,255,255,.45) !important;
+  padding: 6px 16px !important;
+  position: relative !important;
+  z-index: 1 !important;
+  transition: color .2s !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 .seg-btn.active {
-  background: rgba(239,192,48,.1) !important;
-  color: var(--gold) !important;
-  border: 0.5px solid rgba(239,192,48,.22) !important;
+  color: #09090B !important;
+  background: transparent !important;
+  border: none !important;
   box-shadow: none !important;
 }
 
@@ -7597,7 +7641,7 @@ body {
       </div>
       <div class="stab" onclick="showTab('learn',this)" data-tab="learn" role="tab" aria-selected="false" aria-label="Обучающие материалы">
         <div class="tab-icon-wrap">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="16" height="16" rx="2"/><path d="m22 8-6 4 6 4V8z"/></svg>
         </div>
         <span>Материалы</span>
       </div>
@@ -7663,16 +7707,20 @@ body {
         <div class="ch">
           <span class="ct" id="dashTitle" style="display:inline-flex;align-items:center;gap:7px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.6"><rect x="2" y="2" width="9" height="9" rx="2"/><rect x="13" y="2" width="9" height="9" rx="2"/><rect x="2" y="13" width="9" height="9" rx="2"/><rect x="13" y="13" width="9" height="9" rx="2"/></svg>Дашборд</span>
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            <div class="seg-ctrl">
+            <div class="seg-ctrl" id="periodCtrl" data-p="week">
               <button class="seg-btn active" id="dpW" onclick="setPeriod('week')">Неделя</button>
               <button class="seg-btn" id="dpM" onclick="setPeriod('month')">Месяц</button>
             </div>
             <!-- League dropdown -->
             <div id="leagueSelWrap" style="position:relative">
-              <button onclick="toggleLeagueDrop()" id="lgDropBtn" style="display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:6px;border:0.5px solid var(--border);background:transparent;color:var(--t3);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;transition:background-color .2s,border-color .2s,color .2s,box-shadow .2s,opacity .2s;white-space:nowrap">
-                <span id="lgDropLabel">🏆 Все лиги</span> <span style="font-size:9px">▾</span>
-              </button>
-              <div id="lgDropMenu" style="display:none;position:absolute;top:calc(100% + 4px);right:0;min-width:180px;background:var(--panel);border:0.5px solid var(--border);border-radius:10px;padding:6px;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,.4)">
+              <div style="display:inline-flex;align-items:center;background:rgba(255,255,255,.07);border-radius:11px;padding:3px;border:0.5px solid rgba(255,255,255,.08);">
+                <button onclick="toggleLeagueDrop()" id="lgDropBtn" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:none;background:transparent;color:rgba(255,255,255,.45);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:color .2s;white-space:nowrap;letter-spacing:.01em">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>
+                  <span id="lgDropLabel">Все лиги</span>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+              </div>
+              <div id="lgDropMenu" style="display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:200px;background:rgba(20,20,26,.96);border:0.5px solid rgba(255,255,255,.09);border-radius:16px;padding:6px;z-index:50;box-shadow:0 20px 48px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.06);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)">
                 <div id="lgDropItems"></div>
               </div>
             </div>
@@ -8031,12 +8079,17 @@ body {
     <div class="card">
       <div class="cb">
         <div class="tot-wr">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Всего</div>
           <div class="tot-num" id="totDisp">—</div>
           <div class="tot-lbl">часов вложено в себя</div>
           <div class="tot-div"></div>
-          <div class="tot-streak" id="streakDisp">🔥 0 дней</div>
-          <div class="tot-week" style="color:var(--t3);font-size:11px;margin-top:2px" id="activeDaysDisp">📅 0 активных дней всего</div>
-          <div class="tot-week" id="weekDisp" style="color:#4ade80">↑ +0 ч эта неделя</div>
+          <div style="display:flex;flex-direction:column;gap:6px;align-items:center">
+            <div class="tot-streak" id="streakDisp">🔥 0 дней подряд</div>
+            <div style="display:flex;align-items:center;gap:10px;justify-content:center;flex-wrap:wrap">
+              <div id="activeDaysDisp" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--t3);font-weight:500"></div>
+              <div class="tot-week" id="weekDisp" style="color:var(--green-l);font-size:11px;font-weight:600">↑ +0 ч</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -9320,7 +9373,7 @@ function renderTotals(){
   document.getElementById('streakDisp').textContent=`🔥 ${P.streak} дней подряд`;
   // Показываем общее число активных дней отдельно от дисциплины
   const activeDaysEl=document.getElementById('activeDaysDisp');
-  if(activeDaysEl) activeDaysEl.innerHTML=`<span style="display:inline-flex;align-items:center;gap:4px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> \${P.totalActiveDays||0} активных дней всего</span>`;;
+  if(activeDaysEl) activeDaysEl.innerHTML=`<span style="display:inline-flex;align-items:center;gap:4px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> ${P.totalActiveDays||0} активных дней всего</span>`;
   const _ws2=new Date(getWeekStart());
   const _we2=new Date(getWeekStart()+6*86400000);
   const _wLabel=`${_ws2.getDate()}–${_we2.getDate()} ${_we2.toLocaleDateString('ru',{month:'short'}).replace(' г.','')}`;
@@ -9358,6 +9411,9 @@ function setPeriod(p){
   dashPeriod=p;
   document.querySelectorAll('.seg-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById(p==='week'?'dpW':'dpM').classList.add('active');
+  // Update tumbler indicator
+  const ctrl=document.getElementById('periodCtrl');
+  if(ctrl) ctrl.setAttribute('data-p', p);
   renderDash();
 }
 function getDashData(){
@@ -13893,34 +13949,34 @@ function renderCatFilter(){
   const lbl=document.getElementById('lgDropLabel');
   if(menu){
     const allActive=!dashCatFilter;
-    menu.innerHTML=`<div onclick="setDashCatFromSel({value:''})" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:7px;cursor:pointer;background:${allActive?'rgba(245,200,66,.1)':'transparent'};transition:background .15s" onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background='${allActive?'rgba(245,200,66,.1)':'transparent'}'">
-      <span style="font-size:14px">🏆</span>
-      <div style="flex:1">
-        <div style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:${allActive?'var(--gold)':'var(--t1)'}">Все лиги</div>
+    menu.innerHTML=`<div onclick="setDashCatFromSel({value:''})" style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;cursor:pointer;background:${allActive?'rgba(245,200,66,.1)':'transparent'};transition:background .14s">
+      <div style="width:28px;height:28px;border-radius:8px;background:rgba(245,200,66,.15);border:0.5px solid rgba(245,200,66,.25);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${allActive?'var(--gold)':'rgba(255,255,255,.5)'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>
       </div>
-      ${allActive?'<span style="color:var(--gold);font-size:10px">✓</span>':''}
+      <div style="flex:1"><div style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:${allActive?'var(--gold)':'var(--t1)'}">Все лиги</div></div>
+      ${allActive?`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`:''}
     </div>`+cats.map(c=>{
       const isActive=dashCatFilter===c.id;
-      // member count estimate from hours
-      const mc=c.hours>0?Math.max(1,Math.round(c.hours/3)):0;
-      return `<div onclick="setDashCatFromSel({value:'${c.id}'})" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:7px;cursor:pointer;background:${isActive?'rgba(245,200,66,.08)':'transparent'};transition:background .15s" onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background='${isActive?'rgba(245,200,66,.08)':'transparent'}'">
-        <span style="display:inline-flex;align-items:center;width:16px;height:16px;color:currentColor">${ICONS[{read:"read",lang:"lang",code:"code",trading:"trading",cooking:"cooking",intellect:"intellect"}[c.id]]||c.icon}</span>
+      return `<div onclick="setDashCatFromSel({value:'${c.id}'})" style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;cursor:pointer;background:${isActive?'rgba(245,200,66,.08)':'transparent'};transition:background .14s" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='${isActive?'rgba(245,200,66,.08)':'transparent'}'">
+        <div style="width:28px;height:28px;border-radius:8px;background:${c.color}18;border:0.5px solid ${c.color}30;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:${c.color}">${ICONS[{read:"read",lang:"lang",code:"code",trading:"trading",cooking:"cooking",intellect:"intellect"}[c.id]]||c.icon}</div>
         <div style="flex:1">
           <div style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:${isActive?'var(--gold)':c.color}">${c.name}</div>
-          <div style="font-size:11px;font-weight:700;color:#4ade80">${mc>0?mc+' участников':'—'}</div>
         </div>
-        ${isActive?'<span style="color:var(--gold);font-size:10px">✓</span>':''}
+        ${isActive?`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`:''}
       </div>`;
     }).join('');
     // Update button label
     if(lbl){
       const sel=cats.find(c=>c.id===dashCatFilter);
-      lbl.textContent=sel?`${sel.icon} ${sel.name.toUpperCase()}`:'🏆 Все лиги';
+      lbl.textContent=sel?sel.name:' Все лиги';
     }
     if(btn){
-      btn.style.color=dashCatFilter?'var(--gold)':'var(--t3)';
-      btn.style.borderColor=dashCatFilter?'var(--gold)':'var(--border)';
-      btn.style.background=dashCatFilter?'rgba(245,200,66,.08)':'transparent';
+      btn.style.color=dashCatFilter?'#09090B':'rgba(255,255,255,.45)';
+      const wrap=btn.parentElement;
+      if(wrap){
+        wrap.style.background=dashCatFilter?'var(--gold)':'rgba(255,255,255,.07)';
+        wrap.style.boxShadow=dashCatFilter?'0 1px 6px rgba(245,200,66,.3)':'none';
+      }
     }
   }
 
