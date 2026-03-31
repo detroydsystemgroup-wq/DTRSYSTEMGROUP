@@ -14903,7 +14903,7 @@ function renderKnowledgeBase() {
       .k3todo-check{position:absolute;pointer-events:none;opacity:0;transition:opacity .15s .08s;z-index:1;}
       .k3todo.done .k3todo-check{opacity:1;}
       .k3todo > span:not(.k3todo-box){flex:1;outline:none;min-width:20px;transition:opacity .25s,color .25s,text-decoration-color .25s;font-style:normal;text-decoration:none;text-decoration-color:transparent;}
-      .k3todo.done > span:not(.k3todo-box){text-decoration:line-through;text-decoration-color:rgba(168,168,176,.5);opacity:.4;color:var(--t3);}
+      .k3todo.done > span:not(.k3todo-box){text-decoration:line-through;text-decoration-color:rgba(168,168,176,.6);opacity:.55;color:var(--t2);}
       #kb3area .k3todo{user-select:text;}
       @keyframes k3todoCheck{0%{transform:scale(0) rotate(-10deg)}60%{transform:scale(1.15) rotate(2deg)}100%{transform:scale(1) rotate(0)}}
       .k3todo.done .k3todo-box::after{animation:k3todoCheck .25s cubic-bezier(.34,1.56,.64,1) both;}
@@ -15822,7 +15822,13 @@ function _kbRCatOverview(cont) {
 function _kbRFolderInline(cont) {
   const c=ALL_CATS.find(x=>x.id===_kbS.cat);
   const f=_kbGetFolder(_kbS.cat,_kbS.folder);
-  if(!c||!f) return;
+  if(!c||!f){
+    // Folder not found — show category overview as fallback
+    _kbS.folder=null;
+    if(c) _kbRCatOverview(cont);
+    else _kbRHome(cont);
+    return;
+  }
 
   let notes=[...f.notes].map(n=>({...n,catId:_kbS.cat,folderId:_kbS.folder,catColor:c.color,catIcon:c.icon}));
   if(_kbS.filterTag) notes=notes.filter(n=>(n.tags||[]).includes(_kbS.filterTag));
@@ -16110,15 +16116,6 @@ function _kbRED() {
       <button class="k3tb" onclick="_kbInsTodo()" title="Список задач [ ] текст">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="4" height="4" rx="1"/><polyline points="7 9 3 9 3 5"/><line x1="10" y1="7" x2="21" y2="7"/><rect x="3" y="14" width="4" height="4" rx="1" fill="currentColor" stroke="none"/><line x1="10" y1="16" x2="21" y2="16"/></svg>
       </button>
-      <div class="k3tbsep"></div>
-      <label class="k3tb" title="Цвет текста" style="width:auto;padding:0 6px;gap:2px;cursor:pointer">
-        <b style="font-size:12px">A</b>
-        <input type="color" value="#F2F0E8" onchange="_kbR('foreColor',this.value)" style="width:13px;height:13px;border:none;border-radius:2px;padding:0;cursor:pointer;background:none;outline:none">
-      </label>
-      <label class="k3tb" title="Выделение цветом" style="width:auto;padding:0 6px;gap:2px;cursor:pointer">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-        <input type="color" value="#F5C842" onchange="_kbR('hiliteColor',this.value)" style="width:13px;height:13px;border:none;border-radius:2px;padding:0;cursor:pointer;background:none;outline:none">
-      </label>
       <div class="k3tbsep"></div>
       <button class="k3tb" onclick="_kbLink()" title="Ссылка Ctrl+K">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
@@ -16424,7 +16421,12 @@ function _kbTogFocus(){
 // ══════════════════════════════════════════════════════════════
 function _kbGoHome(){
   if(_kbS.edit&&_kbS.note) _kbFlush3();
+  clearTimeout(_kbSaveTimer);
   _kbS.cat=null;_kbS.folder=null;_kbS.note=null;_kbS.edit=false;
+  const cont=document.getElementById('kb3edc');
+  if(cont){cont.scrollTop=0;cont.innerHTML='';}
+  const top=document.getElementById('kb3edt');
+  if(top)top.innerHTML='';
   _kbRS();_kbRNL();_kbRED();
 }
 function _kbGoAll(){
@@ -16433,12 +16435,17 @@ function _kbGoAll(){
 }
 function _kbTogCat(cid){
   if(_kbS.edit&&_kbS.note) _kbFlush3();
+  clearTimeout(_kbSaveTimer);
   if(_kbS.cat===cid){
     _kbS.collapsed[cid]=!_kbS.collapsed[cid];
   } else {
     _kbS.cat=cid;_kbS.collapsed[cid]=false;
     _kbS.folder=null;_kbS.note=null;_kbS.edit=false;
   }
+  const cont=document.getElementById('kb3edc');
+  if(cont){cont.scrollTop=0;cont.innerHTML='';}
+  const top=document.getElementById('kb3edt');
+  if(top)top.innerHTML='';
   _kbRS();_kbRNL();_kbRED();
 }
 function _kbSF(cid,fid){
@@ -16448,15 +16455,21 @@ function _kbSF(cid,fid){
     const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);
     if(n){if(ea)n.body=ea.innerHTML;if(ti)n.title=ti.value.trim()||'Без названия';n.updatedAt=Date.now();_kbSave3();}
   }
+  // Clear pending autosave to prevent stale re-renders
+  clearTimeout(_kbSaveTimer);
   // Always reset note — folder click must show note list, not previous note
   _kbS.cat=cid;
   _kbS.folder=fid;
   _kbS.note=null;
   _kbS.edit=false;
   _kbS.collapsed[cid]=false;
-  // Reset scroll position
+  // Force-clear the main content area immediately so old note is gone
   const cont=document.getElementById('kb3edc');
-  if(cont) cont.scrollTop=0;
+  if(cont){ cont.scrollTop=0; cont.innerHTML=''; }
+  const top=document.getElementById('kb3edt');
+  if(top) top.innerHTML='';
+  const tb=document.getElementById('kb3tb');
+  if(tb) tb.style.display='none';
   _kbRS();
   _kbRED();
 }
@@ -16556,97 +16569,98 @@ function _kbEK(e){
     return text;
   }
 
-  // Helper: get current block element (div/p/li) containing cursor
-  function _currentBlock(){
-    const sel=window.getSelection();
-    if(!sel||!sel.rangeCount)return null;
-    let node=sel.getRangeAt(0).startContainer;
-    while(node&&node.id!=='kb3area'){
-      if(node.nodeType===1&&/^(DIV|P|LI|BLOCKQUOTE)$/.test(node.nodeName))return node;
-      node=node.parentNode;
-    }
-    return null;
-  }
-
   // ── ENTER key ────────────────────────────────────────────────────
   if(e.key==='Enter'){
-    const line=_lineText();
-    // Match numbered list: "1. text" or "1. "
-    const numM=line.match(/^(\d+)\. (.*)$/);
-    if(numM){
-      e.preventDefault();
-      if(numM[2].trim()===''){
-        // Empty item → exit list
-        const blk=_currentBlock();
-        if(blk){
-          // Delete the "N. " prefix text from the block
-          blk.textContent='';
+    // ── Detect if cursor is INSIDE a todo item span ──────────────
+    const selEK=window.getSelection();
+    if(selEK&&selEK.rangeCount){
+      const rng=selEK.getRangeAt(0);
+      const cont=rng.startContainer;
+      const el=cont.nodeType===3?cont.parentElement:cont;
+      const todoLbl=el&&typeof el.closest==='function'?el.closest('label.k3todo'):null;
+      if(todoLbl){
+        e.preventDefault();
+        const txtSpan=todoLbl.querySelector('span:not(.k3todo-box)');
+        const isEmpty=!(txtSpan&&txtSpan.textContent.trim());
+        if(isEmpty){
+          // Empty todo → remove it and insert plain line break
+          todoLbl.remove();
           document.execCommand('insertHTML',false,'<br>');
         } else {
-          const len=numM[0].length;
-          for(let i=0;i<len;i++)document.execCommand('delete',false);
-          document.execCommand('insertHTML',false,'<br>');
+          // Create next todo after current
+          const id2='todo_'+Date.now();
+          todoLbl.insertAdjacentHTML('afterend',
+            '<label class="k3todo" contenteditable="false">'+
+            '<input type="checkbox" id="'+id2+'" style="display:none">'+
+            '<span class="k3todo-box" onclick="_kbTodoClick(this.parentNode)">'+
+            '<svg class="k3todo-check" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#09090B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'+
+            '</span>'+
+            '<span id="'+id2+'_s" contenteditable="true" style="font-style:normal"> </span>'+
+            '</label>');
+          setTimeout(()=>{
+            const sp=document.getElementById(id2+'_s');
+            if(sp){sp.focus();const r3=document.createRange();r3.selectNodeContents(sp);r3.collapse(false);window.getSelection().removeAllRanges();window.getSelection().addRange(r3);}
+          },10);
         }
+        _kbEI();
+        return;
+      }
+    }
+
+    const line=_lineText();
+
+    // ── Numbered list: "1. text" ─────────────────────────────────
+    const numM=line.match(/^(\d+)\.\s(.*)$/);
+    if(numM){
+      e.preventDefault();
+      if(!numM[2].trim()){
+        // Empty item → exit list: delete the "N. " prefix then newline
+        const plen=numM[0].length;
+        for(let i=0;i<plen;i++) document.execCommand('delete',false);
+        document.execCommand('insertHTML',false,'<br>');
       } else {
         // Continue list with next number
         const next=(parseInt(numM[1])+1)+'. ';
-        const blk=_currentBlock();
-        if(blk){
-          // Insert a new div sibling after current block
-          const newDiv=document.createElement('div');
-          newDiv.textContent=next;
-          blk.after(newDiv);
-          // Move cursor to end of new div
-          const r2=document.createRange();
-          const sel2=window.getSelection();
-          r2.setStart(newDiv.firstChild||newDiv,newDiv.textContent.length);
-          r2.collapse(true);
-          sel2.removeAllRanges();
-          sel2.addRange(r2);
-        } else {
-          document.execCommand('insertHTML',false,'<br>');
-          document.execCommand('insertText',false,next);
-        }
+        document.execCommand('insertHTML',false,'<br>'+next);
       }
       return;
     }
-    // Match bullet: "• text" / "- text" / "* text"
-    const bulM=line.match(/^([•\-\*]) (.*)$/);
+
+    // ── Bullet list: "• text" / "- text" / "* text" ──────────────
+    const bulM=line.match(/^([•\-\*])\s(.*)$/);
     if(bulM){
       e.preventDefault();
-      if(bulM[2].trim()===''){
+      const bullet=bulM[1]==='•'?'• ':bulM[1]+' ';
+      if(!bulM[2].trim()){
         // Empty item → exit list
-        const blk=_currentBlock();
-        if(blk){
-          blk.textContent='';
-          document.execCommand('insertHTML',false,'<br>');
-        } else {
-          const len=bulM[0].length;
-          for(let i=0;i<len;i++)document.execCommand('delete',false);
-          document.execCommand('insertHTML',false,'<br>');
-        }
+        const plen=bulM[0].length;
+        for(let i=0;i<plen;i++) document.execCommand('delete',false);
+        document.execCommand('insertHTML',false,'<br>');
       } else {
-        // Continue bullet list
-        const bullet=bulM[1]==='•'?'• ':bulM[1]+' ';
-        const blk=_currentBlock();
-        if(blk){
-          const newDiv=document.createElement('div');
-          newDiv.textContent=bullet;
-          blk.after(newDiv);
-          const r2=document.createRange();
-          const sel2=window.getSelection();
-          r2.setStart(newDiv.firstChild||newDiv,newDiv.textContent.length);
-          r2.collapse(true);
-          sel2.removeAllRanges();
-          sel2.addRange(r2);
-        } else {
-          document.execCommand('insertHTML',false,'<br>');
-          document.execCommand('insertText',false,bullet);
-        }
+        document.execCommand('insertHTML',false,'<br>'+bullet);
       }
       return;
     }
+
     // Normal enter — don't intercept
+  }
+
+  // ── BACKSPACE key → delete todo item when at start ───────────────
+  if(e.key==='Backspace'){
+    const selBS=window.getSelection();
+    if(selBS&&selBS.rangeCount){
+      const rng=selBS.getRangeAt(0);
+      const cont=rng.startContainer;
+      const el=cont.nodeType===3?cont.parentElement:cont;
+      const todoLbl=el&&typeof el.closest==='function'?el.closest('label.k3todo'):null;
+      if(todoLbl&&rng.startOffset===0){
+        // Cursor at very start of todo text → delete whole todo item
+        e.preventDefault();
+        todoLbl.remove();
+        _kbEI();
+        return;
+      }
+    }
   }
 
   // ── SPACE key → auto-transform ──────────────────────────────────
