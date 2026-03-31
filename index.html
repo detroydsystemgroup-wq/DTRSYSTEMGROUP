@@ -45,7 +45,7 @@
 <title>DTR Progress Club</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{
@@ -373,7 +373,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 /* stab active::after — replaced by bottom indicator in animation layer */
 .main{width:100%;padding:28px 36px;display:grid;grid-template-columns:1fr 320px;gap:24px;box-sizing:border-box;}
 .tc{display:none;}
-.tc.active{contain:layout style;} .tc.active{display:block;}
+.tc.active{} .tc.active{display:block;}
 #tab-knowledge{grid-column:1/-1 !important;width:100%;padding:0 !important;}
 
 /* ── CARDS ── */
@@ -14701,7 +14701,7 @@ function renderKnowledgeBase() {
       #kb3sb{width:244px;flex-shrink:0;background:var(--panel);border-right:0.5px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1),opacity .2s;}
       #kb3sb.k3off{width:0 !important;opacity:0;pointer-events:none;border:none;}
       #kb3sbh{padding:12px 10px 10px;flex-shrink:0;}
-      #kb3sbi{flex:1;overflow-y:auto;padding:4px 4px 20px;}
+      #kb3sbi{flex:1;overflow-y:auto;padding:4px 4px 20px;-webkit-overflow-scrolling:touch;}
       #kb3sbi::-webkit-scrollbar{display:none;}
 /* scrollbar hidden per-element — global * rule removed to avoid side effects */
 
@@ -14717,7 +14717,7 @@ function renderKnowledgeBase() {
       #kb3tb{display:none;flex-wrap:wrap;gap:2px;padding:7px 14px;background:var(--panel);border-bottom:0.5px solid var(--border);flex-shrink:0;align-items:center;}
       /* FIX: proper flex chain — inner height:100% now resolves to real pixels */
       #kb3edb{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
-      #kb3edc{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
+      #kb3edc{flex:1;min-height:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
       #kb3st{display:none;align-items:center;gap:7px;padding:5px 26px;background:var(--panel);border-top:0.5px solid var(--border);font-size:11px;color:var(--t3);flex-shrink:0;}
       /* ══ NOTE LIST inside main area ══ */
       .k3nl-inline{max-width:900px;padding:6px 16px 20px;}
@@ -14869,13 +14869,18 @@ function renderKnowledgeBase() {
       .k3style-pre{font-family:'DM Mono',monospace;font-size:12px;color:var(--gold-l);background:rgba(255,255,255,.04);}
       .k3tbsep{width:0.5px;height:18px;background:rgba(255,255,255,.08);margin:0 4px;align-self:center;flex-shrink:0;}
       /* Todo checkbox in editor */
-      .k3todo{display:flex;align-items:flex-start;gap:9px;margin:5px 0;padding:4px 0;}
-      .k3todo input[type=checkbox]{margin-top:3px;width:17px;height:17px;cursor:pointer;accent-color:var(--gold);flex-shrink:0;}
-      .k3todo.done > span{text-decoration:line-through;opacity:.45;}
+      /* Todo — iOS-style square */
+      .k3todo{display:flex;align-items:center;gap:10px;margin:4px 0;padding:4px 6px;border-radius:8px;cursor:default;transition:background .12s;user-select:text;max-width:100%;}
+      .k3todo:hover{background:rgba(255,255,255,.04);}
+      .k3todo input[type=checkbox]{display:none;}
+      .k3todo-box{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;min-width:17px;border-radius:4px;border:1.5px solid rgba(255,255,255,.3);background:transparent;cursor:pointer;flex-shrink:0;transition:all .18s cubic-bezier(.34,1.56,.64,1);}
+      .k3todo.done .k3todo-box{background:var(--gold);border-color:var(--gold);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:center;background-size:10px;}
+      .k3todo > span:not(.k3todo-box){flex:1;outline:none;min-width:20px;transition:opacity .18s,color .18s;font-style:normal;}
+      .k3todo.done > span:not(.k3todo-box){text-decoration:line-through;opacity:.38;color:var(--t3);}
       #kb3area .k3todo{user-select:text;}
 
       /* ══ CONTENT VIEW ══ */
-      .k3view{padding:24px 28px 60px;max-width:740px;font-size:15px;line-height:1.78;color:var(--t1);font-family:'Inter','DM Sans',sans-serif;font-weight:400;}
+      .k3view{padding:24px 28px 60px;max-width:740px;font-size:15px;line-height:1.78;color:var(--t1);font-family:'Inter','DM Sans',sans-serif;font-weight:400;font-style:normal;}
       .k3view h1{font-size:26px;font-weight:800;margin:30px 0 13px;letter-spacing:-.04em;line-height:1.2;color:var(--t1);}
       .k3view h2{font-size:20px;font-weight:700;margin:24px 0 11px;letter-spacing:-.025em;line-height:1.3;color:var(--t1);}
       .k3view h3{font-size:16px;font-weight:650;margin:18px 0 9px;letter-spacing:-.015em;line-height:1.4;color:var(--t1);}
@@ -14931,8 +14936,9 @@ function renderKnowledgeBase() {
       .k3view img{max-width:100%;border-radius:8px;margin:8px 0;}
 
       /* ══ EDITOR AREA ══ */
-      #kb3area{padding:28px 32px 80px;min-height:300px;outline:none;font-size:16px;line-height:1.85;color:var(--t1);max-width:780px;caret-color:var(--gold);font-family:'Inter','DM Sans',sans-serif;}
+      #kb3area{padding:28px 32px 80px;min-height:300px;outline:none;font-size:16px;line-height:1.85;color:var(--t1);max-width:780px;caret-color:var(--gold);font-family:'Inter','DM Sans',sans-serif;font-style:normal;font-weight:400;}
       #kb3area:empty::before{content:attr(data-ph);color:var(--t3);pointer-events:none;font-weight:400;font-style:italic;}
+      #kb3area *{font-style:inherit;}
       #kb3edb:has(#kb3area){background:var(--bg);}
       #kb3area:focus{outline:none;}
       /* Visual writing area indicator */
@@ -15299,9 +15305,10 @@ function renderKnowledgeBase() {
 
         <!-- шрифт -->
         <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
-          <button class="kb3rd-font" onclick="_kbReadFont('sans')" data-font="sans" title="Без засечек" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;cursor:pointer;color:inherit;font-family:'DM Sans',sans-serif;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">Aa</button>
-          <button class="kb3rd-font" onclick="_kbReadFont('serif')" data-font="serif" title="С засечками" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;cursor:pointer;color:inherit;font-family:Georgia,serif;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">Aa</button>
-          <button class="kb3rd-font" onclick="_kbReadFont('mono')" data-font="mono" title="Моноширинный" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;cursor:pointer;color:inherit;font-family:'DM Mono',monospace;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">Aa</button>
+          <button class="kb3rd-font" onclick="_kbReadFont('sans')" data-font="sans" title="Sans" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;cursor:pointer;color:inherit;font-family:'DM Sans',sans-serif;font-style:normal;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">Aa</button>
+          <button class="kb3rd-font" onclick="_kbReadFont('nunito')" data-font="nunito" title="Nunito — мягкий" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;cursor:pointer;color:inherit;font-family:'Nunito',sans-serif;font-style:normal;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">Nn</button>
+          <button class="kb3rd-font" onclick="_kbReadFont('serif')" data-font="serif" title="Serif" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;cursor:pointer;color:inherit;font-family:Georgia,serif;font-style:normal;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">Aa</button>
+          <button class="kb3rd-font" onclick="_kbReadFont('mono')" data-font="mono" title="Mono" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;cursor:pointer;color:inherit;font-family:'DM Mono',monospace;font-style:normal;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">Aa</button>
         </div>
 
         <div style="width:0.5px;height:20px;background:rgba(255,255,255,.08);flex-shrink:0"></div>
@@ -15334,7 +15341,7 @@ function renderKnowledgeBase() {
       </div>
 
       <!-- ── КОНТЕНТ ── -->
-      <div id="kb3read-body" style="flex:1;overflow-y:auto;padding:60px 24px 120px" onscroll="_kbReadScroll(this)">
+      <div id="kb3read-body" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:60px 24px 120px;-webkit-overflow-scrolling:touch;" onscroll="_kbReadScroll(this)">
         <div id="kb3read-inner" style="max-width:720px;margin:0 auto;font-size:18px;line-height:1.85;letter-spacing:-.01em"></div>
       </div>
 
@@ -15366,7 +15373,9 @@ function renderKnowledgeBase() {
     #kb3read-inner table{width:100%;border-collapse:collapse;margin:1.4em 0}
     #kb3read-inner th,#kb3read-inner td{padding:10px 14px;border:0.5px solid rgba(128,128,128,.2);text-align:left}
     /* Font family variants */
+    #kb3read-inner{font-style:normal;}
     #kb3read.font-sans #kb3read-inner{font-family:'DM Sans','Inter',sans-serif}
+    #kb3read.font-nunito #kb3read-inner{font-family:'Nunito',sans-serif;font-style:normal;}
     #kb3read.font-serif #kb3read-inner{font-family:Georgia,'Times New Roman',serif;letter-spacing:.01em}
     #kb3read.font-mono #kb3read-inner{font-family:'DM Mono',monospace;font-size:.9em;line-height:1.9}
     /* Theme variants */
@@ -16028,7 +16037,7 @@ function _kbRED() {
           <div class="k3font-opt" onclick="_kbSetFont('lora')" data-font="lora" style="font-family:'Lora',Georgia,serif">Lora <span>Элегантный</span></div>
           <div class="k3font-opt" onclick="_kbSetFont('merriweather')" data-font="merriweather" style="font-family:'Merriweather',Georgia,serif">Merriweather <span>Для чтения</span></div>
           <div class="k3font-opt" onclick="_kbSetFont('playfair')" data-font="playfair" style="font-family:'Playfair Display',Georgia,serif">Playfair <span>Классика</span></div>
-          <div class="k3font-opt" onclick="_kbSetFont('nunito')" data-font="nunito" style="font-family:'Nunito','DM Sans',sans-serif">Nunito <span>Мягкий</span></div>
+          <div class="k3font-opt" onclick="_kbSetFont('nunito')" data-font="nunito" style="font-family:'Nunito','DM Sans',sans-serif;font-style:normal">Nunito <span>Мягкий</span></div>
           <div class="k3font-opt" onclick="_kbSetFont('crimson')" data-font="crimson" style="font-family:'Crimson Pro',Georgia,serif">Crimson <span>Изысканный</span></div>
         </div>
       </div>
@@ -16105,7 +16114,7 @@ function _kbRED() {
       <div id="kb3area" contenteditable="true"
         data-ph="Начни писать здесь... поддерживается форматирование через панель выше"
         onkeydown="_kbEK(event)" oninput="_kbEI()"
-        style="padding:24px 28px 60px;min-height:200px;outline:none;font-size:${_nf.size};line-height:${_nf.lh};color:var(--t1);max-width:740px;caret-color:var(--gold);font-family:${_nf.family};"
+        style="padding:24px 28px 60px;min-height:200px;outline:none;font-size:${_nf.size};line-height:${_nf.lh};color:var(--t1);max-width:740px;caret-color:var(--gold);font-family:${_nf.family};font-style:normal;font-weight:400;"
       >${n.body||''}</div>`;
     setTimeout(()=>{
       const e=document.getElementById('kb3area');
@@ -16394,11 +16403,20 @@ function _kbTogCat(cid){
   _kbRS();_kbRNL();_kbRED();
 }
 function _kbSF(cid,fid){
-  if(_kbS.edit&&_kbS.note) _kbFlush3();
-  _kbS.cat=cid;_kbS.folder=fid;_kbS.collapsed[cid]=false;
-  const f=_kbGetFolder(cid,fid);
-  if(_kbS.note&&!f?.notes.find(n=>n.id===_kbS.note)){_kbS.note=null;_kbS.edit=false;}
-  _kbRS();_kbRNL();_kbRED();
+  // Save if currently editing
+  if(_kbS.edit&&_kbS.note){
+    const ea=document.getElementById('kb3area'),ti=document.getElementById('kb3title');
+    const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);
+    if(n){if(ea)n.body=ea.innerHTML;if(ti)n.title=ti.value.trim()||'Без названия';n.updatedAt=Date.now();_kbSave3();}
+  }
+  // Always reset note — folder click must show note list, not previous note
+  _kbS.cat=cid;
+  _kbS.folder=fid;
+  _kbS.note=null;
+  _kbS.edit=false;
+  _kbS.collapsed[cid]=false;
+  _kbRS();
+  _kbRED();
 }
 function _kbON(cid,fid,nid){
   if(_kbS.edit&&_kbS.note) _kbFlush3();
@@ -16458,93 +16476,118 @@ function _kbEI(){
 }
 function _kbEK(e){
   const cm=e.ctrlKey||e.metaKey;
-  if(cm&&e.key==='s'){e.preventDefault();_kbFlush3();_kbSSV('saved');}
-  if(cm&&e.key==='b'){e.preventDefault();_kbR('bold');}
-  if(cm&&e.key==='i'){e.preventDefault();_kbR('italic');}
-  if(cm&&e.key==='u'){e.preventDefault();_kbR('underline');}
-  if(cm&&e.key==='k'){e.preventDefault();_kbLink();}
-  if(cm&&e.shiftKey&&e.key==='F'){e.preventDefault();_kbTogFocus();}
-  if(e.key==='Tab'){e.preventDefault();document.execCommand('insertText',false,'    ');}
-  if(e.key==='Escape'){_kbFlush3();_kbS.edit=false;_kbRED();}
+  if(cm&&e.key==='s'){e.preventDefault();_kbFlush3();_kbSSV('saved');return;}
+  if(cm&&e.key==='b'){e.preventDefault();_kbR('bold');return;}
+  if(cm&&e.key==='i'){e.preventDefault();_kbR('italic');return;}
+  if(cm&&e.key==='u'){e.preventDefault();_kbR('underline');return;}
+  if(cm&&e.key==='k'){e.preventDefault();_kbLink();return;}
+  if(cm&&e.shiftKey&&e.key==='F'){e.preventDefault();_kbTogFocus();return;}
+  if(e.key==='Tab'){e.preventDefault();document.execCommand('insertText',false,'    ');return;}
+  if(e.key==='Escape'){_kbFlush3();_kbS.edit=false;_kbRED();return;}
 
-  // ── Умное продолжение списков при Enter ──
-  if(e.key==='Enter'){
+  // ── Walk DOM backwards from cursor to get current line text ─────
+  function _lineText(){
     const sel=window.getSelection();
-    if(!sel||!sel.rangeCount) return;
+    if(!sel||!sel.rangeCount)return'';
     const range=sel.getRangeAt(0);
-
-    // Надёжно получаем текст текущей строки до курсора
-    function getCurrentLineText(){
-      const container=range.startContainer;
-      if(container.nodeType===3){
-        // Текстовый узел — берём от начала до курсора
-        const fullText=container.textContent.slice(0,range.startOffset);
-        // Ищем последний перенос строки (br вызывает новый текстовый узел)
-        return fullText;
+    let node=range.startContainer;
+    let text='';
+    // Collect text before cursor in current text node
+    if(node.nodeType===3){
+      text=node.textContent.slice(0,range.startOffset);
+      node=node.previousSibling;
+    } else {
+      for(let i=range.startOffset-1;i>=0;i--){
+        const ch=node.childNodes[i];
+        if(!ch)continue;
+        if(ch.nodeName==='BR')break;
+        text=(ch.textContent||'')+text;
       }
-      // Элемент — получаем текст из дочерних узлов до курсора
-      let text='';
-      for(let i=0;i<range.startOffset&&i<container.childNodes.length;i++){
-        const ch=container.childNodes[i];
-        if(ch.nodeName==='BR'){text='';}  // br = новая строка
-        else text+=ch.textContent||'';
-      }
-      return text;
+      node=null;
     }
-
-    const lineText = getCurrentLineText().trimEnd();
-
-    // 1. Нумерованный список — "1. " или "1. текст"
-    const numMatch = lineText.match(/^(\d+)\.\s(.*)$/);
-    if(numMatch){
-      const content = numMatch[2].trim();
-      if(content===''){
-        // Пустой пункт — выход из списка (убираем "N. " и делаем новый абзац)
-        e.preventDefault();
-        document.execCommand('insertHTML',false,'<br><br>');
-      } else {
-        // Есть контент — продолжаем список без отступа
-        e.preventDefault();
-        const nextNum=parseInt(numMatch[1])+1;
-        document.execCommand('insertHTML',false,'<br>'+nextNum+'. ');
-      }
-      return;
+    // Walk back through siblings
+    while(node){
+      if(node.nodeName==='BR')break;
+      text=(node.textContent||'')+text;
+      node=node.previousSibling;
     }
-
-    // 2. Маркированный список — "- текст" / "• текст" / "* текст"
-    const bulletMatch = lineText.match(/^([-•*])\s(.*)$/);
-    if(bulletMatch){
-      const content = bulletMatch[2].trim();
-      if(content===''){
-        e.preventDefault();
-        document.execCommand('insertHTML',false,'<br><br>');
-      } else {
-        e.preventDefault();
-        document.execCommand('insertHTML',false,'<br>'+bulletMatch[1]+' ');
-      }
-      return;
-    }
+    return text;
   }
 
-  // ── Авто-преобразование при пробеле ──
+  // ── ENTER key ────────────────────────────────────────────────────
+  if(e.key==='Enter'){
+    const line=_lineText();
+    // Match numbered list: "1. " or "1. text"
+    const numM=line.match(/^(\d+)\. (.*)$/);
+    if(numM){
+      e.preventDefault();
+      if(numM[2].trim()===''){
+        // Empty item → exit list: delete marker chars then plain newline
+        const len=numM[0].length;
+        for(let i=0;i<len;i++)document.execCommand('delete',false);
+        document.execCommand('insertHTML',false,'<br>');
+      } else {
+        // Continue list
+        document.execCommand('insertHTML',false,'<br>');
+        document.execCommand('insertText',false,(parseInt(numM[1])+1)+'. ');
+      }
+      return;
+    }
+    // Match bullet: "• text" / "- text" / "* text"
+    const bulM=line.match(/^([-•*]) (.*)$/);
+    if(bulM){
+      e.preventDefault();
+      if(bulM[2].trim()===''){
+        const len=bulM[0].length;
+        for(let i=0;i<len;i++)document.execCommand('delete',false);
+        document.execCommand('insertHTML',false,'<br>');
+      } else {
+        document.execCommand('insertHTML',false,'<br>');
+        document.execCommand('insertText',false,bulM[1]+' ');
+      }
+      return;
+    }
+    // Normal enter — don't intercept
+  }
+
+  // ── SPACE key → auto-transform ──────────────────────────────────
   if(e.key===' '){
     const sel=window.getSelection();
-    if(!sel||!sel.rangeCount) return;
+    if(!sel||!sel.rangeCount)return;
     const range=sel.getRangeAt(0);
     const node=range.startContainer;
-    if(node.nodeType!==3) return;
+    if(node.nodeType!==3)return;
     const text=node.textContent.slice(0,range.startOffset);
 
-    // "[] " → чекбокс
+    // "-" + space → bullet
+    if(text==='-'){
+      e.preventDefault();
+      const r2=range.cloneRange();
+      r2.setStart(node,range.startOffset-1);
+      r2.setEnd(node,range.startOffset);
+      r2.deleteContents();
+      document.execCommand('insertText',false,'• ');
+      return;
+    }
+
+    // "[]" + space → todo checkbox
     if(text==='[]'){
       e.preventDefault();
+      const r2=range.cloneRange();
+      r2.setStart(node,range.startOffset-2);
+      r2.setEnd(node,range.startOffset);
+      r2.deleteContents();
       const id='todo_'+Date.now();
       document.execCommand('insertHTML',false,
-        '<label class="k3todo" contenteditable="false" style="display:flex;align-items:flex-start;gap:8px;margin:4px 0;cursor:pointer">'+
-        '<input type="checkbox" id="'+id+'" onchange="_kbTodoCh(this)" style="margin-top:3px;width:16px;height:16px;cursor:pointer;accent-color:var(--gold);flex-shrink:0">'+
-        '<span id="'+id+'_s" contenteditable="true" style="flex:1;outline:none;min-width:10px"> </span>'+
-        '</label><br>');
-      setTimeout(()=>{const sp=document.getElementById(id+'_s');if(sp){sp.focus();const r=document.createRange();r.selectNodeContents(sp);r.collapse(false);const s=window.getSelection();s.removeAllRanges();s.addRange(r);}},10);
+        '<label class="k3todo" contenteditable="false">'+
+        '<input type="checkbox" id="'+id+'" style="display:none">'+
+        '<span class="k3todo-box" onclick="_kbTodoClick(this.parentNode)"></span>'+
+        '<span id="'+id+'_s" contenteditable="true" style="font-style:normal"> </span>'+
+        '</label>');
+      setTimeout(()=>{
+        const sp=document.getElementById(id+'_s');
+        if(sp){sp.focus();const r=document.createRange();r.selectNodeContents(sp);r.collapse(false);window.getSelection().removeAllRanges();window.getSelection().addRange(r);}
+      },10);
       return;
     }
   }
@@ -16582,20 +16625,26 @@ function _kbInsTodo(){
   const id='todo_'+Date.now();
   document.getElementById('kb3area')?.focus();
   document.execCommand('insertHTML',false,
-    '<label class="k3todo" style="display:flex;align-items:flex-start;gap:9px;margin:5px 0;padding:4px 0;cursor:pointer">'+
-    '<input type="checkbox" id="'+id+'" onchange="_kbTodoCh(this)" style="margin-top:3px;width:17px;height:17px;cursor:pointer;accent-color:#F5C842;flex-shrink:0">'+
-    '<span contenteditable="true" id="'+id+'_s" style="flex:1;outline:none;min-width:20px"> </span>'+
-    '</label><br>');
-  setTimeout(()=>{const sp=document.getElementById(id+'_s');if(sp){sp.focus();const r=document.createRange();r.selectNodeContents(sp);r.collapse(false);const s=window.getSelection();s.removeAllRanges();s.addRange(r);}},20);
+    '<label class="k3todo" contenteditable="false">'+
+    '<input type="checkbox" id="'+id+'" style="display:none">'+
+    '<span class="k3todo-box" onclick="_kbTodoClick(this.parentNode)"></span>'+
+    '<span id="'+id+'_s" contenteditable="true" style="font-style:normal"> </span>'+
+    '</label>');
+  setTimeout(()=>{
+    const sp=document.getElementById(id+'_s');
+    if(sp){sp.focus();const r=document.createRange();r.selectNodeContents(sp);r.collapse(false);window.getSelection().removeAllRanges();window.getSelection().addRange(r);}
+  },20);
   _kbEI();
 }
+window._kbTodoClick=function(lbl){
+  if(!lbl)return;
+  const cb=lbl.querySelector('input[type=checkbox]');
+  if(cb){cb.checked=!cb.checked;lbl.classList.toggle('done',cb.checked);}
+  _kbEI();
+};
 window._kbTodoCh=function(cb){
   const lbl=cb.closest('label');
-  if(lbl){
-    const sp=lbl.querySelector('span');
-    if(sp) sp.style.textDecoration=cb.checked?'line-through':'';
-    if(sp) sp.style.opacity=cb.checked?'.4':'1';
-  }
+  if(lbl)lbl.classList.toggle('done',cb.checked);
   _kbEI();
 };
 
@@ -16651,10 +16700,10 @@ function _kbSetFont(font){
   const f=_kbFontMap[font]||_kbFontMap.inter;
   // Apply to editor
   const ea=document.getElementById('kb3area');
-  if(ea){ ea.style.fontFamily=f.family; ea.style.fontSize=f.size; ea.style.lineHeight=f.lh; }
+  if(ea){ ea.style.fontFamily=f.family; ea.style.fontSize=f.size; ea.style.lineHeight=f.lh; ea.style.fontStyle='normal'; }
   // Apply to view
   const vw=document.querySelector('.k3view');
-  if(vw){ vw.style.fontFamily=f.family; vw.style.fontSize=f.size; vw.style.lineHeight=f.lh; }
+  if(vw){ vw.style.fontFamily=f.family; vw.style.fontSize=f.size; vw.style.lineHeight=f.lh; vw.style.fontStyle='normal'; }
   // Update dropdown UI
   _kbFontDDUpdate(font);
   // Update legacy select if exists
@@ -16669,9 +16718,9 @@ function _kbApplyFont(font){
   // Apply font on note open without saving
   const f=_kbFontMap[font||'inter']||_kbFontMap.inter;
   const ea=document.getElementById('kb3area');
-  if(ea){ ea.style.fontFamily=f.family; ea.style.fontSize=f.size; ea.style.lineHeight=f.lh; }
+  if(ea){ ea.style.fontFamily=f.family; ea.style.fontSize=f.size; ea.style.lineHeight=f.lh; ea.style.fontStyle='normal'; }
   const vw=document.querySelector('.k3view');
-  if(vw){ vw.style.fontFamily=f.family; vw.style.fontSize=f.size; vw.style.lineHeight=f.lh; }
+  if(vw){ vw.style.fontFamily=f.family; vw.style.fontSize=f.size; vw.style.lineHeight=f.lh; vw.style.fontStyle='normal'; }
   _kbFontDDUpdate(font||'inter');
   _kbS.font=font||'inter';
 }
