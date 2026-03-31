@@ -14553,7 +14553,17 @@ let _kbSaveTimer = null;
 // ── Data helpers ──────────────────────────────────────────────
 function _kbLoad3() {
   try { _kb3 = JSON.parse(localStorage.getItem(KB_KEY)||'{}'); } catch(e) { _kb3={}; }
-  ALL_CATS.forEach(c=>{ if(!_kb3[c.id]) _kb3[c.id]={folders:[]}; });
+  // Ensure all categories exist and have valid structure
+  ALL_CATS.forEach(c=>{
+    if(!_kb3[c.id]) _kb3[c.id]={folders:[]};
+    if(!_kb3[c.id].folders) _kb3[c.id].folders=[];
+    // Sanitize folders: ensure notes array and required fields exist
+    _kb3[c.id].folders=_kb3[c.id].folders.filter(f=>f&&f.id&&f.title);
+    _kb3[c.id].folders.forEach(f=>{
+      if(!f.notes) f.notes=[];
+      f.notes=f.notes.filter(n=>n&&n.id); // remove corrupted notes
+    });
+  });
 }
 function _kbSave3() {
   localStorage.setItem(KB_KEY, JSON.stringify(_kb3));
@@ -14575,8 +14585,15 @@ function _kbMergeRemote(remote) {
       if (!locF) {
         _kb3[c.id].folders.push(remF);
       } else {
+        // Update folder title if remote is newer
+        if((remF.updatedAt||0) > (locF.updatedAt||0)) {
+          locF.title = remF.title || locF.title;
+        }
+        // Ensure notes array exists
+        if(!locF.notes) locF.notes = [];
         // Merge notes
         (remF.notes || []).forEach(remN => {
+          if(!remN || !remN.id) return; // skip corrupted entries
           const locN = locF.notes.find(n => n.id === remN.id);
           if (!locN) {
             locF.notes.push(remN);
@@ -14584,9 +14601,10 @@ function _kbMergeRemote(remote) {
             Object.assign(locN, remN);
           }
         });
-        // Folders deleted locally — keep remote if not in local
       }
     });
+    // Ensure all existing folders have notes array
+    (_kb3[c.id].folders||[]).forEach(f => { if(!f.notes) f.notes=[]; });
   });
 }
 
@@ -14640,7 +14658,11 @@ function _kbCatNC(cid) { return _kbCatD(cid).folders.reduce((a,f)=>a+f.notes.len
 function _kbUID() { return '_'+Math.random().toString(36).substr(2,9); }
 function _kbEsc2(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function _kbStrip(s) { return String(s||'').replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim(); }
-function _kbWC(html) { const t=_kbStrip(html); return t?t.split(/\s+/).filter(Boolean).length:0; }
+function _kbWC(html) { 
+  if(!html) return 0;
+  const t=_kbStrip(html); 
+  return t?t.split(/\s+/).filter(Boolean).length:0; 
+}
 function _kbTotalWords() { return _kbAllNotes().reduce((a,n)=>a+_kbWC(n.body||''),0); }
 function _kbUpdatedToday() {
   const today=new Date(); today.setHours(0,0,0,0);
@@ -14717,7 +14739,7 @@ function renderKnowledgeBase() {
       #kb3tb{display:none;flex-wrap:wrap;gap:2px;padding:7px 14px;background:var(--panel);border-bottom:0.5px solid var(--border);flex-shrink:0;align-items:center;}
       /* FIX: proper flex chain — inner height:100% now resolves to real pixels */
       #kb3edb{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
-      #kb3edc{flex:1;min-height:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
+      #kb3edc{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;scroll-behavior:smooth;}
       #kb3st{display:none;align-items:center;gap:7px;padding:5px 26px;background:var(--panel);border-top:0.5px solid var(--border);font-size:11px;color:var(--t3);flex-shrink:0;}
       /* ══ NOTE LIST inside main area ══ */
       .k3nl-inline{max-width:900px;padding:6px 16px 20px;}
@@ -14870,14 +14892,21 @@ function renderKnowledgeBase() {
       .k3tbsep{width:0.5px;height:18px;background:rgba(255,255,255,.08);margin:0 4px;align-self:center;flex-shrink:0;}
       /* Todo checkbox in editor */
       /* Todo — iOS-style square */
-      .k3todo{display:flex;align-items:center;gap:10px;margin:4px 0;padding:4px 6px;border-radius:8px;cursor:default;transition:background .12s;user-select:text;max-width:100%;}
+      .k3todo{display:flex;align-items:center;gap:10px;margin:3px 0;padding:6px 8px;border-radius:10px;cursor:default;transition:background .15s;user-select:text;max-width:100%;position:relative;}
       .k3todo:hover{background:rgba(255,255,255,.04);}
       .k3todo input[type=checkbox]{display:none;}
-      .k3todo-box{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;min-width:17px;border-radius:4px;border:1.5px solid rgba(255,255,255,.3);background:transparent;cursor:pointer;flex-shrink:0;transition:all .18s cubic-bezier(.34,1.56,.64,1);}
-      .k3todo.done .k3todo-box{background:var(--gold);border-color:var(--gold);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:center;background-size:10px;}
-      .k3todo > span:not(.k3todo-box){flex:1;outline:none;min-width:20px;transition:opacity .18s,color .18s;font-style:normal;}
-      .k3todo.done > span:not(.k3todo-box){text-decoration:line-through;opacity:.38;color:var(--t3);}
+      .k3todo-box{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;min-width:20px;border-radius:6px;border:1.5px solid rgba(255,255,255,.25);background:transparent;cursor:pointer;flex-shrink:0;transition:all .22s cubic-bezier(.34,1.56,.64,1);position:relative;overflow:hidden;}
+      .k3todo-box::after{content:'';position:absolute;inset:0;background:var(--gold);border-radius:4px;transform:scale(0);transition:transform .2s cubic-bezier(.34,1.56,.64,1);opacity:0;}
+      .k3todo.done .k3todo-box{border-color:var(--gold);box-shadow:0 0 0 3px rgba(245,200,66,.15);}
+      .k3todo.done .k3todo-box::after{transform:scale(1);opacity:1;}
+      .k3todo.done .k3todo-box svg{opacity:1 !important;}
+      .k3todo-check{position:absolute;pointer-events:none;opacity:0;transition:opacity .15s .08s;z-index:1;}
+      .k3todo.done .k3todo-check{opacity:1;}
+      .k3todo > span:not(.k3todo-box){flex:1;outline:none;min-width:20px;transition:opacity .25s,color .25s,text-decoration-color .25s;font-style:normal;text-decoration:none;text-decoration-color:transparent;}
+      .k3todo.done > span:not(.k3todo-box){text-decoration:line-through;text-decoration-color:rgba(168,168,176,.5);opacity:.4;color:var(--t3);}
       #kb3area .k3todo{user-select:text;}
+      @keyframes k3todoCheck{0%{transform:scale(0) rotate(-10deg)}60%{transform:scale(1.15) rotate(2deg)}100%{transform:scale(1) rotate(0)}}
+      .k3todo.done .k3todo-box::after{animation:k3todoCheck .25s cubic-bezier(.34,1.56,.64,1) both;}
 
       /* ══ CONTENT VIEW ══ */
       .k3view{padding:24px 28px 60px;max-width:740px;font-size:15px;line-height:1.78;color:var(--t1);font-family:'Inter','DM Sans',sans-serif;font-weight:400;font-style:normal;}
@@ -14939,6 +14968,9 @@ function renderKnowledgeBase() {
       #kb3area{padding:28px 32px 80px;min-height:300px;outline:none;font-size:16px;line-height:1.85;color:var(--t1);max-width:780px;caret-color:var(--gold);font-family:'Inter','DM Sans',sans-serif;font-style:normal;font-weight:400;}
       #kb3area:empty::before{content:attr(data-ph);color:var(--t3);pointer-events:none;font-weight:400;font-style:italic;}
       #kb3area *{font-style:inherit;}
+      /* Force Nunito to never be italic in editor */
+      #kb3area[style*="Nunito"]{font-style:normal!important;}
+      #kb3area[style*="Nunito"] em,#kb3area[style*="Nunito"] i{font-style:italic;}
       #kb3edb:has(#kb3area){background:var(--bg);}
       #kb3area:focus{outline:none;}
       /* Visual writing area indicator */
@@ -15280,7 +15312,8 @@ function renderKnowledgeBase() {
   if(!document.getElementById('kb3read')){
     const rm=document.createElement('div');
     rm.id='kb3read';
-    rm.style.cssText='position:fixed;inset:0;z-index:9990;display:none;flex-direction:column;overflow:hidden;background:#0f0f12;color:#e8e6de;font-family:Inter,DM Sans,sans-serif;transition:background .3s,color .3s';
+    rm.style.cssText='position:fixed;inset:0;z-index:9990;display:none;flex-direction:column;overflow:hidden;background:#0f0f12;color:#e8e6de;font-family:"Nunito","DM Sans",sans-serif;transition:background .3s,color .3s';
+    rm.className='font-nunito theme-dark';
     rm.innerHTML=`
       <!-- прогресс чтения -->
       <div id="kb3read-prog" style="position:fixed;top:0;left:0;height:2.5px;background:linear-gradient(90deg,#F5C842,#F97316);width:0;z-index:9991;transition:width .12s;border-radius:0 2px 2px 0"></div>
@@ -15306,7 +15339,7 @@ function renderKnowledgeBase() {
         <!-- шрифт -->
         <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
           <button class="kb3rd-font" onclick="_kbReadFont('sans')" data-font="sans" title="Sans" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;cursor:pointer;color:inherit;font-family:'DM Sans',sans-serif;font-style:normal;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">Aa</button>
-          <button class="kb3rd-font" onclick="_kbReadFont('nunito')" data-font="nunito" title="Nunito — мягкий" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;cursor:pointer;color:inherit;font-family:'Nunito',sans-serif;font-style:normal;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">Nn</button>
+          <button class="kb3rd-font" onclick="_kbReadFont('nunito')" data-font="nunito" title="Nunito — мягкий" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(245,200,66,.4);background:rgba(245,200,66,.12);font-size:12px;cursor:pointer;color:#F5C842;font-family:'Nunito',sans-serif;font-style:normal;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">Nn</button>
           <button class="kb3rd-font" onclick="_kbReadFont('serif')" data-font="serif" title="Serif" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;cursor:pointer;color:inherit;font-family:Georgia,serif;font-style:normal;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">Aa</button>
           <button class="kb3rd-font" onclick="_kbReadFont('mono')" data-font="mono" title="Mono" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;cursor:pointer;color:inherit;font-family:'DM Mono',monospace;font-style:normal;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">Aa</button>
         </div>
@@ -15375,9 +15408,12 @@ function renderKnowledgeBase() {
     /* Font family variants */
     #kb3read-inner{font-style:normal;}
     #kb3read.font-sans #kb3read-inner{font-family:'DM Sans','Inter',sans-serif}
-    #kb3read.font-nunito #kb3read-inner{font-family:'Nunito',sans-serif;font-style:normal;}
+    #kb3read.font-nunito #kb3read-inner{font-family:'Nunito',sans-serif;font-style:normal!important;font-weight:400;}
+    #kb3read.font-nunito #kb3read-inner *{font-style:inherit;}
     #kb3read.font-serif #kb3read-inner{font-family:Georgia,'Times New Roman',serif;letter-spacing:.01em}
     #kb3read.font-mono #kb3read-inner{font-family:'DM Mono',monospace;font-size:.9em;line-height:1.9}
+    /* Default to Nunito */
+    #kb3read-inner{font-family:'Nunito',sans-serif;}
     /* Theme variants */
     #kb3read.theme-sepia #kb3read-inner blockquote{background:rgba(139,90,43,.06)}
     #kb3read.theme-sepia #kb3read-inner a{color:#8B6914}
@@ -15938,6 +15974,9 @@ function _kbRED() {
         cont=document.getElementById('kb3edc'), st=document.getElementById('kb3st');
   if(!top||!tb||!cont||!st) return;
 
+  // Reset scroll on every navigation
+  cont.scrollTop = 0;
+
   // — Home dashboard —
   if(!_kbS.cat){
     top.innerHTML=''; tb.style.display='none'; st.style.display='none';
@@ -16415,6 +16454,9 @@ function _kbSF(cid,fid){
   _kbS.note=null;
   _kbS.edit=false;
   _kbS.collapsed[cid]=false;
+  // Reset scroll position
+  const cont=document.getElementById('kb3edc');
+  if(cont) cont.scrollTop=0;
   _kbRS();
   _kbRED();
 }
@@ -16514,36 +16556,93 @@ function _kbEK(e){
     return text;
   }
 
+  // Helper: get current block element (div/p/li) containing cursor
+  function _currentBlock(){
+    const sel=window.getSelection();
+    if(!sel||!sel.rangeCount)return null;
+    let node=sel.getRangeAt(0).startContainer;
+    while(node&&node.id!=='kb3area'){
+      if(node.nodeType===1&&/^(DIV|P|LI|BLOCKQUOTE)$/.test(node.nodeName))return node;
+      node=node.parentNode;
+    }
+    return null;
+  }
+
   // ── ENTER key ────────────────────────────────────────────────────
   if(e.key==='Enter'){
     const line=_lineText();
-    // Match numbered list: "1. " or "1. text"
+    // Match numbered list: "1. text" or "1. "
     const numM=line.match(/^(\d+)\. (.*)$/);
     if(numM){
       e.preventDefault();
       if(numM[2].trim()===''){
-        // Empty item → exit list: delete marker chars then plain newline
-        const len=numM[0].length;
-        for(let i=0;i<len;i++)document.execCommand('delete',false);
-        document.execCommand('insertHTML',false,'<br>');
+        // Empty item → exit list
+        const blk=_currentBlock();
+        if(blk){
+          // Delete the "N. " prefix text from the block
+          blk.textContent='';
+          document.execCommand('insertHTML',false,'<br>');
+        } else {
+          const len=numM[0].length;
+          for(let i=0;i<len;i++)document.execCommand('delete',false);
+          document.execCommand('insertHTML',false,'<br>');
+        }
       } else {
-        // Continue list
-        document.execCommand('insertHTML',false,'<br>');
-        document.execCommand('insertText',false,(parseInt(numM[1])+1)+'. ');
+        // Continue list with next number
+        const next=(parseInt(numM[1])+1)+'. ';
+        const blk=_currentBlock();
+        if(blk){
+          // Insert a new div sibling after current block
+          const newDiv=document.createElement('div');
+          newDiv.textContent=next;
+          blk.after(newDiv);
+          // Move cursor to end of new div
+          const r2=document.createRange();
+          const sel2=window.getSelection();
+          r2.setStart(newDiv.firstChild||newDiv,newDiv.textContent.length);
+          r2.collapse(true);
+          sel2.removeAllRanges();
+          sel2.addRange(r2);
+        } else {
+          document.execCommand('insertHTML',false,'<br>');
+          document.execCommand('insertText',false,next);
+        }
       }
       return;
     }
     // Match bullet: "• text" / "- text" / "* text"
-    const bulM=line.match(/^([-•*]) (.*)$/);
+    const bulM=line.match(/^([•\-\*]) (.*)$/);
     if(bulM){
       e.preventDefault();
       if(bulM[2].trim()===''){
-        const len=bulM[0].length;
-        for(let i=0;i<len;i++)document.execCommand('delete',false);
-        document.execCommand('insertHTML',false,'<br>');
+        // Empty item → exit list
+        const blk=_currentBlock();
+        if(blk){
+          blk.textContent='';
+          document.execCommand('insertHTML',false,'<br>');
+        } else {
+          const len=bulM[0].length;
+          for(let i=0;i<len;i++)document.execCommand('delete',false);
+          document.execCommand('insertHTML',false,'<br>');
+        }
       } else {
-        document.execCommand('insertHTML',false,'<br>');
-        document.execCommand('insertText',false,bulM[1]+' ');
+        // Continue bullet list
+        const bullet=bulM[1]==='•'?'• ':bulM[1]+' ';
+        const blk=_currentBlock();
+        if(blk){
+          const newDiv=document.createElement('div');
+          newDiv.textContent=bullet;
+          blk.after(newDiv);
+          const r2=document.createRange();
+          const sel2=window.getSelection();
+          r2.setStart(newDiv.firstChild||newDiv,newDiv.textContent.length);
+          r2.collapse(true);
+          sel2.removeAllRanges();
+          sel2.addRange(r2);
+        } else {
+          document.execCommand('insertHTML',false,'<br>');
+          document.execCommand('insertText',false,bullet);
+        }
       }
       return;
     }
@@ -16581,7 +16680,9 @@ function _kbEK(e){
       document.execCommand('insertHTML',false,
         '<label class="k3todo" contenteditable="false">'+
         '<input type="checkbox" id="'+id+'" style="display:none">'+
-        '<span class="k3todo-box" onclick="_kbTodoClick(this.parentNode)"></span>'+
+        '<span class="k3todo-box" onclick="_kbTodoClick(this.parentNode)">'+
+        '<svg class="k3todo-check" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#09090B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'+
+        '</span>'+
         '<span id="'+id+'_s" contenteditable="true" style="font-style:normal"> </span>'+
         '</label>');
       setTimeout(()=>{
@@ -16627,7 +16728,9 @@ function _kbInsTodo(){
   document.execCommand('insertHTML',false,
     '<label class="k3todo" contenteditable="false">'+
     '<input type="checkbox" id="'+id+'" style="display:none">'+
-    '<span class="k3todo-box" onclick="_kbTodoClick(this.parentNode)"></span>'+
+    '<span class="k3todo-box" onclick="_kbTodoClick(this.parentNode)">'+
+    '<svg class="k3todo-check" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#09090B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'+
+    '</span>'+
     '<span id="'+id+'_s" contenteditable="true" style="font-style:normal"> </span>'+
     '</label>');
   setTimeout(()=>{
@@ -16638,9 +16741,27 @@ function _kbInsTodo(){
 }
 window._kbTodoClick=function(lbl){
   if(!lbl)return;
+  // Use 'done' class as source of truth (it persists in saved HTML)
+  const wasDone = lbl.classList.contains('done');
+  lbl.classList.toggle('done', !wasDone);
   const cb=lbl.querySelector('input[type=checkbox]');
-  if(cb){cb.checked=!cb.checked;lbl.classList.toggle('done',cb.checked);}
-  _kbEI();
+  if(cb) cb.checked = !wasDone;
+
+  // Save regardless of edit or view mode
+  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);
+  if(!n) return;
+
+  const ea=document.getElementById('kb3area');
+  if(ea){
+    // Edit mode — read from contenteditable
+    n.body=ea.innerHTML;
+  } else {
+    // View mode — read from the rendered view div
+    const view=document.querySelector('#kb3edc .k3view');
+    if(view) n.body=view.innerHTML;
+  }
+  n.updatedAt=Date.now();
+  _kbSave3();
 };
 window._kbTodoCh=function(cb){
   const lbl=cb.closest('label');
@@ -16700,7 +16821,20 @@ function _kbSetFont(font){
   const f=_kbFontMap[font]||_kbFontMap.inter;
   // Apply to editor
   const ea=document.getElementById('kb3area');
-  if(ea){ ea.style.fontFamily=f.family; ea.style.fontSize=f.size; ea.style.lineHeight=f.lh; ea.style.fontStyle='normal'; }
+  if(ea){
+    ea.style.fontFamily=f.family;
+    ea.style.fontSize=f.size;
+    ea.style.lineHeight=f.lh;
+    ea.style.fontStyle='normal';
+    ea.style.fontWeight='400';
+    // Reset italic execCommand state if active — prevents sticky italic on font switch
+    try{
+      if(document.queryCommandState('italic')){
+        ea.focus();
+        document.execCommand('italic',false,null);
+      }
+    }catch(e){}
+  }
   // Apply to view
   const vw=document.querySelector('.k3view');
   if(vw){ vw.style.fontFamily=f.family; vw.style.fontSize=f.size; vw.style.lineHeight=f.lh; vw.style.fontStyle='normal'; }
@@ -16718,7 +16852,7 @@ function _kbApplyFont(font){
   // Apply font on note open without saving
   const f=_kbFontMap[font||'inter']||_kbFontMap.inter;
   const ea=document.getElementById('kb3area');
-  if(ea){ ea.style.fontFamily=f.family; ea.style.fontSize=f.size; ea.style.lineHeight=f.lh; ea.style.fontStyle='normal'; }
+  if(ea){ ea.style.fontFamily=f.family; ea.style.fontSize=f.size; ea.style.lineHeight=f.lh; ea.style.fontStyle='normal'; ea.style.fontWeight='400'; }
   const vw=document.querySelector('.k3view');
   if(vw){ vw.style.fontFamily=f.family; vw.style.fontSize=f.size; vw.style.lineHeight=f.lh; vw.style.fontStyle='normal'; }
   _kbFontDDUpdate(font||'inter');
@@ -16811,7 +16945,7 @@ function _kbTBCellBg(color){const cell=_kbTBTBtarget;if(!cell)return;cell.style.
 // ── Reading mode ─────────────────────────────────────
 let _kbReadThemeState='dark';
 let _kbReadFontSize=18;
-let _kbReadFontFamily='sans';
+let _kbReadFontFamily='nunito';
 let _kbReadWidthVal=720;
 
 function _kbReadMode(){
