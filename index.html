@@ -12,7 +12,27 @@
   gtag('config', 'G-W7Z08RQGC6', {
     send_page_view: true,
     cookie_flags: 'SameSite=None;Secure'
-  });
+  }); // ── ПЕРЕКЛЮЧЕНИЕ ТЕМЫ ─────────────────────────────────────
+const savedTheme = localStorage.getItem('dtr-theme') || 'dark';
+document.documentElement.setAttribute('data-theme', savedTheme);
+
+function toggleTheme() {
+  const html = document.documentElement;
+  const current = html.getAttribute('data-theme') || 'dark';
+  const next = current === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('dtr-theme', next);
+  updateThemeToggle();
+}
+
+function updateThemeToggle() {
+  const btn = document.getElementById('themeToggle');
+  if (!btn) return;
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  btn.classList.toggle('on', isLight);
+}
+
+setTimeout(updateThemeToggle, 200);
 </script>
 <!-- Yandex.Metrika counter -->
 <script type="text/javascript">
@@ -1319,27 +1339,63 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.6);cursor:poi
 
 /* ── LIGHT THEME ── */
 [data-theme="light"]{
+  /* ── Base ── */
   --bg:#F6F4F0;
   --panel:#FFFFFF;
   --card:#FAFAF8;
   --hover:#F0EDE6;
   --border:#E4DFD6;
   --border-l:#EDE9E0;
+
+  /* ── Text ── */
   --t1:#1A1814;
-  --t2:#5A5448;   /* better contrast on light */
+  --t2:#5A5448;
   --t3:#A09888;
+
+  /* ── Brand Gold ── */
   --gold:#B8901E;
   --gold-d:#9A7812;
   --gold-l:#D4A822;
-  --gold-glow:rgba(184,144,30,.18);
-  --glass-bg:rgba(255,253,248,.92);
-  --glass-border:rgba(184,144,30,.15);
+  --gold-glow:rgba(184,144,30,.22);
+
+  /* ── Glass ── */
+  --glass-bg:rgba(255,253,248,.95);
+  --glass-border:rgba(184,144,30,.18);
+
+  /* ── Semantic colors ── */
   --green:#15803d;
+  --green-l:#4ade80;
   --orange:#c2630a;
   --purple:#6d28d9;
   --red:#dc2626;
   --blue:#1a6dc5;
+  --cyan:#06b6d4;
+
+  /* Category colors for light */
+  --c-read:#3b82f6;
+  --c-lang:#f59e0b;
+  --c-code:#a855f7;
+  --c-trading:#f7931a;
+  --c-cooking:#ef4444;
+  --c-intellect:#8b5cf6;
 }
+
+/* ── Дополнительные правки для светлой темы ── */
+[data-theme="light"] .ph-cover::after{background:none;}
+[data-theme="light"] .avatar{border-color:#fff;background:linear-gradient(135deg,#bfdbfe,#c4b5fd);}
+[data-theme="light"] .av-dot{border-color:#fff;}
+[data-theme="light"] .ph-title{background:transparent;color:#8a6800;border-color:rgba(180,130,0,.5);}
+[data-theme="light"] .hm-cell:first-child + .hm-cell{background:#dcfce7;}
+[data-theme="light"] .nav{background:var(--glass-bg)!important;backdrop-filter:blur(40px) saturate(180%)!important;border-bottom:0.5px solid var(--glass-border)!important;box-shadow:0 0.5px 0 var(--glass-border),0 4px 24px rgba(0,0,0,.12)!important;}
+[data-theme="light"] .card,[data-theme="light"] .kpi,[data-theme="light"] .insight,[data-theme="light"] .modal{background:var(--card)!important;border-color:var(--border)!important;box-shadow:0 6px 24px rgba(0,0,0,.09)!important;}
+[data-theme="light"] .btn-auth,[data-theme="light"] .btn-cs{background:var(--gold)!important;color:#1A1814!important;}
+[data-theme="light"] .btn-auth:hover,[data-theme="light"] .btn-cs:hover{box-shadow:0 6px 28px rgba(184,144,30,.4)!important;}
+[data-theme="light"] .timer-panel{background:linear-gradient(150deg,#f8f4e8,#fff9e8)!important;border-color:rgba(184,144,30,.25)!important;}
+[data-theme="light"] .toast{background:rgba(250,249,245,.96)!important;border-color:rgba(184,144,30,.2)!important;}
+[data-theme="light"] .fi{background:var(--card)!important;border-color:var(--border)!important;color:var(--t1)!important;}
+[data-theme="light"] .fi:focus{border-color:rgba(184,144,30,.6)!important;box-shadow:0 0 0 4px rgba(184,144,30,.1)!important;}
+[data-theme="light"] .lg-row.me{background:rgba(184,144,30,.07)!important;border-left:3px solid var(--gold)!important;}
+[data-theme="light"] .xp-fill{background:linear-gradient(90deg,var(--gold-d),var(--gold),var(--gold-l))!important;}
 
 
 [data-theme="light"] .ph-cover::after{background:none;}
@@ -7515,6 +7571,10 @@ body {
 
 
   </div>
+<div class="tgl-wrap" style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+  <span class="tgl-lbl" style="font-size:11px;color:var(--t3);">Тема</span>
+  <button id="themeToggle" class="tgl-btn" onclick="toggleTheme()"></button>
+</div>
 </nav>
 
 
@@ -24336,7 +24396,7 @@ window.renderCollabView=renderCollabView;
     areas.forEach(a => _contentObserver.observe(a, { childList: true, subtree: true }));
 
     // Onboarding
-    initOnboarding();
+    initOnboarding();Л
 
     // Hero stat watchers
     // watchHeroStats replaced by renderHeroZone patch
