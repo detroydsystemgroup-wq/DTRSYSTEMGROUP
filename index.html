@@ -375,30 +375,46 @@
 </div>
 
 <!-- ══ USER PROFILE MODAL ════════════════════════════════════ -->
-<div id="userProfileOv" role="dialog" aria-modal="true" aria-label="Профиль игрока" onclick="if(event.target===this)closeUserProfile()">
-  <div class="up-modal" id="upModal">
-    <!-- COVER -->
-    <div class="up-cover" id="upCover">
-      <button class="up-close" onclick="closeUserProfile()" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.08);border:0.5px solid rgba(255,255,255,.12);color:var(--t2);font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2">✕</button>
+<div id="userProfileOv" role="dialog" aria-modal="true" aria-label="Профиль игрока" onclick="if(event.target===this)closeUserProfile()" style="position:fixed;inset:0;z-index:9400;background:rgba(0,0,0,.8);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);display:none;align-items:center;justify-content:center;padding:20px">
+  <div class="up-modal" id="upModal" style="animation:appleScaleIn .36s cubic-bezier(.25,.46,.45,.94) both">
+
+    <!-- Cover gradient -->
+    <div class="up-cover" id="upCover" style="background:linear-gradient(135deg,rgba(24,22,14,.95) 0%,rgba(16,15,10,.98) 100%)">
+      <!-- Close -->
+      <button class="up-close" onclick="closeUserProfile()" style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:9px;background:rgba(255,255,255,.08);border:0.5px solid rgba(255,255,255,.1);color:var(--t2);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2;transition:background .15s">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <!-- Avatar -->
       <div class="up-av" id="upAv">🎯</div>
     </div>
-    <!-- HEAD -->
+
+    <!-- Head -->
     <div class="up-head">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
-        <div>
-          <div class="up-name" id="upName">—</div>
-          <div class="up-meta" id="upMeta"></div>
-        </div>
-        <div class="up-actions" id="upActions">
-          <button class="up-btn" id="upLikeBtn" onclick="toggleLikeUser()" style="background:rgba(239,68,68,.1);border:0.5px solid rgba(239,68,68,.3);color:#ef4444"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> Нравится <span id="upLikeCount">0</span></button>
-          <button class="up-btn" id="upFriendBtn" onclick="upToggleFriend()" style="display:none;background:rgba(245,200,66,.12);border:0.5px solid rgba(245,200,66,.3);color:var(--gold)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg> <span id="upFriendLabel">В друзья</span></button>
-          <button class="up-btn up-btn-msg" onclick="openChatWithUser()" style="background:rgba(245,200,66,.12);border:0.5px solid rgba(245,200,66,.3);color:var(--gold)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Написать</button>
-        </div>
+      <div class="up-name" id="upName">—</div>
+      <div class="up-meta" id="upMeta"></div>
+      <!-- Action buttons -->
+      <div class="up-actions" id="upActions">
+        <button class="up-btn" id="upLikeBtn" onclick="toggleLikeUser()" style="background:rgba(239,68,68,.08);border:0.5px solid rgba(239,68,68,.22);color:#ef4444">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          Нравится <span id="upLikeCount">0</span>
+        </button>
+        <button class="up-btn" id="upFriendBtn" onclick="upToggleFriend()" style="display:none;background:rgba(245,200,66,.08);border:0.5px solid rgba(245,200,66,.25);color:var(--gold)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+          <span id="upFriendLabel">В друзья</span>
+        </button>
+        <button class="up-btn up-btn-msg" onclick="openChatWithUser()" style="background:rgba(245,200,66,.08);border:0.5px solid rgba(245,200,66,.25);color:var(--gold)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Написать
+        </button>
       </div>
     </div>
-    <!-- BODY -->
+
+    <!-- Body: leagues, stats, XP -->
     <div class="up-body" id="upLeaguesList">
-      <div style="padding:32px;text-align:center;color:var(--t3)">⏳ Загружаем профиль...</div>
+      <div style="padding:32px;text-align:center;color:var(--t3)">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:.3;margin-bottom:10px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <div style="font-size:12px">Загружаем профиль...</div>
+      </div>
     </div>
   </div>
 </div>
@@ -967,67 +983,70 @@
 
 
 <!-- ══ NOTIFICATION SETTINGS MODAL ══════════════════════════════ -->
-<div id="notifSettingsOv" style="display:none;position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.75);backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeNotifSettings()">
-  <div style="background:var(--panel);border:0.5px solid var(--border);border-radius:20px;padding:0;max-width:420px;width:100%;box-shadow:0 32px 80px rgba(0,0,0,.7);max-height:90vh;overflow-y:auto">
-    <div style="padding:20px 22px 16px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div style="width:34px;height:34px;border-radius:10px;background:rgba(245,200,66,.1);border:0.5px solid rgba(245,200,66,.25);display:flex;align-items:center;justify-content:center">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+<div id="notifSettingsOv" style="display:none;position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.78);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeNotifSettings()">
+  <div style="background:linear-gradient(180deg,rgba(15,14,10,.99),rgba(11,11,9,.99));border:0.5px solid rgba(245,200,66,.14);border-radius:22px;max-width:400px;width:100%;box-shadow:0 32px 80px rgba(0,0,0,.75),inset 0 1px 0 rgba(245,200,66,.07);max-height:88vh;overflow-y:auto;overflow-x:hidden">
+
+    <!-- Header -->
+    <div style="padding:20px 22px 18px;border-bottom:0.5px solid rgba(255,255,255,.06);display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:36px;height:36px;border-radius:11px;background:rgba(245,200,66,.1);border:0.5px solid rgba(245,200,66,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.8" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         </div>
         <div>
-          <div style="font-size:15px;font-weight:700;color:var(--t1)">Уведомления</div>
-          <div style="font-size:11px;color:var(--t3)" id="notifPermStatus">Проверяем разрешения...</div>
+          <div style="font-size:15px;font-weight:500;color:var(--t1);letter-spacing:-.01em">Уведомления</div>
+          <div style="font-size:10.5px;color:var(--t3);margin-top:1px" id="notifPermStatus">Проверяем разрешения...</div>
         </div>
       </div>
-      <button onclick="closeNotifSettings()" style="background:none;border:none;color:var(--t3);font-size:20px;cursor:pointer;padding:4px">&#x2715;</button>
+      <button onclick="closeNotifSettings()" style="width:30px;height:30px;border-radius:9px;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.08);color:var(--t3);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;font-family:sans-serif">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
-    <div id="notifPermBlock" style="padding:18px 22px;border-bottom:0.5px solid var(--border);display:none">
+
+    <!-- Permission block -->
+    <div id="notifPermBlock" style="padding:16px 22px;border-bottom:0.5px solid rgba(255,255,255,.06);display:none">
       <div id="notifPermDefaultMsg" style="display:none">
-        <div style="font-size:13px;color:var(--t2);margin-bottom:12px;line-height:1.5">Нажми кнопку ниже — браузер покажет диалог с запросом разрешения</div>
-        <button onclick="requestNotifPerm()" style="width:100%;padding:12px;border-radius:10px;background:var(--gold);color:#0A0A0B;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          Разрешить уведомления
-        </button>
+        <div style="font-size:12px;color:var(--t2);margin-bottom:12px;line-height:1.6;font-weight:400">Нажми кнопку ниже — браузер запросит разрешение на уведомления</div>
+        <button onclick="requestNotifPerm()" style="width:100%;padding:12px;border-radius:12px;background:linear-gradient(135deg,var(--gold-d),var(--gold));color:#0A0A0B;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;border:none;cursor:pointer;letter-spacing:.02em">Разрешить уведомления</button>
       </div>
       <div id="notifPermDeniedMsg" style="display:none">
-        <div style="background:rgba(239,68,68,.08);border:0.5px solid rgba(239,68,68,.25);border-radius:10px;padding:14px;margin-bottom:12px">
-          <div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:6px">Уведомления заблокированы в браузере</div>
-          <div id="notifPermSteps" style="font-size:12px;color:var(--t2);line-height:1.7"></div>
+        <div style="background:rgba(239,68,68,.06);border:0.5px solid rgba(239,68,68,.2);border-radius:12px;padding:14px;margin-bottom:12px">
+          <div style="font-size:11.5px;font-weight:500;color:var(--red);margin-bottom:5px">Уведомления заблокированы</div>
+          <div id="notifPermSteps" style="font-size:11px;color:var(--t2);line-height:1.7;font-weight:400"></div>
         </div>
-        <button onclick="notifOpenBrowserSettings()" style="width:100%;padding:11px;border-radius:10px;background:rgba(239,68,68,.15);border:0.5px solid rgba(239,68,68,.3);color:var(--red);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-          Открыть настройки браузера
-        </button>
+        <button onclick="notifOpenBrowserSettings()" style="width:100%;padding:11px;border-radius:12px;background:rgba(239,68,68,.08);border:0.5px solid rgba(239,68,68,.2);color:var(--red);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;letter-spacing:.02em">Открыть настройки браузера</button>
       </div>
     </div>
-    <div style="padding:18px 22px">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:14px">Новое уведомление</div>
-      <div style="margin-bottom:14px">
-        <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:7px">&#x23F0; Время</div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <select id="notifHour" style="flex:1;padding:11px 10px;border-radius:10px;background:var(--card);border:0.5px solid var(--border);color:var(--t1);font-size:16px;font-family:'DM Mono',monospace;font-weight:600;outline:none;cursor:pointer;text-align:center;appearance:none;-webkit-appearance:none">
-            <option value="00">00</option><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="06">06</option><option value="07">07</option><option value="08">08</option><option value="09"selected>09</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option>
-          </select>
-          <span style="font-size:22px;font-weight:700;color:var(--t2);flex-shrink:0">:</span>
-          <select id="notifMinute" style="flex:1;padding:11px 10px;border-radius:10px;background:var(--card);border:0.5px solid var(--border);color:var(--t1);font-size:16px;font-family:'DM Mono',monospace;font-weight:600;outline:none;cursor:pointer;text-align:center;appearance:none;-webkit-appearance:none">
-            <option value="00"selected>00</option><option value="05">05</option><option value="10">10</option><option value="15">15</option><option value="20">20</option><option value="25">25</option><option value="30">30</option><option value="35">35</option><option value="40">40</option><option value="45">45</option><option value="50">50</option><option value="55">55</option>
-          </select>
-        </div>
+
+    <!-- Form -->
+    <div style="padding:20px 22px">
+
+      <!-- Time -->
+      <div class="notif-section-lbl">Время</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+        <select id="notifHour" style="flex:1;padding:12px 10px;border-radius:12px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.1);color:var(--t1);font-size:26px;font-family:'DM Mono',monospace;font-weight:400;outline:none;cursor:pointer;text-align:center;appearance:none;-webkit-appearance:none;letter-spacing:-.02em">
+          <option value="00">00</option><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="06">06</option><option value="07">07</option><option value="08">08</option><option value="09"selected>09</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option>
+        </select>
+        <span style="font-size:24px;font-weight:300;color:rgba(255,255,255,.25);flex-shrink:0;font-family:'DM Mono',monospace">:</span>
+        <select id="notifMinute" style="flex:1;padding:12px 10px;border-radius:12px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.1);color:var(--t1);font-size:26px;font-family:'DM Mono',monospace;font-weight:400;outline:none;cursor:pointer;text-align:center;appearance:none;-webkit-appearance:none;letter-spacing:-.02em">
+          <option value="00"selected>00</option><option value="05">05</option><option value="10">10</option><option value="15">15</option><option value="20">20</option><option value="25">25</option><option value="30">30</option><option value="35">35</option><option value="40">40</option><option value="45">45</option><option value="50">50</option><option value="55">55</option>
+        </select>
       </div>
-      <div style="margin-bottom:14px">
-        <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:7px">&#x1F4C5; Дни недели</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap" id="notifDayBtns"></div>
-      </div>
-      <div style="margin-bottom:18px">
-        <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:7px">&#x1F3B5; Мелодия</div>
-        <div style="display:flex;flex-direction:column;gap:6px" id="notifMelodyList"></div>
-      </div>
-      <div style="margin-bottom:18px">
-        <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:7px">&#x1F4AC; Текст уведомления</div>
-        <input type="text" id="notifText" maxlength="80" placeholder="Время заниматься! &#x1F680;" style="width:100%;padding:10px 14px;border-radius:10px;background:var(--card);border:0.5px solid var(--border);color:var(--t1);font-size:13px;font-family:'DM Sans',sans-serif;outline:none">
-      </div>
-      <button onclick="addNotifSchedule()" style="width:100%;padding:12px;border-radius:10px;background:linear-gradient(135deg,var(--gold-d),var(--gold));color:#0A0A0B;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;border:none;cursor:pointer">+ Добавить уведомление</button>
+
+      <!-- Days -->
+      <div class="notif-section-lbl">Дни недели</div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:20px" id="notifDayBtns"></div>
+
+      <!-- Melody -->
+      <div class="notif-section-lbl">Сигнал</div>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:20px" id="notifMelodyList"></div>
+
+      <!-- Text -->
+      <div class="notif-section-lbl">Текст</div>
+      <input type="text" id="notifText" maxlength="80" placeholder="Время заниматься!" style="width:100%;padding:11px 14px;border-radius:12px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.09);color:var(--t1);font-size:13px;font-family:'DM Sans',sans-serif;font-weight:400;outline:none;box-sizing:border-box;transition:border-color .18s;margin-bottom:18px">
+
+      <button onclick="addNotifSchedule()" style="width:100%;padding:14px;border-radius:14px;background:linear-gradient(135deg,var(--gold-d),var(--gold));color:#0A0A0B;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;border:none;cursor:pointer;letter-spacing:.02em;box-shadow:0 4px 20px rgba(245,200,66,.25);transition:transform .18s,box-shadow .18s">+ Добавить уведомление</button>
     </div>
+
     <div id="notifScheduleList" style="padding:0 22px 22px"></div>
   </div>
 </div>
@@ -1149,14 +1168,14 @@
 <script src="script.js" defer></script>
 
 <!-- ══ SETTINGS MODAL ════════════════════════════════════════ -->
-<div id="settingsOv" onclick="if(event.target===this)closeSettings()" style="display:none;position:fixed;inset:0;z-index:9800;background:rgba(0,0,0,.6);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);align-items:center;justify-content:center;padding:20px">
+<div id="settingsOv" onclick="if(event.target===this)closeSettings()" style="display:none;position:fixed;inset:0;z-index:9800;background:rgba(0,0,0,.75);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);align-items:center;justify-content:center;padding:20px">
   <div class="settings-modal" id="settingsModal">
 
     <!-- Header -->
     <div class="settings-hd">
       <div class="settings-hd-left">
         <div class="settings-hd-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </div>
         <div>
           <div class="settings-title">Настройки</div>
@@ -1164,7 +1183,7 @@
         </div>
       </div>
       <button class="settings-close" onclick="closeSettings()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
 
@@ -1173,81 +1192,45 @@
       <div class="settings-section">
         <div class="settings-section-label">Тема оформления</div>
 
-        <!-- ══ GRAND THEME TOGGLE ══ -->
-        <div class="tt-wrap" id="ttWrap" onclick="toggleTheme()">
+        <!-- Premium theme toggle — two clean cards side by side -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
 
-          <!-- ── Night sky half ── -->
-          <div class="tt-sky tt-night" id="ttNight">
-            <!-- Stars layer -->
-            <div class="tt-stars">
-              <span class="tt-star" style="top:18%;left:12%;width:2px;height:2px;animation-delay:0s"></span>
-              <span class="tt-star" style="top:35%;left:22%;width:1.5px;height:1.5px;animation-delay:.4s"></span>
-              <span class="tt-star" style="top:55%;left:8%;width:2.5px;height:2.5px;animation-delay:.8s"></span>
-              <span class="tt-star" style="top:72%;left:30%;width:1.5px;height:1.5px;animation-delay:1.2s"></span>
-              <span class="tt-star" style="top:25%;left:38%;width:1px;height:1px;animation-delay:.6s"></span>
-              <span class="tt-star" style="top:62%;left:18%;width:2px;height:2px;animation-delay:1.6s"></span>
-              <span class="tt-star" style="top:45%;left:42%;width:1px;height:1px;animation-delay:.2s"></span>
-              <span class="tt-star" style="top:82%;left:14%;width:1.5px;height:1.5px;animation-delay:2s"></span>
+          <!-- Dark card -->
+          <div id="themeDark" onclick="setTheme('dark')" style="position:relative;border-radius:16px;overflow:hidden;cursor:pointer;height:80px;background:linear-gradient(135deg,#0f0e0b,#1a1810);border:0.5px solid rgba(245,200,66,.15);transition:border-color .25s,box-shadow .25s" onmouseover="this.style.boxShadow='0 6px 24px rgba(0,0,0,.5)'" onmouseout="this.style.boxShadow=''">
+            <!-- Stars -->
+            <div style="position:absolute;inset:0;overflow:hidden">
+              <div style="position:absolute;width:2px;height:2px;border-radius:50%;background:#fff;opacity:.6;top:20%;left:15%;animation:twinkle 2s ease-in-out infinite"></div>
+              <div style="position:absolute;width:1.5px;height:1.5px;border-radius:50%;background:#fff;opacity:.4;top:45%;left:30%;animation:twinkle 2.5s ease-in-out infinite .3s"></div>
+              <div style="position:absolute;width:1px;height:1px;border-radius:50%;background:#fff;opacity:.5;top:65%;left:12%;animation:twinkle 3s ease-in-out infinite .7s"></div>
+              <div style="position:absolute;width:2px;height:2px;border-radius:50%;background:#fff;opacity:.35;top:30%;left:55%;animation:twinkle 2.2s ease-in-out infinite 1s"></div>
+              <div style="position:absolute;width:1.5px;height:1.5px;border-radius:50%;background:#fff;opacity:.5;top:75%;left:45%;animation:twinkle 1.8s ease-in-out infinite .5s"></div>
             </div>
-            <!-- Moon SVG label -->
-            <div class="tt-side-label tt-side-label-night">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="rgba(180,190,230,.9)"/></svg>
-              <span>Ночь</span>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="rgba(200,212,255,.85)"/></svg>
+              <span style="font-size:10px;font-weight:600;letter-spacing:.06em;color:rgba(255,255,255,.55);text-transform:uppercase">Ночь</span>
             </div>
-          </div>
-
-          <!-- ── Day sky half ── -->
-          <div class="tt-sky tt-day" id="ttDay">
-            <!-- Clouds -->
-            <div class="tt-cloud tt-cloud1"></div>
-            <div class="tt-cloud tt-cloud2"></div>
-            <!-- Sun SVG label -->
-            <div class="tt-side-label tt-side-label-day">
-              <svg width="20" height="20" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="4.5" fill="rgba(255,200,50,.95)"/>
-                <g stroke="rgba(255,200,50,.8)" stroke-width="1.8" stroke-linecap="round">
-                  <line x1="12" y1="2.5" x2="12" y2="5"/>
-                  <line x1="12" y1="19" x2="12" y2="21.5"/>
-                  <line x1="5.28" y1="5.28" x2="7.05" y2="7.05"/>
-                  <line x1="16.95" y1="16.95" x2="18.72" y2="18.72"/>
-                  <line x1="2.5" y1="12" x2="5" y2="12"/>
-                  <line x1="19" y1="12" x2="21.5" y2="12"/>
-                  <line x1="5.28" y1="18.72" x2="7.05" y2="16.95"/>
-                  <line x1="16.95" y1="7.05" x2="18.72" y2="5.28"/>
-                </g>
-              </svg>
-              <span>День</span>
+            <div id="darkCheckmark" style="position:absolute;top:8px;right:8px;width:18px;height:18px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;box-shadow:0 0 10px rgba(245,200,66,.4)">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#0A0A0B" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
           </div>
 
-          <!-- ── Sliding knob ── -->
-          <div class="tt-knob" id="ttKnob">
-            <!-- Moon icon (dark mode) -->
-            <svg class="tt-knob-icon tt-knob-moon" id="ttKnobMoon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="#C8D4FF"/>
-              <circle cx="15" cy="7" r="1.2" fill="rgba(200,212,255,.35)"/>
-              <circle cx="18" cy="11" r="0.7" fill="rgba(200,212,255,.25)"/>
-            </svg>
-            <!-- Sun icon (light mode) -->
-            <svg class="tt-knob-icon tt-knob-sun" id="ttKnobSun" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="12" r="5" fill="#F5C842"/>
-              <g stroke="#F5C842" stroke-width="2" stroke-linecap="round">
-                <line x1="12" y1="2" x2="12" y2="5"/>
-                <line x1="12" y1="19" x2="12" y2="22"/>
-                <line x1="4.93" y1="4.93" x2="7.05" y2="7.05"/>
-                <line x1="16.95" y1="16.95" x2="19.07" y2="19.07"/>
-                <line x1="2" y1="12" x2="5" y2="12"/>
-                <line x1="19" y1="12" x2="22" y2="12"/>
-                <line x1="4.93" y1="19.07" x2="7.05" y2="16.95"/>
-                <line x1="16.95" y1="7.05" x2="19.07" y2="4.93"/>
-              </g>
-            </svg>
+          <!-- Light card -->
+          <div id="themeLight" onclick="setTheme('light')" style="position:relative;border-radius:16px;overflow:hidden;cursor:pointer;height:80px;background:linear-gradient(135deg,#f0e8d0,#e8dfc0);border:0.5px solid rgba(0,0,0,.08);transition:border-color .25s,box-shadow .25s" onmouseover="this.style.boxShadow='0 6px 24px rgba(0,0,0,.2)'" onmouseout="this.style.boxShadow=''">
+            <div style="position:absolute;top:8px;left:50%;transform:translateX(-50%);width:36px;height:36px;border-radius:50%;background:radial-gradient(circle,#FFD700,#FFA500);box-shadow:0 0 20px rgba(255,165,0,.5),0 0 40px rgba(255,165,0,.25)"></div>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:10px;gap:4px">
+              <span style="font-size:10px;font-weight:600;letter-spacing:.06em;color:rgba(0,0,0,.45);text-transform:uppercase">День</span>
+            </div>
+            <div id="lightCheckmark" style="position:absolute;top:8px;right:8px;width:18px;height:18px;border-radius:50%;background:var(--gold-d);display:none;align-items:center;justify-content:center;box-shadow:0 0 8px rgba(200,159,40,.4)">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
           </div>
-
         </div>
-        <!-- Theme name tag -->
+
         <div class="tt-name-row">
-          <span class="tt-name-badge" id="ttNameBadge">🌑 Тёмная — Obsidian</span>
+          <span class="tt-name-badge" id="ttNameBadge">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            Тёмная — Obsidian
+          </span>
         </div>
       </div>
     </div>
@@ -1277,14 +1260,22 @@ function toggleTheme(){
 
 function _syncToggleUI(t){
   var badge = document.getElementById('ttNameBadge');
-  var wrap  = document.getElementById('ttWrap');
-  if(!wrap) return;
+  var darkChk = document.getElementById('darkCheckmark');
+  var lightChk = document.getElementById('lightCheckmark');
+  var darkCard = document.getElementById('themeDark');
+  var lightCard = document.getElementById('themeLight');
   if(t === 'light'){
-    wrap.classList.add('tt-is-light');
-    if(badge) badge.textContent = '☀️ Светлая — Pearl White';
+    if(badge) badge.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.5"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.05" y2="7.05"/><line x1="16.95" y1="16.95" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg> Светлая — Pearl White';
+    if(darkChk){ darkChk.style.display='none'; }
+    if(lightChk){ lightChk.style.display='flex'; }
+    if(darkCard) darkCard.style.borderColor='rgba(255,255,255,.08)';
+    if(lightCard) lightCard.style.borderColor='rgba(200,159,40,.5)';
   } else {
-    wrap.classList.remove('tt-is-light');
-    if(badge) badge.textContent = '🌑 Тёмная — Obsidian';
+    if(badge) badge.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> Тёмная — Obsidian';
+    if(darkChk){ darkChk.style.display='flex'; }
+    if(lightChk){ lightChk.style.display='none'; }
+    if(darkCard) darkCard.style.borderColor='rgba(245,200,66,.35)';
+    if(lightCard) lightCard.style.borderColor='rgba(0,0,0,.08)';
   }
 }
 
