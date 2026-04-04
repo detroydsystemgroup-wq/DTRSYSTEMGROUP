@@ -10820,21 +10820,25 @@ html[data-theme="light"] .nav-icon-btn:hover {
    macOS DOCK NAV — unique colors + zoom effect
    ═══════════════════════════════════════════════════════════════ */
 
-/* Base tab — all grey */
+/* ── Tab container — overflow visible so icon can scale ── */
+.ph-tabs { overflow: visible !important; }
+
+/* Base tab — NO transform on the tab itself */
 .stab {
-  transition:
-    color .18s ease,
-    transform .22s cubic-bezier(.34,1.56,.64,1) !important;
-  transform-origin: bottom center !important;
-  will-change: transform !important;
+  transform: none !important;
+  transform-origin: unset !important;
+  will-change: auto !important;
+  transition: color .18s ease !important;
 }
 
-/* Icon wrap base */
+/* Icon wrap — this is what scales */
 .tab-icon-wrap {
+  transform-origin: center center !important;
   transition:
-    transform .22s cubic-bezier(.34,1.56,.64,1),
+    transform .3s cubic-bezier(.34,1.56,.64,1),
     background .2s ease,
     box-shadow .2s ease !important;
+  overflow: visible !important;
 }
 
 /* Active tab — gold */
@@ -10846,7 +10850,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
 }
 .stab.active svg { stroke: var(--gold) !important; }
 
-/* Label always visible on desktop, styled */
+/* Label */
 .stab span {
   font-size: 8.5px !important;
   font-weight: 700 !important;
@@ -10905,8 +10909,3 @@ html[data-theme="light"] .nav-icon-btn:hover {
 .stab[data-tab="social"]:hover        { color: #C084FC !important; }
 .stab[data-tab="social"]:hover .tab-icon-wrap { background:rgba(192,132,252,.12) !important; box-shadow:0 0 14px rgba(192,132,252,.2) !important; }
 .stab[data-tab="social"]:hover svg    { stroke: #C084FC !important; }
-
-/* ── Dock zoom: JS adds --dock-scale via inline style ── */
-.stab[style*="--dock-scale"] {
-  transform: scale(var(--dock-scale, 1)) translateY(calc((var(--dock-scale, 1) - 1) * -8px)) !important;
-}
