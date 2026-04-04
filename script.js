@@ -4417,14 +4417,19 @@ function showTab(name,el,skipHistory){
   document.querySelectorAll('.tc').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.stab').forEach(b=>b.classList.remove('active'));
   if(name==='knowledge'){
-    _kbView='home';
+    const kbRoot=document.getElementById('kb-root');
+    const kbAlreadyMounted=kbRoot&&kbRoot.querySelector('#kb3wrap');
     if(!_kbDBReady){
-      // Show loading skeleton, then render once DB responds
-      const root=document.getElementById('kb-root');
-      if(root) root.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:200px;gap:12px;color:var(--t3);font-size:13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" stroke-opacity=".3"/><path d="M21 12a9 9 0 0 0-9-9"/></svg>Синхронизация...</div>';
+      // First load: show skeleton, fetch DB, then render
+      _kbView='home';
+      if(kbRoot) kbRoot.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:200px;gap:12px;color:var(--t3);font-size:13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" stroke-opacity=".3"/><path d="M21 12a9 9 0 0 0-9-9"/></svg>Синхронизация...</div>';
       _kbLoadFromDB().then(()=>{ _kbView='home'; setTimeout(renderKnowledgeBase,40); });
-    } else {
+    } else if(!kbAlreadyMounted){
+      // DB ready but DOM not yet built (e.g. first visit after login)
       setTimeout(renderKnowledgeBase,80);
+    } else {
+      // DOM exists — just re-sync sidebar + current view without wiping state
+      requestAnimationFrame(()=>{ _kbRS(); _kbRED(); });
     }
   }
   const pane=document.getElementById('tab-'+name);
@@ -6752,7 +6757,7 @@ function renderKnowledgeBase() {
       .k3tbsep{width:0.5px;height:18px;background:rgba(255,255,255,.08);margin:0 4px;align-self:center;flex-shrink:0;}
       /* Todo checkbox in editor */
       /* Todo — iOS-style square */
-      .k3todo{display:flex;align-items:center;gap:10px;margin:3px 0;padding:6px 8px;border-radius:10px;cursor:default;transition:background .15s;user-select:text;max-width:100%;position:relative;}
+      .k3todo{display:flex;align-items:center;gap:10px;margin:3px 0;padding:6px 8px;border-radius:10px;cursor:default;transition:background .15s;user-select:text;max-width:100%;position:relative;-webkit-user-select:text;}
       .k3todo:hover{background:rgba(255,255,255,.04);}
       .k3todo input[type=checkbox]{display:none;}
       .k3todo-box{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;min-width:20px;border-radius:6px;border:1.5px solid rgba(255,255,255,.25);background:transparent;cursor:pointer;flex-shrink:0;transition:all .22s cubic-bezier(.34,1.56,.64,1);position:relative;overflow:hidden;}
@@ -8047,7 +8052,7 @@ function _kbRED() {
     cont.innerHTML=`
       <div id="kb3area" contenteditable="true"
         data-ph="Начни писать здесь... поддерживается форматирование через панель выше"
-        onkeydown="_kbEK(event)" oninput="_kbEI()"
+        onkeydown="_kbEK(event)" oninput="_kbEI()" onmouseup="_kbSaveSelection()" onkeyup="_kbSaveSelection()"
         style="padding:24px 28px 60px;min-height:200px;outline:none;font-size:${_nf.size};line-height:${_nf.lh};color:var(--t1);max-width:740px;caret-color:var(--gold);font-family:${_nf.family};font-style:normal;font-weight:400;"
       >${n.body||''}</div>`;
     setTimeout(()=>{
@@ -8346,43 +8351,47 @@ function _kbTogCat(cid){
   if(top)top.innerHTML='';
   _kbRS();_kbRNL();_kbRED();
 }
+// ── Render lock: prevents double-render on rapid clicks ──────────
+let _kbSFLock=0;
 function _kbSF(cid,fid){
-  // Save current note if in edit mode
   if(_kbS.edit&&_kbS.note) _kbFlush3();
   clearTimeout(_kbSaveTimer);
-  // Update state
-  _kbS.cat=cid;
-  _kbS.folder=fid;
-  _kbS.note=null;
-  _kbS.edit=false;
+  _kbS.cat=cid; _kbS.folder=fid; _kbS.note=null; _kbS.edit=false;
   _kbS.collapsed[cid]=false;
-  // Re-read from localStorage to prevent stale-data black screen
   _kbLoad3();
-  // Force-clear all UI zones immediately
-  const cont=document.getElementById('kb3edc');
-  const top=document.getElementById('kb3edt');
-  const tb=document.getElementById('kb3tb');
-  const st=document.getElementById('kb3st');
-  if(top) top.innerHTML='';
-  if(tb) tb.style.display='none';
-  if(st) st.style.display='none';
-  if(cont){ cont.scrollTop=0; cont.innerHTML='<div style="padding:32px;text-align:center;color:var(--t3);font-size:13px">Загрузка...</div>'; }
-  // Update sidebar first
-  _kbRS();
-  // Render main area with verified data
-  if(cont){
-    const c=ALL_CATS.find(x=>x.id===cid);
-    const f=_kbGetFolder(cid,fid);
-    cont.innerHTML='';
-    if(c&&f){
-      _kbRFolderInline(cont);
-    } else if(c){
-      _kbS.folder=null;
-      _kbRCatOverview(cont);
-    } else {
-      _kbRHome(cont);
-    }
+
+  // Show spinner immediately using fresh DOM ref
+  const contNow=document.getElementById('kb3edc');
+  if(contNow){
+    contNow.scrollTop=0;
+    contNow.innerHTML='<div style="display:flex;align-items:center;justify-content:center;padding:40px;gap:10px;color:var(--t3);font-size:13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite;opacity:.5"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" stroke-opacity=".3"/><path d="M21 12a9 9 0 0 0-9-9"/></svg>Загрузка...</div>';
   }
+  _kbRS();
+
+  // Render in next frame — always fetch fresh DOM refs to survive re-renders
+  const lockId=++_kbSFLock;
+  requestAnimationFrame(()=>{
+    if(lockId!==_kbSFLock) return; // superseded by newer click
+    const cont=document.getElementById('kb3edc');
+    const top=document.getElementById('kb3edt');
+    const tb=document.getElementById('kb3tb');
+    const st=document.getElementById('kb3st');
+    if(!cont) return;
+    if(top) top.innerHTML='';
+    if(tb) tb.style.display='none';
+    if(st) st.style.display='none';
+    cont.scrollTop=0;
+    try{
+      const c=ALL_CATS.find(x=>x.id===cid);
+      const f=_kbGetFolder(cid,fid);
+      if(c&&f){ _kbRFolderInline(cont); }
+      else if(c){ _kbS.folder=null; _kbRCatOverview(cont); }
+      else { _kbRHome(cont); }
+    }catch(err){
+      console.error('[KB] render error:',err);
+      try{ _kbRHome(document.getElementById('kb3edc')); }catch(e2){}
+    }
+  });
 }
 function _kbON(cid,fid,nid){
   if(_kbS.edit&&_kbS.note) _kbFlush3();
@@ -8450,6 +8459,39 @@ function _kbEK(e){
   if(cm&&e.shiftKey&&e.key==='F'){e.preventDefault();_kbTogFocus();return;}
   if(e.key==='Tab'){e.preventDefault();document.execCommand('insertText',false,'    ');return;}
   if(e.key==='Escape'){_kbFlush3();_kbS.edit=false;_kbRED();return;}
+  // ── Ctrl+A: select all content including todo items ─────────────
+  if(cm&&e.key==='a'){
+    e.preventDefault();
+    const ea=document.getElementById('kb3area');
+    if(ea){
+      const r=document.createRange();
+      r.selectNodeContents(ea);
+      const sel=window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(r);
+    }
+    return;
+  }
+  // ── Delete/Backspace on todo when entire area selected ───────────
+  if((e.key==='Delete'||e.key==='Backspace')&&cm===false){
+    const selDel=window.getSelection();
+    if(selDel&&!selDel.isCollapsed){
+      const ea=document.getElementById('kb3area');
+      if(ea){
+        // If selection spans the whole editor, clear it properly
+        const r=selDel.getRangeAt(0);
+        if(r.startContainer===ea||r.startOffset===0){
+          // Let browser handle, but clean up orphan todos after
+          setTimeout(()=>{
+            ea.querySelectorAll('label.k3todo').forEach(lbl=>{
+              if(!lbl.isConnected||!lbl.textContent.trim()) lbl.remove();
+            });
+            _kbEI();
+          },0);
+        }
+      }
+    }
+  }
 
   // ── Walk DOM backwards from cursor to get current line text ─────
   function _lineText(){
@@ -8482,6 +8524,46 @@ function _kbEK(e){
 
   // ── ENTER key ────────────────────────────────────────────────────
   if(e.key==='Enter'){
+    // ── Exit blockquote on double Enter (empty line inside blockquote) ──
+    const selBQ=window.getSelection();
+    if(selBQ&&selBQ.rangeCount){
+      const rngBQ=selBQ.getRangeAt(0);
+      const nodeBQ=rngBQ.startContainer;
+      const elBQ=nodeBQ.nodeType===3?nodeBQ.parentElement:nodeBQ;
+      const bq=elBQ&&typeof elBQ.closest==='function'?elBQ.closest('blockquote'):null;
+      if(bq){
+        // Check if current line inside blockquote is empty
+        const lineText=(nodeBQ.nodeType===3?nodeBQ.textContent:elBQ.textContent)||'';
+        const isEmptyLine=lineText.trim()===''||(nodeBQ.nodeType===3&&nodeBQ.textContent==='
+');
+        if(isEmptyLine){
+          e.preventDefault();
+          // Remove the empty trailing <br> or <div> inside blockquote if present
+          const last=bq.lastChild;
+          if(last&&((last.nodeName==='BR')||(last.nodeName==='DIV'&&last.textContent.trim()==='')||(last.nodeType===3&&last.textContent.trim()==='')))
+            bq.removeChild(last);
+          // Insert a paragraph AFTER the blockquote
+          const p=document.createElement('p');
+          p.innerHTML='​'; // zero-width space as placeholder
+          if(bq.nextSibling) bq.parentNode.insertBefore(p,bq.nextSibling);
+          else bq.parentNode.appendChild(p);
+          // Move cursor into new paragraph
+          const r=document.createRange();
+          r.setStart(p,0); r.collapse(true);
+          selBQ.removeAllRanges(); selBQ.addRange(r);
+          // Clear placeholder on first keystroke
+          p.addEventListener('keydown',function clr(ev){
+            if(ev.key!=='Backspace'&&ev.key!=='Delete'){
+              if(p.textContent==='​'){ p.textContent=''; }
+            }
+            p.removeEventListener('keydown',clr);
+          },{once:true});
+          _kbEI();
+          return;
+        }
+      }
+    }
+
     // ── Detect if cursor is INSIDE a todo item span ──────────────
     const selEK=window.getSelection();
     if(selEK&&selEK.rangeCount){
@@ -8659,12 +8741,35 @@ window._kbTodoCh=function(cb){
   _kbEI();
 };
 
+// ── Saved selection for toolbar buttons (Fix: format jumps to line 1) ──
+let _kbSavedRange=null;
+function _kbSaveSelection(){
+  const sel=window.getSelection();
+  if(sel&&sel.rangeCount){ _kbSavedRange=sel.getRangeAt(0).cloneRange(); }
+}
+function _kbRestoreSelection(){
+  if(!_kbSavedRange) return;
+  const sel=window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(_kbSavedRange);
+}
+
+// ── Close all dropdowns ──────────────────────────────────────────
+function _kbCloseAllDD(){
+  const fl=document.getElementById('kb3fontlist');
+  const sl=document.getElementById('kb3stylelist');
+  if(fl) fl.style.display='none';
+  if(sl) sl.style.display='none';
+}
 function _kbFontDDToggle(e){
   e.stopPropagation();
+  _kbSaveSelection(); // save before focus leaves editor
   const list=document.getElementById('kb3fontlist');
   if(!list) return;
-  const isOpen = list.style.display !== 'none';
-  list.style.display = isOpen ? 'none' : 'block';
+  const sl=document.getElementById('kb3stylelist');
+  if(sl) sl.style.display='none'; // always close style dd
+  const isOpen=list.style.display!=='none';
+  list.style.display=isOpen?'none':'block';
 }
 function _kbFontDDClose(){
   const list=document.getElementById('kb3fontlist');
@@ -8672,12 +8777,13 @@ function _kbFontDDClose(){
 }
 function _kbStyleDDToggle(e){
   e.stopPropagation();
+  _kbSaveSelection(); // save before focus leaves editor
   const list=document.getElementById('kb3stylelist');
   if(!list) return;
-  const isOpen = list.style.display !== 'none';
-  // Close font dd if open
-  _kbFontDDClose();
-  list.style.display = isOpen ? 'none' : 'block';
+  const fl=document.getElementById('kb3fontlist');
+  if(fl) fl.style.display='none'; // always close font dd
+  const isOpen=list.style.display!=='none';
+  list.style.display=isOpen?'none':'block';
 }
 function _kbStyleDDClose(){
   const list=document.getElementById('kb3stylelist');
@@ -8687,11 +8793,26 @@ document.addEventListener('click', function(e){
   if(!e.target.closest('#kb3fontdd')) _kbFontDDClose();
   if(!e.target.closest('#kb3styledd')) _kbStyleDDClose();
 });
+// ── Prevent toolbar mousedown from stealing editor focus/selection ──
+document.addEventListener('mousedown', function(e){
+  const tb=document.getElementById('kb3tb');
+  if(tb&&tb.contains(e.target)){
+    const tag=e.target.tagName;
+    // Allow input/select elements inside toolbar to behave normally
+    if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA'){
+      _kbSaveSelection(); // capture selection BEFORE focus moves
+      e.preventDefault(); // prevent editor blur on toolbar click
+    }
+  }
+},true);
 function _kbRBNamed(tag, label){
+  // Restore selection so formatBlock applies to correct block, not line 1
+  _kbRestoreSelection();
   _kbRB(tag);
   const lbl=document.getElementById('kb3stylelabel');
   if(lbl) lbl.textContent=label;
   _kbStyleDDClose();
+  _kbSavedRange=null;
 }
 function _kbFontDDUpdate(font){
   const labels = {inter:'Inter',lora:'Lora',merriweather:'Merriweather',playfair:'Playfair',nunito:'Nunito',crimson:'Crimson'};
@@ -8748,9 +8869,25 @@ function _kbApplyFont(font){
   if(vw){ vw.style.fontFamily=f.family; vw.style.fontSize=f.size; vw.style.lineHeight=f.lh; vw.style.fontStyle='normal'; }
   _kbFontDDUpdate(font||'inter');
   _kbS.font=font||'inter';
+  // Reset style label to default on every note open
+  const lbl=document.getElementById('kb3stylelabel');
+  if(lbl) lbl.textContent='Стиль';
+  _kbSavedRange=null;
 }
 
-function _kbR(cmd,val){document.getElementById('kb3area')?.focus();document.execCommand(cmd,false,val||null);}
+function _kbR(cmd,val){
+  const ea=document.getElementById('kb3area');
+  if(!ea) return;
+  // If editor lost focus (toolbar click), restore saved selection first
+  if(document.activeElement!==ea&&_kbSavedRange){
+    ea.focus();
+    _kbRestoreSelection();
+  } else {
+    ea.focus();
+  }
+  document.execCommand(cmd,false,val||null);
+  _kbSavedRange=null;
+}
 
 // ── Uppercase ────────────────────────────────────────
 function _kbUppercase(){
@@ -8938,7 +9075,19 @@ function _kbReadScroll(el){
 document.addEventListener('keydown',function(e){
   if(e.key==='Escape'&&document.getElementById('kb3read')?.style.display==='flex')_kbReadClose();
 });
-function _kbRB(tag){if(!tag)return;document.getElementById('kb3area')?.focus();document.execCommand('formatBlock',false,tag);}
+function _kbRB(tag){
+  if(!tag) return;
+  const ea=document.getElementById('kb3area');
+  if(!ea) return;
+  if(document.activeElement!==ea&&_kbSavedRange){
+    ea.focus();
+    _kbRestoreSelection();
+  } else {
+    ea.focus();
+  }
+  document.execCommand('formatBlock',false,tag);
+  _kbSavedRange=null;
+}
 function _kbLink(){const url=prompt('URL ссылки:');if(url)_kbR('createLink',url);}
 function _kbHR(){document.getElementById('kb3area')?.focus();document.execCommand('insertHTML',false,'<hr style="border:none;border-top:0.5px solid #252529;margin:24px 0">');}
 function _kbInsTable(){
