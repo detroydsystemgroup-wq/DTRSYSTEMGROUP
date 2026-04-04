@@ -4418,18 +4418,11 @@ function showTab(name,el,skipHistory){
   document.querySelectorAll('.stab').forEach(b=>b.classList.remove('active'));
   if(name==='knowledge'){
     const kbRoot=document.getElementById('kb-root');
-    const kbAlreadyMounted=kbRoot&&kbRoot.querySelector('#kb3wrap');
     if(!_kbDBReady){
-      // First load: show skeleton, fetch DB, then render
-      _kbView='home';
       if(kbRoot) kbRoot.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:200px;gap:12px;color:var(--t3);font-size:13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" stroke-opacity=".3"/><path d="M21 12a9 9 0 0 0-9-9"/></svg>Синхронизация...</div>';
-      _kbLoadFromDB().then(()=>{ _kbView='home'; setTimeout(renderKnowledgeBase,40); });
-    } else if(!kbAlreadyMounted){
-      // DB ready but DOM not yet built (e.g. first visit after login)
-      setTimeout(renderKnowledgeBase,80);
+      _kbLoadFromDB().then(()=>{ setTimeout(renderKnowledgeBase,40); });
     } else {
-      // DOM exists — just re-sync sidebar + current view without wiping state
-      requestAnimationFrame(()=>{ _kbRS(); _kbRED(); });
+      setTimeout(renderKnowledgeBase,60);
     }
   }
   const pane=document.getElementById('tab-'+name);
@@ -6568,2937 +6561,1066 @@ function _kbHighlight(text, q) {
 // ══════════════════════════════════════════════════════════════
 // RENDER ENTRY POINT
 // ══════════════════════════════════════════════════════════════
-function renderKnowledgeBase() {
+// ══════════════════════════════════════════════════════════════
+// БАЗА ЗНАНИЙ v5 — Obsidian-style Knowledge Management
+// Architecture: sidebar + adaptive main area
+// State: _kbS → _kbRender() → DOM (one-way, synchronous)
+// ══════════════════════════════════════════════════════════════
+
+// ── Utility helpers ───────────────────────────────────────────
+function _kbUID(){ return '_'+Math.random().toString(36).substr(2,9); }
+function _kbEsc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function _kbStrip(s){ return String(s||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim(); }
+function _kbWC(html){ return _kbStrip(html).split(/\s+/).filter(Boolean).length; }
+function _kbTimeAgo(ts){
+  if(!ts) return '';
+  const d=Date.now()-ts, m=Math.floor(d/60000), h=Math.floor(d/3600000), dy=Math.floor(d/86400000);
+  if(m<1) return 'только что';
+  if(m<60) return m+' мин';
+  if(h<24) return h+' ч';
+  if(dy<7) return dy+' дн';
+  return new Date(ts).toLocaleDateString('ru',{day:'numeric',month:'short'});
+}
+function _kbGetFolder(cid,fid){ return (_kb3[cid]?.folders||[]).find(f=>f.id===fid); }
+function _kbGetNote(cid,fid,nid){ return _kbGetFolder(cid,fid)?.notes?.find(n=>n.id===nid); }
+function _kbAllNotes(){
+  const a=[];
+  ALL_CATS.forEach(c=>(_kb3[c.id]?.folders||[]).forEach(f=>
+    (f.notes||[]).forEach(n=>a.push({...n,catId:c.id,folderId:f.id,catColor:c.color,catIcon:c.icon,catName:c.name,folderTitle:f.title}))));
+  return a;
+}
+function _kbCatCount(cid){ return (_kb3[cid]?.folders||[]).reduce((a,f)=>a+(f.notes?.length||0),0); }
+function _kbTotalWords(){ return _kbAllNotes().reduce((a,n)=>a+_kbWC(n.body||''),0); }
+function _kbSortNotes(notes){
+  if(_kbS.sort==='title') return [...notes].sort((a,b)=>(a.title||'').localeCompare(b.title||'','ru'));
+  if(_kbS.sort==='created') return [...notes].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  return [...notes].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+}
+
+// ── Saved selection (toolbar doesn't steal focus) ─────────────
+let _kbSel=null;
+function _kbSaveSel(){ const s=window.getSelection(); if(s&&s.rangeCount) _kbSel=s.getRangeAt(0).cloneRange(); }
+function _kbRestSel(){ if(!_kbSel) return; try{ const s=window.getSelection(); s.removeAllRanges(); s.addRange(_kbSel); }catch(e){} }
+
+// ══════════════════════════════════════════════════════════════
+// MAIN RENDER — single entry point, always synchronous
+// ══════════════════════════════════════════════════════════════
+function renderKnowledgeBase(){
   _kbLoad3();
-  const root = document.getElementById('kb-root');
+  const root=document.getElementById('kb-root');
   if(!root) return;
 
-  if(!document.getElementById('kb3css')) {
-    const s = document.createElement('style');
-    s.id = 'kb3css';
-    s.textContent = `
-      /* ══ WRAP ══ */
-      #kb3wrap{display:flex;height:calc(100vh - 178px);min-height:500px;border-radius:16px;overflow:hidden;border:0.5px solid var(--border);background:var(--bg);position:relative;}
-
-      /* ══ SIDEBAR ══ */
-      #kb3sb{width:244px;flex-shrink:0;background:var(--panel);border-right:0.5px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1),opacity .2s;}
-      #kb3sb.k3off{width:0 !important;opacity:0;pointer-events:none;border:none;}
-      #kb3sbh{padding:12px 10px 10px;flex-shrink:0;}
-      #kb3sbi{flex:1;overflow-y:auto;padding:4px 4px 20px;-webkit-overflow-scrolling:touch;}
-      #kb3sbi::-webkit-scrollbar{display:none;}
-/* scrollbar hidden per-element — global * rule removed to avoid side effects */
-
-      
-
-      /* ══ NOTE LIST — теперь встроен в главный экран ══ */
-      #kb3nl{display:none;}
-
-      /* ══ EDITOR / MAIN CONTENT ══ */
-      /* ══ EDITOR / MAIN CONTENT ══ */
-      #kb3ed{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);min-width:0;position:relative;}
-      #kb3edt{padding:18px 26px 0;flex-shrink:0;}
-      #kb3tb{display:none;flex-wrap:wrap;gap:2px;padding:8px 16px;background:rgba(16,16,20,.92);backdrop-filter:blur(12px);border-bottom:0.5px solid rgba(255,255,255,.06);flex-shrink:0;align-items:center;}
-      /* FIX: proper flex chain — inner height:100% now resolves to real pixels */
-      #kb3edb{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
-      #kb3edc{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;scroll-behavior:smooth;}
-      #kb3st{display:none;align-items:center;gap:7px;padding:5px 26px;background:var(--panel);border-top:0.5px solid var(--border);font-size:11px;color:var(--t3);flex-shrink:0;}
-      /* ══ NOTE LIST inside main area ══ */
-      .k3nl-inline{max-width:900px;padding:6px 16px 20px;}
-      .k3nl-inline-header{display:flex;align-items:center;gap:8px;padding:0 8px 12px;border-bottom:0.5px solid var(--border);margin-bottom:8px;}
-      .k3nl-inline-title{font-size:16px;font-weight:800;letter-spacing:-.03em;color:var(--t1);flex:1;}
-      .k3nl-inline-sub{font-size:11.5px;color:var(--t3);margin-top:2px;}
-      .k3nl-inline-controls{display:flex;align-items:center;gap:5px;padding:8px 8px 10px;}
-      /* note card in 2-col grid for main area */
-      .k3main-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;padding:4px 8px;}
-      .k3main-grid .k3nc{margin-bottom:0;}
-      /* back button */
-      .k3back-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;border:none;background:transparent;color:var(--t3);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter','DM Sans',sans-serif;transition:all .13s;margin-bottom:4px;}
-      .k3back-btn:hover{background:var(--hover);color:var(--t1);}
-      #kb3sv{font-family:'DM Mono',monospace;transition:color .2s;}
-      #kb3sv.k3saving{color:var(--gold);}
-      #kb3sv.k3saved{color:var(--green);}
-
-      /* ══ TOC PANEL ══ */
-      #kb3toc{width:0;flex-shrink:0;background:var(--panel);border-left:0.5px solid var(--border);overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;}
-      #kb3toc.k3on{width:192px;}
-      #kb3tocb{flex:1;overflow-y:auto;padding:8px 6px;}
-      #kb3tocb::-webkit-scrollbar{width:3px;}
-      #kb3tocb::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
-
-      /* ══ SIDEBAR TYPOGRAPHY ══ */
-      .k3lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);padding:15px 8px 7px;display:flex;align-items:center;gap:6px;line-height:1;}
-      .k3lbl-r{margin-left:auto;font-size:10px;font-weight:600;letter-spacing:.03em;text-transform:none;cursor:pointer;opacity:.6;transition:opacity .12s;}
-      .k3lbl-r:hover{opacity:1;}
-
-      /* Category */
-      .k3cb{display:flex;align-items:center;gap:9px;padding:9px 10px;width:100%;border-radius:10px;border:0.5px solid transparent;background:transparent;color:var(--t1);text-align:left;transition:all .14s;cursor:pointer;font-family:'Inter','DM Sans',sans-serif;font-size:13.5px;font-weight:500;line-height:1.4;}
-      .k3cb:hover{background:var(--hover);}
-      .k3cb.k3on{background:var(--hover);border-color:rgba(255,255,255,.07);font-weight:700;}
-      .k3chv{transition:transform .22s cubic-bezier(.34,1.56,.64,1);flex-shrink:0;color:var(--t3);}
-      .k3chv.open{transform:rotate(90deg);}
-      .k3cat-nc{font-size:11px;font-family:'DM Mono',monospace;border-radius:5px;padding:2px 7px;font-weight:600;flex-shrink:0;}
-
-      /* Folder */
-      .k3fb{display:flex;align-items:center;gap:8px;padding:7px 10px 7px 26px;width:100%;border-radius:9px;border:0.5px solid transparent;background:transparent;color:var(--t2);text-align:left;font-size:13px;font-weight:400;line-height:1.4;transition:all .13s;cursor:pointer;font-family:'Inter','DM Sans',sans-serif;position:relative;}
-      .k3fb::before{content:'';position:absolute;left:13px;top:50%;transform:translateY(-50%);width:2px;height:55%;border-radius:1px;background:transparent;transition:background .13s;}
-      .k3fb:hover{background:var(--hover);color:var(--t1);}
-      .k3fb:hover::before{background:rgba(255,255,255,.2);}
-      .k3fb.k3on{background:rgba(245,200,66,.1);color:var(--gold);border-color:rgba(245,200,66,.18);font-weight:600;}
-      .k3fb.k3on::before{background:var(--gold);width:2.5px;}
-      .k3fn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;}
-      .k3fc{font-size:11.5px;color:var(--t3);font-family:'DM Mono',monospace;flex-shrink:0;font-weight:600;min-width:16px;text-align:right;}
-
-      /* Add folder */
-      .k3addbtn{display:flex;align-items:center;gap:7px;padding:6px 10px 6px 26px;width:100%;border-radius:8px;border:none;background:transparent;color:var(--t3);font-size:12.5px;font-style:italic;cursor:pointer;font-family:'Inter','DM Sans',sans-serif;line-height:1.4;transition:all .12s;}
-      .k3addbtn:hover{background:var(--hover);color:var(--t2);}
-
-      .k3div{height:0.5px;background:var(--border);margin:10px 6px;}
-
-      /* ══ SIDEBAR MINI STATS ══ */
-      .k3sb-stats{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:6px 4px 4px;}
-      .k3sb-stat{background:var(--card);border:0.5px solid var(--border);border-radius:9px;padding:8px 10px;transition:all .14s;cursor:default;}
-      .k3sb-sv{font-size:15px;font-weight:800;font-family:'DM Mono',monospace;line-height:1.1;margin-bottom:3px;}
-      .k3sb-sl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);}
-
-      /* ══ NOTE CARDS ══ */
-      .k3nc{padding:13px 16px 12px 18px;border-radius:12px;cursor:pointer;border:0.5px solid var(--border);background:var(--panel);transition:background-color .15s,border-color .15s,color .15s,opacity .15s;margin-bottom:6px;position:relative;overflow:hidden;}
-      .k3nc::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px;background:transparent;transition:background .13s;}
-      .k3nc:hover{background:var(--hover);border-color:rgba(255,255,255,.12);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.3);}
-      .k3nc:hover::before{background:rgba(255,255,255,.15);}
-      .k3nc.k3on{background:rgba(245,200,66,.06);border-color:rgba(245,200,66,.25);box-shadow:0 0 0 1px rgba(245,200,66,.08);}
-      .k3nc.k3on::before{background:var(--gold);}
-      .k3nt{font-size:14px;font-weight:700;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px;display:flex;align-items:center;gap:5px;line-height:1.35;letter-spacing:-.015em;}
-      .k3np{font-size:12px;color:var(--t2);line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:6px;font-weight:400;}
-      .k3nf{display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
-      .k3nd{font-size:10.5px;color:var(--t3);font-family:'DM Mono',monospace;font-weight:400;}
-      .k3tag{font-size:10px;font-weight:600;padding:2px 7px;border-radius:5px;letter-spacing:.01em;cursor:pointer;transition:opacity .12s;}
-      .k3tag:hover{opacity:.75;}
-
-      /* Grid view */
-      .k3view-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:5px;}
-      .k3view-grid .k3nc{margin-bottom:0;}
-      .k3view-grid .k3np{-webkit-line-clamp:3;}
-
-      /* ══ NOTE LIST HEADER ══ */
-      .k3nlh-row{display:flex;align-items:center;gap:5px;margin-bottom:4px;}
-      .k3nlh-title{font-size:13px;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:-.01em;}
-      .k3nlh-sub{font-size:11px;color:var(--t3);margin-bottom:5px;}
-      .k3sort-row{display:flex;align-items:center;gap:3px;}
-      .k3sc{padding:3px 8px;border-radius:20px;border:0.5px solid var(--border);background:transparent;color:var(--t3);font-size:10.5px;font-weight:600;cursor:pointer;font-family:'Inter','DM Sans',sans-serif;transition:all .12s;white-space:nowrap;}
-      .k3sc:hover{color:var(--t2);border-color:rgba(255,255,255,.15);}
-      .k3sc.k3on{background:rgba(245,200,66,.1);color:var(--gold);border-color:rgba(245,200,66,.3);}
-      .k3vt{width:24px;height:24px;border-radius:6px;border:none;background:transparent;color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;flex-shrink:0;}
-      .k3vt:hover{background:var(--hover);color:var(--t1);}
-      .k3vt.k3on{background:rgba(245,200,66,.1);color:var(--gold);}
-
-      /* ══ EDITOR — CRUMB + TITLE ══ */
-      .k3crumb{font-size:11.5px;color:var(--t3);margin-bottom:9px;display:flex;align-items:center;gap:4px;line-height:1;flex-wrap:wrap;}
-      .k3crumb span{cursor:pointer;transition:color .12s;}
-      .k3crumb span:hover{color:var(--t2);}
-      #kb3title{font-size:28px;font-weight:800;color:var(--t1);letter-spacing:-.04em;background:transparent;border:none;outline:none;width:100%;font-family:'DM Sans',sans-serif;line-height:1.2;caret-color:var(--gold);transition:opacity .15s;}
-      #kb3title::placeholder{color:var(--t3);font-weight:600;}
-      #kb3title[readonly]{cursor:default;opacity:.92;}
-
-      /* ══ META + TAGS ══ */
-      .k3meta{font-size:11.5px;color:var(--t3);margin-top:6px;display:flex;align-items:center;gap:8px;line-height:1;flex-wrap:wrap;}
-      .k3msep{opacity:.3;}
-      .k3tagrow{display:flex;flex-wrap:wrap;gap:5px;align-items:center;padding:7px 0 3px;}
-      .k3ti{background:transparent;border:none;outline:none;color:var(--t1);font-size:12px;font-family:'Inter','DM Sans',sans-serif;width:90px;}
-      .k3ti::placeholder{color:var(--t3);}
-
-      /* ══ ACTION ROW ══ */
-      .k3arow{display:flex;align-items:center;gap:4px;margin-top:10px;padding-bottom:12px;border-bottom:0.5px solid var(--border);}
-
-      /* ══ BUTTONS ══ */
-      .k3btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:7px 13px;border-radius:8px;border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter','DM Sans',sans-serif;transition:all .13s;white-space:nowrap;flex-shrink:0;letter-spacing:.01em;}
-      .k3btn:hover{opacity:.85;transform:translateY(-1px);}
-      .k3gold{background:linear-gradient(135deg,var(--gold-d),var(--gold));color:#09090B;}
-      .k3ghost{background:var(--hover);color:var(--t2);border:0.5px solid var(--border);}
-      .k3ghost:hover{color:var(--t1);}
-      .k3red{background:rgba(239,68,68,.1);color:var(--red);border:0.5px solid rgba(239,68,68,.2);}
-      .k3red:hover{background:rgba(239,68,68,.18);}
-      .k3ico{width:28px;height:28px;border-radius:7px;border:none;background:transparent;color:var(--t3);display:flex;align-items:center;justify-content:center;transition:all .13s;flex-shrink:0;cursor:pointer;font-size:11px;}
-      .k3ico:hover{background:var(--hover);color:var(--t1);}
-      .k3ico.k3on{background:rgba(245,200,66,.12);color:var(--gold);}
-      .k3ico.k3danger:hover{background:rgba(239,68,68,.12);color:var(--red);}
-
-      /* ══ TOOLBAR ══ */
-      .k3tb{width:32px;height:32px;border-radius:9px;border:none;background:transparent;color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-family:'DM Sans',sans-serif;font-weight:600;transition:background .14s,color .14s,transform .1s;flex-shrink:0;}
-      .k3tb:hover{background:rgba(255,255,255,.09);color:var(--t1);}
-      .k3tb:active{transform:scale(.92);}
-      .k3tbsel{padding:4px 10px;border-radius:9px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.08);color:var(--t1);font-size:12px;cursor:pointer;outline:none;height:32px;font-family:'DM Sans',sans-serif;flex-shrink:0;transition:border-color .14s;}
-      .k3tbsel:hover{border-color:rgba(255,255,255,.2);}
-      .k3font-dd{position:relative;flex-shrink:0;}
-      .k3font-btn{display:flex;align-items:center;gap:7px;padding:0 12px;height:32px;border-radius:9px;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.1);color:var(--t1);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;white-space:nowrap;min-width:110px;justify-content:space-between;}
-      .k3font-btn:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);}
-      .k3font-list{position:absolute;top:calc(100% + 8px);left:0;background:rgba(14,14,20,.88);border:0.5px solid rgba(255,255,255,.14);border-radius:18px;padding:8px;min-width:230px;box-shadow:0 32px 80px rgba(0,0,0,.85),0 8px 24px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.1);z-index:9999;animation:dropIn .18s cubic-bezier(.34,1.15,.64,1) both;backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);}
-      @keyframes dropIn{from{opacity:0;transform:translateY(-8px) scale(.97)}to{opacity:1;transform:none}}
-      .k3font-opt{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:12px;cursor:pointer;color:var(--t1);transition:background .12s;position:relative;}
-      .k3font-opt:hover{background:rgba(255,255,255,.07);}
-      .k3font-opt.active{background:rgba(245,200,66,.1);}
-      .k3font-opt-name{font-size:14px;font-weight:600;color:var(--t1);}
-      .k3font-opt-tag{font-size:11px;color:var(--t3);font-family:'DM Sans',sans-serif;font-weight:400;font-style:normal;}
-      .k3font-opt-check{opacity:0;color:var(--gold);transition:opacity .12s;}
-      .k3font-opt.active .k3font-opt-check{opacity:1;}
-      .k3font-sep{height:0.5px;background:rgba(255,255,255,.06);margin:6px 8px;}
-      /* Style dropdown */
-      .k3style-dd{position:relative;flex-shrink:0;}
-      .k3style-btn{display:flex;align-items:center;gap:7px;padding:0 12px;height:32px;border-radius:9px;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.1);color:var(--t2);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;white-space:nowrap;min-width:80px;justify-content:space-between;}
-      .k3style-btn:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:var(--t1);}
-      .k3style-list{position:absolute;top:calc(100% + 8px);left:0;background:rgba(14,14,20,.88);border:0.5px solid rgba(255,255,255,.14);border-radius:18px;padding:8px;min-width:200px;box-shadow:0 32px 80px rgba(0,0,0,.85),0 8px 24px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.1);z-index:9999;animation:dropIn .18s cubic-bezier(.34,1.15,.64,1) both;backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);}
-      .k3style-opt{padding:10px 14px;border-radius:12px;cursor:pointer;color:var(--t1);transition:background .12s;font-size:13px;display:flex;align-items:center;gap:10px;}
-      .k3style-opt:hover{background:rgba(255,255,255,.07);}
-      .k3style-opt-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:rgba(255,255,255,.06);flex-shrink:0;font-size:10px;font-weight:700;}
-      .k3style-h1{font-size:17px;font-weight:800;letter-spacing:-.03em;color:var(--t1);}
-      .k3style-h2{font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--t1);}
-      .k3style-h3{font-size:13.5px;font-weight:650;color:var(--t1);}
-      .k3style-bq{border-left:2.5px solid var(--gold);padding-left:10px;font-style:italic;color:var(--t2);}
-      .k3style-pre{font-family:'DM Mono',monospace;font-size:12px;color:var(--gold-l);}
-      .k3tbsep{width:0.5px;height:18px;background:rgba(255,255,255,.08);margin:0 4px;align-self:center;flex-shrink:0;}
-      /* Todo checkbox in editor */
-      /* Todo — iOS-style square */
-      .k3todo{display:flex;align-items:center;gap:10px;margin:3px 0;padding:6px 8px;border-radius:10px;cursor:default;transition:background .15s;user-select:text;max-width:100%;position:relative;-webkit-user-select:text;}
-      .k3todo:hover{background:rgba(255,255,255,.04);}
-      .k3todo input[type=checkbox]{display:none;}
-      .k3todo-box{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;min-width:20px;border-radius:6px;border:1.5px solid rgba(255,255,255,.25);background:transparent;cursor:pointer;flex-shrink:0;transition:all .22s cubic-bezier(.34,1.56,.64,1);position:relative;overflow:hidden;}
-      .k3todo-box::after{content:'';position:absolute;inset:0;background:var(--gold);border-radius:4px;transform:scale(0);transition:transform .2s cubic-bezier(.34,1.56,.64,1);opacity:0;}
-      .k3todo.done .k3todo-box{border-color:var(--gold);box-shadow:0 0 0 3px rgba(245,200,66,.15);}
-      .k3todo.done .k3todo-box::after{transform:scale(1);opacity:1;}
-      .k3todo.done .k3todo-box svg{opacity:1 !important;}
-      .k3todo-check{position:absolute;pointer-events:none;opacity:0;transition:opacity .15s .08s;z-index:1;}
-      .k3todo.done .k3todo-check{opacity:1;}
-      .k3todo > span:not(.k3todo-box){flex:1;outline:none;min-width:20px;transition:opacity .25s,color .25s,text-decoration-color .25s;font-style:normal;text-decoration:none;text-decoration-color:transparent;}
-      .k3todo.done > span:not(.k3todo-box){text-decoration:line-through;text-decoration-color:rgba(168,168,176,.6);opacity:.55;color:var(--t2);}
-      #kb3area .k3todo{user-select:text;}
-      @keyframes k3todoCheck{0%{transform:scale(0) rotate(-10deg)}60%{transform:scale(1.15) rotate(2deg)}100%{transform:scale(1) rotate(0)}}
-      .k3todo.done .k3todo-box::after{animation:k3todoCheck .25s cubic-bezier(.34,1.56,.64,1) both;}
-
-      /* ══ CONTENT VIEW ══ */
-      .k3view{padding:28px 36px 80px;max-width:760px;font-size:16px;line-height:1.88;color:var(--t1);font-family:'DM Sans',sans-serif;font-weight:400;font-style:normal;letter-spacing:-.01em;}
-      .k3view h1{font-size:26px;font-weight:800;margin:30px 0 13px;letter-spacing:-.04em;line-height:1.2;color:var(--t1);}
-      .k3view h2{font-size:20px;font-weight:700;margin:24px 0 11px;letter-spacing:-.025em;line-height:1.3;color:var(--t1);}
-      .k3view h3{font-size:16px;font-weight:650;margin:18px 0 9px;letter-spacing:-.015em;line-height:1.4;color:var(--t1);}
-      .k3view p{margin-bottom:14px;color:var(--t1);}
-      .k3view ul,.k3view ol{margin:0 0 14px 22px;}
-      .k3view li{margin-bottom:7px;line-height:1.7;}
-      .k3view blockquote{border-left:3px solid var(--gold);padding:12px 18px;margin:18px 0;background:rgba(245,200,66,.04);border-radius:0 10px 10px 0;color:var(--t2);font-style:italic;font-size:14.5px;line-height:1.75;}
-      .k3view code{font-family:'DM Mono',monospace;font-size:12.5px;background:var(--card);border:0.5px solid var(--border);padding:2px 8px;border-radius:5px;color:var(--gold-l);}
-      .k3view pre{background:var(--card);border:0.5px solid var(--border);border-radius:10px;padding:18px;margin:18px 0;overflow-x:auto;}
-      .k3view pre code{background:none;border:none;padding:0;font-size:13px;color:var(--t1);}
-      .k3view hr{border:none;border-top:0.5px solid var(--border);margin:26px 0;}
-      .k3view a{color:var(--gold);text-decoration:underline;text-decoration-color:rgba(245,200,66,.35);text-underline-offset:2px;}
-      .k3view a:hover{text-decoration-color:var(--gold);}
-      .k3view strong{font-weight:700;color:var(--t1);}
-      .k3view em{font-style:italic;color:var(--t2);}
-      .k3view table{width:100%;border-collapse:collapse;margin:18px 0;font-size:13.5px;}
-      .k3view th{background:var(--card);padding:9px 13px;font-weight:600;border:0.5px solid var(--border);text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--t2);}
-
-      /* ── Light theme: force ALL inline-colored text to readable dark tones ── */
-      /* Covers text colored white/light via execCommand('foreColor') in dark mode */
-      [data-theme="light"] .k3view *[style*="color"],
-      [data-theme="light"] .k3view *[style*="color: rgb(255"] ,
-      [data-theme="light"] .k3view *[style*="color:#fff"],
-      [data-theme="light"] .k3view *[style*="color: #fff"],
-      [data-theme="light"] .k3view *[style*="color: white"],
-      [data-theme="light"] .k3view *[style*="color:white"] {
-        color: var(--t1) !important;
-      }
-      /* Blanket rule: in light mode, ANY inline color in view is overridden */
-      [data-theme="light"] .k3view [style*="color"] {
-        color: var(--t1) !important;
-      }
-      /* Exception: keep gold/accent links visible */
-      [data-theme="light"] .k3view a[style*="color"] {
-        color: var(--gold-d) !important;
-      }
-      /* Light mode background for view area */
-      [data-theme="light"] .k3view {
-        color: var(--t1) !important;
-      }
-      [data-theme="light"] #kb3area {
-        color: var(--t1) !important;
-      }
-      /* In edit mode light: override inline white text too */
-      [data-theme="light"] #kb3area [style*="color"] {
-        color: var(--t1) !important;
-      }
-      [data-theme="light"] #kb3area a[style*="color"] {
-        color: var(--gold-d) !important;
-      }
-      .k3view td{padding:9px 13px;border:0.5px solid var(--border);color:var(--t1);}
-      .k3view tr:nth-child(even) td{background:rgba(255,255,255,.015);}
-      .k3view img{max-width:100%;border-radius:8px;margin:8px 0;}
-
-      /* ══ EDITOR AREA ══ */
-      #kb3area{padding:32px 36px 80px;min-height:300px;outline:none;font-size:16px;line-height:1.88;color:var(--t1);max-width:760px;caret-color:var(--gold);font-family:'Inter','DM Sans',sans-serif;font-style:normal;font-weight:400;letter-spacing:-.01em;}
-      #kb3area:empty::before{content:attr(data-ph);color:var(--t3);pointer-events:none;font-weight:400;font-style:italic;font-size:15px;}
-      #kb3area *{font-style:inherit;}
-      /* Force Nunito to never be italic in editor */
-      #kb3area[style*="Nunito"]{font-style:normal!important;}
-      #kb3area[style*="Nunito"] em,#kb3area[style*="Nunito"] i{font-style:italic;}
-      #kb3edb:has(#kb3area){background:var(--bg);}
-      #kb3area:focus{outline:none;}
-      /* Visual writing area indicator */
-      #kb3area{border-left:2.5px solid transparent;transition:border-color .3s;}
-      #kb3area:focus{border-left-color:var(--gold);}
-      #kb3area h1{font-size:26px;font-weight:800;margin:28px 0 12px;letter-spacing:-.04em;line-height:1.2;color:var(--t1);}
-      #kb3area h2{font-size:20px;font-weight:700;margin:22px 0 10px;letter-spacing:-.025em;line-height:1.3;color:var(--t1);}
-      #kb3area h3{font-size:17px;font-weight:650;margin:18px 0 8px;letter-spacing:-.015em;line-height:1.4;color:var(--t1);}
-      #kb3area p{margin-bottom:14px;}
-      #kb3area ul,#kb3area ol{margin:0 0 14px 22px;}
-      #kb3area li{margin-bottom:7px;line-height:1.82;}
-      #kb3area blockquote{border-left:3px solid var(--gold);padding:14px 20px;margin:18px 0;background:rgba(245,200,66,.04);border-radius:0 12px 12px 0;color:var(--t2);font-style:italic;}
-      #kb3area code{font-family:'DM Mono',monospace;font-size:12.5px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.08);padding:2px 8px;border-radius:6px;color:var(--gold-l);}
-      #kb3area hr{border:none;border-top:0.5px solid var(--border);margin:28px 0;}
-
-      /* ══ EMPTY STATES ══ */
-      .k3empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:52px 20px;text-align:center;flex:1;min-height:240px;}
-      .k3eico{font-size:36px;margin-bottom:14px;opacity:.13;}
-      .k3ettl{font-size:15px;font-weight:700;color:var(--t2);margin-bottom:7px;letter-spacing:-.01em;}
-      .k3esub{font-size:12.5px;color:var(--t3);line-height:1.6;max-width:250px;margin-bottom:18px;}
-
-      /* ══ HOME DASHBOARD ══ */
-      .k3home{padding:20px 28px 32px;flex:1;min-height:0;overflow-y:auto;}
-
-      /* ── Hero ── */
-      .k3home-hero{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;padding-bottom:16px;border-bottom:0.5px solid var(--border);}
-      .k3home-title{font-size:26px;font-weight:800;letter-spacing:-.04em;color:var(--t1);line-height:1.15;}
-      .k3home-sub{font-size:12px;color:var(--t3);margin-top:3px;letter-spacing:-.005em;}
-
-      /* ── KPI cards ── */
-      .k3home-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;width:100%;}
-      .k3kpi-card{
-        background:var(--panel);
-        border:0.5px solid var(--border);
-        border-radius:12px;
-        padding:14px 16px;
-        transition:background-color .18s,border-color .18s,color .18s,box-shadow .18s,opacity .18s cubic-bezier(.34,1.15,.64,1);
-        cursor:default;
-        position:relative;
-        overflow:hidden;
-      }
-      .k3kpi-card::before{
-        content:'';position:absolute;inset:0;
-        background:linear-gradient(135deg,rgba(255,255,255,.025),transparent);
-        pointer-events:none;
-      }
-      .k3kpi-card:hover{border-color:rgba(255,255,255,.12);transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.25);}
-      .k3kpi-v{font-size:28px;font-weight:400;font-family:'DM Mono',monospace;line-height:1;margin-bottom:5px;letter-spacing:-.03em;}
-      .k3kpi-l{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);}
-
-      /* ── Section headers ── */
-      .k3home-sec{margin-bottom:18px;}
-      .k3home-sh{
-        font-size:10px;font-weight:700;text-transform:uppercase;
-        letter-spacing:.09em;color:var(--t2);
-        margin-bottom:10px;
-        display:flex;align-items:center;gap:8px;
-      }
-      .k3home-sh::before{
-        content:'';display:inline-block;width:3px;height:12px;
-        border-radius:2px;background:var(--gold);opacity:.6;flex-shrink:0;
-      }
-      .k3home-sh-r{
-        margin-left:auto;font-size:11px;font-weight:600;
-        text-transform:none;letter-spacing:.01em;
-        color:var(--gold);cursor:pointer;opacity:.75;
-        transition:opacity .12s;
-      }
-      .k3home-sh-r:hover{opacity:1;}
-
-      /* ── Pinned grid ── */
-      .k3pin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;}
-      .k3pin-card{
-        background:var(--panel);border:0.5px solid var(--border);
-        border-radius:13px;padding:16px 18px;
-        cursor:pointer;transition:background-color .18s,border-color .18s,color .18s,box-shadow .18s,opacity .18s cubic-bezier(.34,1.15,.64,1);
-      }
-      .k3pin-card:hover{border-color:rgba(245,200,66,.3);transform:translateY(-2px);background:var(--hover);box-shadow:0 6px 20px rgba(0,0,0,.25);}
-      .k3pin-icon{font-size:18px;margin-bottom:9px;}
-      .k3pin-title{font-size:14px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:5px;letter-spacing:-.01em;}
-      .k3pin-meta{font-size:11.5px;color:var(--t3);}
-
-      /* ── Recent notes ── */
-      .k3rec-list{display:flex;flex-direction:column;gap:3px;}
-      .k3rec-row{
-        display:flex;align-items:center;gap:14px;
-        padding:12px 14px;border-radius:12px;
-        cursor:pointer;transition:background .13s;
-        border:0.5px solid transparent;
-      }
-      .k3rec-row:hover{background:var(--hover);border-color:var(--border);}
-      .k3rec-icon{
-        font-size:20px;flex-shrink:0;
-        width:38px;height:38px;
-        display:flex;align-items:center;justify-content:center;
-        background:rgba(255,255,255,.04);
-        border-radius:10px;
-        border:0.5px solid var(--border);
-      }
-      .k3rec-title{font-size:15px;font-weight:600;color:var(--t1);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:-.01em;}
-      .k3rec-cat{font-size:12px;color:var(--t3);margin-top:2px;}
-      .k3rec-time{font-size:11.5px;color:var(--t3);font-family:'DM Mono',monospace;flex-shrink:0;}
-
-      /* ── Category cards — 3 per row, large ── */
-      .k3cat-grid{
-        display:grid;
-        grid-template-columns:repeat(6,1fr);
-        gap:8px;
-      }
-      .k3cat-card{
-        background:rgba(255,255,255,.03);
-        border:0.5px solid rgba(255,255,255,.07);
-        border-radius:14px;
-        padding:12px 14px;
-        cursor:pointer;
-        transition:background-color .2s,border-color .2s,color .2s,box-shadow .2s,opacity .2s cubic-bezier(.34,1.15,.64,1);
-        position:relative;overflow:hidden;
-        display:flex;flex-direction:column;gap:3px;
-      }
-      .k3cat-card::after{
-        content:'';position:absolute;left:0;top:0;bottom:0;
-        width:2.5px;border-radius:2px 0 0 2px;
-        background:var(--cat-c,rgba(255,255,255,.1));
-      }
-      .k3cat-card:hover{
-        transform:translateY(-2px);
-        box-shadow:0 6px 20px rgba(0,0,0,.25);
-        border-color:var(--cat-c);
-      }
-      .k3cat-icon{font-size:18px;line-height:1;margin-bottom:2px;}
-      .k3cat-name{font-size:12.5px;font-weight:700;color:var(--t1);letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-      .k3cat-cnt{font-size:10px;color:var(--t3);}
-      .k3prog{height:2px;background:rgba(255,255,255,.06);border-radius:1px;overflow:hidden;margin-top:6px;}
-      .k3prog-f{height:100%;border-radius:1px;transition:width .6s ease;}
-      .k3tags-cloud{display:flex;flex-wrap:wrap;gap:5px;}
-      .k3tags-cloud .k3tag{cursor:pointer;padding:4px 10px;font-size:11px;}
-      .k3tags-cloud .k3tag:hover{opacity:.7;}
-      .k3tags-cloud .k3tag.k3on{box-shadow:0 0 0 1.5px var(--gold);}
-
-      /* ══ SEARCH HIGHLIGHT ══ */
-      mark.k3srch-hl{background:rgba(245,200,66,.22);border-radius:2px;color:var(--gold-l);padding:0 1px;}
-
-      /* ══ SEARCH INPUT ══ */
-      #kb3srchw{position:relative;margin:0 0 7px;}
-      #kb3srch{width:100%;padding:8px 10px 8px 31px;background:var(--card);border:0.5px solid var(--border);border-radius:9px;color:var(--t1);font-size:13px;line-height:1.4;outline:none;transition:border-color .13s,background .13s;font-family:'Inter','DM Sans',sans-serif;}
-      #kb3srch:focus{border-color:rgba(245,200,66,.35);background:rgba(245,200,66,.02);}
-      #kb3srch::placeholder{color:var(--t3);}
-      .k3si{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t3);pointer-events:none;}
-
-      /* ══ FOCUS MODE ══ */
-      #kb3wrap.k3focus #kb3sb{width:0 !important;opacity:0;pointer-events:none;border:none;}
-      #kb3wrap.k3focus #kb3nl{width:0 !important;opacity:0;pointer-events:none;border:none;}
-      #kb3wrap.k3focus #kb3toc.k3on{width:0 !important;}
-
-      /* ══ TOC ══ */
-      .k3toc-item{padding:5px 8px;font-size:11.5px;cursor:pointer;border-radius:6px;transition:background .12s;color:var(--t2);line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-      .k3toc-item:hover{background:var(--hover);color:var(--t1);}
-      .k3toc-h1{font-weight:600;color:var(--t1);font-size:12px;}
-      .k3toc-h2{padding-left:16px;font-size:11px;}
-      .k3toc-h3{padding-left:28px;font-size:10.5px;color:var(--t3);}
-
-      /* ══ MODAL ══ */
-      #kb3ov{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.78);backdrop-filter:blur(14px);display:none;align-items:center;justify-content:center;padding:20px;}
-      #kb3ov.k3on{display:flex;}
-      #kb3modal{background:var(--panel);border:0.5px solid var(--border);border-radius:18px;padding:24px;max-width:410px;width:100%;box-shadow:0 48px 110px rgba(0,0,0,.95);animation:k3fade .2s ease;}
-      .k3field{width:100%;padding:10px 14px;border-radius:9px;background:var(--card);border:0.5px solid var(--border);color:var(--t1);font-size:14px;outline:none;transition:border-color .13s;font-family:'Inter','DM Sans',sans-serif;line-height:1.5;}
-      .k3field:focus{border-color:rgba(245,200,66,.4);}
-      .k3field::placeholder{color:var(--t3);}
-
-      /* ══ TEMPLATES ══ */
-      .k3tpl{display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:9px;background:var(--card);border:0.5px solid var(--border);cursor:pointer;transition:all .13s;margin-bottom:6px;}
-      .k3tpl:hover{border-color:rgba(245,200,66,.3);background:rgba(245,200,66,.04);}
-      .k3tpl-ico{font-size:18px;flex-shrink:0;}
-      .k3tpl-name{font-size:13px;font-weight:600;color:var(--t1);margin-bottom:2px;}
-      .k3tpl-desc{font-size:11px;color:var(--t3);}
-
-      /* ══ SHORTCUTS ══ */
-      .k3kbrow{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:0.5px solid rgba(255,255,255,.04);}
-      .k3kbrow:last-child{border:none;}
-      .k3kbact{font-size:12px;color:var(--t2);}
-      .k3kbkeys{display:flex;gap:3px;}
-      .k3kbkeys kbd{font-size:10px;color:var(--t3);font-family:'DM Mono',monospace;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.1);border-radius:5px;padding:2px 6px;}
-
-      /* ══ CAT OVERVIEW scroll ══ */
-      #kb3cat-scroll{scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
-      #kb3cat-scroll::-webkit-scrollbar{width:3px;}
-      #kb3cat-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
-
-      /* ══ ANIMATIONS ══ */
-      @keyframes k3fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-      @keyframes k3fadein{from{opacity:0}to{opacity:1}}
-      @keyframes k3slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-      @keyframes k3slideRight{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}
-      @keyframes k3pop{0%{transform:scale(.94);opacity:0}60%{transform:scale(1.02)}100%{transform:scale(1);opacity:1}}
-      @keyframes k3shimmer{0%{background-position:200% center}100%{background-position:-200% center}}
-      @keyframes k3glow{0%,100%{box-shadow:0 0 0 0 rgba(245,200,66,0)}50%{box-shadow:0 0 20px 4px rgba(245,200,66,.12)}}
-      @keyframes k3float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
-      @keyframes k3pulse-dot{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.4);opacity:.7}}
-
-      .k3anim{animation:k3fade .22s cubic-bezier(.34,1.15,.64,1) both;}
-      .k3anim2{animation:k3slideUp .28s cubic-bezier(.34,1.1,.64,1) both;}
-
-      /* Staggered children animations */
-      .k3home > *{animation:k3slideUp .32s cubic-bezier(.34,1.1,.64,1) both;}
-      .k3home > *:nth-child(1){animation-delay:.04s}
-      .k3home > *:nth-child(2){animation-delay:.08s}
-      .k3home > *:nth-child(3){animation-delay:.12s}
-      .k3home > *:nth-child(4){animation-delay:.16s}
-      .k3home > *:nth-child(5){animation-delay:.20s}
-
-      /* KPI cards — stagger */
-      .k3kpi-card{animation:k3pop .3s cubic-bezier(.34,1.15,.64,1) both;}
-
-      /* Category cards — float on hover */
-      [onclick*="_kbTogCat"]{
-        transition:background-color .25s,border-color .25s,color .25s,box-shadow .25s,opacity .25s cubic-bezier(.34,1.15,.64,1) !important;
-      }
-
-      /* Recent note rows */
-      .k3rec-row{transition:background-color .18s,border-color .18s,color .18s,box-shadow .18s,opacity .18s cubic-bezier(.34,1.15,.64,1) !important;}
-      .k3rec-row:hover{transform:translateX(4px) !important;}
-
-      /* Sidebar nav items */
-      .k3fb{transition:background-color .18s,border-color .18s,color .18s,box-shadow .18s,opacity .18s cubic-bezier(.34,1.15,.64,1) !important;}
-      .k3fb:hover{transform:translateX(3px) !important;}
-      .k3fb.k3on{animation:k3glow 2.5s ease infinite;}
-
-      /* Note cards in list */
-      .k3nc{transition:background-color .2s,border-color .2s,color .2s,box-shadow .2s,opacity .2s cubic-bezier(.34,1.15,.64,1) !important;}
-      .k3nc:hover{transform:translateX(3px) !important;}
-
-      /* Back button */
-      .k3back-btn{transition:background-color .18s,border-color .18s,color .18s,box-shadow .18s,opacity .18s cubic-bezier(.34,1.15,.64,1) !important;}
-      .k3back-btn:hover{transform:translateX(-3px) !important;color:var(--t1) !important;}
-
-      /* Folder header icon — pulse dot on active category */
-      .k3nlh-icon{animation:k3float 4s ease-in-out infinite;}
-
-      /* Shimmer on KPI values */
-      .k3kpi-v{
-        background-size:200% auto;
-        transition:transform .2s ease;
-      }
-      .k3kpi-card:hover .k3kpi-v{transform:scale(1.08);}
-
-      /* Smooth main content transitions */
-      #kb3main > *{transition:opacity .2s ease;}
-
-      /* Pin cards */
-      .k3pin-card{
-        transition:background-color .25s,border-color .25s,color .25s,box-shadow .25s,opacity .25s cubic-bezier(.34,1.15,.64,1) !important;
-      }
-      .k3pin-card:hover{
-        transform:translateY(-4px) scale(1.01) !important;
-        box-shadow:0 12px 32px rgba(0,0,0,.35) !important;
-      }
-
-      /* Buttons */
-      .k3btn{transition:background-color .2s,border-color .2s,color .2s,box-shadow .2s,opacity .2s cubic-bezier(.34,1.15,.64,1) !important;}
-      .k3btn:hover{transform:translateY(-2px) scale(1.02) !important;opacity:1 !important;}
-      .k3btn:active{transform:scale(.97) !important;}
-
-      /* Gold button shimmer */
-      .k3gold{
-        background:linear-gradient(90deg,var(--gold-d),var(--gold),#ffe066,var(--gold),var(--gold-d)) !important;
-        background-size:300% auto !important;
-        transition:background-position .5s ease, transform .2s cubic-bezier(.34,1.15,.64,1) !important;
-      }
-      .k3gold:hover{background-position:right center !important;transform:translateY(-2px) scale(1.02) !important;}
-
-      /* Progress bar animation */
-      .k3prog-f,.k3prog-fill{
-        animation:k3slideRight .6s cubic-bezier(.4,0,.2,1) both;
-        animation-delay:.2s;
-      }
-
-      /* ══ MOVE NOTE SELECT ══ */
-      .k3sel{width:100%;padding:9px 13px;border-radius:9px;background:var(--card);border:0.5px solid var(--border);color:var(--t1);font-size:13px;outline:none;transition:border-color .13s;font-family:'Inter','DM Sans',sans-serif;cursor:pointer;margin-bottom:8px;}
-      .k3sel:focus{border-color:rgba(245,200,66,.4);}
-    `;
+  // Inject CSS once
+  if(!document.getElementById('kb5css')){
+    const s=document.createElement('style');
+    s.id='kb5css';
+    s.textContent=`
+/* ── Layout ── */
+#kb5{display:flex;height:calc(100vh - 178px);min-height:500px;border-radius:16px;overflow:hidden;border:0.5px solid var(--border);background:var(--bg);font-family:'Inter','DM Sans',sans-serif;}
+/* ── Sidebar ── */
+#kb5sb{width:260px;flex-shrink:0;display:flex;flex-direction:column;border-right:0.5px solid var(--border);background:var(--panel);overflow:hidden;}
+#kb5sbh{padding:12px 10px 8px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;}
+#kb5srchw{display:flex;align-items:center;gap:7px;padding:0 10px;height:34px;background:rgba(255,255,255,.05);border:0.5px solid var(--border);border-radius:10px;}
+#kb5srch{flex:1;background:none;border:none;outline:none;font-size:12.5px;color:var(--t1);font-family:inherit;}
+#kb5srch::placeholder{color:var(--t3);}
+#kb5sbi{flex:1;overflow-y:auto;padding:2px 6px 16px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent;}
+#kb5sbi::-webkit-scrollbar{width:3px;}
+#kb5sbi::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:2px;}
+/* Sidebar items */
+.kb5-cat-btn{display:flex;align-items:center;gap:7px;width:100%;padding:5px 8px;border-radius:8px;background:none;border:none;color:var(--t2);font-size:12.5px;font-weight:600;cursor:pointer;text-align:left;transition:background .12s,color .12s;font-family:inherit;}
+.kb5-cat-btn:hover{background:rgba(255,255,255,.05);color:var(--t1);}
+.kb5-cat-btn.active{background:rgba(255,255,255,.07);color:var(--t1);}
+.kb5-cat-icon{width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.kb5-cat-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.kb5-cat-count{font-size:10px;font-family:'DM Mono',monospace;color:var(--t3);padding:1px 5px;border-radius:10px;background:rgba(255,255,255,.06);flex-shrink:0;}
+.kb5-chev{transition:transform .18s;flex-shrink:0;color:var(--t3);}
+.kb5-chev.open{transform:rotate(90deg);}
+.kb5-folder-btn{display:flex;align-items:center;gap:6px;width:100%;padding:4px 8px 4px 28px;border-radius:7px;background:none;border:none;color:var(--t3);font-size:12px;font-weight:500;cursor:pointer;text-align:left;transition:background .12s,color .12s;font-family:inherit;}
+.kb5-folder-btn:hover{background:rgba(255,255,255,.04);color:var(--t2);}
+.kb5-folder-btn.active{background:rgba(245,200,66,.1);color:var(--gold);border-left:2px solid var(--gold);padding-left:26px;}
+.kb5-folder-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.kb5-folder-count{font-size:10px;font-family:'DM Mono',monospace;color:var(--t3);}
+.kb5-add-folder{display:flex;align-items:center;gap:5px;padding:3px 8px 3px 28px;color:var(--t3);font-size:11px;cursor:pointer;border-radius:6px;transition:color .12s,background .12s;width:100%;border:none;background:none;font-family:inherit;text-align:left;}
+.kb5-add-folder:hover{color:var(--t2);background:rgba(255,255,255,.03);}
+.kb5-divider{height:0.5px;background:var(--border);margin:6px 4px;}
+.kb5-lbl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);padding:10px 8px 3px;}
+.kb5-note-btn{display:flex;align-items:center;gap:6px;width:100%;padding:4px 8px 4px 10px;border-radius:7px;background:none;border:none;color:var(--t3);font-size:11.5px;cursor:pointer;text-align:left;transition:background .12s,color .12s;font-family:inherit;}
+.kb5-note-btn:hover{background:rgba(255,255,255,.04);color:var(--t2);}
+.kb5-note-btn.active{background:rgba(255,255,255,.06);color:var(--t1);}
+/* ── Main area ── */
+#kb5main{flex:1;display:flex;overflow:hidden;min-width:0;}
+/* ── Note list panel ── */
+#kb5nl{width:260px;flex-shrink:0;border-right:0.5px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+#kb5nlh{padding:12px 14px 8px;flex-shrink:0;border-bottom:0.5px solid var(--border);}
+#kb5nlb{flex:1;overflow-y:auto;padding:4px 6px 16px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent;}
+#kb5nlb::-webkit-scrollbar{width:3px;}
+#kb5nlb::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:2px;}
+/* Note cards in list */
+.kb5-nc{padding:9px 10px;border-radius:9px;cursor:pointer;transition:background .12s;margin-bottom:2px;}
+.kb5-nc:hover{background:rgba(255,255,255,.05);}
+.kb5-nc.active{background:rgba(255,255,255,.08);}
+.kb5-nc-title{font-size:13px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:2px;}
+.kb5-nc-prev{font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:3px;}
+.kb5-nc-meta{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--t3);}
+/* ── Editor pane ── */
+#kb5ed{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+#kb5tb{display:flex;flex-wrap:wrap;gap:2px;padding:6px 12px;background:rgba(16,16,20,.95);backdrop-filter:blur(20px);border-bottom:0.5px solid rgba(255,255,255,.06);flex-shrink:0;align-items:center;}
+#kb5edh{padding:14px 26px 0;flex-shrink:0;}
+#kb5title{width:100%;background:none;border:none;outline:none;font-size:22px;font-weight:800;color:var(--t1);font-family:inherit;letter-spacing:-.03em;padding:0;}
+#kb5title::placeholder{color:var(--t3);}
+#kb5edbc{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 26px 40px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent;}
+#kb5edbc::-webkit-scrollbar{width:4px;}
+#kb5edbc::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px;}
+#kb5area{outline:none;min-height:200px;font-size:15px;line-height:1.8;color:var(--t1);caret-color:var(--gold);}
+#kb5area:empty::before{content:attr(data-ph);color:var(--t3);pointer-events:none;}
+#kb5st{display:flex;align-items:center;gap:8px;padding:5px 20px;background:var(--panel);border-top:0.5px solid var(--border);font-size:10.5px;color:var(--t3);flex-shrink:0;}
+/* Editor formatting */
+#kb5area h1{font-size:26px;font-weight:800;margin:24px 0 10px;letter-spacing:-.04em;line-height:1.2;color:var(--t1);}
+#kb5area h2{font-size:20px;font-weight:700;margin:20px 0 9px;letter-spacing:-.025em;line-height:1.3;color:var(--t1);}
+#kb5area h3{font-size:16px;font-weight:650;margin:16px 0 8px;letter-spacing:-.015em;line-height:1.4;color:var(--t1);}
+#kb5area p{margin:0 0 10px;}
+#kb5area blockquote{border-left:3px solid var(--gold);padding:10px 18px;margin:14px 0;background:rgba(245,200,66,.04);border-radius:0 10px 10px 0;color:var(--t2);font-style:italic;font-size:14.5px;line-height:1.75;}
+#kb5area pre{background:rgba(0,0,0,.25);border-radius:10px;padding:16px 18px;margin:14px 0;overflow-x:auto;font-family:'DM Mono',monospace;font-size:13px;}
+#kb5area code{font-family:'DM Mono',monospace;font-size:.82em;background:rgba(128,128,128,.15);padding:2px 6px;border-radius:4px;}
+#kb5area ul,#kb5area ol{margin:0 0 10px 22px;padding:0;}
+#kb5area li{margin-bottom:3px;}
+#kb5area a{color:var(--gold);text-decoration:underline;text-decoration-color:rgba(245,200,66,.35);}
+#kb5area hr{border:none;border-top:0.5px solid var(--border);margin:20px 0;}
+#kb5area table{border-collapse:collapse;margin:14px 0;width:100%;}
+#kb5area td,#kb5area th{border:0.5px solid var(--border);padding:8px 12px;text-align:left;font-size:13.5px;}
+#kb5area th{background:rgba(255,255,255,.04);font-weight:600;}
+/* Todo */
+.kb5-todo{display:flex;align-items:center;gap:9px;margin:3px 0;padding:4px 6px;border-radius:8px;transition:background .12s;user-select:text;}
+.kb5-todo:hover{background:rgba(255,255,255,.03);}
+.kb5-chk{width:18px;height:18px;min-width:18px;border-radius:5px;border:1.5px solid rgba(255,255,255,.22);background:transparent;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all .18s;flex-shrink:0;}
+.kb5-todo.done .kb5-chk{background:var(--gold);border-color:var(--gold);}
+.kb5-todo.done .kb5-txt{opacity:.45;text-decoration:line-through;}
+.kb5-txt{flex:1;outline:none;min-width:0;font-style:normal !important;}
+/* Toolbar buttons */
+.kb5-tb{height:28px;min-width:28px;padding:0 7px;border-radius:7px;background:none;border:none;color:var(--t2);font-size:12px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-family:inherit;transition:background .12s,color .12s;}
+.kb5-tb:hover{background:rgba(255,255,255,.08);color:var(--t1);}
+.kb5-tb.active{background:rgba(245,200,66,.12);color:var(--gold);}
+.kb5-tbsep{width:0.5px;height:18px;background:rgba(255,255,255,.08);margin:0 2px;flex-shrink:0;}
+/* Style dropdown */
+.kb5-dd{position:relative;}
+.kb5-ddbtn{height:28px;padding:0 10px;border-radius:7px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.08);color:var(--t2);font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-family:inherit;transition:background .12s;}
+.kb5-ddbtn:hover{background:rgba(255,255,255,.09);}
+.kb5-ddlist{position:absolute;top:calc(100% + 6px);left:0;background:rgba(12,12,18,.92);border:0.5px solid rgba(255,255,255,.12);border-radius:14px;padding:6px;min-width:190px;z-index:9999;animation:kb5drop .15s cubic-bezier(.34,1.15,.64,1) both;backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);box-shadow:0 24px 64px rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.08);}
+@keyframes kb5drop{from{opacity:0;transform:translateY(-6px) scale(.97)}to{opacity:1;transform:none}}
+.kb5-ddopt{display:flex;align-items:center;gap:9px;padding:8px 12px;border-radius:9px;cursor:pointer;color:var(--t1);font-size:13px;transition:background .1s;}
+.kb5-ddopt:hover{background:rgba(255,255,255,.07);}
+.kb5-ddopt-ico{width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:5px;background:rgba(255,255,255,.06);font-size:10px;font-weight:700;flex-shrink:0;}
+.kb5-ddsep{height:0.5px;background:rgba(255,255,255,.06);margin:4px 6px;}
+/* Home */
+#kb5home{flex:1;overflow-y:auto;padding:24px 28px;}
+.kb5-stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:22px;}
+.kb5-stat{border-radius:12px;padding:14px;border:0.5px solid var(--border);background:rgba(255,255,255,.03);}
+.kb5-stat-n{font-size:24px;font-weight:800;font-family:'DM Mono',monospace;letter-spacing:-.03em;}
+.kb5-stat-l{font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-top:2px;}
+.kb5-cat-card{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.03);border:0.5px solid var(--border);cursor:pointer;transition:all .18s;}
+.kb5-cat-card:hover{background:rgba(255,255,255,.06);transform:translateY(-2px);}
+.kb5-cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:22px;}
+.kb5-recent-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;cursor:pointer;transition:background .12s;}
+.kb5-recent-row:hover{background:rgba(255,255,255,.05);}
+/* Modal */
+#kb5ov{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:9000;border-radius:16px;}
+#kb5ov.on{display:flex;}
+#kb5modal{background:var(--card);border:0.5px solid var(--border);border-radius:18px;padding:22px;min-width:320px;max-width:480px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.7);}
+/* Empty states */
+.kb5-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;color:var(--t3);text-align:center;gap:8px;}
+.kb5-empty-ico{font-size:32px;margin-bottom:4px;}
+.kb5-empty-ttl{font-size:15px;font-weight:700;color:var(--t2);}
+/* Buttons */
+.kb5-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .18s;}
+.kb5-btn-gold{background:linear-gradient(90deg,var(--gold-d),var(--gold));color:#09090B;}
+.kb5-btn-gold:hover{opacity:.9;transform:translateY(-1px);}
+.kb5-btn-ghost{background:rgba(255,255,255,.06);border:0.5px solid var(--border);color:var(--t2);}
+.kb5-btn-ghost:hover{background:rgba(255,255,255,.1);color:var(--t1);}
+.kb5-btn-danger{background:rgba(239,68,68,.1);border:0.5px solid rgba(239,68,68,.2);color:var(--red);}
+.kb5-btn-danger:hover{background:rgba(239,68,68,.18);}
+/* Input */
+.kb5-inp{width:100%;padding:9px 12px;border-radius:9px;background:var(--card);border:0.5px solid var(--border);color:var(--t1);font-size:13px;outline:none;font-family:inherit;box-sizing:border-box;}
+.kb5-inp:focus{border-color:rgba(245,200,66,.4);}
+/* Tag */
+.kb5-tag{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:600;}
+/* Sort chips */
+.kb5-chip{padding:4px 10px;border-radius:20px;border:0.5px solid var(--border);background:none;color:var(--t3);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .12s;}
+.kb5-chip.active{background:rgba(245,200,66,.1);border-color:rgba(245,200,66,.3);color:var(--gold);}
+/* Animations */
+@keyframes kb5in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.kb5-anim{animation:kb5in .2s ease both;}
+/* Status bar */
+.kb5-sv{font-size:11px;color:var(--t3);}
+.kb5-sv.saving{color:var(--gold);}
+.kb5-sv.saved{color:#22C55E;}
+`;
     document.head.appendChild(s);
   }
 
-  root.innerHTML = `
-    <div id="kb3wrap">
-      <!-- ── Sidebar ── -->
-      <nav id="kb3sb">
-        <div id="kb3sbh">
-          <div id="kb3srchw">
-            <svg class="k3si" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input id="kb3srch" type="text" placeholder="Поиск..." oninput="_kbOnSearch(this.value)" value="${_kbEsc2(_kbS.search)}">
-          </div>
-          <button class="k3btn k3gold" onclick="_kbNewNoteQuick()" style="width:100%;justify-content:center;padding:8px 12px;gap:6px">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Новая заметка
-          </button>
-        </div>
-        <div id="kb3sbi"></div>
-      </nav>
-      <!-- ── Main Content (note list + editor, 2-panel) ── -->
-      <section id="kb3ed">
-        <div id="kb3edt"></div>
-        <div id="kb3tb"></div>
-        <div id="kb3edb"><div id="kb3edc"></div></div>
-        <div id="kb3st">
-          <span id="kb3sv"></span>
-          <span style="flex:1"></span>
-          <button class="k3ico" style="width:auto;padding:0 8px;height:22px;border-radius:5px;font-size:10px;font-weight:600" onclick="_kbTogTOC()" id="kb3tocbtn" title="Оглавление">≡ TOC</button>
-          <span class="k3msep">·</span>
-          <span id="kb3wc" style="font-family:'DM Mono',monospace"></span>
-          <span class="k3msep">·</span>
-          <span id="kb3rt" style="font-family:'DM Mono',monospace"></span>
-          <span class="k3msep">·</span>
-          <button class="k3ico" onclick="_kbTogFocus()" id="kb3focusbtn" title="Режим фокуса">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-          </button>
-          <button class="k3ico" onclick="_kbShortcuts()" title="Горячие клавиши">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.001M10 8h.001M14 8h.001M18 8h.001M8 12h.001M12 12h.001M16 12h.001M7 16h10"/></svg>
-          </button>
-        </div>
-      </section>
-      <!-- ── TOC Panel ── -->
-      <aside id="kb3toc">
-        <div style="padding:11px 8px 8px;border-bottom:0.5px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between">
-          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3)">Оглавление</span>
-          <button class="k3ico" style="width:22px;height:22px;border-radius:5px" onclick="_kbTogTOC()">
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        </div>
-        <div id="kb3tocb"></div>
-      </aside>
+  // Build shell (only once)
+  if(!document.getElementById('kb5')){
+    root.innerHTML=`
+<div id="kb5" style="position:relative;">
+  <!-- Sidebar -->
+  <nav id="kb5sb">
+    <div id="kb5sbh">
+      <div id="kb5srchw">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--t3);flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="kb5srch" type="text" placeholder="Поиск заметок..." autocomplete="off" oninput="_kbSearch(this.value)">
+        <svg id="kb5srch-x" onclick="_kbSearchClear()" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--t3);cursor:pointer;display:none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </div>
+      <button class="kb5-btn kb5-btn-gold" onclick="_kbNewNote()" style="width:100%;justify-content:center;padding:7px 12px;">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Новая заметка
+      </button>
     </div>
-    <div id="kb3ov" onclick="if(event.target===this)_kbCM()"><div id="kb3modal"><div id="kb3mc"></div></div></div>
-    <div id="kb3tbtb" class="k3hide" style="display:none"></div>
-  `;
-
-  // Init reading mode overlay once
-  if(!document.getElementById('kb3read')){
-    const rm=document.createElement('div');
-    rm.id='kb3read';
-    rm.style.cssText='position:fixed;inset:0;z-index:9990;display:none;flex-direction:column;overflow:hidden;background:#0f0f12;color:#e8e6de;font-family:"Nunito","DM Sans",sans-serif;transition:background .3s,color .3s';
-    rm.className='font-nunito theme-dark';
-    rm.innerHTML=`
-      <!-- прогресс чтения -->
-      <div id="kb3read-prog" style="position:fixed;top:0;left:0;height:2.5px;background:linear-gradient(90deg,#F5C842,#F97316);width:0;z-index:9991;transition:width .12s;border-radius:0 2px 2px 0"></div>
-
-      <!-- ── ТОП-БАР ── -->
-      <div id="kb3read-bar" style="display:flex;align-items:center;gap:12px;padding:12px 28px;border-bottom:0.5px solid rgba(255,255,255,.06);flex-shrink:0;backdrop-filter:blur(10px);background:inherit">
-
-        <!-- назад -->
-        <button onclick="_kbReadClose()" style="display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:9px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:inherit;transition:background-color .15s,border-color .15s,color .15s,opacity .15s;flex-shrink:0"
-          onmouseover="this.style.background='rgba(255,255,255,.1)'" onmouseout="this.style.background='rgba(255,255,255,.05)'">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-          Выйти
-        </button>
-
-        <!-- заголовок -->
-        <div id="kb3read-title" style="font-size:14px;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:-.01em;opacity:.7;padding:0 8px"></div>
-
-        <!-- мета -->
-        <div id="kb3read-meta" style="font-size:11px;opacity:.35;font-family:'DM Mono',monospace;white-space:nowrap;flex-shrink:0"></div>
-
-        <div style="width:0.5px;height:20px;background:rgba(255,255,255,.08);flex-shrink:0"></div>
-
-        <!-- шрифт -->
-        <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
-          <button class="kb3rd-font" onclick="_kbReadFont('sans')" data-font="sans" title="Sans" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;cursor:pointer;color:inherit;font-family:'DM Sans',sans-serif;font-style:normal;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">Aa</button>
-          <button class="kb3rd-font" onclick="_kbReadFont('nunito')" data-font="nunito" title="Nunito — мягкий" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(245,200,66,.4);background:rgba(245,200,66,.12);font-size:12px;cursor:pointer;color:#F5C842;font-family:'Nunito',sans-serif;font-style:normal;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">Nn</button>
-          <button class="kb3rd-font" onclick="_kbReadFont('serif')" data-font="serif" title="Serif" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;cursor:pointer;color:inherit;font-family:Georgia,serif;font-style:normal;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">Aa</button>
-          <button class="kb3rd-font" onclick="_kbReadFont('mono')" data-font="mono" title="Mono" style="padding:4px 9px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:12px;cursor:pointer;color:inherit;font-family:'DM Mono',monospace;font-style:normal;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">Aa</button>
-        </div>
-
-        <div style="width:0.5px;height:20px;background:rgba(255,255,255,.08);flex-shrink:0"></div>
-
-        <!-- размер шрифта -->
-        <div style="display:flex;align-items:center;gap:3px;flex-shrink:0">
-          <button onclick="_kbReadSize(15)" class="kb3rd-sz" data-sz="15" style="padding:4px 8px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:10px;cursor:pointer;color:inherit;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">A</button>
-          <button onclick="_kbReadSize(18)" class="kb3rd-sz" data-sz="18" style="padding:4px 8px;border-radius:7px;border:0.5px solid rgba(245,200,66,.4);background:rgba(245,200,66,.1);font-size:12px;cursor:pointer;color:#F5C842;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">A</button>
-          <button onclick="_kbReadSize(22)" class="kb3rd-sz" data-sz="22" style="padding:4px 8px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:15px;cursor:pointer;color:inherit;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">A</button>
-        </div>
-
-        <div style="width:0.5px;height:20px;background:rgba(255,255,255,.08);flex-shrink:0"></div>
-
-        <!-- ширина колонки -->
-        <div style="display:flex;align-items:center;gap:3px;flex-shrink:0" title="Ширина текста">
-          <button onclick="_kbReadWidth(600)" class="kb3rd-w" data-w="600" style="padding:4px 7px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:11px;cursor:pointer;color:inherit;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">▌▌</button>
-          <button onclick="_kbReadWidth(720)" class="kb3rd-w" data-w="720" style="padding:4px 7px;border-radius:7px;border:0.5px solid rgba(245,200,66,.4);background:rgba(245,200,66,.1);font-size:11px;cursor:pointer;color:#F5C842;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">◀▶</button>
-          <button onclick="_kbReadWidth(900)" class="kb3rd-w" data-w="900" style="padding:4px 7px;border-radius:7px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);font-size:11px;cursor:pointer;color:inherit;transition:background-color .15s,border-color .15s,color .15s,opacity .15s">▌　▌</button>
-        </div>
-
-        <div style="width:0.5px;height:20px;background:rgba(255,255,255,.08);flex-shrink:0"></div>
-
-        <!-- тема -->
-        <div style="display:flex;align-items:center;gap:3px;flex-shrink:0">
-          <button onclick="_kbReadTheme('dark')" id="kb3rd-dark" title="Тёмная" style="width:22px;height:22px;border-radius:50%;background:#1a1a22;border:2px solid #F5C842;cursor:pointer;transition:background-color .15s,border-color .15s,color .15s,opacity .15s"></button>
-          <button onclick="_kbReadTheme('sepia')" id="kb3rd-sepia" title="Сепия" style="width:22px;height:22px;border-radius:50%;background:#F5EDD8;border:0.5px solid rgba(0,0,0,.15);cursor:pointer;transition:background-color .15s,border-color .15s,color .15s,opacity .15s"></button>
-          <button onclick="_kbReadTheme('light')" id="kb3rd-light" title="Светлая" style="width:22px;height:22px;border-radius:50%;background:#F5F5F0;border:0.5px solid rgba(0,0,0,.12);cursor:pointer;transition:background-color .15s,border-color .15s,color .15s,opacity .15s"></button>
-        </div>
-
+    <div id="kb5sbi"></div>
+  </nav>
+  <!-- Main -->
+  <div id="kb5main">
+    <div id="kb5home" style="display:none"></div>
+    <div id="kb5nl" style="display:none">
+      <div id="kb5nlh"></div>
+      <div id="kb5nlb"></div>
+    </div>
+    <div id="kb5ed" style="display:none">
+      <div id="kb5tb"></div>
+      <div id="kb5edh">
+        <input id="kb5title" type="text" placeholder="Заголовок..." autocomplete="off">
       </div>
-
-      <!-- ── КОНТЕНТ ── -->
-      <div id="kb3read-body" style="flex:1;overflow-y:auto;overflow-x:hidden;padding:60px 24px 120px;-webkit-overflow-scrolling:touch;" onscroll="_kbReadScroll(this)">
-        <div id="kb3read-inner" style="max-width:720px;margin:0 auto;font-size:18px;line-height:1.85;letter-spacing:-.01em"></div>
+      <div id="kb5edbc">
+        <div id="kb5area" contenteditable="true" data-ph="Начни писать... (Markdown поддерживается)"></div>
       </div>
+      <div id="kb5st">
+        <span id="kb5sv" class="kb5-sv"></span>
+        <span style="flex:1"></span>
+        <span id="kb5wc" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--t3)"></span>
+        <span style="color:var(--border)">·</span>
+        <span id="kb5tags" style="display:flex;gap:4px;flex-wrap:wrap;align-items:center"></span>
+        <button class="kb5-tb" onclick="_kbAddTagPrompt()" title="Добавить тег" style="height:20px;font-size:10px;padding:0 6px;color:var(--t3)">+ тег</button>
+      </div>
+    </div>
+  </div>
+  <!-- Modal overlay -->
+  <div id="kb5ov" onclick="if(event.target===this)_kbCloseMod()">
+    <div id="kb5modal"></div>
+  </div>
+</div>`;
 
-      <!-- ── ПРОГРЕСС ВНИЗУ ── -->
-      <div style="position:fixed;bottom:0;left:0;right:0;height:40px;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity .3s" id="kb3read-footer">
-        <div style="font-size:11px;font-family:'DM Mono',monospace;opacity:.4" id="kb3read-pct">0%</div>
-      </div>`;
-    document.body.appendChild(rm);
-
-    // Reading mode typography styles
-    const rs=document.createElement('style');
-    rs.textContent=`
-    #kb3read-body::-webkit-scrollbar{width:4px}
-    #kb3read-body::-webkit-scrollbar-track{background:transparent}
-    #kb3read-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:2px}
-    #kb3read-inner h1{font-size:2em;font-weight:800;letter-spacing:-.04em;margin:1.6em 0 .6em;line-height:1.15;color:inherit}
-    #kb3read-inner h2{font-size:1.5em;font-weight:700;margin:1.4em 0 .5em;letter-spacing:-.03em;line-height:1.25;color:inherit}
-    #kb3read-inner h3{font-size:1.2em;font-weight:650;margin:1.2em 0 .4em;line-height:1.3;color:inherit}
-    #kb3read-inner p{margin:0 0 1.1em;color:inherit}
-    #kb3read-inner ul,#kb3read-inner ol{margin:0 0 1.1em 1.6em}
-    #kb3read-inner li{margin-bottom:.5em}
-    #kb3read-inner blockquote{border-left:3px solid #F5C842;padding:14px 22px;margin:1.5em 0;border-radius:0 12px 12px 0;background:rgba(245,200,66,.04);font-style:italic;opacity:.85}
-    #kb3read-inner code{font-family:'DM Mono',monospace;font-size:.78em;background:rgba(128,128,128,.13);padding:2px 8px;border-radius:5px}
-    #kb3read-inner pre{background:rgba(0,0,0,.2);border-radius:14px;padding:22px;margin:1.4em 0;overflow-x:auto}
-    #kb3read-inner hr{border:none;border-top:0.5px solid rgba(128,128,128,.2);margin:2em 0}
-    #kb3read-inner strong{font-weight:700}
-    #kb3read-inner em{font-style:italic;opacity:.9}
-    #kb3read-inner a{color:#F5C842;text-decoration:underline;text-decoration-color:rgba(245,200,66,.35);text-underline-offset:3px}
-    #kb3read-inner table{width:100%;border-collapse:collapse;margin:1.4em 0}
-    #kb3read-inner th,#kb3read-inner td{padding:10px 14px;border:0.5px solid rgba(128,128,128,.2);text-align:left}
-    /* Font family variants */
-    #kb3read-inner{font-style:normal;}
-    #kb3read.font-sans #kb3read-inner{font-family:'DM Sans','Inter',sans-serif}
-    #kb3read.font-nunito #kb3read-inner{font-family:'Nunito',sans-serif;font-style:normal!important;font-weight:400;}
-    #kb3read.font-nunito #kb3read-inner *{font-style:inherit;}
-    #kb3read.font-serif #kb3read-inner{font-family:Georgia,'Times New Roman',serif;letter-spacing:.01em}
-    #kb3read.font-mono #kb3read-inner{font-family:'DM Mono',monospace;font-size:.9em;line-height:1.9}
-    /* Default to Nunito */
-    #kb3read-inner{font-family:'Nunito',sans-serif;}
-    /* Theme variants */
-    #kb3read.theme-sepia #kb3read-inner blockquote{background:rgba(139,90,43,.06)}
-    #kb3read.theme-sepia #kb3read-inner a{color:#8B6914}
-    #kb3read.theme-light #kb3read-inner a{color:#7C5A00}
-    #kb3read.theme-light #kb3read-inner code{background:rgba(0,0,0,.07)}
-    #kb3read.theme-light #kb3read-inner pre{background:rgba(0,0,0,.05)}
-    /* Active states for toolbar buttons */
-    .kb3rd-font.active,.kb3rd-sz.active,.kb3rd-w.active{background:rgba(245,200,66,.12)!important;border-color:rgba(245,200,66,.4)!important;color:#F5C842!important}
-    `;
-    document.head.appendChild(rs);
+    // Toolbar mousedown — prevent focus/selection steal
+    document.addEventListener('mousedown', e=>{
+      const tb=document.getElementById('kb5tb');
+      if(tb&&tb.contains(e.target)){
+        const t=e.target.tagName;
+        if(t!=='INPUT'&&t!=='SELECT'&&t!=='TEXTAREA'){
+          _kbSaveSel(); e.preventDefault();
+        }
+      }
+    }, true);
   }
 
-  _kbRS(); _kbRNL(); _kbRED();
+  _kbRenderSidebar();
+  _kbRenderMain();
 }
 
-// ══════════════════════════════════════════════════════════════
-// SIDEBAR RENDER
-// ══════════════════════════════════════════════════════════════
-function _kbRS() {
-  const sb = document.getElementById('kb3sbi'); if(!sb) return;
-  const tn=_kbAllNotes().length;
-  const tf=ALL_CATS.reduce((a,c)=>a+_kbCatD(c.id).folders.length,0);
-  const tw=_kbTotalWords();
-  const tu=_kbUpdatedToday();
+// ── Sidebar ───────────────────────────────────────────────────
+function _kbRenderSidebar(){
+  const sb=document.getElementById('kb5sbi'); if(!sb) return;
+  const q=(_kbS.search||'').toLowerCase();
 
-  let h=`
-  <div class="k3sb-stats">
-    <div class="k3sb-stat">
-      <div class="k3sb-sv" style="color:var(--gold)">${tn}</div>
-      <div class="k3sb-sl">Заметок</div>
-    </div>
-    <div class="k3sb-stat">
-      <div class="k3sb-sv" style="color:var(--blue)">${tf}</div>
-      <div class="k3sb-sl">Папок</div>
-    </div>
-    <div class="k3sb-stat">
-      <div class="k3sb-sv" style="color:var(--purple)">${tw>999?Math.round(tw/1000)+'к':tw}</div>
-      <div class="k3sb-sl">Слов</div>
-    </div>
-    <div class="k3sb-stat">
-      <div class="k3sb-sv" style="color:var(--green)">${tu}</div>
-      <div class="k3sb-sl">Сегодня</div>
-    </div>
-  </div>`;
+  // Search mode
+  if(q){
+    const results=_kbAllNotes().filter(n=>
+      (n.title||'').toLowerCase().includes(q)||
+      _kbStrip(n.body||'').toLowerCase().includes(q)||
+      (n.tags||[]).some(t=>t.toLowerCase().includes(q))
+    );
+    let h=`<div class="kb5-lbl">Результаты (${results.length})</div>`;
+    if(!results.length) h+=`<div style="padding:12px 8px;font-size:12px;color:var(--t3)">Ничего не найдено</div>`;
+    results.forEach(n=>{
+      h+=`<button class="kb5-note-btn${_kbS.note===n.id?' active':''}" onclick="_kbOpenNote('${n.catId}','${n.folderId}','${n.id}')">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;color:var(--t3)"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc(n.title||'Без названия')}</span>
+        <span style="font-size:9px;color:var(--t3);flex-shrink:0">${n.catName}</span>
+      </button>`;
+    });
+    sb.innerHTML=h; return;
+  }
 
-  h+=`<div class="k3div"></div>`;
-  h+=`<button class="k3cb ${!_kbS.cat?'k3on':''}" onclick="_kbGoHome()" style="margin-bottom:2px">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-    <span style="font-size:13.5px;font-weight:600;flex:1">Обзор</span>
+  let h='';
+  h+=`<button class="kb5-cat-btn${!_kbS.cat?' active':''}" onclick="_kbGoHome()" style="margin-bottom:2px">
+    <span class="kb5-cat-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+    <span class="kb5-cat-name">Обзор</span>
   </button>`;
-
-  h+=`<div class="k3lbl">Категории</div>`;
+  h+=`<div class="kb5-lbl">Категории</div>`;
 
   ALL_CATS.forEach(c=>{
-    const d=_kbCatD(c.id), nc=_kbCatNC(c.id), open=!_kbS.collapsed[c.id];
-    const maxNotes=Math.max(...ALL_CATS.map(x=>_kbCatNC(x.id)),1);
-    const pct=maxNotes?Math.round(nc/maxNotes*100):0;
+    const d=_kb3[c.id]||{folders:[]};
+    const folders=d.folders||[];
+    const nc=_kbCatCount(c.id);
+    const isOpen=!_kbS.collapsed[c.id];
+    const isCatActive=_kbS.cat===c.id;
+    const catIcon=(typeof ICONS!=='undefined'&&ICONS[c.id])?ICONS[c.id].replace(/width="\d+" height="\d+"/g,'width="14" height="14"'):'';
+
     h+=`<div>
-      <button class="k3cb ${_kbS.cat===c.id?'k3on':''}" onclick="_kbTogCat('${c.id}')" style="${_kbS.cat===c.id?`border-color:${c.color}30;background:${c.color}10`:''}">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;color:${c.color}">${(typeof ICONS!=="undefined"&&ICONS[c.id])?ICONS[c.id].replace('width="20" height="20"','width="15" height="15"'):""}</span>
-        <span style="font-size:13.5px;font-weight:600;flex:1">${c.name}</span>
-        ${nc?`<span class="k3cat-nc" style="background:${c.color}18;color:${c.color}">${nc}</span>`:''}
-        <svg class="k3chv ${open?'open':''}" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+      <button class="kb5-cat-btn${isCatActive?' active':''}" onclick="_kbTogCat('${c.id}')" style="${isCatActive?`border-left:2px solid ${c.color};padding-left:6px;`:''}" >
+        <span class="kb5-cat-icon" style="color:${c.color}">${catIcon}</span>
+        <span class="kb5-cat-name">${_kbEsc(c.name)}</span>
+        ${nc?`<span class="kb5-cat-count">${nc}</span>`:''}
+        <svg class="kb5-chev${isOpen?' open':''}" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
-      ${open?`<div>
-        ${d.folders.map(f=>`
-          <button class="k3fb ${_kbS.folder===f.id?'k3on':''}" onclick="_kbSF('${c.id}','${f.id}')">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-            <span class="k3fn">${_kbEsc2(f.title)}</span>
-            <span class="k3fc">${f.notes.length}</span>
-          </button>`).join('')}
-        <button class="k3addbtn" onclick="_kbNF('${c.id}')">
-          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Новая папка
+      ${isOpen?`<div>
+        ${folders.map(f=>{
+          const isFActive=_kbS.folder===f.id&&_kbS.cat===c.id;
+          return `<button class="kb5-folder-btn${isFActive?' active':''}" onclick="_kbOpenFolder('${c.id}','${f.id}')">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="${isFActive?'var(--gold)':'currentColor'}" stroke-width="2" style="flex-shrink:0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <span class="kb5-folder-name">${_kbEsc(f.title)}</span>
+            <span class="kb5-folder-count">${(f.notes||[]).length}</span>
+          </button>`;
+        }).join('')}
+        <button class="kb5-add-folder" onclick="_kbNewFolder('${c.id}')">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Новая папка
         </button>
-      </div>`:''}
+      </div>`:``}
     </div>`;
   });
 
-  const pins=_kbPinned();
+  // Pinned notes
+  const pins=_kbAllNotes().filter(n=>n.pinned);
   if(pins.length){
-    h+=`<div class="k3div"></div>
-    <div class="k3lbl">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/></svg>
-      Закреплённые
-    </div>`;
-    pins.slice(0,5).forEach(n=>{
-      h+=`<button class="k3fb ${_kbS.note===n.id?'k3on':''}" onclick="_kbON('${n.catId}','${n.folderId}','${n.id}')">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
-        <span class="k3fn">${_kbEsc2(n.title||'Без названия')}</span>
+    h+=`<div class="kb5-divider"></div><div class="kb5-lbl">📌 Закреплённые</div>`;
+    pins.slice(0,6).forEach(n=>{
+      h+=`<button class="kb5-note-btn${_kbS.note===n.id?' active':''}" onclick="_kbOpenNote('${n.catId}','${n.folderId}','${n.id}')">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="${n.catColor}" stroke="${n.catColor}" stroke-width="1" style="flex-shrink:0"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/></svg>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc(n.title||'Без названия')}</span>
       </button>`;
     });
   }
-
-  const rec=_kbRecent(5);
-  if(rec.length){
-    h+=`<div class="k3div"></div>
-    <div class="k3lbl">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      Последние
-    </div>`;
-    rec.forEach(n=>{
-      h+=`<button class="k3fb ${_kbS.note===n.id?'k3on':''}" onclick="_kbON('${n.catId}','${n.folderId}','${n.id}')">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
-        <span class="k3fn">${_kbEsc2(n.title||'Без названия')}</span>
-        <span class="k3fc">${_kbD(n.updatedAt||n.createdAt)}</span>
-      </button>`;
-    });
-  }
-
-  const allTags=_kbAllTags();
-  if(allTags.length){
-    h+=`<div class="k3div"></div>
-    <div class="k3lbl"># Теги <span class="k3lbl-r" onclick="_kbClearTagFilter()">Сбросить</span></div>
-    <div style="display:flex;flex-wrap:wrap;gap:4px;padding:0 4px 8px">`;
-    allTags.slice(0,20).forEach(t=>{
-      const c=_kbS.filterTag===t?'var(--gold)':'var(--t3)';
-      h+=`<span onclick="_kbFilterTag('${_kbEsc2(t)}')" style="font-size:10px;font-weight:600;padding:3px 8px;border-radius:20px;border:0.5px solid var(--border);background:${_kbS.filterTag===t?'rgba(245,200,66,.1)':'transparent'};color:${c};cursor:pointer;transition:all .12s">#${_kbEsc2(t)}</span>`;
-    });
-    h+=`</div>`;
-  }
-
-  h+=`<div class="k3div"></div>`;
-  h+=`<div style="display:flex;gap:5px;padding:4px 4px 0">
-    <button class="k3btn k3ghost" onclick="_kbTplModal()" style="flex:1;justify-content:center;padding:9px 8px;font-size:12.5px">
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-      Шаблоны
-    </button>
-    <button class="k3btn k3ghost" onclick="_kbShortcuts()" style="flex:1;justify-content:center;padding:9px 8px;font-size:12.5px">
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.001M10 8h.001"/></svg>
-      Клавиши
-    </button>
-  </div>`;
 
   sb.innerHTML=h;
 }
 
-// ══════════════════════════════════════════════════════════════
-// NOTE LIST RENDER
-// ══════════════════════════════════════════════════════════════
-function _kbRNL() {
-  // В 2-панельном layout список заметок рендерится через _kbRED
-  // Этот метод теперь просто триггерит перерисовку главной области
-  _kbRED();
+// ── Main area dispatcher ──────────────────────────────────────
+function _kbRenderMain(){
+  const home=document.getElementById('kb5home');
+  const nl=document.getElementById('kb5nl');
+  const ed=document.getElementById('kb5ed');
+  if(!home||!nl||!ed) return;
+
+  // Determine view
+  if(!_kbS.cat){
+    home.style.display='block'; nl.style.display='none'; ed.style.display='none';
+    _kbRenderHome(home); return;
+  }
+  if(_kbS.cat&&!_kbS.folder){
+    home.style.display='block'; nl.style.display='none'; ed.style.display='none';
+    _kbRenderCatHome(home); return;
+  }
+  // Folder selected
+  home.style.display='none'; nl.style.display='flex'; nl.style.flexDirection='column';
+  if(_kbS.note){
+    ed.style.display='flex'; ed.style.flexDirection='column';
+    _kbRenderNoteList();
+    _kbRenderEditor();
+  } else {
+    ed.style.display='none';
+    _kbRenderNoteList();
+  }
 }
 
-// Silent refresh — updates ONLY the sidebar note list count/time,
-// without touching the editor DOM (prevents cursor jump on autosave)
-function _kbRNLSilent(){
-  try {
-    // Update "last modified" times in the sidebar note list
-    const sbi = document.getElementById('kb3sbi');
-    if(!sbi) return;
-    // Find all note time elements and refresh them
-    sbi.querySelectorAll('[data-note-id]').forEach(el => {
-      const nid = el.dataset.noteId;
-      const fid = el.dataset.folderId;
-      const cid = el.dataset.catId;
-      if(!nid || !fid || !cid) return;
-      const n = _kbGetNote(cid, fid, nid);
-      if(!n) return;
-      const timeEl = el.querySelector('.k3nt');
-      if(timeEl) timeEl.textContent = _kbD(n.updatedAt || n.createdAt);
-    });
-  } catch(e){}
-}
+// ── Home dashboard ────────────────────────────────────────────
+function _kbRenderHome(cont){
+  const allN=_kbAllNotes();
+  const tw=_kbTotalWords();
+  const td=new Date().toISOString().slice(0,10);
+  const todayN=allN.filter(n=>n.updatedAt&&new Date(n.updatedAt).toISOString().slice(0,10)===td).length;
+  const allF=ALL_CATS.reduce((a,c)=>a+(_kb3[c.id]?.folders||[]).length,0);
+  const recent=_kbSortNotes(allN).slice(0,8);
+  const pins=allN.filter(n=>n.pinned).slice(0,4);
 
-
-// ══════════════════════════════════════════════════════════════
-// CATEGORY NOTES VIEW (middle panel when cat selected, no folder)
-// ══════════════════════════════════════════════════════════════
-function _kbRCatNotes(hdr, body) {
-  const c=ALL_CATS.find(x=>x.id===_kbS.cat); if(!c)return;
-  const d=_kbCatD(c.id);
-  const total=_kbCatNC(c.id);
-  const tw=d.folders.reduce((a,f)=>a+f.notes.reduce((b,n)=>b+_kbWC(n.body||''),0),0);
-
-  hdr.innerHTML=`
-    <div class="k3nlh-row">
-      <span style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;
-        border-radius:8px;background:${c.color}18;color:${c.color};flex-shrink:0">
-        ${(typeof ICONS !== 'undefined' && ICONS[c.id]) ? ICONS[c.id].replace(/width="20" height="20"/g,'width="16" height="16"') : c.icon}
-      </span>
-      <div class="k3nlh-title" style="color:${c.color}">${c.name}</div>
-      <button class="k3ico" onclick="_kbNF('${c.id}')" title="Новая папка" style="width:24px;height:24px;border-radius:6px">
+  cont.innerHTML=`<div class="kb5-anim">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div style="font-size:22px;font-weight:800;letter-spacing:-.04em;color:var(--t1)">База знаний</div>
+        <div style="font-size:12px;color:var(--t3);margin-top:2px">Твоё персональное хранилище знаний</div>
+      </div>
+      <button class="kb5-btn kb5-btn-gold" onclick="_kbNewNote()">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Новая заметка
       </button>
     </div>
-    <div class="k3nlh-sub">${total} заметок · ${d.folders.length} папок · ${tw>999?Math.round(tw/1000)+'к':tw} слов</div>
-    <div style="display:flex;align-items:center;gap:4px;margin-top:7px;margin-bottom:2px">
-      <div class="k3sort-row" style="flex:1">
-        <button class="k3sc ${_kbS.sort==='updated'?'k3on':''}" onclick="_kbSetSort('updated')">Дате</button>
-        <button class="k3sc ${_kbS.sort==='created'?'k3on':''}" onclick="_kbSetSort('created')">Создан.</button>
-        <button class="k3sc ${_kbS.sort==='title'?'k3on':''}" onclick="_kbSetSort('title')">А–Я</button>
+    <div class="kb5-stat-grid">
+      <div class="kb5-stat"><div class="kb5-stat-n" style="color:var(--gold)">${allN.length}</div><div class="kb5-stat-l">Заметок</div></div>
+      <div class="kb5-stat"><div class="kb5-stat-n" style="color:var(--blue)">${allF}</div><div class="kb5-stat-l">Папок</div></div>
+      <div class="kb5-stat"><div class="kb5-stat-n" style="color:var(--purple)">${tw>999?Math.round(tw/1000)+'к':tw}</div><div class="kb5-stat-l">Слов</div></div>
+      <div class="kb5-stat"><div class="kb5-stat-n" style="color:var(--green)">${todayN}</div><div class="kb5-stat-l">Сегодня</div></div>
+    </div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:10px">Категории</div>
+    <div class="kb5-cat-grid" style="margin-bottom:22px">
+      ${ALL_CATS.map(c=>{
+        const nc=_kbCatCount(c.id);
+        const nf=(_kb3[c.id]?.folders||[]).length;
+        const ico=(typeof ICONS!=='undefined'&&ICONS[c.id])?ICONS[c.id].replace(/width="\d+" height="\d+"/g,'width="18" height="18"'):'';
+        return `<div class="kb5-cat-card" onclick="_kbTogCat('${c.id}')" style="border-color:${c.color}20">
+          <div style="width:36px;height:36px;border-radius:10px;background:${c.color}18;display:flex;align-items:center;justify-content:center;color:${c.color};flex-shrink:0">${ico}</div>
+          <div style="min-width:0">
+            <div style="font-size:13px;font-weight:700;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc(c.name)}</div>
+            <div style="font-size:10.5px;color:var(--t3)">${nc} зам · ${nf} пап</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    ${pins.length?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px">📌 Закреплённые</div>
+    <div style="margin-bottom:20px">
+      ${pins.map(n=>`<div class="kb5-recent-row" onclick="_kbOpenNote('${n.catId}','${n.folderId}','${n.id}')">
+        <div style="width:8px;height:8px;border-radius:50%;background:${n.catColor};flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc(n.title||'Без названия')}</div>
+          <div style="font-size:10.5px;color:var(--t3)">${n.catName} · ${n.folderTitle}</div>
+        </div>
+        <div style="font-size:10px;color:var(--t3);flex-shrink:0">${_kbTimeAgo(n.updatedAt)}</div>
+      </div>`).join('')}
+    </div>`:''}
+    ${recent.length?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px">Последние заметки</div>
+    ${recent.map(n=>`<div class="kb5-recent-row" onclick="_kbOpenNote('${n.catId}','${n.folderId}','${n.id}')">
+      <div style="width:8px;height:8px;border-radius:50%;background:${n.catColor};flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc(n.title||'Без названия')}</div>
+        <div style="font-size:10.5px;color:var(--t3)">${n.catName} · ${n.folderTitle} · ${_kbWC(n.body||'')} сл</div>
       </div>
-      <button class="k3ico" onclick="_kbNewNoteQuick()" title="Новая заметка" style="width:24px;height:24px;border-radius:6px;background:rgba(245,200,66,.1);color:var(--gold)">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      </button>
-    </div>`;
-
-  if(!d.folders.length){
-    body.innerHTML=`<div class="k3empty">
-      <div class="k3eico">📁</div>
-      <div class="k3ettl">Нет папок</div>
-      <div class="k3esub">Создай папку чтобы добавить заметки</div>
-      <button class="k3btn k3gold" onclick="_kbNF('${c.id}')">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Новая папка
-      </button>
-    </div>`;
-    return;
-  }
-
-  let html='';
-  d.folders.forEach(f=>{
-    const folderNotes=_kbSortNotes(f.notes.map(n=>({...n,catId:c.id,folderId:f.id,catColor:c.color,catIcon:c.icon})));
-    html+=`
-      <div style="display:flex;align-items:center;gap:7px;padding:9px 10px 6px;cursor:pointer;border-radius:8px;transition:background .12s;"
-        onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''"
-        onclick="_kbSF('${c.id}','${f.id}')">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="${c.color}" stroke-width="2" style="flex-shrink:0;opacity:.7"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        <span style="font-size:12px;font-weight:600;color:var(--t1);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc2(f.title)}</span>
-        <span style="font-size:10px;font-family:'DM Mono',monospace;color:var(--t3)">${f.notes.length}</span>
-        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-      </div>`;
-    if(folderNotes.length){
-      html+=folderNotes.map(n=>_kbNC(n)).join('');
-    } else {
-      html+=`<div style="padding:6px 12px 10px 30px;font-size:11.5px;color:var(--t3);font-style:italic">Папка пуста</div>`;
-    }
-    html+=`<div style="height:0.5px;background:var(--border);margin:6px 6px 4px"></div>`;
-  });
-  body.innerHTML=html;
+      <div style="font-size:10px;color:var(--t3);flex-shrink:0">${_kbTimeAgo(n.updatedAt)}</div>
+    </div>`).join('')}`:''}
+  </div>`;
 }
 
-// ── Category overview (right panel when cat selected, no folder) ──
-function _kbRCatOverview(cont) {
-  const c=ALL_CATS.find(x=>x.id===_kbS.cat); if(!c)return;
-  const d=_kbCatD(c.id);
-  const total=_kbCatNC(c.id);
-  const tw=d.folders.reduce((a,f)=>a+f.notes.reduce((b,n)=>b+_kbWC(n.body||''),0),0);
-  const pins=_kbAllNotes().filter(n=>n.catId===c.id&&n.pinned);
-  const rec=_kbAllNotes().filter(n=>n.catId===c.id).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).slice(0,5);
+// ── Category home ─────────────────────────────────────────────
+function _kbRenderCatHome(cont){
+  const c=ALL_CATS.find(x=>x.id===_kbS.cat); if(!c){_kbGoHome();return;}
+  const d=_kb3[c.id]||{folders:[]};
+  const folders=d.folders||[];
+  const allN=folders.flatMap(f=>(f.notes||[]).map(n=>({...n,catId:c.id,folderId:f.id,folderTitle:f.title,catColor:c.color})));
+  const recent=_kbSortNotes(allN).slice(0,6);
+  const ico=(typeof ICONS!=='undefined'&&ICONS[c.id])?ICONS[c.id].replace(/width="\d+" height="\d+"/g,'width="22" height="22"'):'';
 
-  cont.innerHTML=`
-  <div style="display:flex;flex-direction:column;flex:1;min-height:0;overflow-y:auto" id="kb3cat-scroll">
-    <!-- ── TOP NAV BAR ── -->
-    <div style="display:flex;align-items:center;gap:6px;padding:14px 26px 0;flex-shrink:0">
-      <button class="k3back-btn" onclick="_kbGoHome()" style="color:var(--t3)">
+  cont.innerHTML=`<div class="kb5-anim">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:18px;flex-wrap:wrap">
+      <button onclick="_kbGoHome()" style="background:none;border:none;color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px;">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
         База знаний
       </button>
-      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
-      <span style="font-size:12px;font-weight:600;color:var(--t2);display:flex;align-items:center;gap:5px">
-        <span style="display:flex;align-items:center;justify-content:center;width:14px;height:14px;color:${c.color}">
-          ${(typeof ICONS !== 'undefined' && ICONS[c.id]) ? ICONS[c.id].replace(/width="20" height="20"/g,'width="13" height="13"') : c.icon}
-        </span>
-        ${c.name}
-      </span>
+      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      <span style="font-size:12px;font-weight:600;color:var(--t2)">${_kbEsc(c.name)}</span>
     </div>
-
-    <!-- ── HERO SECTION ── -->
-    <div style="position:relative;margin:16px 20px 0;border-radius:16px;overflow:hidden;padding:24px 26px 22px;background:linear-gradient(135deg,${c.color}18 0%,${c.color}06 60%,transparent 100%);border:0.5px solid ${c.color}28;flex-shrink:0">
-      <!-- subtle bg pattern -->
-      
-
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;position:relative">
-        <div style="display:flex;align-items:center;gap:16px">
-          <div style="width:52px;height:52px;border-radius:14px;background:${c.color}20;border:0.5px solid ${c.color}40;display:flex;align-items:center;justify-content:center;color:${c.color};flex-shrink:0">${(typeof ICONS!=="undefined"&&ICONS[c.id])?ICONS[c.id].replace('width="20" height="20"','width="24" height="24"'):""}</div>
-          <div>
-            <div style="font-size:22px;font-weight:800;letter-spacing:-.04em;color:var(--t1);line-height:1.2;margin-bottom:4px">${c.name}</div>
-            <div style="font-size:12px;color:var(--t3)">${c.desc||'Нет описания'}</div>
-          </div>
-        </div>
-        <div style="display:flex;gap:7px;flex-shrink:0;align-items:center">
-          <button class="k3btn k3ghost" onclick="_kbNF('${c.id}')" style="gap:5px;padding:6px 12px;font-size:11.5px">
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Папка
-          </button>
-          <button class="k3btn k3gold" onclick="_kbNewNoteQuick()" style="gap:6px">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Новая заметка
-          </button>
-        </div>
-      </div>
-
-      <!-- KPI row inside hero -->
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:20px">
-        <div style="background:rgba(0,0,0,.25);border:0.5px solid ${c.color}20;border-radius:10px;padding:11px 14px">
-          <div style="font-size:20px;font-weight:800;font-family:'DM Mono',monospace;color:${c.color};line-height:1;margin-bottom:4px">${total}</div>
-          <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3)">Заметок</div>
-        </div>
-        <div style="background:rgba(0,0,0,.25);border:0.5px solid ${c.color}20;border-radius:10px;padding:11px 14px">
-          <div style="font-size:20px;font-weight:800;font-family:'DM Mono',monospace;color:var(--blue);line-height:1;margin-bottom:4px">${d.folders.length}</div>
-          <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3)">Папок</div>
-        </div>
-        <div style="background:rgba(0,0,0,.25);border:0.5px solid ${c.color}20;border-radius:10px;padding:11px 14px">
-          <div style="font-size:20px;font-weight:800;font-family:'DM Mono',monospace;color:var(--purple);line-height:1;margin-bottom:4px">${tw>999?Math.round(tw/1000)+'к':tw}</div>
-          <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3)">Слов</div>
-        </div>
-      </div>
-    </div>
-
-    <div style="padding:20px 26px 40px">
-
-      <!-- ── PINNED ── -->
-      ${pins.length?`
-      <div style="margin-bottom:24px">
-        <div class="k3home-sh">Закреплённые</div>
-        <div class="k3pin-grid">
-          ${pins.map(n=>`
-          <div class="k3pin-card" onclick="_kbON('${n.catId}','${n.folderId}','${n.id}')" style="border-color:${c.color}18">
-            <div style="font-size:13px;margin-bottom:6px">📌</div>
-            <div class="k3pin-title">${_kbEsc2(n.title||'Без названия')}</div>
-            <div class="k3pin-meta">📁 ${_kbEsc2(n.folderTitle)} · ${_kbD(n.updatedAt||n.createdAt)}</div>
-          </div>`).join('')}
-        </div>
-      </div>`:''}
-
-      <!-- ── RECENT NOTES ── -->
-      ${rec.length?`
-      <div style="margin-bottom:24px">
-        <div class="k3home-sh">Последние заметки</div>
-        <div style="display:flex;flex-direction:column;gap:2px">
-          ${rec.map(n=>`
-          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;cursor:pointer;border:0.5px solid transparent;transition:all .13s"
-            onmouseover="this.style.background='var(--hover)';this.style.borderColor='var(--border)'"
-            onmouseout="this.style.background='';this.style.borderColor='transparent'"
-            onclick="_kbON('${n.catId}','${n.folderId}','${n.id}')">
-            <div style="width:32px;height:32px;border-radius:8px;background:${c.color}15;border:0.5px solid ${c.color}25;display:flex;align-items:center;justify-content:center;color:${c.color};flex-shrink:0">${(typeof ICONS!=="undefined"&&ICONS[c.id])?ICONS[c.id].replace('width="20" height="20"','width="16" height="16"'):""}</div>
-            <div style="flex:1;min-width:0">
-              <div style="font-size:13px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc2(n.title||'Без названия')}</div>
-              <div style="font-size:11px;color:var(--t3);margin-top:1px">
-                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:-1px;margin-right:3px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                ${_kbEsc2(n.folderTitle)}
-              </div>
-            </div>
-            <div style="font-size:11px;color:var(--t3);font-family:'DM Mono',monospace;flex-shrink:0">${_kbD(n.updatedAt||n.createdAt)}</div>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" style="flex-shrink:0;opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
-          </div>`).join('')}
-        </div>
-      </div>`:''}
-
-      <!-- ── FOLDERS ── -->
+    <div style="display:flex;align-items:center;gap:14px;padding:20px;border-radius:16px;background:linear-gradient(135deg,${c.color}14,transparent);border:0.5px solid ${c.color}22;margin-bottom:20px">
+      <div style="width:48px;height:48px;border-radius:14px;background:${c.color}20;display:flex;align-items:center;justify-content:center;color:${c.color}">${ico}</div>
       <div>
-        <div class="k3home-sh">
-          Папки
-          <span class="k3home-sh-r" onclick="_kbNF('${c.id}')">+ Новая папка</span>
-        </div>
-        ${d.folders.length?`
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px">
-          ${d.folders.map(f=>{
-            const fn=f.notes.length;
-            const fw=f.notes.reduce((a,n)=>a+_kbWC(n.body||''),0);
-            const maxN=Math.max(...d.folders.map(x=>x.notes.length),1);
-            const pct=Math.round(fn/maxN*100);
-            return `<div style="background:linear-gradient(145deg,${c.color}0e 0%,rgba(255,255,255,.02) 100%);border:0.5px solid ${c.color}30;border-radius:18px;cursor:pointer;transition:all .22s cubic-bezier(.34,1.15,.64,1);position:relative;overflow:hidden;display:flex;flex-direction:column;box-shadow:inset 0 1px 0 rgba(255,255,255,.05)"
-              onmouseover="this.style.background='linear-gradient(145deg,${c.color}1a 0%,rgba(255,255,255,.04) 100%)';this.style.borderColor='${c.color}66';this.style.transform='translateY(-4px) scale(1.01)';this.style.boxShadow='0 12px 36px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08)'"
-              onmouseout="this.style.background='linear-gradient(145deg,${c.color}0e 0%,rgba(255,255,255,.02) 100%)';this.style.borderColor='${c.color}30';this.style.transform='';this.style.boxShadow='inset 0 1px 0 rgba(255,255,255,.05)'"
-              onclick="_kbSF('${c.id}','${f.id}')">
-              <!-- тонкая цветная полоска сверху -->
-              <div style="height:2px;background:linear-gradient(90deg,${c.color},${c.color}44,transparent);opacity:.8"></div>
-              <div style="padding:16px 16px 12px;flex:1">
-                <!-- иконка + название -->
-                <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-                  <div style="width:36px;height:36px;border-radius:10px;background:${c.color}20;border:0.5px solid ${c.color}35;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${c.color}" stroke-width="1.7"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                  </div>
-                  <div style="min-width:0;flex:1">
-                    <div style="font-size:14px;font-weight:700;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:-.02em">${_kbEsc2(f.title)}</div>
-                    <div style="font-size:11px;color:${c.color};opacity:.7;margin-top:2px;font-weight:600">${fn} ${fn===1?'заметка':fn<5?'заметки':'заметок'}</div>
-                  </div>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" style="opacity:.4;flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
-                </div>
-                <!-- превью названий заметок -->
-                <div style="border-top:0.5px solid rgba(255,255,255,.05);padding-top:8px">
-                  ${fn?f.notes.slice(0,3).map(n=>`
-                    <div style="display:flex;align-items:center;gap:7px;padding:3px 0">
-                      <div style="width:4px;height:4px;border-radius:50%;background:${c.color};opacity:.55;flex-shrink:0"></div>
-                      <span style="font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc2(n.title||'Без названия')}</span>
-                    </div>`).join('')+(fn>3?`<div style="font-size:10.5px;color:var(--t3);padding:3px 0 0 11px">+${fn-3} ещё</div>`:''): `<span style="font-size:12px;color:var(--t3);font-style:italic">Папка пуста</span>`}
-                </div>
-              </div>
-              <!-- прогресс-бар внизу -->
-              <div style="height:2px;background:rgba(255,255,255,.04)">
-                <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,${c.color}88,${c.color});transition:width .6s ease"></div>
-              </div>
-            </div>`;
-          }).join('')}
-        </div>`:`
-        <div style="padding:28px;text-align:center;background:var(--panel);border:1.5px dashed ${c.color}25;border-radius:14px">
-          <div style="font-size:32px;margin-bottom:12px;opacity:.2">📁</div>
-          <div style="font-size:14px;font-weight:600;color:var(--t2);margin-bottom:6px">Нет папок</div>
-          <div style="font-size:12px;color:var(--t3);margin-bottom:16px">Создай папку чтобы начать добавлять заметки</div>
-          <button class="k3btn k3gold" onclick="_kbNF('${c.id}')" style="gap:6px">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Создать папку
-          </button>
-        </div>`}
+        <div style="font-size:20px;font-weight:800;letter-spacing:-.03em;color:var(--t1)">${_kbEsc(c.name)}</div>
+        <div style="font-size:12px;color:var(--t3);margin-top:2px">${allN.length} заметок · ${folders.length} папок</div>
       </div>
-
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button class="kb5-btn kb5-btn-ghost" onclick="_kbNewFolder('${c.id}')">+ Папка</button>
+        <button class="kb5-btn kb5-btn-gold" onclick="_kbNewNote()">+ Заметка</button>
+      </div>
     </div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:10px">Папки</div>
+    ${folders.length?`<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:20px">
+      ${folders.map(f=>`<div onclick="_kbOpenFolder('${c.id}','${f.id}')" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.03);border:0.5px solid var(--border);cursor:pointer;transition:all .15s" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='rgba(255,255,255,.03)'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${c.color}" stroke-width="2" style="flex-shrink:0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <div style="min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc(f.title)}</div>
+          <div style="font-size:10.5px;color:var(--t3)">${(f.notes||[]).length} заметок</div>
+        </div>
+      </div>`).join('')}
+    </div>`:`<div class="kb5-empty"><div class="kb5-empty-ico">📁</div><div class="kb5-empty-ttl">Нет папок</div><button class="kb5-btn kb5-btn-ghost" style="margin-top:8px" onclick="_kbNewFolder('${c.id}')">Создать папку</button></div>`}
+    ${recent.length?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px">Последние</div>
+    ${recent.map(n=>`<div class="kb5-recent-row" onclick="_kbOpenNote('${n.catId}','${n.folderId}','${n.id}')">
+      <div style="width:6px;height:6px;border-radius:50%;background:${c.color};flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc(n.title||'Без названия')}</div>
+        <div style="font-size:10.5px;color:var(--t3)">${n.folderTitle}</div>
+      </div>
+      <div style="font-size:10px;color:var(--t3)">${_kbTimeAgo(n.updatedAt)}</div>
+    </div>`).join('')}`:''}
   </div>`;
 }
 
-// ── Folder inline view (2-panel: folder notes in main area) ──
-function _kbRFolderInline(cont) {
+// ── Note list ─────────────────────────────────────────────────
+function _kbRenderNoteList(){
+  const hdr=document.getElementById('kb5nlh');
+  const body=document.getElementById('kb5nlb');
+  if(!hdr||!body) return;
   const c=ALL_CATS.find(x=>x.id===_kbS.cat);
   const f=_kbGetFolder(_kbS.cat,_kbS.folder);
-  if(!c||!f){
-    // Folder not found — show category overview as fallback
-    _kbS.folder=null;
-    if(c) _kbRCatOverview(cont);
-    else _kbRHome(cont);
-    return;
-  }
+  if(!c||!f){_kbGoHome();return;}
+  const notes=_kbSortNotes((f.notes||[]).map(n=>({...n,catId:_kbS.cat,folderId:_kbS.folder,catColor:c.color,catIcon:c.icon,catName:c.name})));
 
-  let notes=[...f.notes].map(n=>({...n,catId:_kbS.cat,folderId:_kbS.folder,catColor:c.color,catIcon:c.icon}));
-  if(_kbS.filterTag) notes=notes.filter(n=>(n.tags||[]).includes(_kbS.filterTag));
-  notes=_kbSortNotes(notes);
-
-  const emptyHtml=`<div class="k3empty" style="min-height:260px;margin:0 8px">
-    <div class="k3eico">✍️</div>
-    <div class="k3ettl">Папка пуста</div>
-    <div class="k3esub">Создай первую заметку в этой папке</div>
-    <button class="k3btn k3gold" onclick="_kbNN()" style="gap:6px">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Новая заметка
-    </button>
-  </div>`;
-
-  const gridView=_kbS.viewMode==='grid';
-  const notesHtml=notes.length
-    ?(gridView
-      ?`<div class="k3main-grid">${notes.map(_kbNC).join('')}</div>`
-      :`<div style="padding:0 4px">${notes.map(_kbNC).join('')}</div>`)
-    :emptyHtml;
-
-  const totalWords=notes.reduce((a,n)=>a+_kbWC(n.body||''),0);
-  const readTime=Math.max(1,Math.ceil(totalWords/200));
-
-  cont.innerHTML=`<div class="k3nl-inline k3anim2" style="max-width:920px">
-
-    <!-- ── TOP NAV ── -->
-    <div style="display:flex;align-items:center;gap:4px;margin-bottom:16px;flex-wrap:wrap">
-      <button class="k3back-btn" onclick="_kbGoHome()">
-        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-        Обзор
-      </button>
-      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
-      <button class="k3back-btn" onclick="_kbTogCat('${c.id}')" style="display:flex;align-items:center;gap:7px">
-        <span style="display:flex;align-items:center;justify-content:center;width:18px;height:18px;color:${c.color};flex-shrink:0">
-          ${(typeof ICONS !== 'undefined' && ICONS[c.id]) ? ICONS[c.id].replace(/width="20" height="20"/g,'width="16" height="16"') : c.icon}
-        </span>
-        ${c.name}
-      </button>
-      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" style="opacity:.4"><polyline points="9 18 15 12 9 6"/></svg>
-      <span style="font-size:12px;font-weight:600;color:var(--t1)">📁 ${_kbEsc2(f.title)}</span>
-    </div>
-
-    <!-- ── FOLDER HERO ── -->
-    <div style="background:linear-gradient(135deg,${c.color}12 0%,${c.color}05 70%,transparent 100%);border:0.5px solid ${c.color}22;border-radius:14px;padding:18px 20px;margin-bottom:18px;position:relative;overflow:hidden">
-      
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-        <div style="display:flex;align-items:center;gap:12px">
-          <div style="width:40px;height:40px;border-radius:10px;background:${c.color}18;border:0.5px solid ${c.color}30;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${c.color}" stroke-width="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-          </div>
-          <div>
-            <div style="font-size:18px;font-weight:800;color:var(--t1);letter-spacing:-.03em;line-height:1.2">${_kbEsc2(f.title)}</div>
-            <div style="font-size:11px;color:var(--t3);margin-top:3px">${c.icon} ${c.name}</div>
-          </div>
-        </div>
-        <!-- stats row -->
-        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-          <div style="background:rgba(0,0,0,.25);border:0.5px solid rgba(255,255,255,.06);border-radius:8px;padding:6px 12px;text-align:center">
-            <div style="font-size:16px;font-weight:800;font-family:'DM Mono',monospace;color:${c.color};line-height:1">${f.notes.length}</div>
-            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-top:2px">Заметок</div>
-          </div>
-          <div style="background:rgba(0,0,0,.25);border:0.5px solid rgba(255,255,255,.06);border-radius:8px;padding:6px 12px;text-align:center">
-            <div style="font-size:16px;font-weight:800;font-family:'DM Mono',monospace;color:var(--purple);line-height:1">${totalWords>999?Math.round(totalWords/1000)+'к':totalWords}</div>
-            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-top:2px">Слов</div>
-          </div>
-          <div style="background:rgba(0,0,0,.25);border:0.5px solid rgba(255,255,255,.06);border-radius:8px;padding:6px 12px;text-align:center">
-            <div style="font-size:16px;font-weight:800;font-family:'DM Mono',monospace;color:var(--blue);line-height:1">~${readTime}</div>
-            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-top:2px">Мин чт.</div>
-          </div>
-          <div style="display:flex;gap:4px;margin-left:4px">
-            <button class="k3ico" onclick="_kbRenF('${c.id}','${f.id}')" title="Переименовать" style="width:28px;height:28px">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            </button>
-            <button class="k3ico k3danger" onclick="_kbCDF('${c.id}','${f.id}')" title="Удалить" style="width:28px;height:28px">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── CONTROLS ── -->
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;padding:0 2px">
-      <div class="k3sort-row" style="flex:1">
-        <button class="k3sc ${_kbS.sort==='updated'?'k3on':''}" onclick="_kbSetSort('updated')">По дате</button>
-        <button class="k3sc ${_kbS.sort==='created'?'k3on':''}" onclick="_kbSetSort('created')">Созданию</button>
-        <button class="k3sc ${_kbS.sort==='title'?'k3on':''}" onclick="_kbSetSort('title')">А–Я</button>
-      </div>
-      <button class="k3vt ${_kbS.viewMode==='list'?'k3on':''}" onclick="_kbSetView('list')" title="Список">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-      </button>
-      <button class="k3vt ${_kbS.viewMode==='grid'?'k3on':''}" onclick="_kbSetView('grid')" title="Сетка">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-      </button>
-      <button class="k3btn k3gold" onclick="_kbNN()" style="padding:6px 14px;gap:5px;font-size:12px">
-        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Новая заметка
-      </button>
-    </div>
-
-    <!-- ── NOTES ── -->
-    ${notesHtml}
-  </div>`;
-}
-
-function _kbRSearch(hdr,body){
-  const q=_kbS.search.toLowerCase();
-  let res=_kbAllNotes().filter(n=>(n.title||'').toLowerCase().includes(q)||_kbStrip(n.body||'').toLowerCase().includes(q)||(n.tags||[]).some(t=>t.toLowerCase().includes(q)));
-  if(_kbS.filterTag) res=res.filter(n=>(n.tags||[]).includes(_kbS.filterTag));
   hdr.innerHTML=`
-    <div class="k3nlh-row">
-      <div class="k3nlh-title">🔍 Поиск</div>
-      <button class="k3ico" onclick="document.getElementById('kb3srch').value='';_kbOnSearch('')" style="width:22px;height:22px;border-radius:5px" title="Сбросить">
-        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+      <button onclick="_kbGoHome()" style="background:none;border:none;color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit">Обзор</button>
+      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      <button onclick="_kbTogCat('${c.id}')" style="background:none;border:none;color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit;color:${c.color}">${_kbEsc(c.name)}</button>
+      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      <span style="font-size:11px;font-weight:600;color:var(--t2)">${_kbEsc(f.title)}</span>
     </div>
-    <div class="k3nlh-sub">${res.length} результатов · «${_kbEsc2(_kbS.search)}»</div>`;
-  body.innerHTML=res.length?res.map(n=>_kbNC(n,_kbS.search)):`<div class="k3empty"><div class="k3eico">🔍</div><div class="k3ettl">Ничего не найдено</div><div class="k3esub">Попробуй другой запрос</div></div>`;
-}
-
-function _kbNC(n, q=''){
-  const pre=_kbStrip(n.body||'').slice(0,85);
-  const tags=(n.tags||[]).slice(0,3);
-  const color=n.catColor||'var(--gold)';
-  const titleHtml=q?_kbHighlight(n.title||'Без названия',q):_kbEsc2(n.title||'Без названия');
-  const preHtml=q&&pre?_kbHighlight(pre,q):_kbEsc2(pre);
-  const wc=_kbWC(n.body||'');
-  return `<div class="k3nc k3anim ${_kbS.note===n.id?'k3on':''}" onclick="_kbON('${n.catId}','${n.folderId}','${n.id}')" style="--nc-color:${color}">
-    <div class="k3nt">
-      ${n.pinned?`<svg width="9" height="9" viewBox="0 0 24 24" fill="${color}" stroke="${color}" stroke-width="1" style="flex-shrink:0"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/></svg>`:''}
-      <span style="overflow:hidden;text-overflow:ellipsis">${titleHtml}</span>
-      ${wc?`<span style="font-family:'DM Mono',monospace;font-size:9.5px;color:var(--t3);margin-left:auto;flex-shrink:0">${wc}сл</span>`:''}
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+      <span style="font-size:10.5px;color:var(--t3)">${notes.length} заметок</span>
+      <div style="display:flex;gap:3px">
+        <button class="kb5-chip${_kbS.sort==='updated'?' active':''}" onclick="_kbSetSort('updated')">Дате</button>
+        <button class="kb5-chip${_kbS.sort==='title'?' active':''}" onclick="_kbSetSort('title')">А–Я</button>
+      </div>
     </div>
-    ${pre?`<div class="k3np">${preHtml}</div>`:''}
-    <div class="k3nf">
-      <span class="k3nd">${_kbD(n.updatedAt||n.createdAt)}</span>
-      ${tags.map(t=>`<span class="k3tag" style="background:${color}18;color:${color}" onclick="event.stopPropagation();_kbFilterTag('${_kbEsc2(t)}')">${_kbEsc2(t)}</span>`).join('')}
-    </div>
-  </div>`;
-}
+    <button class="kb5-btn kb5-btn-gold" onclick="_kbNewNote()" style="width:100%;justify-content:center;margin-top:8px;padding:6px 10px;font-size:12px">
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Новая заметка
+    </button>`;
 
-// ══════════════════════════════════════════════════════════════
-// MAIN CONTENT RENDER (2-panel: sidebar + smart main area)
-// ══════════════════════════════════════════════════════════════
-function _kbRED() {
-  const top=document.getElementById('kb3edt'), tb=document.getElementById('kb3tb'),
-        cont=document.getElementById('kb3edc'), st=document.getElementById('kb3st');
-  if(!top||!tb||!cont||!st) return;
-
-  // Reset scroll on every navigation
-  cont.scrollTop = 0;
-
-  // — Home dashboard —
-  if(!_kbS.cat){
-    top.innerHTML=''; tb.style.display='none'; st.style.display='none';
-    _kbRHome(cont);
-    return;
-  }
-  // — Category selected, no folder → category + all notes —
-  if(_kbS.cat && !_kbS.folder){
-    top.innerHTML=''; tb.style.display='none'; st.style.display='none';
-    _kbRCatOverview(cont);
-    return;
-  }
-  // — Folder selected, no note → inline note list —
-  if(!_kbS.note){
-    top.innerHTML=''; tb.style.display='none'; st.style.display='none';
-    _kbRFolderInline(cont);
+  if(!notes.length){
+    body.innerHTML=`<div class="kb5-empty"><div class="kb5-empty-ico">✍️</div><div class="kb5-empty-ttl">Папка пуста</div><div style="font-size:12px;color:var(--t3)">Создай первую заметку</div></div>`;
     return;
   }
 
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);
-  if(!n){_kbS.note=null;_kbRED();return;}
-  const c=ALL_CATS.find(x=>x.id===_kbS.cat), f=_kbGetFolder(_kbS.cat,_kbS.folder);
-  const wc=_kbWC(n.body||'');
-
-  top.innerHTML=`
-    <div style="display:flex;align-items:center;gap:2px;margin-bottom:10px;flex-wrap:wrap">
-      <button class="k3back-btn" onclick="_kbGoHome()">
-        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-        Обзор
-      </button>
-      <span style="font-size:11px;color:var(--t3)">·</span>
-      <button class="k3back-btn" onclick="_kbTogCat('${c.id}')" style="display:flex;align-items:center;gap:7px">
-        <span style="display:flex;align-items:center;justify-content:center;width:18px;height:18px;color:${c.color};flex-shrink:0">
-          ${(typeof ICONS !== 'undefined' && ICONS[c.id]) ? ICONS[c.id].replace(/width="20" height="20"/g,'width="16" height="16"') : c.icon}
-        </span>
-        ${c.name}
-      </button>
-      <span style="font-size:11px;color:var(--t3)">·</span>
-      <button class="k3back-btn" onclick="_kbSF('${c.id}','${f.id}')">
-        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="${c.color}" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        ${_kbEsc2(f.title)}
-      </button>
-    </div>
-    <input id="kb3title" value="${_kbEsc2(n.title||'')}" placeholder="Без названия"
-      ${!_kbS.edit?'readonly':''} oninput="_kbTI(this.value)" onblur="_kbTB()">
-    <div class="k3meta">
-      <span>Создана ${_kbD(n.createdAt)}</span>
-      ${n.updatedAt&&n.updatedAt!==n.createdAt?`<span class="k3msep">·</span><span>Изменена ${_kbD(n.updatedAt)}</span>`:''}
-      <span class="k3msep">·</span>
-      <span>${wc} слов · ~${Math.max(1,Math.ceil(wc/200))} мин</span>
-    </div>
-    <div class="k3tagrow" id="kb3tagrow">
-      ${(n.tags||[]).map(t=>`<span class="k3tag" style="background:${c.color}18;color:${c.color};display:inline-flex;align-items:center;gap:3px">${_kbEsc2(t)}${_kbS.edit?`<span onclick="_kbRT('${_kbEsc2(t)}')" style="cursor:pointer;opacity:.5;font-size:11px">×</span>`:''}</span>`).join('')}
-      ${_kbS.edit?`<input class="k3ti" id="kb3ti" placeholder="+ тег" onkeydown="_kbTK(event)">`:``}
-      ${!_kbS.edit&&!(n.tags||[]).length?`<span style="font-size:11px;color:var(--t3);font-style:italic">Нет тегов</span>`:''}
-    </div>
-    <div class="k3arow">
-      <button class="k3btn ${_kbS.edit?'k3gold':'k3ghost'}" onclick="_kbTE()">
-        ${_kbS.edit
-          ?`<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Сохранить`
-          :`<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Редактировать`}
-      </button>
-      <button class="k3ico ${n.pinned?'k3on':''}" onclick="_kbTP()" title="${n.pinned?'Открепить':'Закрепить'}">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/></svg>
-      </button>
-      <button class="k3ico" onclick="_kbCopy()" title="Скопировать текст">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-      </button>
-      <button class="k3ico" onclick="_kbDupNote()" title="Дублировать заметку">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="13" height="13" rx="2"/><rect x="8" y="8" width="13" height="13" rx="2"/></svg>
-      </button>
-      <button class="k3ico" onclick="_kbMoveNote()" title="Переместить в другую папку">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12H19M12 5l7 7-7 7"/></svg>
-      </button>
-      <button class="k3ico" onclick="_kbExportNote()" title="Экспорт">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      </button>
-      <button class="k3ico k3danger" onclick="_kbCDN()" title="Удалить" style="margin-left:auto">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg>
-      </button>
-      <button class="k3ico" onclick="_kbReadMode()" title="Режим чтения" style="margin-left:4px;background:rgba(245,200,66,.08);color:var(--gold)">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-      </button>
+  body.innerHTML=notes.map(n=>{
+    const prev=_kbStrip(n.body||'').slice(0,80);
+    const isActive=_kbS.note===n.id;
+    return `<div class="kb5-nc${isActive?' active':''}" onclick="_kbOpenNote('${n.catId}','${n.folderId}','${n.id}')">
+      <div class="kb5-nc-title">${n.pinned?'📌 ':''}<span style="border-bottom:1.5px solid ${isActive?c.color:'transparent'}">${_kbEsc(n.title||'Без названия')}</span></div>
+      ${prev?`<div class="kb5-nc-prev">${_kbEsc(prev)}${prev.length>=80?'…':''}</div>`:''}
+      <div class="kb5-nc-meta">
+        <span>${_kbTimeAgo(n.updatedAt||n.createdAt)}</span>
+        ${(n.tags||[]).slice(0,2).map(t=>`<span class="kb5-tag" style="background:${c.color}18;color:${c.color}">#${_kbEsc(t)}</span>`).join('')}
+        <span style="margin-left:auto">${_kbWC(n.body||'')} сл</span>
+      </div>
     </div>`;
+  }).join('');
+}
 
-  if(_kbS.edit){
-    tb.style.display='flex';
+// ── Editor ────────────────────────────────────────────────────
+function _kbRenderEditor(){
+  const tb=document.getElementById('kb5tb');
+  const title=document.getElementById('kb5title');
+  const area=document.getElementById('kb5area');
+  const wc=document.getElementById('kb5wc');
+  const tags=document.getElementById('kb5tags');
+  if(!tb||!title||!area) return;
+
+  const c=ALL_CATS.find(x=>x.id===_kbS.cat);
+  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);
+  if(!n){ _kbS.note=null; _kbRenderMain(); return; }
+
+  // Only rebuild toolbar once
+  if(!tb.dataset.built){
+    tb.dataset.built='1';
     tb.innerHTML=`
-      <!-- Font selector -->
-      <div class="k3font-dd" id="kb3fontdd">
-        <button class="k3font-btn" id="kb3fontbtn" onclick="_kbFontDDToggle(event)" type="button">
-          <span id="kb3fontlabel">Inter</span>
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      <div class="kb5-dd" id="kb5styledd">
+        <button class="kb5-ddbtn" onclick="_kbTogDD('kb5styleList')" id="kb5styleBtn">
+          <span id="kb5styleLbl">Стиль</span>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
-        <div class="k3font-list" id="kb3fontlist" style="display:none">
-          <div class="k3font-opt" onclick="_kbSetFont('inter')" data-font="inter" style="font-family:'Inter','DM Sans',sans-serif">
-            <div><div class="k3font-opt-name">Inter</div><div class="k3font-opt-tag">Современный</div></div>
-            <svg class="k3font-opt-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <div class="k3font-opt" onclick="_kbSetFont('lora')" data-font="lora" style="font-family:'Lora',Georgia,serif">
-            <div><div class="k3font-opt-name">Lora</div><div class="k3font-opt-tag">Элегантный</div></div>
-            <svg class="k3font-opt-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <div class="k3font-opt" onclick="_kbSetFont('merriweather')" data-font="merriweather" style="font-family:'Merriweather',Georgia,serif">
-            <div><div class="k3font-opt-name">Merriweather</div><div class="k3font-opt-tag">Для чтения</div></div>
-            <svg class="k3font-opt-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <div class="k3font-opt" onclick="_kbSetFont('playfair')" data-font="playfair" style="font-family:'Playfair Display',Georgia,serif">
-            <div><div class="k3font-opt-name">Playfair</div><div class="k3font-opt-tag">Классика</div></div>
-            <svg class="k3font-opt-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <div class="k3font-sep"></div>
-          <div class="k3font-opt" onclick="_kbSetFont('nunito')" data-font="nunito" style="font-family:'Nunito','DM Sans',sans-serif;font-style:normal">
-            <div><div class="k3font-opt-name">Nunito</div><div class="k3font-opt-tag">Мягкий</div></div>
-            <svg class="k3font-opt-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <div class="k3font-opt" onclick="_kbSetFont('crimson')" data-font="crimson" style="font-family:'Crimson Pro',Georgia,serif">
-            <div><div class="k3font-opt-name">Crimson</div><div class="k3font-opt-tag">Изысканный</div></div>
-            <svg class="k3font-opt-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
+        <div class="kb5-ddlist" id="kb5styleList" style="display:none">
+          <div class="kb5-ddopt" onclick="_kbFmtBlock('p','Абзац')"><div class="kb5-ddopt-ico" style="font-size:11px;color:var(--t2)">¶</div><span>Абзац</span></div>
+          <div class="kb5-ddsep"></div>
+          <div class="kb5-ddopt" onclick="_kbFmtBlock('h1','H1')"><div class="kb5-ddopt-ico" style="font-weight:800;font-size:12px">H1</div><span style="font-size:17px;font-weight:800;letter-spacing:-.03em">Заголовок 1</span></div>
+          <div class="kb5-ddopt" onclick="_kbFmtBlock('h2','H2')"><div class="kb5-ddopt-ico" style="font-weight:700;font-size:11px">H2</div><span style="font-size:15px;font-weight:700">Заголовок 2</span></div>
+          <div class="kb5-ddopt" onclick="_kbFmtBlock('h3','H3')"><div class="kb5-ddopt-ico" style="font-weight:700;font-size:10px;color:var(--t2)">H3</div><span style="font-size:13.5px;font-weight:650">Заголовок 3</span></div>
+          <div class="kb5-ddsep"></div>
+          <div class="kb5-ddopt" onclick="_kbFmtBlock('blockquote','Цитата')"><div class="kb5-ddopt-ico" style="color:var(--gold);font-size:14px">"</div><span style="font-style:italic;color:var(--t2)">Цитата</span></div>
+          <div class="kb5-ddopt" onclick="_kbFmtBlock('pre','Код')"><div class="kb5-ddopt-ico" style="font-family:monospace;font-size:8px;color:var(--gold-l)">&lt;/&gt;</div><span style="font-family:monospace;font-size:12px">Код-блок</span></div>
         </div>
       </div>
-      <div class="k3tbsep"></div>
-      <div class="k3style-dd" id="kb3styledd">
-        <button class="k3style-btn" onclick="_kbStyleDDToggle(event)" type="button">
-          <span id="kb3stylelabel">Стиль</span>
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        <div class="k3style-list" id="kb3stylelist" style="display:none">
-          <div class="k3style-opt" onclick="_kbRBNamed('p','Абзац')">
-            <div class="k3style-opt-icon" style="font-size:11px;font-weight:500;color:var(--t2)">¶</div>
-            <span>Абзац</span>
-          </div>
-          <div class="k3font-sep"></div>
-          <div class="k3style-opt k3style-h1" onclick="_kbRBNamed('h1','H1')">
-            <div class="k3style-opt-icon" style="font-size:12px;font-weight:800;color:var(--t1)">H1</div>
-            <span>Заголовок 1</span>
-          </div>
-          <div class="k3style-opt k3style-h2" onclick="_kbRBNamed('h2','H2')">
-            <div class="k3style-opt-icon" style="font-size:11px;font-weight:700;color:var(--t2)">H2</div>
-            <span>Заголовок 2</span>
-          </div>
-          <div class="k3style-opt k3style-h3" onclick="_kbRBNamed('h3','H3')">
-            <div class="k3style-opt-icon" style="font-size:10px;font-weight:700;color:var(--t3)">H3</div>
-            <span>Заголовок 3</span>
-          </div>
-          <div class="k3font-sep"></div>
-          <div class="k3style-opt k3style-bq" onclick="_kbRBNamed('blockquote','Цитата')">
-            <div class="k3style-opt-icon" style="color:var(--gold);font-size:14px;font-weight:400">"</div>
-            <span>Цитата</span>
-          </div>
-          <div class="k3style-opt k3style-pre" onclick="_kbRBNamed('pre','Код')">
-            <div class="k3style-opt-icon" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold-l)">&lt;/&gt;</div>
-            <span>Код-блок</span>
-          </div>
-        </div>
-      </div>
-      <div class="k3tbsep"></div>
-      <button class="k3tb" onclick="_kbR('bold')" title="Жирный Ctrl+B"><b>B</b></button>
-      <button class="k3tb" onclick="_kbR('italic')" title="Курсив Ctrl+I"><i style="font-style:italic">I</i></button>
-      <button class="k3tb" onclick="_kbR('underline')" title="Подчёркн."><u>U</u></button>
-      <button class="k3tb" onclick="_kbR('strikeThrough')" title="Зачёркн."><s style="font-size:11px">S</s></button>
-      <div class="k3tbsep"></div>
-      <button class="k3tb" onclick="_kbR('insertUnorderedList')" title="Маркированный список">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
+      <div class="kb5-tbsep"></div>
+      <button class="kb5-tb" onclick="_kbFmt('bold')" title="Жирный Ctrl+B"><b>B</b></button>
+      <button class="kb5-tb" onclick="_kbFmt('italic')" title="Курсив Ctrl+I"><i style="font-style:italic">I</i></button>
+      <button class="kb5-tb" onclick="_kbFmt('underline')" title="Подчёркн. Ctrl+U"><u>U</u></button>
+      <button class="kb5-tb" onclick="_kbFmt('strikeThrough')" title="Зачёркн."><s style="font-size:11px">S</s></button>
+      <div class="kb5-tbsep"></div>
+      <button class="kb5-tb" onclick="_kbFmt('insertUnorderedList')" title="Маркированный список">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
       </button>
-      <button class="k3tb" onclick="_kbR('insertOrderedList')" title="Нумерованный список">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h1v4" stroke-linecap="round"/><path d="M4 10h2" stroke-linecap="round"/></svg>
+      <button class="kb5-tb" onclick="_kbFmt('insertOrderedList')" title="Нумерованный список">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h1v4"/><path d="M4 10h2"/></svg>
       </button>
-      <button class="k3tb" onclick="_kbInsTodo()" title="Список задач [ ] текст">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="4" height="4" rx="1"/><polyline points="7 9 3 9 3 5"/><line x1="10" y1="7" x2="21" y2="7"/><rect x="3" y="14" width="4" height="4" rx="1" fill="currentColor" stroke="none"/><line x1="10" y1="16" x2="21" y2="16"/></svg>
+      <button class="kb5-tb" onclick="_kbInsTodo()" title="Чеклист">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="4" height="4" rx="1"/><rect x="3" y="14" width="4" height="4" rx="1" fill="currentColor" stroke="none"/><line x1="10" y1="7" x2="21" y2="7"/><line x1="10" y1="16" x2="21" y2="16"/></svg>
       </button>
-      <div class="k3tbsep"></div>
-      <button class="k3tb" onclick="_kbLink()" title="Ссылка Ctrl+K">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-      </button>
-      <button class="k3tb" onclick="_kbInsTable()" title="Вставить таблицу">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
-      </button>
-      <button class="k3tb" onclick="_kbHR()" title="Разделитель" style="font-size:13px;font-weight:700">—</button>
-      <div class="k3tbsep"></div>
-      <button class="k3tb" onclick="_kbR('undo')" title="Отменить Ctrl+Z">
+      <div class="kb5-tbsep"></div>
+      <button class="kb5-tb" onclick="_kbFmt('undo')" title="Отменить Ctrl+Z">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
       </button>
-      <button class="k3tb" onclick="_kbR('redo')" title="Повторить Ctrl+Y">
+      <button class="kb5-tb" onclick="_kbFmt('redo')" title="Повторить Ctrl+Y">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>
       </button>
-      <div class="k3tbsep"></div>
-      <button class="k3tb" onclick="_kbR('removeFormat')" style="width:auto;padding:0 8px;font-size:10px;color:var(--t3)" title="Убрать форматирование">✕ Формат</button>
-      <div class="k3tbsep"></div>
-      <button class="k3tb" onclick="_kbR('justifyLeft')" title="По левому краю"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg></button>
-      <button class="k3tb" onclick="_kbR('justifyCenter')" title="По центру"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg></button>
-      <button class="k3tb" onclick="_kbR('justifyRight')" title="По правому краю"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg></button>
-      <div class="k3tbsep"></div>
-      <button class="k3tb" onclick="_kbUppercase()" title="ЗАГЛАВНЫЕ" style="font-size:10px;font-weight:800;width:auto;padding:0 7px;letter-spacing:.04em">AA</button>`;
-  } else {
-    tb.style.display='none';
-  }
-
-  if(_kbS.edit){
-    const _nfont=n.font||'inter';
-    const _nf=_kbFontMap[_nfont]||_kbFontMap.inter;
-    cont.innerHTML=`
-      <div id="kb3area" contenteditable="true"
-        data-ph="Начни писать здесь... поддерживается форматирование через панель выше"
-        onkeydown="_kbEK(event)" oninput="_kbEI()" onmouseup="_kbSaveSelection()" onkeyup="_kbSaveSelection()"
-        style="padding:24px 28px 60px;min-height:200px;outline:none;font-size:${_nf.size};line-height:${_nf.lh};color:var(--t1);max-width:740px;caret-color:var(--gold);font-family:${_nf.family};font-style:normal;font-weight:400;"
-      >${n.body||''}</div>`;
-    setTimeout(()=>{
-      const e=document.getElementById('kb3area');
-      if(e){
-        e.focus();
-        if(!n.body){
-          // Place cursor at start
-          const range=document.createRange();
-          const sel=window.getSelection();
-          range.setStart(e,0);range.collapse(true);
-          sel.removeAllRanges();sel.addRange(range);
-        }
-      }
-    },60);
-  } else {
-    if(!n.body){
-      // Empty note — big click-to-write area
-      cont.innerHTML=`<div class="k3view k3anim" onclick="_kbTE()" style="cursor:pointer;min-height:200px">
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:52px 20px;text-align:center;border:1.5px dashed var(--border);border-radius:12px;margin:16px 28px;transition:background-color .15s,border-color .15s,color .15s,opacity .15s;gap:12px"
-          onmouseover="this.style.borderColor='rgba(245,200,66,.35)'" onmouseout="this.style.borderColor='var(--border)'">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="1.5" style="opacity:.4"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          <div style="font-size:15px;font-weight:600;color:var(--t2)">Нажми чтобы начать писать</div>
-          <div style="font-size:12px;color:var(--t3)">или нажми кнопку «Редактировать» выше</div>
-        </div>
-      </div>`;
-    } else {
-      const _vfont=n.font||'inter';const _vf=_kbFontMap[_vfont]||_kbFontMap.inter;
-      cont.innerHTML=`<div class="k3view k3anim" ondblclick="_kbTE()" title="Двойной клик — редактировать" style="font-family:${_vf.family};font-size:${_vf.size};line-height:${_vf.lh}">${n.body}</div>`;
-    }
-  }
-
-  st.style.display='flex';
-  const wEl=document.getElementById('kb3wc'), rEl=document.getElementById('kb3rt');
-  if(wEl) wEl.textContent=`${wc} сл`;
-  if(rEl) rEl.textContent=`~${Math.max(1,Math.ceil(wc/200))} мин`;
-  // Apply saved font for this note
-  setTimeout(()=>_kbApplyFont(n.font||'inter'), 30);
-
-  // Update TOC button state
-  const tocBtn=document.getElementById('kb3tocbtn');
-  if(tocBtn) tocBtn.classList.toggle('k3on',_kbS.tocOpen);
-
-  // Render TOC
-  _kbRTOC(n);
-}
-
-// ══════════════════════════════════════════════════════════════
-// HOME DASHBOARD
-// ══════════════════════════════════════════════════════════════
-function _kbRHome(cont) {
-  const tn=_kbAllNotes().length;
-  const tf=ALL_CATS.reduce((a,c)=>a+_kbCatD(c.id).folders.length,0);
-  const tw=_kbTotalWords();
-  const tu=_kbUpdatedToday();
-  const pins=_kbPinned();
-  const rec=_kbRecent(6);
-  const tcat=ALL_CATS.filter(c=>_kbCatNC(c.id)>0).length;
-
-  let h=`<div class="k3home k3anim2">
-
-    <!-- ══ HEADER ══ -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
-      <div>
-        <div style="font-size:24px;font-weight:800;letter-spacing:-.04em;color:var(--t1);line-height:1.2">База знаний</div>
-        <div style="font-size:12px;color:var(--t3);margin-top:3px">Твоё персональное хранилище</div>
-      </div>
-      <button class="k3btn k3gold" onclick="_kbNewNoteQuick()" style="gap:6px;padding:9px 16px;font-size:13px">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Новая заметка
+      <button class="kb5-tb" onclick="_kbFmt('removeFormat')" style="font-size:10px;color:var(--t3);padding:0 7px;width:auto" title="Убрать форматирование">✕ Формат</button>
+      <div class="kb5-tbsep"></div>
+      <button class="kb5-tb" onclick="_kbTogPin()" id="kb5pinBtn" title="Закрепить">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="${n.pinned?'var(--gold)':'none'}" stroke="${n.pinned?'var(--gold)':'currentColor'}" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/></svg>
       </button>
-    </div>
-
-    <!-- ══ СТАТИСТИКА ══ -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px">
-      <div style="background:rgba(245,200,66,.06);border:0.5px solid rgba(245,200,66,.15);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;animation:k3pop .3s .04s cubic-bezier(.34,1.15,.64,1) both;transition:all .22s cubic-bezier(.34,1.15,.64,1)" onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.25)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
-        <div style="font-size:28px;font-weight:400;font-family:'DM Mono',monospace;color:var(--gold);line-height:1">${tn}</div>
-        <div>
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)">Заметок</div>
-          <div style="font-size:10px;color:var(--t3);margin-top:1px">${tcat} категорий</div>
-        </div>
-      </div>
-      <div style="background:rgba(59,130,246,.06);border:0.5px solid rgba(59,130,246,.15);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;animation:k3pop .3s .09s cubic-bezier(.34,1.15,.64,1) both;transition:all .22s cubic-bezier(.34,1.15,.64,1)" onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.25)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
-        <div style="font-size:28px;font-weight:400;font-family:'DM Mono',monospace;color:var(--blue);line-height:1">${tf}</div>
-        <div>
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)">Папок</div>
-          <div style="font-size:10px;color:var(--t3);margin-top:1px">для организации</div>
-        </div>
-      </div>
-      <div style="background:rgba(168,85,247,.06);border:0.5px solid rgba(168,85,247,.15);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;animation:k3pop .3s .14s cubic-bezier(.34,1.15,.64,1) both;transition:all .22s cubic-bezier(.34,1.15,.64,1)" onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.25)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
-        <div style="font-size:28px;font-weight:400;font-family:'DM Mono',monospace;color:var(--purple);line-height:1">${tw>999?Math.round(tw/1000)+'к':tw}</div>
-        <div>
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)">Слов</div>
-          <div style="font-size:10px;color:var(--t3);margin-top:1px">написано всего</div>
-        </div>
-      </div>
-      <div style="background:rgba(34,197,94,.06);border:0.5px solid rgba(34,197,94,.15);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;animation:k3pop .3s .19s cubic-bezier(.34,1.15,.64,1) both;transition:all .22s cubic-bezier(.34,1.15,.64,1)" onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.25)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
-        <div style="font-size:28px;font-weight:400;font-family:'DM Mono',monospace;color:var(--green);line-height:1">${tu}</div>
-        <div>
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)">Сегодня</div>
-          <div style="font-size:10px;color:var(--t3);margin-top:1px">обновлено</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══ КАТЕГОРИИ ══ -->
-    <div style="margin-bottom:20px">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--t3);display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <span style="display:inline-block;width:3px;height:12px;border-radius:2px;background:var(--gold);opacity:.6"></span>
-        Категории
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px">
-        ${ALL_CATS.map((c,ci)=>{
-          const nc=_kbCatNC(c.id);
-          const nf=_kbCatD(c.id).folders.length;
-          const maxNotes=Math.max(...ALL_CATS.map(x=>_kbCatNC(x.id)),1);
-          const pct=Math.round(nc/maxNotes*100);
-          return `<div onclick="_kbTogCat('${c.id}')" style="background:rgba(255,255,255,.03);border:0.5px solid ${c.color}22;border-radius:14px;padding:12px 14px;cursor:pointer;transition:background-color .25s,border-color .25s,color .25s,box-shadow .25s,opacity .25s cubic-bezier(.34,1.15,.64,1);position:relative;overflow:hidden;animation:k3pop .32s ${.04+ci*.055}s cubic-bezier(.34,1.15,.64,1) both"
-            onmouseover="this.style.background='${c.color}15';this.style.borderColor='${c.color}66';this.style.transform='translateY(-4px) scale(1.02)';this.style.boxShadow='0 10px 28px rgba(0,0,0,.3)'"
-            onmouseout="this.style.background='rgba(255,255,255,.03)';this.style.borderColor='${c.color}22';this.style.transform='';this.style.boxShadow=''">
-            <div style="position:absolute;left:0;top:0;bottom:0;width:2.5px;background:${c.color};border-radius:2px 0 0 2px;opacity:.8"></div>
-            <div style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:9px;background:${c.color}18;color:${c.color};margin-bottom:8px">
-              ${(typeof ICONS!=='undefined'&&ICONS[c.id])?ICONS[c.id].replace('width="20" height="20"','width="18" height="18"'):''}
-            </div>
-            <div style="font-size:12.5px;font-weight:700;color:var(--t1);letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px">${c.name}</div>
-            <div style="font-size:10px;color:var(--t3);margin-bottom:7px">${nc} зам. · ${nf} пап.</div>
-            <div style="height:2px;background:rgba(255,255,255,.06);border-radius:1px;overflow:hidden">
-              <div style="height:100%;width:${pct}%;background:${c.color};border-radius:1px;transition:width .6s ease"></div>
-            </div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>
-
-    <!-- ══ ЗАКРЕПЛЁННЫЕ + ПОСЛЕДНИЕ в двух колонках ══ -->
-    ${(pins.length||rec.length)?`
-    <div style="display:grid;grid-template-columns:${pins.length&&rec.length?'1fr 2fr':'1fr'};gap:12px">
-      ${pins.length?`
-      <div>
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--t3);display:flex;align-items:center;gap:8px;margin-bottom:10px">
-          <span style="display:inline-block;width:3px;height:12px;border-radius:2px;background:var(--gold);opacity:.6"></span>
-          Закреплённые
-        </div>
-        <div style="display:flex;flex-direction:column;gap:4px">
-          ${pins.map(n=>`
-          <div onclick="_kbON('${n.catId}','${n.folderId}','${n.id}')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(245,200,66,.04);border:0.5px solid rgba(245,200,66,.1);border-radius:10px;cursor:pointer;transition:background-color .15s,border-color .15s,color .15s,opacity .15s"
-            onmouseover="this.style.background='rgba(245,200,66,.08)';this.style.borderColor='rgba(245,200,66,.25)'"
-            onmouseout="this.style.background='rgba(245,200,66,.04)';this.style.borderColor='rgba(245,200,66,.1)'">
-            <div style="width:28px;height:28px;border-radius:8px;background:rgba(245,200,66,.1);border:0.5px solid rgba(245,200,66,.2);display:flex;align-items:center;justify-content:center;color:var(--gold);flex-shrink:0">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-            </div>
-            <div style="flex:1;min-width:0">
-              <div style="font-size:13px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc2(n.title||'Без названия')}</div>
-              <div style="font-size:10px;color:var(--t3);margin-top:1px">${n.catName}</div>
-            </div>
-            <div style="display:flex;align-items:center;justify-content:center;color:var(--gold);opacity:.7;flex-shrink:0">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17H19V13L17 7H7L5 13Z"/><line x1="5" y1="7" x2="19" y2="7"/></svg>
-            </div>
-          </div>`).join('')}
-        </div>
-      </div>`:''}
-      ${rec.length?`
-      <div>
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--t3);display:flex;align-items:center;gap:8px;margin-bottom:10px">
-          <span style="display:inline-block;width:3px;height:12px;border-radius:2px;background:var(--gold);opacity:.6"></span>
-          Последние заметки
-          <span onclick="_kbGoAll()" style="margin-left:auto;font-size:11px;font-weight:600;text-transform:none;letter-spacing:.01em;color:var(--gold);cursor:pointer;opacity:.75;transition:opacity .12s" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.75'">Все →</span>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:3px">
-          ${rec.slice(0,5).map(n=>`
-          <div onclick="_kbON('${n.catId}','${n.folderId}','${n.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(255,255,255,.025);border:0.5px solid rgba(255,255,255,.06);border-radius:10px;cursor:pointer;transition:background-color .2s,border-color .2s,color .2s,box-shadow .2s,opacity .2s cubic-bezier(.34,1.15,.64,1)"
-            onmouseover="this.style.background='rgba(255,255,255,.06)';this.style.borderColor='rgba(255,255,255,.12)';this.style.transform='translateX(4px)'"
-            onmouseout="this.style.background='rgba(255,255,255,.025)';this.style.borderColor='rgba(255,255,255,.06)';this.style.transform=''">
-            <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            </div>
-            <div style="flex:1;min-width:0">
-              <div style="font-size:13px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc2(n.title||'Без названия')}</div>
-              <div style="font-size:10px;color:var(--t3);margin-top:1px">${n.catName} · ${n.folderTitle}</div>
-            </div>
-            <div style="font-size:11px;color:var(--t3);font-family:'DM Mono',monospace;flex-shrink:0">${_kbD(n.updatedAt||n.createdAt)}</div>
-          </div>`).join('')}
-        </div>
-      </div>`:''}
-    </div>`:''}
-    `;
-
-  // (закреплённые и последние уже выведены выше)
-  if(!tn){
-    h+=`<div class="k3home-sec">
-      <div style="background:var(--panel);border:0.5px solid var(--border);border-radius:14px;padding:28px;text-align:center;">
-        <div style="display:flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:18px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.08);margin:0 auto 14px;opacity:.35">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-        </div>
-        <div style="font-size:16px;font-weight:700;color:var(--t2);margin-bottom:8px">База знаний пуста</div>
-        <div style="font-size:13px;color:var(--t3);margin-bottom:20px;max-width:280px;margin-left:auto;margin-right:auto">Начни с создания первой заметки или выбери шаблон</div>
-        <div style="display:flex;gap:8px;justify-content:center">
-          <button class="k3btn k3gold" onclick="_kbNewNoteQuick()">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Создать заметку
-          </button>
-          <button class="k3btn k3ghost" onclick="_kbTplModal()">Шаблоны</button>
-        </div>
-      </div>
-    </div>`;
+      <button class="kb5-tb" onclick="_kbNoteMenu()" title="Действия с заметкой">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+      </button>`;
   }
 
-  h+=`</div>`;
-  cont.innerHTML=h;
-}
+  // Update pin button without rebuilding toolbar
+  const pinBtn=document.getElementById('kb5pinBtn');
+  if(pinBtn){ const svg=pinBtn.querySelector('svg'); if(svg){ svg.setAttribute('fill',n.pinned?'var(--gold)':'none'); svg.setAttribute('stroke',n.pinned?'var(--gold)':'currentColor'); } }
 
-// ══════════════════════════════════════════════════════════════
-// TABLE OF CONTENTS
-// ══════════════════════════════════════════════════════════════
-function _kbRTOC(n){
-  const panel=document.getElementById('kb3toc');
-  const body=document.getElementById('kb3tocb');
-  if(!panel||!body) return;
-  if(!_kbS.tocOpen){panel.classList.remove('k3on');return;}
-  const items=_kbExtractTOC(n.body||'');
-  if(!items.length){
-    body.innerHTML=`<div style="padding:16px 8px;font-size:11px;color:var(--t3);text-align:center">Нет заголовков в тексте</div>`;
-    panel.classList.add('k3on');
-    return;
+  // Populate title
+  if(document.activeElement!==title) title.value=n.title||'';
+
+  // Populate editor body only if not focused (avoid cursor jump)
+  if(document.activeElement!==area){
+    area.innerHTML=n.body||'';
+    // Restore todo checkboxes state
+    area.querySelectorAll('.kb5-todo').forEach(lbl=>{
+      if(lbl.classList.contains('done')){
+        const cb=lbl.querySelector('input[type=checkbox]');
+        if(cb) cb.checked=true;
+      }
+    });
   }
-  body.innerHTML=items.map((it,i)=>`
-    <div class="k3toc-item k3toc-h${it.level}" onclick="_kbScrollToHeading(${i})" title="${_kbEsc2(it.text)}">
-      ${_kbEsc2(it.text)}
-    </div>`).join('');
-  panel.classList.add('k3on');
-}
 
-function _kbScrollToHeading(idx){
-  const area=document.getElementById('kb3edb');
-  const view=area?.querySelector('.k3view, #kb3area');
-  if(!view) return;
-  const headings=view.querySelectorAll('h1,h2,h3');
-  if(headings[idx]) headings[idx].scrollIntoView({behavior:'smooth',block:'start'});
-}
-
-function _kbTogTOC(){
-  _kbS.tocOpen=!_kbS.tocOpen;
-  const panel=document.getElementById('kb3toc');
-  const btn=document.getElementById('kb3tocbtn');
-  if(!panel) return;
-  if(_kbS.tocOpen){
-    const n=_kbS.note&&_kbS.cat&&_kbS.folder?_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note):null;
-    if(n) _kbRTOC(n);
-    else panel.classList.remove('k3on');
-  } else {
-    panel.classList.remove('k3on');
+  // Status bar
+  if(wc) wc.textContent=`${_kbWC(n.body||'')} слов · ~${Math.max(1,Math.ceil(_kbWC(n.body||'')/200))} мин`;
+  if(tags){
+    const col=c?c.color:'var(--gold)';
+    tags.innerHTML=(n.tags||[]).map(t=>`<span class="kb5-tag" style="background:${col}18;color:${col}">#${_kbEsc(t)}<span onclick="_kbRemTag('${_kbEsc(t)}')" style="cursor:pointer;opacity:.5;margin-left:2px">×</span></span>`).join('');
   }
-  if(btn) btn.classList.toggle('k3on',_kbS.tocOpen);
+
+  // Attach editor events (once)
+  if(!area.dataset.evts){
+    area.dataset.evts='1';
+    area.addEventListener('input', _kbEdInput);
+    area.addEventListener('keydown', _kbEdKey);
+    area.addEventListener('mouseup', _kbSaveSel);
+    area.addEventListener('keyup', _kbSaveSel);
+    title.addEventListener('input', _kbTitleInput);
+  }
 }
 
 // ══════════════════════════════════════════════════════════════
-// FOCUS MODE
-// ══════════════════════════════════════════════════════════════
-function _kbTogFocus(){
-  _kbS.focusMode=!_kbS.focusMode;
-  const wrap=document.getElementById('kb3wrap');
-  const btn=document.getElementById('kb3focusbtn');
-  if(wrap) wrap.classList.toggle('k3focus',_kbS.focusMode);
-  if(btn) btn.classList.toggle('k3on',_kbS.focusMode);
-}
-
-// ══════════════════════════════════════════════════════════════
-// NAVIGATION
+// NAVIGATION ACTIONS
 // ══════════════════════════════════════════════════════════════
 function _kbGoHome(){
-  if(_kbS.edit&&_kbS.note) _kbFlush3();
-  clearTimeout(_kbSaveTimer);
-  _kbS.cat=null;_kbS.folder=null;_kbS.note=null;_kbS.edit=false;
-  const cont=document.getElementById('kb3edc');
-  if(cont){cont.scrollTop=0;cont.innerHTML='';}
-  const top=document.getElementById('kb3edt');
-  if(top)top.innerHTML='';
-  _kbRS();_kbRNL();_kbRED();
-}
-function _kbGoAll(){
-  _kbS.cat=null;_kbS.folder=null;_kbS.note=null;
-  _kbRS();_kbRNL();_kbRED();
+  _kbAutoSave();
+  _kbS.cat=null; _kbS.folder=null; _kbS.note=null;
+  _kbS.search='';
+  const si=document.getElementById('kb5srch'); if(si) si.value='';
+  const sx=document.getElementById('kb5srch-x'); if(sx) sx.style.display='none';
+  renderKnowledgeBase();
 }
 function _kbTogCat(cid){
-  if(_kbS.edit&&_kbS.note) _kbFlush3();
-  clearTimeout(_kbSaveTimer);
+  _kbAutoSave();
   if(_kbS.cat===cid){
     _kbS.collapsed[cid]=!_kbS.collapsed[cid];
   } else {
-    _kbS.cat=cid;_kbS.collapsed[cid]=false;
-    _kbS.folder=null;_kbS.note=null;_kbS.edit=false;
+    _kbS.cat=cid; _kbS.collapsed[cid]=false;
+    _kbS.folder=null; _kbS.note=null;
   }
-  const cont=document.getElementById('kb3edc');
-  if(cont){cont.scrollTop=0;cont.innerHTML='';}
-  const top=document.getElementById('kb3edt');
-  if(top)top.innerHTML='';
-  _kbRS();_kbRNL();_kbRED();
+  _kbLoad3();
+  renderKnowledgeBase();
 }
-function _kbSF(cid,fid){
-  if(_kbS.edit&&_kbS.note) _kbFlush3();
-  clearTimeout(_kbSaveTimer);
-  _kbS.cat=cid; _kbS.folder=fid; _kbS.note=null; _kbS.edit=false;
+function _kbOpenFolder(cid,fid){
+  _kbAutoSave();
+  _kbS.cat=cid; _kbS.folder=fid; _kbS.note=null;
   _kbS.collapsed[cid]=false;
   _kbLoad3();
-  // Sync: update sidebar then render main area via _kbRED
-  // _kbRED checks _kbS.cat/_kbS.folder and calls _kbRFolderInline automatically
-  _kbRS(); _kbRED();
+  // Reset toolbar built flag so it rebuilds for new note
+  const tb=document.getElementById('kb5tb'); if(tb) delete tb.dataset.built;
+  const area=document.getElementById('kb5area'); if(area) delete area.dataset.evts;
+  renderKnowledgeBase();
 }
-function _kbON(cid,fid,nid){
-  if(_kbS.edit&&_kbS.note) _kbFlush3();
-  _kbS.cat=cid;_kbS.folder=fid;_kbS.note=nid;_kbS.edit=false;_kbS.collapsed[cid]=false;
-  _kbRS();_kbRNL();_kbRED();
+function _kbOpenNote(cid,fid,nid){
+  _kbAutoSave();
+  _kbS.cat=cid; _kbS.folder=fid; _kbS.note=nid;
+  _kbS.collapsed[cid]=false;
+  _kbLoad3();
+  // Force editor refresh
+  const area=document.getElementById('kb5area'); if(area) { area.innerHTML=''; delete area.dataset.evts; }
+  const tb=document.getElementById('kb5tb'); if(tb) delete tb.dataset.built;
+  renderKnowledgeBase();
+  setTimeout(()=>{ document.getElementById('kb5area')?.focus(); }, 50);
 }
-function _kbSetSort(s){_kbS.sort=s;_kbRNL();}
-function _kbSetView(v){_kbS.viewMode=v;_kbRNL();}
-function _kbFilterTag(t){_kbS.filterTag=(_kbS.filterTag===t)?null:t;_kbRNL();}
-function _kbClearTagFilter(){_kbS.filterTag=null;_kbRS();_kbRNL();}
+function _kbSetSort(s){ _kbS.sort=s; _kbRenderNoteList(); }
+function _kbSearch(v){
+  _kbS.search=v.trim();
+  const sx=document.getElementById('kb5srch-x');
+  if(sx) sx.style.display=v?'block':'none';
+  _kbRenderSidebar();
+}
+function _kbSearchClear(){
+  _kbS.search='';
+  const si=document.getElementById('kb5srch'); if(si) si.value='';
+  const sx=document.getElementById('kb5srch-x'); if(sx) sx.style.display='none';
+  _kbRenderSidebar();
+}
 
 // ══════════════════════════════════════════════════════════════
-// EDITOR ENGINE
+// EDITOR ACTIONS
 // ══════════════════════════════════════════════════════════════
-function _kbTE(){
-  if(_kbS.edit){_kbFlush3();_kbS.edit=false;_kbRED();_kbRNL();_kbSSV('saved');}
-  else{_kbS.edit=true;_kbRED();setTimeout(()=>{const e=document.getElementById('kb3area');if(e)e.focus();},60);}
-}
-function _kbTP(){const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);if(!n)return;n.pinned=!n.pinned;_kbSave3();_kbRS();_kbRNL();_kbRED();}
-function _kbCopy(){
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);
-  if(!n)return;
-  navigator.clipboard.writeText(`${n.title||''}\n\n${_kbStrip(n.body||'')}`).then(()=>_kbSSV('copied'));
-}
-function _kbOnSearch(v){_kbS.search=v.trim();_kbS.cat=v.trim()?_kbS.cat:_kbS.cat;_kbRNL();}
-
-function _kbFlush3(){
-  const ea=document.getElementById('kb3area'), ti=document.getElementById('kb3title');
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note); if(!n)return;
-  if(ea)n.body=ea.innerHTML;
-  if(ti)n.title=ti.value.trim()||'Без названия';
-  n.updatedAt=Date.now();_kbSave3();
-}
-function _kbEI(){
-  _kbSSV('saving');
-  clearTimeout(_kbSaveTimer);
-  _kbSaveTimer = setTimeout(() => {
-    // Save the note body without touching the DOM
-    _kbFlush3();
-    _kbSSV('saved');
-
-    // Update word count / read time in status bar (no DOM rebuild)
-    const ea = document.getElementById('kb3area');
-    if(ea){
-      const wc = _kbWC(ea.innerHTML);
-      const w = document.getElementById('kb3wc');
-      const r = document.getElementById('kb3rt');
-      const m = document.getElementById('k3meta-wc'); // meta line in header
-      if(w) w.textContent = `${wc} сл`;
-      if(r) r.textContent = `~${Math.max(1, Math.ceil(wc/200))} мин`;
-      if(m) m.textContent = `${wc} слов · ~${Math.max(1, Math.ceil(wc/200))} мин`;
-    }
-
-    // Silently refresh sidebar note list WITHOUT rebuilding the editor DOM
-    _kbRNLSilent();
-  }, 1200);
-}
-function _kbEK(e){
-  const cm=e.ctrlKey||e.metaKey;
-  if(cm&&e.key==='s'){e.preventDefault();_kbFlush3();_kbSSV('saved');return;}
-  if(cm&&e.key==='b'){e.preventDefault();_kbR('bold');return;}
-  if(cm&&e.key==='i'){e.preventDefault();_kbR('italic');return;}
-  if(cm&&e.key==='u'){e.preventDefault();_kbR('underline');return;}
-  if(cm&&e.key==='k'){e.preventDefault();_kbLink();return;}
-  if(cm&&e.shiftKey&&e.key==='F'){e.preventDefault();_kbTogFocus();return;}
-  if(e.key==='Tab'){e.preventDefault();document.execCommand('insertText',false,'    ');return;}
-  if(e.key==='Escape'){_kbFlush3();_kbS.edit=false;_kbRED();return;}
-  // ── Ctrl+A: select all content including todo items ─────────────
-  if(cm&&e.key==='a'){
-    e.preventDefault();
-    const ea=document.getElementById('kb3area');
-    if(ea){
-      const r=document.createRange();
-      r.selectNodeContents(ea);
-      const sel=window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(r);
-    }
-    return;
-  }
-  // ── Delete/Backspace on todo when entire area selected ───────────
-  if((e.key==='Delete'||e.key==='Backspace')&&cm===false){
-    const selDel=window.getSelection();
-    if(selDel&&!selDel.isCollapsed){
-      const ea=document.getElementById('kb3area');
-      if(ea){
-        // If selection spans the whole editor, clear it properly
-        const r=selDel.getRangeAt(0);
-        if(r.startContainer===ea||r.startOffset===0){
-          // Let browser handle, but clean up orphan todos after
-          setTimeout(()=>{
-            ea.querySelectorAll('label.k3todo').forEach(lbl=>{
-              if(!lbl.isConnected||!lbl.textContent.trim()) lbl.remove();
-            });
-            _kbEI();
-          },0);
-        }
-      }
-    }
-  }
-
-  // ── Walk DOM backwards from cursor to get current line text ─────
-  function _lineText(){
-    const sel=window.getSelection();
-    if(!sel||!sel.rangeCount)return'';
-    const range=sel.getRangeAt(0);
-    let node=range.startContainer;
-    let text='';
-    // Collect text before cursor in current text node
-    if(node.nodeType===3){
-      text=node.textContent.slice(0,range.startOffset);
-      node=node.previousSibling;
-    } else {
-      for(let i=range.startOffset-1;i>=0;i--){
-        const ch=node.childNodes[i];
-        if(!ch)continue;
-        if(ch.nodeName==='BR')break;
-        text=(ch.textContent||'')+text;
-      }
-      node=null;
-    }
-    // Walk back through siblings
-    while(node){
-      if(node.nodeName==='BR')break;
-      text=(node.textContent||'')+text;
-      node=node.previousSibling;
-    }
-    return text;
-  }
-
-  // ── ENTER key ────────────────────────────────────────────────────
-  if(e.key==='Enter'){
-    // ── Exit blockquote on double Enter (empty line inside blockquote) ──
-    const selBQ=window.getSelection();
-    if(selBQ&&selBQ.rangeCount){
-      const rngBQ=selBQ.getRangeAt(0);
-      const nodeBQ=rngBQ.startContainer;
-      const elBQ=nodeBQ.nodeType===3?nodeBQ.parentElement:nodeBQ;
-      const bq=elBQ&&typeof elBQ.closest==='function'?elBQ.closest('blockquote'):null;
-      if(bq){
-        // Check if current line inside blockquote is empty
-        const lineText=(nodeBQ.nodeType===3?nodeBQ.textContent:elBQ.textContent)||'';
-        const isEmptyLine=lineText.trim()===''||(nodeBQ.nodeType===3&&nodeBQ.textContent==='\n');
-        if(isEmptyLine){
-          e.preventDefault();
-          // Remove the empty trailing <br> or <div> inside blockquote if present
-          const last=bq.lastChild;
-          if(last&&((last.nodeName==='BR')||(last.nodeName==='DIV'&&last.textContent.trim()==='')||(last.nodeType===3&&last.textContent.trim()==='')))
-            bq.removeChild(last);
-          // Insert a paragraph AFTER the blockquote
-          const p=document.createElement('p');
-          p.innerHTML='​'; // zero-width space as placeholder
-          if(bq.nextSibling) bq.parentNode.insertBefore(p,bq.nextSibling);
-          else bq.parentNode.appendChild(p);
-          // Move cursor into new paragraph
-          const r=document.createRange();
-          r.setStart(p,0); r.collapse(true);
-          selBQ.removeAllRanges(); selBQ.addRange(r);
-          // Clear placeholder on first keystroke
-          p.addEventListener('keydown',function clr(ev){
-            if(ev.key!=='Backspace'&&ev.key!=='Delete'){
-              if(p.textContent==='​'){ p.textContent=''; }
-            }
-            p.removeEventListener('keydown',clr);
-          },{once:true});
-          _kbEI();
-          return;
-        }
-      }
-    }
-
-    // ── Detect if cursor is INSIDE a todo item span ──────────────
-    const selEK=window.getSelection();
-    if(selEK&&selEK.rangeCount){
-      const rng=selEK.getRangeAt(0);
-      const cont=rng.startContainer;
-      const el=cont.nodeType===3?cont.parentElement:cont;
-      const todoLbl=el&&typeof el.closest==='function'?el.closest('label.k3todo'):null;
-      if(todoLbl){
-        e.preventDefault();
-        const txtSpan=todoLbl.querySelector('span:not(.k3todo-box)');
-        const isEmpty=!(txtSpan&&txtSpan.textContent.trim());
-        if(isEmpty){
-          // Empty todo → remove it and insert a paragraph so cursor can continue
-          todoLbl.remove();
-          // Insert a real paragraph so Enter continues to work normally
-          document.execCommand('insertHTML',false,'<p>​</p>');
-          // Clean placeholder on next keystroke
-          const ea3=document.getElementById('kb3area');
-          if(ea3){
-            ea3.addEventListener('keydown',function clrTodo(ev){
-              ea3.querySelectorAll('p').forEach(p3=>{
-                if(p3.textContent==='​') p3.textContent='';
-              });
-              ea3.removeEventListener('keydown',clrTodo);
-            },{once:true});
-          }
-        } else {
-          // Create next todo after current
-          const id2='todo_'+Date.now();
-          todoLbl.insertAdjacentHTML('afterend',
-            '<label class="k3todo" contenteditable="false">'+
-            '<input type="checkbox" id="'+id2+'" style="display:none">'+
-            '<span class="k3todo-box" onclick="_kbTodoClick(this.parentNode)">'+
-            '<svg class="k3todo-check" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#09090B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'+
-            '</span>'+
-            '<span id="'+id2+'_s" contenteditable="true" style="font-style:normal"> </span>'+
-            '</label>');
-          setTimeout(()=>{
-            const sp=document.getElementById(id2+'_s');
-            if(sp){sp.focus();const r3=document.createRange();r3.selectNodeContents(sp);r3.collapse(false);window.getSelection().removeAllRanges();window.getSelection().addRange(r3);}
-          },10);
-        }
-        _kbEI();
-        return;
-      }
-    }
-
-    // ── Exit UL/OL list on empty list item (double Enter) ──────────
-    const selLI=window.getSelection();
-    if(selLI&&selLI.rangeCount){
-      const rngLI=selLI.getRangeAt(0);
-      const nodeLI=rngLI.startContainer;
-      const elLI=nodeLI.nodeType===3?nodeLI.parentElement:nodeLI;
-      const li=elLI&&typeof elLI.closest==='function'?elLI.closest('li'):null;
-      const lst=li&&(li.closest('ul')||li.closest('ol'));
-      if(li&&lst){
-        // Check if this list item is empty
-        const liText=li.textContent||'';
-        if(liText.trim()===''){
-          e.preventDefault();
-          // Remove the empty li
-          const parent=li.parentNode;
-          li.remove();
-          // If list is now empty, remove the list element itself
-          if(parent&&parent.children.length===0) parent.remove();
-          // Insert paragraph after list
-          const p=document.createElement('p');
-          p.innerHTML='​';
-          const listEl=document.querySelector('#kb3area ul, #kb3area ol');
-          // Find the list in editor and insert after it, or just at cursor
-          document.execCommand('insertHTML',false,'<p>​</p>');
-          // Clean zero-width spaces on next keystroke
-          const ea2=document.getElementById('kb3area');
-          if(ea2){
-            const cleanup=()=>{
-              ea2.querySelectorAll('p').forEach(p2=>{
-                if(p2.textContent==='​') p2.textContent='';
-              });
-              ea2.removeEventListener('keydown',cleanup);
-            };
-            ea2.addEventListener('keydown',cleanup,{once:true});
-          }
-          _kbEI();
-          return;
-        }
-      }
-    }
-
-    // Normal enter — browser handles it
-  }
-
-  // ── BACKSPACE key → delete todo item when at start ───────────────
-  if(e.key==='Backspace'){
-    const selBS=window.getSelection();
-    if(selBS&&selBS.rangeCount){
-      const rng=selBS.getRangeAt(0);
-      const cont=rng.startContainer;
-      const el=cont.nodeType===3?cont.parentElement:cont;
-      const todoLbl=el&&typeof el.closest==='function'?el.closest('label.k3todo'):null;
-      if(todoLbl&&rng.startOffset===0){
-        // Cursor at very start of todo text → delete whole todo item
-        e.preventDefault();
-        todoLbl.remove();
-        _kbEI();
-        return;
-      }
-    }
-  }
-
-  // ── SPACE key → auto-transform ──────────────────────────────────
-  if(e.key===' '){
-    const sel=window.getSelection();
-    if(!sel||!sel.rangeCount)return;
-    const range=sel.getRangeAt(0);
-    const node=range.startContainer;
-    if(node.nodeType!==3)return;
-    const text=node.textContent.slice(0,range.startOffset);
-
-    // "-" + space → bullet
-    if(text==='-'){
-      e.preventDefault();
-      const r2=range.cloneRange();
-      r2.setStart(node,range.startOffset-1);
-      r2.setEnd(node,range.startOffset);
-      r2.deleteContents();
-      document.execCommand('insertText',false,'• ');
-      return;
-    }
-
-    // "[]" + space → todo checkbox
-    if(text==='[]'){
-      e.preventDefault();
-      const r2=range.cloneRange();
-      r2.setStart(node,range.startOffset-2);
-      r2.setEnd(node,range.startOffset);
-      r2.deleteContents();
-      const id='todo_'+Date.now();
-      document.execCommand('insertHTML',false,
-        '<label class="k3todo" contenteditable="false">'+
-        '<input type="checkbox" id="'+id+'" style="display:none">'+
-        '<span class="k3todo-box" onclick="_kbTodoClick(this.parentNode)">'+
-        '<svg class="k3todo-check" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#09090B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'+
-        '</span>'+
-        '<span id="'+id+'_s" contenteditable="true" style="font-style:normal"> </span>'+
-        '</label>');
-      setTimeout(()=>{
-        const sp=document.getElementById(id+'_s');
-        if(sp){sp.focus();const r=document.createRange();r.selectNodeContents(sp);r.collapse(false);window.getSelection().removeAllRanges();window.getSelection().addRange(r);}
-      },10);
-      return;
-    }
-  }
-}
-function _kbTI(v){
-  clearTimeout(_kbSaveTimer);
-  _kbSaveTimer=setTimeout(()=>{
-    const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);
-    if(n){n.title=v;n.updatedAt=Date.now();_kbSave3();}
-  },600);
-}
-function _kbTB(){
-  const ti=document.getElementById('kb3title'),n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);
-  if(n&&ti){n.title=ti.value.trim()||'Без названия';n.updatedAt=Date.now();_kbSave3();_kbRS();_kbRNL();}
-}
-function _kbSSV(t){
-  const el=document.getElementById('kb3sv');if(!el)return;
-  if(t==='saving'){el.textContent='● Сохранение...';el.className='k3saving';}
-  else if(t==='saved'){el.textContent='✓ Сохранено';el.className='k3saved';setTimeout(()=>{if(el.className==='k3saved'){el.textContent='';el.className='';}},2200);}
-  else if(t==='copied'){el.textContent='✓ Скопировано';el.className='k3saved';setTimeout(()=>{el.textContent='';el.className='';},2000);}
-  else if(t==='moved'){el.textContent='✓ Перемещено';el.className='k3saved';setTimeout(()=>{el.textContent='';el.className='';},2000);}
-  else if(t==='duped'){el.textContent='✓ Дублировано';el.className='k3saved';setTimeout(()=>{el.textContent='';el.className='';},2000);}
-}
-// ── Font map ─────────────────────────────────────────
-const _kbFontMap = {
-  inter:       { family: "'Inter','DM Sans',sans-serif",        size: '15px', lh: '1.78' },
-  lora:        { family: "'Lora',Georgia,serif",                size: '15.5px', lh: '1.85' },
-  merriweather:{ family: "'Merriweather',Georgia,serif",        size: '14.5px', lh: '1.9'  },
-  playfair:    { family: "'Playfair Display',Georgia,serif",    size: '15.5px', lh: '1.8'  },
-  nunito:      { family: "'Nunito','DM Sans',sans-serif",       size: '15.5px', lh: '1.82' },
-  crimson:     { family: "'Crimson Pro',Georgia,serif",         size: '17px',   lh: '1.85' },
-};
-
-function _kbInsTodo(){
-  const id='todo_'+Date.now();
-  document.getElementById('kb3area')?.focus();
-  document.execCommand('insertHTML',false,
-    '<label class="k3todo" contenteditable="false">'+
-    '<input type="checkbox" id="'+id+'" style="display:none">'+
-    '<span class="k3todo-box" onclick="_kbTodoClick(this.parentNode)">'+
-    '<svg class="k3todo-check" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#09090B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'+
-    '</span>'+
-    '<span id="'+id+'_s" contenteditable="true" style="font-style:normal"> </span>'+
-    '</label>');
-  setTimeout(()=>{
-    const sp=document.getElementById(id+'_s');
-    if(sp){sp.focus();const r=document.createRange();r.selectNodeContents(sp);r.collapse(false);window.getSelection().removeAllRanges();window.getSelection().addRange(r);}
-  },20);
-  _kbEI();
-}
-window._kbTodoClick=function(lbl){
-  if(!lbl)return;
-  // Use 'done' class as source of truth (it persists in saved HTML)
-  const wasDone = lbl.classList.contains('done');
-  lbl.classList.toggle('done', !wasDone);
-  const cb=lbl.querySelector('input[type=checkbox]');
-  if(cb) cb.checked = !wasDone;
-
-  // Save regardless of edit or view mode
+let _kbAutoSaveT=null;
+function _kbAutoSave(){
+  clearTimeout(_kbAutoSaveT);
+  const area=document.getElementById('kb5area');
+  const title=document.getElementById('kb5title');
   const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);
   if(!n) return;
-
-  const ea=document.getElementById('kb3area');
-  if(ea){
-    // Edit mode — read from contenteditable
-    n.body=ea.innerHTML;
-  } else {
-    // View mode — read from the rendered view div
-    const view=document.querySelector('#kb3edc .k3view');
-    if(view) n.body=view.innerHTML;
-  }
+  if(area) n.body=area.innerHTML;
+  if(title) n.title=title.value.trim()||'Без названия';
   n.updatedAt=Date.now();
   _kbSave3();
-};
-window._kbTodoCh=function(cb){
-  const lbl=cb.closest('label');
-  if(lbl)lbl.classList.toggle('done',cb.checked);
-  _kbEI();
-};
+}
+function _kbEdInput(){
+  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note); if(!n) return;
+  const area=document.getElementById('kb5area');
+  _kbSSV5('saving');
+  clearTimeout(_kbAutoSaveT);
+  _kbAutoSaveT=setTimeout(()=>{
+    if(area) n.body=area.innerHTML;
+    n.updatedAt=Date.now(); _kbSave3();
+    const wc=document.getElementById('kb5wc');
+    if(wc) wc.textContent=`${_kbWC(area?area.innerHTML:'')} слов · ~${Math.max(1,Math.ceil(_kbWC(area?area.innerHTML:'')/200))} мин`;
+    // Update note list silently (just re-render note list cards)
+    _kbRenderNoteList();
+    // Update sidebar recent
+    _kbRenderSidebar();
+    _kbSSV5('saved');
+  }, 800);
+}
+function _kbTitleInput(){
+  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note); if(!n) return;
+  const ti=document.getElementById('kb5title');
+  clearTimeout(_kbAutoSaveT);
+  _kbAutoSaveT=setTimeout(()=>{
+    if(ti) n.title=ti.value.trim()||'Без названия';
+    n.updatedAt=Date.now(); _kbSave3();
+    _kbRenderNoteList(); _kbRenderSidebar(); _kbSSV5('saved');
+  },600);
+}
+function _kbSSV5(s){
+  const el=document.getElementById('kb5sv'); if(!el) return;
+  if(s==='saving'){ el.textContent='● Сохранение…'; el.className='kb5-sv saving'; }
+  else if(s==='saved'){ el.textContent='✓ Сохранено'; el.className='kb5-sv saved'; setTimeout(()=>{ if(el.className==='kb5-sv saved'){ el.textContent=''; el.className='kb5-sv'; } },2000); }
+  else { el.textContent=''; el.className='kb5-sv'; }
+}
 
-// ── Saved selection for toolbar buttons (Fix: format jumps to line 1) ──
-let _kbSavedRange=null;
-function _kbSaveSelection(){
-  const sel=window.getSelection();
-  if(sel&&sel.rangeCount){ _kbSavedRange=sel.getRangeAt(0).cloneRange(); }
+// ── Toolbar commands ──────────────────────────────────────────
+function _kbFmt(cmd,val){
+  const ea=document.getElementById('kb5area'); if(!ea) return;
+  if(document.activeElement!==ea){ ea.focus(); _kbRestSel(); }
+  document.execCommand(cmd,false,val||null);
+  _kbSel=null;
 }
-function _kbRestoreSelection(){
-  if(!_kbSavedRange) return;
-  const sel=window.getSelection();
-  sel.removeAllRanges();
-  sel.addRange(_kbSavedRange);
+function _kbFmtBlock(tag,label){
+  _kbRestSel();
+  const ea=document.getElementById('kb5area'); if(!ea) return;
+  ea.focus();
+  document.execCommand('formatBlock',false,tag);
+  const lbl=document.getElementById('kb5styleLbl'); if(lbl) lbl.textContent=label;
+  _kbCloseDD('kb5styleList'); _kbSel=null;
 }
-
-// ── Close all dropdowns ──────────────────────────────────────────
-function _kbCloseAllDD(){
-  const fl=document.getElementById('kb3fontlist');
-  const sl=document.getElementById('kb3stylelist');
-  if(fl) fl.style.display='none';
-  if(sl) sl.style.display='none';
+function _kbTogDD(id){
+  _kbSaveSel();
+  document.querySelectorAll('.kb5-ddlist').forEach(d=>{ if(d.id!==id) d.style.display='none'; });
+  const el=document.getElementById(id); if(!el) return;
+  el.style.display=el.style.display==='none'?'block':'none';
 }
-function _kbFontDDToggle(e){
-  e.stopPropagation();
-  _kbSaveSelection(); // save before focus leaves editor
-  const list=document.getElementById('kb3fontlist');
-  if(!list) return;
-  const sl=document.getElementById('kb3stylelist');
-  if(sl) sl.style.display='none'; // always close style dd
-  const isOpen=list.style.display!=='none';
-  list.style.display=isOpen?'none':'block';
-}
-function _kbFontDDClose(){
-  const list=document.getElementById('kb3fontlist');
-  if(list) list.style.display='none';
-}
-function _kbStyleDDToggle(e){
-  e.stopPropagation();
-  _kbSaveSelection(); // save before focus leaves editor
-  const list=document.getElementById('kb3stylelist');
-  if(!list) return;
-  const fl=document.getElementById('kb3fontlist');
-  if(fl) fl.style.display='none'; // always close font dd
-  const isOpen=list.style.display!=='none';
-  list.style.display=isOpen?'none':'block';
-}
-function _kbStyleDDClose(){
-  const list=document.getElementById('kb3stylelist');
-  if(list) list.style.display='none';
-}
-document.addEventListener('click', function(e){
-  if(!e.target.closest('#kb3fontdd')) _kbFontDDClose();
-  if(!e.target.closest('#kb3styledd')) _kbStyleDDClose();
+function _kbCloseDD(id){ const el=document.getElementById(id); if(el) el.style.display='none'; }
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.kb5-dd')){
+    document.querySelectorAll('.kb5-ddlist').forEach(d=>d.style.display='none');
+  }
 });
-// ── Prevent toolbar mousedown from stealing editor focus/selection ──
-document.addEventListener('mousedown', function(e){
-  const tb=document.getElementById('kb3tb');
-  if(tb&&tb.contains(e.target)){
-    const tag=e.target.tagName;
-    // Allow input/select elements inside toolbar to behave normally
-    if(tag!=='INPUT'&&tag!=='SELECT'&&tag!=='TEXTAREA'){
-      _kbSaveSelection(); // capture selection BEFORE focus moves
-      e.preventDefault(); // prevent editor blur on toolbar click
+
+// ── Insert todo ───────────────────────────────────────────────
+function _kbInsTodo(){
+  const ea=document.getElementById('kb5area'); if(!ea) return;
+  ea.focus();
+  const id='t'+Date.now();
+  document.execCommand('insertHTML',false,
+    `<div class="kb5-todo" contenteditable="false"><span class="kb5-chk" onclick="window._kbChk(this)"></span><span class="kb5-txt" id="${id}" contenteditable="true"> </span></div>`);
+  setTimeout(()=>{ const sp=document.getElementById(id); if(sp){ sp.focus(); placeCursorEnd(sp); } },20);
+  _kbEdInput();
+}
+window._kbChk=function(chk){
+  const todo=chk.closest('.kb5-todo'); if(!todo) return;
+  todo.classList.toggle('done');
+  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);
+  if(n){ const ea=document.getElementById('kb5area'); if(ea){ n.body=ea.innerHTML; n.updatedAt=Date.now(); _kbSave3(); } }
+};
+function placeCursorEnd(el){ const r=document.createRange(); r.selectNodeContents(el); r.collapse(false); const s=window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+
+// ── Keyboard handler ──────────────────────────────────────────
+function _kbEdKey(e){
+  const cm=e.ctrlKey||e.metaKey;
+  if(cm&&e.key==='s'){ e.preventDefault(); _kbAutoSave(); _kbSSV5('saved'); return; }
+  if(cm&&e.key==='b'){ e.preventDefault(); _kbFmt('bold'); return; }
+  if(cm&&e.key==='i'){ e.preventDefault(); _kbFmt('italic'); return; }
+  if(cm&&e.key==='u'){ e.preventDefault(); _kbFmt('underline'); return; }
+  if(cm&&e.key==='a'){ e.preventDefault(); const ea=document.getElementById('kb5area'); if(ea){ const r=document.createRange(); r.selectNodeContents(ea); const s=window.getSelection(); s.removeAllRanges(); s.addRange(r); } return; }
+  if(e.key==='Tab'){ e.preventDefault(); document.execCommand('insertText',false,'    '); return; }
+
+  if(e.key==='Enter'){
+    const sel=window.getSelection();
+    if(!sel||!sel.rangeCount) return;
+    const rng=sel.getRangeAt(0);
+    const node=rng.startContainer;
+    const el=node.nodeType===3?node.parentElement:node;
+
+    // Exit todo on Enter in empty todo span
+    const todoSpan=el&&typeof el.closest==='function'?el.closest('.kb5-txt'):null;
+    if(todoSpan){
+      e.preventDefault();
+      const todo=todoSpan.closest('.kb5-todo');
+      if(!todoSpan.textContent.trim()&&todo){
+        todo.remove();
+      } else {
+        // New todo below
+        const id='t'+Date.now();
+        const newTodo=document.createElement('div');
+        newTodo.className='kb5-todo'; newTodo.contentEditable='false';
+        newTodo.innerHTML=`<span class="kb5-chk" onclick="window._kbChk(this)"></span><span class="kb5-txt" id="${id}" contenteditable="true"> </span>`;
+        if(todo&&todo.nextSibling) todo.parentNode.insertBefore(newTodo,todo.nextSibling);
+        else document.getElementById('kb5area')?.appendChild(newTodo);
+        setTimeout(()=>{ const sp=document.getElementById(id); if(sp){ sp.focus(); placeCursorEnd(sp); } },10);
+      }
+      _kbEdInput(); return;
+    }
+
+    // Exit blockquote / list on empty line
+    const bq=el&&typeof el.closest==='function'?el.closest('blockquote'):null;
+    const li=el&&typeof el.closest==='function'?el.closest('li'):null;
+
+    if(bq&&(node.textContent||'').trim()===''){
+      e.preventDefault();
+      const last=bq.lastChild;
+      if(last&&(last.nodeName==='BR'||(last.nodeType===3&&!last.textContent.trim()))) bq.removeChild(last);
+      const p=document.createElement('p'); p.innerHTML='<br>';
+      if(bq.nextSibling) bq.parentNode.insertBefore(p,bq.nextSibling); else bq.parentNode.appendChild(p);
+      const r=document.createRange(); r.setStart(p,0); r.collapse(true);
+      sel.removeAllRanges(); sel.addRange(r);
+      _kbEdInput(); return;
+    }
+    if(li&&!(li.textContent||'').trim()){
+      e.preventDefault();
+      const lst=li.closest('ul')||li.closest('ol');
+      li.remove();
+      if(lst&&!lst.querySelector('li')) lst.remove();
+      document.execCommand('insertHTML',false,'<p><br></p>');
+      _kbEdInput(); return;
     }
   }
-},true);
-function _kbRBNamed(tag, label){
-  // Restore selection so formatBlock applies to correct block, not line 1
-  _kbRestoreSelection();
-  _kbRB(tag);
-  const lbl=document.getElementById('kb3stylelabel');
-  if(lbl) lbl.textContent=label;
-  _kbStyleDDClose();
-  _kbSavedRange=null;
-}
-function _kbFontDDUpdate(font){
-  const labels = {inter:'Inter',lora:'Lora',merriweather:'Merriweather',playfair:'Playfair',nunito:'Nunito',crimson:'Crimson'};
-  const lbl = document.getElementById('kb3fontlabel');
-  if(lbl) lbl.textContent = labels[font]||'Inter';
-  const f = _kbFontMap[font]||_kbFontMap.inter;
-  if(lbl) lbl.style.fontFamily = f.family;
-  document.querySelectorAll('.k3font-opt').forEach(o=>{
-    const isActive = o.dataset.font===font;
-    o.classList.toggle('active', isActive);
-  });
-  _kbFontDDClose();
-}
 
-function _kbSetFont(font){
-  if(!font)return;
-  _kbS.font=font;
-  const f=_kbFontMap[font]||_kbFontMap.inter;
-  // Apply to editor
-  const ea=document.getElementById('kb3area');
-  if(ea){
-    ea.style.fontFamily=f.family;
-    ea.style.fontSize=f.size;
-    ea.style.lineHeight=f.lh;
-    ea.style.fontStyle='normal';
-    ea.style.fontWeight='400';
-    // Reset italic execCommand state if active — prevents sticky italic on font switch
-    try{
-      if(document.queryCommandState('italic')){
-        ea.focus();
-        document.execCommand('italic',false,null);
+  if(e.key==='Backspace'){
+    const sel=window.getSelection();
+    if(sel&&sel.rangeCount){
+      const rng=sel.getRangeAt(0);
+      const el=(rng.startContainer.nodeType===3?rng.startContainer.parentElement:rng.startContainer);
+      const todoSpan=el&&typeof el.closest==='function'?el.closest('.kb5-txt'):null;
+      if(todoSpan&&rng.startOffset<=1&&todoSpan.textContent.trim()===''){
+        e.preventDefault();
+        todoSpan.closest('.kb5-todo')?.remove();
+        _kbEdInput(); return;
       }
-    }catch(e){}
-  }
-  // Apply to view
-  const vw=document.querySelector('.k3view');
-  if(vw){ vw.style.fontFamily=f.family; vw.style.fontSize=f.size; vw.style.lineHeight=f.lh; vw.style.fontStyle='normal'; }
-  // Update dropdown UI
-  _kbFontDDUpdate(font);
-  // Update legacy select if exists
-  const sel=document.getElementById('kb3fontsel');
-  if(sel)sel.value=font;
-  // Save per note
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);
-  if(n){n.font=font;n.updatedAt=Date.now();_kbSave3();}
-}
-
-function _kbApplyFont(font){
-  // Apply font on note open without saving
-  const f=_kbFontMap[font||'inter']||_kbFontMap.inter;
-  const ea=document.getElementById('kb3area');
-  if(ea){ ea.style.fontFamily=f.family; ea.style.fontSize=f.size; ea.style.lineHeight=f.lh; ea.style.fontStyle='normal'; ea.style.fontWeight='400'; }
-  const vw=document.querySelector('.k3view');
-  if(vw){ vw.style.fontFamily=f.family; vw.style.fontSize=f.size; vw.style.lineHeight=f.lh; vw.style.fontStyle='normal'; }
-  _kbFontDDUpdate(font||'inter');
-  _kbS.font=font||'inter';
-  // Reset style label to default on every note open
-  const lbl=document.getElementById('kb3stylelabel');
-  if(lbl) lbl.textContent='Стиль';
-  _kbSavedRange=null;
-}
-
-function _kbR(cmd,val){
-  const ea=document.getElementById('kb3area');
-  if(!ea) return;
-  // If editor lost focus (toolbar click), restore saved selection first
-  if(document.activeElement!==ea&&_kbSavedRange){
-    ea.focus();
-    _kbRestoreSelection();
-  } else {
-    ea.focus();
-  }
-  document.execCommand(cmd,false,val||null);
-  _kbSavedRange=null;
-}
-
-// ── Uppercase ────────────────────────────────────────
-function _kbUppercase(){
-  const ea=document.getElementById('kb3area');if(!ea)return;ea.focus();
-  const sel=window.getSelection();
-  if(!sel||sel.rangeCount===0||sel.isCollapsed){return;}
-  const range=sel.getRangeAt(0);
-  const txt=range.toString();if(!txt)return;
-  range.deleteContents();
-  range.insertNode(document.createTextNode(txt.toUpperCase()));
-  _kbEI();
-}
-
-// ── Table toolbar ────────────────────────────────────
-let _kbTBTBtarget=null;
-document.addEventListener('click',function(e){
-  if(e.target.closest('#kb3tbtb'))return;
-  const cell=e.target.closest('#kb3area td,#kb3area th');
-  if(cell){_kbShowTableTB(cell);}
-  else{_kbHideTBTB();}
-});
-function _kbShowTableTB(cell){
-  const tbtb=document.getElementById('kb3tbtb');if(!tbtb)return;
-  _kbTBTBtarget=cell;
-  const table=cell.closest('table');
-  tbtb.style.cssText='display:flex;align-items:center;gap:2px;flex-wrap:wrap;position:fixed;background:var(--panel);border:0.5px solid var(--border);border-radius:10px;padding:5px 8px;box-shadow:0 8px 32px rgba(0,0,0,.65);z-index:500;backdrop-filter:blur(8px)';
-  tbtb.innerHTML=`<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)">Таблица</span>
-    <div style="width:0.5px;height:14px;background:var(--border);margin:0 3px"></div>
-    <!-- Добавить строки -->
-    <span style="font-size:9px;color:var(--t3);font-weight:600;letter-spacing:.04em;margin-right:1px">Строка</span>
-    <button class="k3tb" onclick="_kbTBAddRow(false)" title="Добавить строку выше" style="display:flex;align-items:center;gap:3px;width:auto;padding:0 7px;font-size:10px;font-weight:600">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>+
-    </button>
-    <button class="k3tb" onclick="_kbTBAddRow(true)" title="Добавить строку ниже" style="display:flex;align-items:center;gap:3px;width:auto;padding:0 7px;font-size:10px;font-weight:600">
-      +<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-    </button>
-    <div style="width:0.5px;height:14px;background:var(--border);margin:0 2px"></div>
-    <!-- Добавить столбцы -->
-    <span style="font-size:9px;color:var(--t3);font-weight:600;letter-spacing:.04em;margin-right:1px">Столбец</span>
-    <button class="k3tb" onclick="_kbTBAddCol(false)" title="Добавить столбец слева" style="display:flex;align-items:center;gap:3px;width:auto;padding:0 7px;font-size:10px;font-weight:600">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>+
-    </button>
-    <button class="k3tb" onclick="_kbTBAddCol(true)" title="Добавить столбец справа" style="display:flex;align-items:center;gap:3px;width:auto;padding:0 7px;font-size:10px;font-weight:600">
-      +<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-    </button>
-    <div style="width:0.5px;height:14px;background:var(--border);margin:0 2px"></div>
-    <!-- Удалить -->
-    <button class="k3tb" onclick="_kbTBDelRow()" title="Удалить строку" style="display:flex;align-items:center;gap:3px;color:var(--red);width:auto;padding:0 7px;font-size:10px;font-weight:600">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>Строка
-    </button>
-    <button class="k3tb" onclick="_kbTBDelCol()" title="Удалить столбец" style="display:flex;align-items:center;gap:3px;color:var(--red);width:auto;padding:0 7px;font-size:10px;font-weight:600">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>Столбец
-    </button>
-    <div style="width:0.5px;height:14px;background:var(--border);margin:0 2px"></div>
-    <!-- Цвета -->
-    <label class="k3tb" style="width:auto;padding:0 8px;gap:4px;cursor:pointer;font-size:10px;color:var(--t3);font-weight:600" title="Цвет рамки таблицы">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
-      Рамка
-      <input type="color" value="#3a3a40" onchange="_kbTBBorder(this.value)" style="width:14px;height:14px;border:none;border-radius:3px;padding:0;cursor:pointer;background:none;outline:none;vertical-align:middle">
-    </label>
-    <label class="k3tb" style="width:auto;padding:0 8px;gap:4px;cursor:pointer;font-size:10px;color:var(--t3);font-weight:600" title="Фон выбранной ячейки">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/></svg>
-      Ячейка
-      <input type="color" value="#1a1a1e" onchange="_kbTBCellBg(this.value)" style="width:14px;height:14px;border:none;border-radius:3px;padding:0;cursor:pointer;background:none;outline:none;vertical-align:middle">
-    </label>
-    <div style="width:0.5px;height:14px;background:var(--border);margin:0 2px"></div>
-    <button class="k3tb" onclick="_kbTBDelTable()" style="display:flex;align-items:center;gap:4px;color:var(--red);width:auto;padding:0 8px;font-size:10px;font-weight:600">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg>Таблицу
-    </button>`;
-  const cellRect=cell.getBoundingClientRect();
-  tbtb.style.position='fixed';tbtb.style.top=(cellRect.top-40)+'px';tbtb.style.left=cellRect.left+'px';
-  tbtb.style.maxWidth='700px';tbtb.style.zIndex='500';
-}
-function _kbHideTBTB(){const t=document.getElementById('kb3tbtb');if(t)t.style.display='none';_kbTBTBtarget=null;}
-function _kbTBAddRow(below){const cell=_kbTBTBtarget;if(!cell)return;const row=cell.closest('tr');const cols=row.cells.length;const nr=document.createElement('tr');for(let i=0;i<cols;i++){const td=document.createElement('td');td.style.cssText='padding:10px 14px;border:1.5px solid rgba(255,255,255,.12)';td.textContent='';nr.appendChild(td);}if(below)row.after(nr);else row.before(nr);_kbEI();}
-function _kbTBAddCol(right){const cell=_kbTBTBtarget;if(!cell)return;const idx=cell.cellIndex;const table=cell.closest('table');table.querySelectorAll('tr').forEach((row,ri)=>{const nc=ri===0?document.createElement('th'):document.createElement('td');nc.style.cssText=ri===0?'background:rgba(255,255,255,.06);padding:10px 14px;border:1.5px solid rgba(255,255,255,.18);font-weight:600;font-size:11.5px;color:#A8A8B0':'padding:10px 14px;border:1.5px solid rgba(255,255,255,.12)';nc.textContent='';const ref=row.cells[right?idx+1:idx];if(ref)row.insertBefore(nc,ref);else row.appendChild(nc);});_kbEI();}
-function _kbTBDelRow(){const cell=_kbTBTBtarget;if(!cell)return;const row=cell.closest('tr');const table=cell.closest('table');if(table.querySelectorAll('tr').length<=1){_kbTBDelTable();return;}row.remove();_kbHideTBTB();_kbEI();}
-function _kbTBDelCol(){const cell=_kbTBTBtarget;if(!cell)return;const idx=cell.cellIndex;const table=cell.closest('table');if(table.rows[0]?.cells.length<=1){_kbTBDelTable();return;}table.querySelectorAll('tr').forEach(row=>{if(row.cells[idx])row.cells[idx].remove();});_kbHideTBTB();_kbEI();}
-function _kbTBDelTable(){const cell=_kbTBTBtarget;if(!cell)return;cell.closest('table')?.remove();_kbHideTBTB();_kbEI();}
-function _kbTBBorder(color){const cell=_kbTBTBtarget;if(!cell)return;cell.closest('table')?.querySelectorAll('td,th').forEach(c=>{c.style.border=`1.5px solid ${color}`;});_kbEI();}
-function _kbTBCellBg(color){const cell=_kbTBTBtarget;if(!cell)return;cell.style.backgroundColor=color;_kbEI();}
-
-// ── Reading mode ─────────────────────────────────────
-let _kbReadThemeState='dark';
-let _kbReadFontSize=18;
-let _kbReadFontFamily='nunito';
-let _kbReadWidthVal=720;
-
-function _kbReadMode(){
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);if(!n)return;
-  const rm=document.getElementById('kb3read');if(!rm)return;
-  document.getElementById('kb3read-inner').innerHTML=n.body||'<p style="opacity:.4;font-style:italic">Пусто</p>';
-  document.getElementById('kb3read-title').textContent=n.title||'Без названия';
-  const wc=_kbWC(n.body||'');
-  const mins=Math.max(1,Math.ceil(wc/200));
-  document.getElementById('kb3read-meta').textContent=wc+' слов · ~'+mins+' мин';
-  rm.style.display='flex';
-  document.getElementById('kb3read-body')?.scrollTo({ top: 0, behavior: 'smooth' });
-  document.getElementById('kb3read-prog').style.width='0%';
-  // Apply saved preferences
-  _kbReadApplyFont(_kbReadFontFamily);
-  _kbReadApplySize(_kbReadFontSize);
-  _kbReadApplyTheme(_kbReadThemeState);
-  _kbReadApplyWidthVal(_kbReadWidthVal);
-}
-
-function _kbReadClose(){
-  const rm=document.getElementById('kb3read');
-  if(rm){ rm.style.opacity='0'; rm.style.transition='opacity .2s'; setTimeout(()=>{rm.style.display='none';rm.style.opacity='';rm.style.transition='';},200); }
-}
-
-function _kbReadTheme(t){
-  _kbReadThemeState=t;
-  _kbReadApplyTheme(t);
-}
-function _kbReadApplyTheme(t){
-  const rm=document.getElementById('kb3read');if(!rm)return;
-  const themes={
-    dark:{bg:'#0f0f12',fg:'#e8e6de',bar:'rgba(255,255,255,.06)'},
-    sepia:{bg:'#f5edd8',fg:'#3a2e1a',bar:'rgba(0,0,0,.08)'},
-    light:{bg:'#f8f8f5',fg:'#1a1a1a',bar:'rgba(0,0,0,.06)'}
-  };
-  const th=themes[t]||themes.dark;
-  rm.style.background=th.bg; rm.style.color=th.fg;
-  rm.className=rm.className.replace(/theme-\w+/g,'').trim()+' theme-'+t;
-  document.getElementById('kb3read-bar').style.borderBottomColor=th.bar;
-  // Update theme buttons
-  ['dark','sepia','light'].forEach(x=>{
-    const btn=document.getElementById('kb3rd-'+x);if(!btn)return;
-    btn.style.border=x===t?'2.5px solid #F5C842':'0.5px solid rgba(128,128,128,.25)';
-    btn.style.transform=x===t?'scale(1.15)':'scale(1)';
-  });
-}
-
-function _kbReadFont(f){
-  _kbReadFontFamily=f;
-  _kbReadApplyFont(f);
-}
-function _kbReadApplyFont(f){
-  const rm=document.getElementById('kb3read');if(!rm)return;
-  rm.className=rm.className.replace(/font-\w+/g,'').trim()+' font-'+f;
-  document.querySelectorAll('.kb3rd-font').forEach(b=>{
-    const active=b.dataset.font===f;
-    b.style.background=active?'rgba(245,200,66,.12)':'rgba(255,255,255,.05)';
-    b.style.borderColor=active?'rgba(245,200,66,.4)':'rgba(255,255,255,.1)';
-    b.style.color=active?'#F5C842':'inherit';
-  });
-}
-
-function _kbReadSize(sz){
-  _kbReadFontSize=sz;
-  _kbReadApplySize(sz);
-}
-function _kbReadApplySize(sz){
-  const inner=document.getElementById('kb3read-inner');if(inner)inner.style.fontSize=sz+'px';
-  document.querySelectorAll('.kb3rd-sz').forEach(b=>{
-    const active=parseInt(b.dataset.sz)===sz;
-    b.style.background=active?'rgba(245,200,66,.12)':'rgba(255,255,255,.05)';
-    b.style.borderColor=active?'rgba(245,200,66,.4)':'rgba(255,255,255,.1)';
-    b.style.color=active?'#F5C842':'inherit';
-  });
-}
-
-window._kbReadWidth=function(w){
-  _kbReadWidthVal=w;
-  _kbReadApplyWidthVal(w);
-};
-function _kbReadApplyWidthVal(w){
-  const inner=document.getElementById('kb3read-inner');if(inner)inner.style.maxWidth=w+'px';
-  document.querySelectorAll('.kb3rd-w').forEach(b=>{
-    const active=parseInt(b.dataset.w)===w;
-    b.style.background=active?'rgba(245,200,66,.12)':'rgba(255,255,255,.05)';
-    b.style.borderColor=active?'rgba(245,200,66,.4)':'rgba(255,255,255,.1)';
-    b.style.color=active?'#F5C842':'inherit';
-  });
-};
-
-function _kbReadScroll(el){
-  const prog=document.getElementById('kb3read-prog');if(!prog)return;
-  const pct=Math.min(100,el.scrollTop/(el.scrollHeight-el.clientHeight)*100)||0;
-  prog.style.width=pct+'%';
-  const pctEl=document.getElementById('kb3read-pct');
-  if(pctEl) pctEl.textContent=Math.round(pct)+'%';
-}
-document.addEventListener('keydown',function(e){
-  if(e.key==='Escape'&&document.getElementById('kb3read')?.style.display==='flex')_kbReadClose();
-});
-function _kbRB(tag){
-  if(!tag) return;
-  const ea=document.getElementById('kb3area');
-  if(!ea) return;
-  if(document.activeElement!==ea&&_kbSavedRange){
-    ea.focus();
-    _kbRestoreSelection();
-  } else {
-    ea.focus();
-  }
-  document.execCommand('formatBlock',false,tag);
-  _kbSavedRange=null;
-}
-function _kbLink(){const url=prompt('URL ссылки:');if(url)_kbR('createLink',url);}
-function _kbHR(){document.getElementById('kb3area')?.focus();document.execCommand('insertHTML',false,'<hr style="border:none;border-top:0.5px solid #252529;margin:24px 0">');}
-function _kbInsTable(){
-  document.getElementById('kb3area')?.focus();
-  const th='background:rgba(255,255,255,.06);padding:10px 14px;border:1.5px solid rgba(255,255,255,.2);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:#A8A8B0;text-align:left;min-width:90px';
-  const td='padding:10px 14px;border:1.5px solid rgba(255,255,255,.12);color:#F2F0E8;min-width:90px';
-  const td2='padding:10px 14px;border:1.5px solid rgba(255,255,255,.12);color:#F2F0E8;background:rgba(255,255,255,.02);min-width:90px';
-  document.execCommand('insertHTML',false,
-    `<table style="width:100%;border-collapse:collapse;margin:18px 0">
-      <tr><th style="${th}">Заголовок 1</th><th style="${th}">Заголовок 2</th><th style="${th}">Заголовок 3</th></tr>
-      <tr><td style="${td}">Ячейка</td><td style="${td}">Ячейка</td><td style="${td}">Ячейка</td></tr>
-      <tr><td style="${td2}">Ячейка</td><td style="${td2}">Ячейка</td><td style="${td2}">Ячейка</td></tr>
-    </table><p></p>`
-  );
-}
-
-// ══════════════════════════════════════════════════════════════
-// TAGS
-// ══════════════════════════════════════════════════════════════
-function _kbTK(e){
-  if(e.key==='Enter'||e.key===','){
-    e.preventDefault();
-    const v=e.target.value.trim().replace(',','');
-    if(v)_kbAT(v);
-    e.target.value='';
-  }
-  if(e.key==='Backspace'&&!e.target.value){
-    const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);
-    if(n&&n.tags?.length){n.tags.pop();n.updatedAt=Date.now();_kbSave3();_kbRefTags();}
+    }
   }
 }
-function _kbAT(t){const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);if(!n)return;if(!n.tags)n.tags=[];if(!n.tags.includes(t)){n.tags.push(t);n.updatedAt=Date.now();_kbSave3();}_kbRefTags();}
-function _kbRT(t){const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);if(!n)return;n.tags=(n.tags||[]).filter(x=>x!==t);n.updatedAt=Date.now();_kbSave3();_kbRefTags();}
-function _kbRefTags(){
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note),c=ALL_CATS.find(x=>x.id===_kbS.cat),row=document.getElementById('kb3tagrow');
-  if(!n||!row||!c)return;
-  row.innerHTML=(n.tags||[]).map(t=>`<span class="k3tag" style="background:${c.color}18;color:${c.color};display:inline-flex;align-items:center;gap:3px">${_kbEsc2(t)}<span onclick="_kbRT('${_kbEsc2(t)}')" style="cursor:pointer;opacity:.5;font-size:11px">×</span></span>`).join('')+`<input class="k3ti" id="kb3ti" placeholder="+ тег" onkeydown="_kbTK(event)">`;
-  document.getElementById('kb3ti')?.focus();
-}
 
-// ══════════════════════════════════════════════════════════════
-// CRUD
-// ══════════════════════════════════════════════════════════════
-function _kbNN(){
-  if(!_kbS.cat||!_kbS.folder)return;
-  const f=_kbGetFolder(_kbS.cat,_kbS.folder);if(!f)return;
+// ── Note operations ───────────────────────────────────────────
+function _kbNewNote(){
+  if(!_kbS.cat){
+    // Ask which cat/folder
+    _kbSM(`<div style="font-size:15px;font-weight:800;color:var(--t1);margin-bottom:14px">Новая заметка</div>
+      <div style="font-size:12px;color:var(--t3);margin-bottom:10px">Выбери категорию и папку</div>
+      <select id="kb5nc-cat" class="kb5-inp" style="margin-bottom:8px" onchange="_kbNewNoteCatChange(this.value)">
+        ${ALL_CATS.map(c=>`<option value="${c.id}">${c.icon} ${_kbEsc(c.name)}</option>`).join('')}
+      </select>
+      <select id="kb5nc-fold" class="kb5-inp" style="margin-bottom:14px"></select>
+      <div style="display:flex;gap:8px">
+        <button class="kb5-btn kb5-btn-ghost" style="flex:1;justify-content:center" onclick="_kbCloseMod()">Отмена</button>
+        <button class="kb5-btn kb5-btn-gold" style="flex:1;justify-content:center" onclick="_kbNewNoteConfirm()">Создать</button>
+      </div>`);
+    _kbNewNoteCatChange(ALL_CATS[0]?.id);
+    return;
+  }
+  if(!_kbS.folder){
+    const folders=(_kb3[_kbS.cat]?.folders)||[];
+    if(!folders.length){ _kbNewFolder(_kbS.cat,true); return; }
+    _kbS.folder=folders[0].id;
+  }
+  _kbCreateNote(_kbS.cat,_kbS.folder);
+}
+function _kbNewNoteCatChange(cid){
+  const sel=document.getElementById('kb5nc-fold'); if(!sel) return;
+  const folders=(_kb3[cid]?.folders)||[];
+  sel.innerHTML=folders.length
+    ?folders.map(f=>`<option value="${f.id}">${_kbEsc(f.title)}</option>`).join('')
+    :`<option value="">Нет папок — создай папку сначала</option>`;
+}
+function _kbNewNoteConfirm(){
+  const cat=document.getElementById('kb5nc-cat')?.value;
+  const fid=document.getElementById('kb5nc-fold')?.value;
+  if(!cat||!fid){ _kbCloseMod(); return; }
+  _kbCloseMod(); _kbCreateNote(cat,fid);
+}
+function _kbCreateNote(cid,fid){
+  _kbLoad3();
+  const f=_kbGetFolder(cid,fid); if(!f) return;
   const id=_kbUID();
-  f.notes.unshift({id,title:'Новая заметка',body:'',tags:[],pinned:false,createdAt:Date.now(),updatedAt:Date.now()});
-  _kbSave3();_kbS.note=id;_kbS.edit=true;
-  _kbRS();_kbRNL();_kbRED();
-  setTimeout(()=>{const ti=document.getElementById('kb3title');if(ti)ti.select();},80);
+  const n={id,title:'Новая заметка',body:'',tags:[],pinned:false,createdAt:Date.now(),updatedAt:Date.now()};
+  if(!f.notes) f.notes=[];
+  f.notes.unshift(n);
+  _kbS.cat=cid; _kbS.folder=fid; _kbS.note=id;
+  _kbS.collapsed[cid]=false;
+  _kbSave3();
+  const area=document.getElementById('kb5area'); if(area){ area.innerHTML=''; delete area.dataset.evts; }
+  const tb=document.getElementById('kb5tb'); if(tb) delete tb.dataset.built;
+  renderKnowledgeBase();
+  setTimeout(()=>{ const ti=document.getElementById('kb5title'); if(ti){ ti.focus(); ti.select(); } },60);
 }
-
-function _kbNF(cid,thenNote=false){
-  _kbSM(`
-    <div style="margin-bottom:14px">
-      <div style="font-size:15px;font-weight:800;color:var(--t1);margin-bottom:3px">Новая папка</div>
-      <div style="font-size:11.5px;color:var(--t3)">${ALL_CATS.find(x=>x.id===cid)?.icon} ${ALL_CATS.find(x=>x.id===cid)?.name}</div>
+function _kbNewFolder(cid,thenNote=false){
+  _kbSM(`<div style="font-size:15px;font-weight:800;color:var(--t1);margin-bottom:14px">Новая папка</div>
+    <input class="kb5-inp" id="kb5nf-inp" placeholder="Название папки" maxlength="60" autocomplete="off">
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="kb5-btn kb5-btn-ghost" style="flex:1;justify-content:center" onclick="_kbCloseMod()">Отмена</button>
+      <button class="kb5-btn kb5-btn-gold" style="flex:1;justify-content:center" onclick="_kbCreateFolder('${cid}',${thenNote})">Создать</button>
+    </div>`);
+  setTimeout(()=>{ const inp=document.getElementById('kb5nf-inp'); if(inp){ inp.focus(); inp.addEventListener('keydown',e=>{ if(e.key==='Enter') _kbCreateFolder(cid,thenNote); }); } },50);
+}
+function _kbCreateFolder(cid,thenNote){
+  const t=(document.getElementById('kb5nf-inp')?.value||'').trim();
+  if(!t){ return; }
+  _kbLoad3();
+  if(!_kb3[cid]) _kb3[cid]={folders:[]};
+  const id=_kbUID();
+  _kb3[cid].folders.push({id,title:t,notes:[]});
+  _kbS.cat=cid; _kbS.folder=id; _kbS.collapsed[cid]=false;
+  _kbSave3(); _kbCloseMod();
+  if(thenNote){ _kbCreateNote(cid,id); } else { renderKnowledgeBase(); }
+}
+function _kbTogPin(){
+  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note); if(!n) return;
+  n.pinned=!n.pinned; n.updatedAt=Date.now(); _kbSave3();
+  _kbRenderNoteList(); _kbRenderSidebar();
+  // Update pin button
+  const pb=document.getElementById('kb5pinBtn'); if(pb){ const svg=pb.querySelector('svg'); if(svg){ svg.setAttribute('fill',n.pinned?'var(--gold)':'none'); svg.setAttribute('stroke',n.pinned?'var(--gold)':'currentColor'); } }
+}
+function _kbNoteMenu(){
+  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note); if(!n) return;
+  _kbSM(`<div style="font-size:14px;font-weight:800;color:var(--t1);margin-bottom:14px">«${_kbEsc(n.title||'Без названия')}»</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <button class="kb5-btn kb5-btn-ghost" style="justify-content:flex-start;gap:10px" onclick="_kbRenameNote()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Переименовать
+      </button>
+      <button class="kb5-btn kb5-btn-ghost" style="justify-content:flex-start;gap:10px" onclick="_kbDupNote()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        Дублировать
+      </button>
+      <button class="kb5-btn kb5-btn-ghost" style="justify-content:flex-start;gap:10px" onclick="_kbExportNote()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Экспорт .txt
+      </button>
+      <button class="kb5-btn kb5-btn-danger" style="justify-content:flex-start;gap:10px" onclick="_kbDelNote()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg>
+        Удалить заметку
+      </button>
     </div>
-    <input class="k3field" id="kb3mf" placeholder="Название папки" maxlength="60" onkeydown="if(event.key==='Enter')_kbSNF('${cid}',${thenNote})">
-    <div style="display:flex;gap:7px;margin-top:12px">
-      <button onclick="_kbSNF('${cid}',${thenNote})" class="k3btn k3gold" style="flex:1;justify-content:center">Создать папку</button>
-      <button onclick="_kbCM()" class="k3btn k3ghost">Отмена</button>
+    <button class="kb5-btn kb5-btn-ghost" style="width:100%;justify-content:center;margin-top:10px" onclick="_kbCloseMod()">Закрыть</button>`);
+}
+function _kbRenameNote(){
+  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note); if(!n) return;
+  _kbSM(`<div style="font-size:15px;font-weight:800;color:var(--t1);margin-bottom:12px">Переименовать</div>
+    <input class="kb5-inp" id="kb5rn-inp" value="${_kbEsc(n.title||'')}" maxlength="100" autocomplete="off">
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="kb5-btn kb5-btn-ghost" style="flex:1;justify-content:center" onclick="_kbCloseMod()">Отмена</button>
+      <button class="kb5-btn kb5-btn-gold" style="flex:1;justify-content:center" onclick="_kbDoRename()">Сохранить</button>
     </div>`);
-  setTimeout(()=>document.getElementById('kb3mf')?.focus(),50);
+  setTimeout(()=>{ const inp=document.getElementById('kb5rn-inp'); if(inp){ inp.focus(); inp.select(); inp.addEventListener('keydown',e=>{ if(e.key==='Enter') _kbDoRename(); }); } },50);
 }
-function _kbSNF(cid,thenNote){
-  const inp=document.getElementById('kb3mf'),t=inp?.value?.trim();if(!t)return;
-  const id=_kbUID();_kb3[cid].folders.push({id,title:t,notes:[]});_kbSave3();
-  _kbCM();_kbSF(cid,id);if(thenNote)setTimeout(_kbNN,80);
+function _kbDoRename(){
+  const t=(document.getElementById('kb5rn-inp')?.value||'').trim()||'Без названия';
+  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note); if(!n) return;
+  n.title=t; n.updatedAt=Date.now(); _kbSave3(); _kbCloseMod();
+  const ti=document.getElementById('kb5title'); if(ti) ti.value=t;
+  _kbRenderNoteList(); _kbRenderSidebar();
 }
-
-function _kbRenF(cid,fid){
-  const f=_kbGetFolder(cid,fid);if(!f)return;
-  _kbSM(`
-    <div style="font-size:15px;font-weight:800;color:var(--t1);margin-bottom:14px">Переименовать папку</div>
-    <input class="k3field" id="kb3mrf" value="${_kbEsc2(f.title)}" maxlength="60" onkeydown="if(event.key==='Enter')_kbSRF('${cid}','${fid}')">
-    <div style="display:flex;gap:7px;margin-top:12px">
-      <button onclick="_kbSRF('${cid}','${fid}')" class="k3btn k3gold" style="flex:1;justify-content:center">Сохранить</button>
-      <button onclick="_kbCM()" class="k3btn k3ghost">Отмена</button>
-    </div>`);
-  setTimeout(()=>{const i=document.getElementById('kb3mrf');if(i){i.focus();i.select();}},50);
-}
-function _kbSRF(cid,fid){
-  const inp=document.getElementById('kb3mrf'),t=inp?.value?.trim();if(!t)return;
-  const f=_kbGetFolder(cid,fid);if(f){f.title=t;_kbSave3();}
-  _kbCM();_kbRS();_kbRNL();_kbRED();
-}
-
-function _kbCDF(cid,fid){
-  const f=_kbGetFolder(cid,fid);if(!f)return;
-  _kbSM(`
-    <div style="text-align:center;padding:4px 0">
-      <div style="font-size:32px;margin-bottom:12px">🗂️</div>
-      <div style="font-size:15px;font-weight:800;color:var(--t1);margin-bottom:6px">Удалить папку?</div>
-      <div style="font-size:12px;color:var(--t3);margin-bottom:20px;line-height:1.6">«${_kbEsc2(f.title)}»<br>и все <b style="color:var(--red)">${f.notes.length} заметок</b> будут удалены</div>
-      <div style="display:flex;gap:8px">
-        <button onclick="_kbDDF('${cid}','${fid}')" class="k3btn k3red" style="flex:1;justify-content:center">Удалить навсегда</button>
-        <button onclick="_kbCM()" class="k3btn k3ghost" style="flex:1;justify-content:center">Отмена</button>
-      </div>
-    </div>`);
-}
-function _kbDDF(cid,fid){
-  _kb3[cid].folders=_kb3[cid].folders.filter(f=>f.id!==fid);
-  if(_kbS.folder===fid){_kbS.folder=null;_kbS.note=null;_kbS.edit=false;}
-  _kbSave3();_kbCM();_kbRS();_kbRNL();_kbRED();
-}
-
-function _kbCDN(){
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);if(!n)return;
-  _kbSM(`
-    <div style="text-align:center;padding:4px 0">
-      <div style="font-size:32px;margin-bottom:12px">🗑️</div>
-      <div style="font-size:15px;font-weight:800;color:var(--t1);margin-bottom:6px">Удалить заметку?</div>
-      <div style="font-size:12px;color:var(--t3);margin-bottom:20px">«${_kbEsc2(n.title)}» будет удалена навсегда</div>
-      <div style="display:flex;gap:8px">
-        <button onclick="_kbDDN()" class="k3btn k3red" style="flex:1;justify-content:center">Удалить</button>
-        <button onclick="_kbCM()" class="k3btn k3ghost" style="flex:1;justify-content:center">Отмена</button>
-      </div>
-    </div>`);
-}
-function _kbDDN(){
-  const f=_kbGetFolder(_kbS.cat,_kbS.folder);
-  if(f)f.notes=f.notes.filter(n=>n.id!==_kbS.note);
-  _kbS.note=null;_kbS.edit=false;
-  _kbSave3();_kbCM();_kbRS();_kbRNL();_kbRED();
-}
-
-// ── Duplicate Note ────────────────────────────────────────────
 function _kbDupNote(){
   const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);
   const f=_kbGetFolder(_kbS.cat,_kbS.folder);
-  if(!n||!f)return;
+  if(!n||!f) return;
   const id=_kbUID();
   const dup={...JSON.parse(JSON.stringify(n)),id,title:(n.title||'')+'  (копия)',createdAt:Date.now(),updatedAt:Date.now(),pinned:false};
   const idx=f.notes.findIndex(x=>x.id===n.id);
   f.notes.splice(idx+1,0,dup);
-  _kbSave3();_kbS.note=id;_kbRS();_kbRNL();_kbRED();_kbSSV('duped');
+  _kbSave3(); _kbCloseMod();
+  _kbOpenNote(_kbS.cat,_kbS.folder,id);
 }
-
-// ── Move Note ─────────────────────────────────────────────────
-function _kbMoveNote(){
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);if(!n)return;
-  const catOpts=ALL_CATS.map(c=>`<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
-  _kbSM(`
-    <div style="font-size:15px;font-weight:800;color:var(--t1);margin-bottom:14px">Переместить заметку</div>
-    <div style="font-size:11.5px;color:var(--t3);margin-bottom:12px">«${_kbEsc2(n.title||'Без названия')}»</div>
-    <label style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Категория</label>
-    <select class="k3sel" id="kb3mcat" onchange="_kbMoveCatChange(this.value)">
-      ${catOpts}
-    </select>
-    <label style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Папка</label>
-    <select class="k3sel" id="kb3mfld"></select>
-    <div style="display:flex;gap:7px;margin-top:14px">
-      <button onclick="_kbDoMove()" class="k3btn k3gold" style="flex:1;justify-content:center">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12H19M12 5l7 7-7 7"/></svg>
-        Переместить
-      </button>
-      <button onclick="_kbCM()" class="k3btn k3ghost">Отмена</button>
-    </div>`);
-  setTimeout(()=>{
-    const sel=document.getElementById('kb3mcat');
-    if(sel){sel.value=_kbS.cat;_kbMoveCatChange(_kbS.cat);}
-  },50);
-}
-function _kbMoveCatChange(cid){
-  const fSel=document.getElementById('kb3mfld');if(!fSel)return;
-  const folders=_kbCatD(cid).folders;
-  fSel.innerHTML=folders.length
-    ?folders.map(f=>`<option value="${f.id}">${_kbEsc2(f.title)}</option>`).join('')
-    :`<option value="">Нет папок</option>`;
-}
-function _kbDoMove(){
-  const catSel=document.getElementById('kb3mcat'),fldSel=document.getElementById('kb3mfld');
-  if(!catSel||!fldSel)return;
-  const toCid=catSel.value,toFid=fldSel.value;
-  if(!toCid||!toFid)return;
-  if(toCid===_kbS.cat&&toFid===_kbS.folder){_kbCM();return;}
+function _kbDelNote(){
   const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);
-  const srcF=_kbGetFolder(_kbS.cat,_kbS.folder);
-  const dstF=_kbGetFolder(toCid,toFid);
-  if(!n||!srcF||!dstF)return;
-  srcF.notes=srcF.notes.filter(x=>x.id!==n.id);
-  dstF.notes.unshift({...n,updatedAt:Date.now()});
-  _kbS.cat=toCid;_kbS.folder=toFid;_kbS.note=n.id;
-  _kbSave3();_kbCM();_kbRS();_kbRNL();_kbRED();_kbSSV('moved');
+  const f=_kbGetFolder(_kbS.cat,_kbS.folder);
+  if(!n||!f) return;
+  if(!confirm(`Удалить «${n.title||'Без названия'}»?`)) return;
+  f.notes=f.notes.filter(x=>x.id!==n.id);
+  _kbS.note=null; _kbSave3(); _kbCloseMod();
+  const area=document.getElementById('kb5area'); if(area){ area.innerHTML=''; delete area.dataset.evts; }
+  const tb=document.getElementById('kb5tb'); if(tb) delete tb.dataset.built;
+  renderKnowledgeBase();
 }
-
-// ── Export Note ───────────────────────────────────────────────
 function _kbExportNote(){
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);if(!n)return;
+  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note); if(!n) return;
   const md=`# ${n.title||'Без названия'}\n\n${_kbStrip(n.body||'')}`;
   const blob=new Blob([md],{type:'text/plain;charset=utf-8'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  a.href=url;a.download=`${(n.title||'note').replace(/[^a-zA-Zа-яА-Я0-9]/g,'_')}.txt`;
-  a.click();URL.revokeObjectURL(url);
+  a.href=url; a.download=`${(n.title||'note').replace(/[^a-zA-Zа-яА-Я0-9 ]/g,'_')}.txt`;
+  a.click(); URL.revokeObjectURL(url); _kbCloseMod();
 }
 
-// ══════════════════════════════════════════════════════════════
-// TEMPLATES
-// ══════════════════════════════════════════════════════════════
-const _kbTemplates=[
-  {icon:'📝',name:'Пустая заметка',desc:'Чистый лист',body:''},
-  {icon:'📋',name:'Конспект урока',desc:'Структура для учёбы',body:'<h2>Тема</h2><p>Запиши тему урока</p><h3>Ключевые идеи</h3><ul><li>Идея 1</li><li>Идея 2</li></ul><h3>Заметки</h3><p></p><h3>Вопросы</h3><ul><li>Что ещё изучить?</li></ul>'},
-  {icon:'🎯',name:'Постановка цели',desc:'Шаблон SMART-цели',body:'<h2>Цель</h2><p>Опиши цель чётко и конкретно</p><h3>Почему это важно?</h3><p></p><h3>Шаги к достижению</h3><ol><li>Шаг 1</li><li>Шаг 2</li><li>Шаг 3</li></ol><h3>Дедлайн</h3><p></p><h3>Как измерю успех?</h3><p></p>'},
-  {icon:'💡',name:'Идея / Инсайт',desc:'Зафиксируй мысль',body:'<h2>Идея</h2><p>Опиши идею в одном предложении</p><h3>Детали</h3><p></p><h3>Почему это важно?</h3><p></p><h3>Следующий шаг</h3><p></p>'},
-  {icon:'📅',name:'Ежедневник',desc:'Дневная запись',body:`<h2>📅 ${new Date().toLocaleDateString('ru',{day:'numeric',month:'long',year:'numeric'})}</h2><h3>Планы на день</h3><ul><li></li></ul><h3>Заметки и мысли</h3><p></p><h3>Итоги дня</h3><p></p><h3>Завтра</h3><ul><li></li></ul>`},
-  {icon:'🔬',name:'Исследование',desc:'Анализ темы',body:'<h2>Тема исследования</h2><p></p><h3>Что изучаю?</h3><p></p><h3>Источники</h3><ul><li></li></ul><h3>Основные выводы</h3><p></p><h3>Открытые вопросы</h3><ul><li></li></ul>'},
-];
-
-function _kbTplModal(){
-  _kbSM(`
-    <div style="font-size:15px;font-weight:800;color:var(--t1);margin-bottom:5px">Шаблоны заметок</div>
-    <div style="font-size:12px;color:var(--t3);margin-bottom:16px">Выбери шаблон для новой заметки</div>
-    ${_kbTemplates.map((t,i)=>`
-      <div class="k3tpl" onclick="_kbUseTpl(${i})">
-        <div class="k3tpl-ico">${t.icon}</div>
-        <div><div class="k3tpl-name">${t.name}</div><div class="k3tpl-desc">${t.desc}</div></div>
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" style="flex-shrink:0;margin-left:auto"><polyline points="9 18 15 12 9 6"/></svg>
-      </div>`).join('')}
-    <button onclick="_kbCM()" class="k3btn k3ghost" style="width:100%;margin-top:8px;justify-content:center">Отмена</button>`);
+// ── Tags ──────────────────────────────────────────────────────
+function _kbAddTagPrompt(){
+  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note); if(!n) return;
+  const t=prompt('Введи тег (без #):','');
+  if(!t||!t.trim()) return;
+  const tag=t.trim().toLowerCase().replace(/\s+/g,'-');
+  if(!(n.tags||[]).includes(tag)){ if(!n.tags) n.tags=[]; n.tags.push(tag); n.updatedAt=Date.now(); _kbSave3(); }
+  const tags=document.getElementById('kb5tags');
+  const c=ALL_CATS.find(x=>x.id===_kbS.cat);
+  if(tags&&c) tags.innerHTML=(n.tags||[]).map(t=>`<span class="kb5-tag" style="background:${c.color}18;color:${c.color}">#${_kbEsc(t)}<span onclick="_kbRemTag('${_kbEsc(t)}')" style="cursor:pointer;opacity:.5;margin-left:2px">×</span></span>`).join('');
 }
-function _kbUseTpl(idx){
-  const tpl=_kbTemplates[idx];
-  _kbCM();
-  if(_kbS.cat&&_kbS.folder){_kbNNWithTpl(tpl);return;}
-  // Need to pick category first
-  _kbSM(`
-    <div style="margin-bottom:14px">
-      <div style="font-size:15px;font-weight:800;color:var(--t1);margin-bottom:3px">${tpl.icon} ${tpl.name}</div>
-      <div style="font-size:11.5px;color:var(--t3)">Выбери категорию</div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:4px">
-      ${ALL_CATS.map((c,ci)=>{const d=_kbCatD(c.id);return `<button onclick="_kbQCPTpl('${c.id}',${idx})"
-        style="display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:9px;background:var(--card);border:0.5px solid var(--border);cursor:pointer;width:100%;font-family:'DM Sans',sans-serif;text-align:left;transition:all .12s"
-        onmouseover="this.style.borderColor='${c.color}44';this.style.background='${c.color}08'"
-        onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--card)'">
-        <span style="font-size:17px">${c.icon}</span>
-        <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--t1)">${c.name}</div><div style="font-size:10px;color:var(--t3)">${d.folders.length} папок · ${_kbCatNC(c.id)} заметок</div></div>
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-      </button>`;}).join('')}
-    </div>
-    <button onclick="_kbCM()" class="k3btn k3ghost" style="width:100%;margin-top:10px;justify-content:center">Отмена</button>`);
-}
-function _kbQCPTpl(cid,tplIdx){
-  _kbCM();_kbS.cat=cid;_kbS.collapsed[cid]=false;
-  const d=_kbCatD(cid);
-  if(d.folders.length){_kbS.folder=d.folders[0].id;_kbRS();_kbRNL();_kbNNWithTpl(_kbTemplates[tplIdx]);}
-  else _kbNF(cid,true);
-}
-function _kbNNWithTpl(tpl){
-  if(!_kbS.cat||!_kbS.folder)return;
-  const f=_kbGetFolder(_kbS.cat,_kbS.folder);if(!f)return;
-  const id=_kbUID();
-  f.notes.unshift({id,title:tpl.name,body:tpl.body,tags:[],pinned:false,createdAt:Date.now(),updatedAt:Date.now()});
-  _kbSave3();_kbS.note=id;_kbS.edit=true;
-  _kbRS();_kbRNL();_kbRED();
-  setTimeout(()=>{const ti=document.getElementById('kb3title');if(ti)ti.select();},80);
+function _kbRemTag(t){
+  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note); if(!n) return;
+  n.tags=(n.tags||[]).filter(x=>x!==t); n.updatedAt=Date.now(); _kbSave3();
+  const tags=document.getElementById('kb5tags');
+  const c=ALL_CATS.find(x=>x.id===_kbS.cat);
+  if(tags&&c) tags.innerHTML=(n.tags||[]).map(t=>`<span class="kb5-tag" style="background:${c.color}18;color:${c.color}">#${_kbEsc(t)}<span onclick="_kbRemTag('${_kbEsc(t)}')" style="cursor:pointer;opacity:.5;margin-left:2px">×</span></span>`).join('');
 }
 
-// ══════════════════════════════════════════════════════════════
-// QUICK CREATE (no folder selected)
-// ══════════════════════════════════════════════════════════════
-function _kbNewNoteQuick(){
-  if(_kbS.cat&&_kbS.folder){_kbNN();return;}
-  _kbSM(`
-    <div style="margin-bottom:14px">
-      <div style="font-size:15px;font-weight:800;color:var(--t1);margin-bottom:3px">Создать заметку</div>
-      <div style="font-size:11.5px;color:var(--t3)">Выбери категорию</div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:4px">
-      ${ALL_CATS.map((c,ci)=>{const d=_kbCatD(c.id);return `<button onclick="_kbQCP('${c.id}')"
-        style="display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:9px;background:var(--card);border:0.5px solid var(--border);cursor:pointer;width:100%;font-family:'DM Sans',sans-serif;text-align:left;transition:all .12s"
-        onmouseover="this.style.borderColor='${c.color}44';this.style.background='${c.color}08'"
-        onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--card)'">
-        <span style="font-size:17px">${c.icon}</span>
-        <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--t1)">${c.name}</div><div style="font-size:10px;color:var(--t3)">${d.folders.length} папок · ${_kbCatNC(c.id)} заметок</div></div>
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-      </button>`;}).join('')}
-    </div>
-    <button onclick="_kbCM()" class="k3btn k3ghost" style="width:100%;margin-top:10px;justify-content:center">Отмена</button>`);
-}
-function _kbQCP(cid){
-  _kbCM();_kbS.cat=cid;_kbS.collapsed[cid]=false;
-  const d=_kbCatD(cid);
-  if(d.folders.length){_kbS.folder=d.folders[0].id;_kbRS();_kbRNL();_kbNN();}
-  else _kbNF(cid,true);
-}
-
-// ══════════════════════════════════════════════════════════════
-// SHORTCUTS MODAL
-// ══════════════════════════════════════════════════════════════
-function _kbShortcuts(){
-  _kbSM(`
-    <div style="font-size:15px;font-weight:800;color:var(--t1);margin-bottom:16px">Горячие клавиши</div>
-    <div style="display:flex;flex-direction:column;gap:0">
-      ${[
-        ['Новая заметка','Ctrl','N'],
-        ['Сохранить','Ctrl','S'],
-        ['Редактировать','E'],
-        ['Жирный','Ctrl','B'],
-        ['Курсив','Ctrl','I'],
-        ['Подчёркнутый','Ctrl','U'],
-        ['Ссылка','Ctrl','K'],
-        ['Режим фокуса','Ctrl','Shift','F'],
-        ['Выйти из редакт.','Esc'],
-      ].map(([act,...keys])=>`
-        <div class="k3kbrow">
-          <span class="k3kbact">${act}</span>
-          <div class="k3kbkeys">${keys.map(k=>`<kbd>${k}</kbd>`).join('+')}</div>
-        </div>`).join('')}
-    </div>
-    <button onclick="_kbCM()" class="k3btn k3ghost" style="width:100%;margin-top:14px;justify-content:center">Закрыть</button>`);
-}
-
-// ══════════════════════════════════════════════════════════════
-// MODAL
-// ══════════════════════════════════════════════════════════════
-function _kbSM(html){
-  const ov=document.getElementById('kb3ov'),mc=document.getElementById('kb3mc');
-  if(!ov||!mc)return;mc.innerHTML=html;ov.classList.add('k3on');
-}
-function _kbCM(){document.getElementById('kb3ov')?.classList.remove('k3on');}
-
-// ══════════════════════════════════════════════════════════════
-// KEYBOARD LISTENERS
-// ══════════════════════════════════════════════════════════════
+// ── Modal ──────────────────────────────────────────────────────
+function _kbSM(html){ const ov=document.getElementById('kb5ov'),mc=document.getElementById('kb5modal'); if(!ov||!mc) return; mc.innerHTML=html; ov.classList.add('on'); }
+function _kbCloseMod(){ document.getElementById('kb5ov')?.classList.remove('on'); }
 document.addEventListener('keydown',e=>{
-  if(document.getElementById('kb3ov')?.classList.contains('k3on')){if(e.key==='Escape')_kbCM();return;}
-  const inEd=e.target.id==='kb3area'||e.target.id==='kb3title';
-  if(e.key==='Escape'&&_kbS.edit&&inEd){_kbFlush3();_kbS.edit=false;_kbRED();}
-  if((e.ctrlKey||e.metaKey)&&e.key==='s'&&_kbS.edit&&inEd){e.preventDefault();_kbFlush3();_kbSSV('saved');_kbS.edit=false;_kbRED();}
+  if(e.key==='Escape'){ _kbCloseMod(); }
+  if(e.key==='Escape'&&_kbS.note){ const area=document.getElementById('kb5area'); if(document.activeElement===area){ _kbAutoSave(); area.blur(); } }
 });
 
-// ── Совместимость: сохраняем старое имя функции даты ─────────
-function _kbFmtDate(ts) {
-  if(!ts) return '';
-  return new Date(ts).toLocaleDateString('ru',{day:'numeric',month:'short',year:'numeric'});
-}
+// ── Compat aliases (called from showTab and other places) ─────
+function _kbRS(){ try{ _kbRenderSidebar(); }catch(e){} }
+function _kbRED(){ try{ _kbRenderMain(); }catch(e){} }
+function _kbRNL(){ try{ _kbRenderNoteList(); }catch(e){} }
+function _kbFlush3(){ _kbAutoSave(); }
+function _kbSSV(){ _kbSSV5('saved'); }
+function _kbCM(){ _kbCloseMod(); }
+function _kbON(cid,fid,nid){ _kbOpenNote(cid,fid,nid); }
+function _kbSF(cid,fid){ _kbOpenFolder(cid,fid); }
+function _kbGoAll(){ _kbGoHome(); }
+function _kbTogTOC(){}
+function _kbTogFocus(){}
+function _kbShortcuts(){}
+function _kbNewNoteQuick(){ _kbNewNote(); }
+function _kbNF(cid){ _kbNewFolder(cid); }
+function _kbNN(){ _kbNewNote(); }
 
-
-
-// ── Авто-обновление в полночь ──────────────────────────────
-(function scheduleMidnightRefresh(){
-  const now = new Date();
-  const next = new Date(now);
-  next.setDate(next.getDate() + 1);
-  next.setHours(0, 0, 10, 0); // 00:00:10 следующего дня
-  const msUntilMidnight = next - now;
-
-  setTimeout(async ()=>{
-    if(P && !P._loading && SB_USER && !SB_USER.isDemoUser){
-      // Перезагружаем актуальные данные с сервера (пересчитывает стрик, активные дни и т.д.)
-      lgCache = {}; lgCacheTime = {};
-      try {
-        await loadUser(SB_USER.id);
-      } catch(e) {
-        // Если сервер недоступен — просто перерендерим что есть
-        renderAll();
-      }
-    } else if(P && !P._loading) {
-      renderAll();
-    }
-    scheduleMidnightRefresh(); // запланировать следующую полночь
-  }, msUntilMidnight);
-})();
-
-
-
-
-// ── Авто-восстановление сессии при загрузке страницы ──────
-(async function restoreSession(){
-  try {
-    const { data: { session }, error } = await sb.auth.getSession();
-    if (error) { console.warn('getSession error:', error); return; }
-    if (session && session.user) {
-      SB_USER = session.user;
-      _loadUserRetryCount = 0;
-      await loadUser(session.user.id);
-      loadMemberCounts().then(() => { renderManageGrid(); renderQuickCats(); });
-      // Pre-fetch KB from DB in background so it's ready before user opens it
-      _kbLoad3(); _kbLoadFromDB();
-    }
-    // Если сессии нет — onboard уже показан по умолчанию
-  } catch(e) {
-    console.warn('Session restore failed:', e);
-  }
-})();
-
-
-
+// ── showTab compatibility ─────────────────────────────────────
 /* ══ HABIT TRACKER ENGINE v3 ══ */
 
 (function HabTracker(){
