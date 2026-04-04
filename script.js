@@ -4501,11 +4501,10 @@ function showTab(name,el,skipHistory){
   if(name==='leagues'){
     renderLeagues();
     setTimeout(()=>{
-      // Section headers
+      // Section headers only — lg-row анимация уже запускается через
+      // window.renderLeagues patch (staggerLeagueRows с data-staggered guard).
+      // Дублировать staggerList('.lg-row') здесь = двойная анимация ("грузит дважды").
       staggerList('.lg-section', 60, 'sec');
-      // League rows — slide from left
-      staggerList('.lg-row', 22, 'row');
-      // Bars in rows
       animateBars('.lr-bar', 150);
     }, 80);
   }
@@ -11896,14 +11895,13 @@ window.renderCollabView=renderCollabView;
       const pane = document.getElementById('tab-' + name);
       if (!pane) return;
       initKpiTilt(pane);
+      // staggerLeagueRows защищён data-staggered — безопасно вызывать для всех табов.
+      // Дублировать внутри if(name==='leagues') не нужно — строка выше уже покрывает это.
       staggerLeagueRows(pane);
 
       if (name === 'dash') {
-        _dashEntered = false;  // allow re-entrance on revisit
+        _dashEntered = false;
         orchestrateDashboard();
-      }
-      if (name === 'leagues') {
-        staggerLeagueRows(pane);
       }
     }, 80);
   };
