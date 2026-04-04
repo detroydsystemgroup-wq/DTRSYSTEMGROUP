@@ -3722,276 +3722,152 @@ let _ambientGain = null;
 let _ambientType = 'white';
 let _ambientOn = false;
 let _rainAudio = null;
-let _currentTrack = null; // id of active track
+let _currentTrack = null;
 
-function _getAudioCtx() {
-  if (!_audioCtx || _audioCtx.state === 'closed')
-    _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (_audioCtx.state === 'suspended') _audioCtx.resume();
-  return _audioCtx;
-}
-
-// ── Sound track data ─────────────────────────────────────────
-const SOUND_TRACKS = {
-  focus: [
-    { id:'lofi',    label:'Lo-Fi Биты',       icon:'🎵', desc:'Расслабленный ритм' },
-    { id:'white',   label:'Белый шум',         icon:'〰️', desc:'Нейтральный фон' },
-    { id:'brown',   label:'Коричневый шум',    icon:'🌫️', desc:'Глубокий и тёплый' },
-    { id:'cafe',    label:'Кофейня',           icon:'☕', desc:'Городской фон' },
-    { id:'binaural',label:'Бинауральный 40Гц', icon:'🧠', desc:'Гамма-волны' },
-  ],
-  nature: [
-    { id:'rain',    label:'Дождь',             icon:'🌧️', desc:'Осенний дождь' },
-    { id:'ocean',   label:'Океан',             icon:'🌊', desc:'Морские волны' },
-    { id:'forest',  label:'Лес',               icon:'🌲', desc:'Птицы и ветер' },
-    { id:'wind',    label:'Ветер',             icon:'💨', desc:'Горный бриз' },
-    { id:'stream',  label:'Ручей',             icon:'💧', desc:'Журчание воды' },
-  ],
-  freq: [
-    { id:'hz528',   label:'528 Гц',            icon:'✨', desc:'Трансформация' },
-    { id:'hz432',   label:'432 Гц',            icon:'🎶', desc:'Гармония природы' },
-    { id:'hz174',   label:'174 Гц',            icon:'🌍', desc:'Заземление' },
-    { id:'hz417',   label:'417 Гц',            icon:'🔄', desc:'Исцеление' },
-    { id:'hz963',   label:'963 Гц',            icon:'👁️', desc:'Пробуждение' },
-  ]
+// ── SVG icon library ─────────────────────────────────────────
+const SVGI = {
+  freq:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h3l3-8 4 16 3-8h3l2 0"/></svg>`,
+  classic: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,
+  nature:  `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"/><line x1="8" y1="19" x2="8" y2="21"/><line x1="8" y1="13" x2="8" y2="15"/><line x1="16" y1="19" x2="16" y2="21"/><line x1="12" y1="15" x2="12" y2="17"/></svg>`,
+  hz432:   `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"/></svg>`,
+  hz528:   `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="22"/><line x1="2" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="22" y2="12"/></svg>`,
+  hz963:   `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 12s2.545-5 7-5c4.454 0 7 5 7 5s-2.546 5-7 5c-4.455 0-7-5-7-5z"/><circle cx="12" cy="12" r="2"/></svg>`,
+  piano:   `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="7" y1="5" x2="7" y2="14"/><line x1="12" y1="5" x2="12" y2="14"/><line x1="17" y1="5" x2="17" y2="14"/></svg>`,
+  strings: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,
+  ambient: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 22V12M12 12C12 12 7 9 7 5a5 5 0 0 1 10 0c0 4-5 7-5 7z"/></svg>`,
+  rain:    `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"/><line x1="8" y1="19" x2="8" y2="21"/><line x1="8" y1="13" x2="8" y2="15"/><line x1="16" y1="19" x2="16" y2="21"/><line x1="16" y1="13" x2="16" y2="15"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="12" y1="15" x2="12" y2="17"/></svg>`,
+  forest:  `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 22v-7"/><path d="M12 15l-5-5h10l-5 5z"/><path d="M12 10l-4-5h8l-4 5z"/></svg>`,
+  ocean:   `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><path d="M2 12c.6.5 1.2 1 2.5 1C7 13 7 11 9.5 11s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/><path d="M2 18c.6.5 1.2 1 2.5 1C7 19 7 17 9.5 17s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/></svg>`,
+  play:    `<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>`,
+  pause:   `<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`,
 };
 
-// ── Sound generators ─────────────────────────────────────────
+const SOUND_TRACKS = {
+  freq: [
+    { id:'hz432', label:'432 Гц', sub:'Гармония природы',  svgKey:'hz432' },
+    { id:'hz528', label:'528 Гц', sub:'Трансформация',     svgKey:'hz528' },
+    { id:'hz963', label:'963 Гц', sub:'Активация',         svgKey:'hz963' },
+  ],
+  classic: [
+    { id:'piano',   label:'Фортепиано', sub:'Мягкие аккорды', svgKey:'piano'   },
+    { id:'strings', label:'Струнные',   sub:'Виолончель',      svgKey:'strings' },
+    { id:'ambient', label:'Ambient Pad',sub:'Медитативный',    svgKey:'ambient' },
+  ],
+  nature: [
+    { id:'rain',   label:'Дождь', sub:'Осенний ливень', svgKey:'rain'   },
+    { id:'forest', label:'Лес',   sub:'Птицы и ветер',  svgKey:'forest' },
+    { id:'ocean',  label:'Океан', sub:'Морской прибой', svgKey:'ocean'  },
+  ],
+};
+
 function _makeSound(id) {
   const ctx = _getAudioCtx();
-  const sr = ctx.sampleRate;
-  const dur = 4; // seconds looped
-  const len = sr * dur;
+  const sr = ctx.sampleRate, len = sr * 4;
+  const mG = ctx.createGain(); mG.gain.value = 0; mG.connect(ctx.destination);
+  const nodes = [];
+  const wh = n => { const d=new Float32Array(n); for(let i=0;i<n;i++) d[i]=Math.random()*2-1; return d; };
+  const br = n => { const d=new Float32Array(n); let l=0; for(let i=0;i<n;i++){const w=Math.random()*2-1;d[i]=(l+.02*w)/1.02;l=d[i];d[i]*=3.5;} return d; };
+  const bS = (ch,n) => { const b=ctx.createBuffer(ch,ch===1?n:ch,sr); (Array.isArray(n)?n:[n]).forEach((d,i)=>b.getChannelData(i).set(d)); const s=ctx.createBufferSource(); s.buffer=b; s.loop=true; return s; };
 
-  // Helper: create buffer source
-  function bufSrc(data, channels=1) {
-    const buf = ctx.createBuffer(channels, data[0].length, sr);
-    data.forEach((ch,i) => buf.getChannelData(i).set(ch));
-    const src = ctx.createBufferSource();
-    src.buffer = buf; src.loop = true;
-    return src;
-  }
-
-  // White noise
-  function makeWhiteData(n) { const d=new Float32Array(n); for(let i=0;i<n;i++) d[i]=Math.random()*2-1; return d; }
-  // Brown noise
-  function makeBrownData(n) {
-    const d=new Float32Array(n); let last=0;
-    for(let i=0;i<n;i++){const w=Math.random()*2-1;d[i]=(last+0.02*w)/1.02;last=d[i];d[i]*=3.5;}
-    return d;
-  }
-  // Pink noise
-  function makePinkData(n) {
-    const d=new Float32Array(n); let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
-    for(let i=0;i<n;i++){const w=Math.random()*2-1;b0=.99886*b0+w*.0555179;b1=.99332*b1+w*.0750759;b2=.96900*b2+w*.1538520;b3=.86650*b3+w*.3104856;b4=.55000*b4+w*.5329522;b5=-.7616*b5-w*.0168980;d[i]=(b0+b1+b2+b3+b4+b5+b6+w*.5362)*.11;b6=w*.115926;}
-    return d;
-  }
-
-  const masterGain = ctx.createGain();
-  masterGain.gain.value = 0;
-  masterGain.connect(ctx.destination);
-
-  let nodes = [];
-
-  if (id === 'white') {
-    const src = bufSrc([makeWhiteData(len)]);
-    const f = ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=2000; f.Q.value=0.3;
-    src.connect(f); f.connect(masterGain); src.start(); nodes=[src,f];
-  }
-  else if (id === 'brown') {
-    const src = bufSrc([makeBrownData(len)]);
-    const f = ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=800;
-    src.connect(f); f.connect(masterGain); src.start(); nodes=[src,f];
-  }
-  else if (id === 'lofi') {
-    // Pink noise + lowpass + amplitude modulate at 0.5Hz (slow breath)
-    const src = bufSrc([makePinkData(len)]);
-    const lp = ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1800;
-    const osc = ctx.createOscillator(); osc.frequency.value=0.3;
-    const modGain = ctx.createGain(); modGain.gain.value=0.15;
-    const ampGain = ctx.createGain(); ampGain.gain.value=0.85;
-    osc.connect(modGain); modGain.connect(ampGain.gain);
-    src.connect(lp); lp.connect(ampGain); ampGain.connect(masterGain);
-    src.start(); osc.start(); nodes=[src,lp,osc,modGain,ampGain];
-  }
-  else if (id === 'cafe') {
-    // Multiple bandpass filtered noise layers simulating cafe chatter
-    const layers = [[400,0.8],[800,0.5],[1500,0.3],[200,0.4]];
-    layers.forEach(([freq,q])=>{
-      const s=bufSrc([makeWhiteData(len)]);
-      const f=ctx.createBiquadFilter();f.type='bandpass';f.frequency.value=freq;f.Q.value=q;
-      const g=ctx.createGain();g.gain.value=0.25;
-      s.connect(f);f.connect(g);g.connect(masterGain);s.start();nodes.push(s,f,g);
+  if (id==='hz432'||id==='hz528'||id==='hz963') {
+    const hz={hz432:432,hz528:528,hz963:963}[id];
+    const L=new Float32Array(len),R=new Float32Array(len);
+    for(let i=0;i<len;i++){const t=i/sr;L[i]=Math.sin(2*Math.PI*hz*t)*.28+Math.sin(2*Math.PI*hz*2*t)*.06;R[i]=Math.sin(2*Math.PI*(hz+0.3)*t)*.28+Math.sin(2*Math.PI*(hz+0.3)*2*t)*.06;}
+    const b=ctx.createBuffer(2,len,sr);b.getChannelData(0).set(L);b.getChannelData(1).set(R);
+    const s=ctx.createBufferSource();s.buffer=b;s.loop=true;s.connect(mG);s.start();nodes.push(s);
+  } else if (id==='piano') {
+    [261.63,329.63,392,523.25].forEach((f,fi)=>{
+      const d=new Float32Array(len);for(let i=0;i<len;i++){const t=i/sr;const dec=Math.exp(-t*.35);d[i]=Math.sin(2*Math.PI*f*t)*dec*.14+Math.sin(2*Math.PI*f*2*t)*dec*.05;}
+      const b=ctx.createBuffer(1,len,sr);b.getChannelData(0).set(d);
+      const s=ctx.createBufferSource();s.buffer=b;s.loop=true;
+      const g=ctx.createGain();g.gain.value=.55;s.connect(g);g.connect(mG);
+      setTimeout(()=>s.start(),fi*500);nodes.push(s,g);
     });
-  }
-  else if (id === 'binaural') {
-    // 40Hz gamma binaural: left=200Hz, right=240Hz
-    const bufL=new Float32Array(len), bufR=new Float32Array(len);
-    for(let i=0;i<len;i++){
-      bufL[i]=Math.sin(2*Math.PI*200*i/sr)*0.3;
-      bufR[i]=Math.sin(2*Math.PI*240*i/sr)*0.3;
-    }
-    const src=bufSrc([bufL,bufR],2);
-    const split=ctx.createChannelSplitter(2);
-    const merge=ctx.createChannelMerger(2);
-    src.connect(split);split.connect(merge,0,0);split.connect(merge,1,1);
-    merge.connect(masterGain); src.start(); nodes=[src,split,merge];
-  }
-  else if (id === 'rain') {
-    const d=makeWhiteData(sr*3);
-    for(let i=0;i<d.length;i++) d[i]*=(0.3+Math.random()*0.15);
-    const src=bufSrc([d]);
-    const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1200;
-    src.connect(lp);lp.connect(masterGain);src.start();nodes=[src,lp];
-  }
-  else if (id === 'ocean') {
-    // Low freq amplitude modulation — waves
-    const src=bufSrc([makeBrownData(len)]);
-    const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=600;
-    const osc=ctx.createOscillator();osc.frequency.value=0.08;
-    const mod=ctx.createGain();mod.gain.value=0.4;
-    const amp=ctx.createGain();amp.gain.value=0.6;
-    osc.connect(mod);mod.connect(amp.gain);
-    src.connect(lp);lp.connect(amp);amp.connect(masterGain);
-    src.start();osc.start();nodes=[src,lp,osc,mod,amp];
-  }
-  else if (id === 'forest') {
-    // Wind: bandpass brown + periodic "bird" sine chirps
-    const wb=makeBrownData(len);
-    const src=bufSrc([wb]);
-    const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=700;bp.Q.value=0.5;
-    const wg=ctx.createGain();wg.gain.value=0.4;
-    src.connect(bp);bp.connect(wg);wg.connect(masterGain);src.start();
-    // Bird chirps via oscillators
-    const birds=[{f:2200,t:0.8},{f:3400,t:2.1},{f:2800,t:4.5},{f:1900,t:7.2},{f:3100,t:9.8}];
-    birds.forEach(b=>{
-      const chirpFunc=()=>{
-        const o=ctx.createOscillator();const g=ctx.createGain();
-        o.frequency.value=b.f;o.type='sine';
-        g.gain.setValueAtTime(0,ctx.currentTime);
-        g.gain.linearRampToValueAtTime(0.08,ctx.currentTime+0.05);
-        g.gain.linearRampToValueAtTime(0,ctx.currentTime+0.2);
-        o.connect(g);g.connect(masterGain);o.start();o.stop(ctx.currentTime+0.25);
-        setTimeout(chirpFunc,3000+Math.random()*8000);
-      };
-      setTimeout(chirpFunc,b.t*1000);
+  } else if (id==='strings') {
+    [130.81,196,261.63].forEach(f=>{
+      const d=new Float32Array(len);for(let i=0;i<len;i++){const t=i/sr;const v=1+.003*Math.sin(2*Math.PI*5.5*t);d[i]=Math.sin(2*Math.PI*f*v*t)*.16+Math.sin(2*Math.PI*f*2*v*t)*.06+Math.sin(2*Math.PI*f*3*v*t)*.03;}
+      const b=ctx.createBuffer(1,len,sr);b.getChannelData(0).set(d);
+      const s=ctx.createBufferSource();s.buffer=b;s.loop=true;
+      const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1000;
+      const g=ctx.createGain();g.gain.value=.6;
+      s.connect(lp);lp.connect(g);g.connect(mG);s.start();nodes.push(s,lp,g);
     });
-    nodes=[src,bp,wg];
+  } else if (id==='ambient') {
+    [220,277.18,329.63,440].forEach((f,fi)=>{
+      const d=new Float32Array(len);for(let i=0;i<len;i++){const t=i/sr;const sw=.5+.5*Math.sin(2*Math.PI*.04*t+fi);d[i]=Math.sin(2*Math.PI*f*t)*sw*.1+Math.sin(2*Math.PI*f*2*t)*sw*.03;}
+      const b=ctx.createBuffer(1,len,sr);b.getChannelData(0).set(d);
+      const s=ctx.createBufferSource();s.buffer=b;s.loop=true;
+      const g=ctx.createGain();g.gain.value=.5;s.connect(g);g.connect(mG);s.start();nodes.push(s,g);
+    });
+  } else if (id==='rain') {
+    const d=new Float32Array(sr*3);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*(.25+Math.random()*.12);
+    const b=ctx.createBuffer(1,d.length,sr);b.getChannelData(0).set(d);
+    const s=ctx.createBufferSource();s.buffer=b;s.loop=true;
+    const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1000;
+    s.connect(lp);lp.connect(mG);s.start();nodes.push(s,lp);
+  } else if (id==='forest') {
+    const d=br(len);const b=ctx.createBuffer(1,len,sr);b.getChannelData(0).set(d);
+    const s=ctx.createBufferSource();s.buffer=b;s.loop=true;
+    const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=600;bp.Q.value=.5;
+    const g=ctx.createGain();g.gain.value=.38;s.connect(bp);bp.connect(g);g.connect(mG);s.start();nodes.push(s,bp,g);
+    const ch=()=>{const o=ctx.createOscillator();const cg=ctx.createGain();o.frequency.value=2200+Math.random()*1200;cg.gain.setValueAtTime(0,ctx.currentTime);cg.gain.linearRampToValueAtTime(.055,ctx.currentTime+.04);cg.gain.linearRampToValueAtTime(0,ctx.currentTime+.18);o.connect(cg);cg.connect(mG);o.start();o.stop(ctx.currentTime+.2);setTimeout(ch,2500+Math.random()*7000);};
+    setTimeout(ch,800);
+  } else if (id==='ocean') {
+    const d=br(len);const b=ctx.createBuffer(1,len,sr);b.getChannelData(0).set(d);
+    const s=ctx.createBufferSource();s.buffer=b;s.loop=true;
+    const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=450;
+    const osc=ctx.createOscillator();osc.frequency.value=.07;
+    const mod=ctx.createGain();mod.gain.value=.4;const amp=ctx.createGain();amp.gain.value=.5;
+    osc.connect(mod);mod.connect(amp.gain);s.connect(lp);lp.connect(amp);amp.connect(mG);s.start();osc.start();nodes.push(s,lp,osc,mod,amp);
   }
-  else if (id === 'wind') {
-    const src=bufSrc([makeBrownData(len)]);
-    const hp=ctx.createBiquadFilter();hp.type='highpass';hp.frequency.value=300;
-    const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=2000;
-    const osc=ctx.createOscillator();osc.frequency.value=0.15;
-    const mod=ctx.createGain();mod.gain.value=0.3;
-    const amp=ctx.createGain();amp.gain.value=0.5;
-    osc.connect(mod);mod.connect(amp.gain);
-    src.connect(hp);hp.connect(lp);lp.connect(amp);amp.connect(masterGain);
-    src.start();osc.start();nodes=[src,hp,lp,osc,mod,amp];
-  }
-  else if (id === 'stream') {
-    // High frequency filtered noise — bubbling
-    const d=makeWhiteData(len);
-    const src=bufSrc([d]);
-    const hp=ctx.createBiquadFilter();hp.type='bandpass';hp.frequency.value=3000;hp.Q.value=0.4;
-    const osc=ctx.createOscillator();osc.frequency.value=2.5;
-    const mod=ctx.createGain();mod.gain.value=0.25;
-    const amp=ctx.createGain();amp.gain.value=0.4;
-    osc.connect(mod);mod.connect(amp.gain);
-    src.connect(hp);hp.connect(amp);amp.connect(masterGain);
-    src.start();osc.start();nodes=[src,hp,osc,mod,amp];
-  }
-  else {
-    // Frequency tones (hz528, hz432, hz174, hz417, hz963)
-    const hz={hz528:528,hz432:432,hz174:174,hz417:417,hz963:963}[id]||528;
-    // Sine + slight harmonics + binaural offset
-    const bufL=new Float32Array(len),bufR=new Float32Array(len);
-    for(let i=0;i<len;i++){
-      const t=i/sr;
-      bufL[i]=(Math.sin(2*Math.PI*hz*t)*0.35+Math.sin(2*Math.PI*hz*2*t)*0.06+Math.sin(2*Math.PI*hz*3*t)*0.02);
-      bufR[i]=(Math.sin(2*Math.PI*(hz+0.5)*t)*0.35+Math.sin(2*Math.PI*(hz+0.5)*2*t)*0.06);
-    }
-    const src=bufSrc([bufL,bufR],2);
-    src.connect(masterGain);src.start();nodes=[src];
-  }
-
-  return { masterGain, nodes };
+  return { masterGain: mG, nodes };
 }
 
-// ── Track playback state ─────────────────────────────────────
-let _trackHandle = null; // { masterGain, nodes }
-
+let _trackHandle = null;
 function stopTrack() {
   if (_trackHandle) {
     const { masterGain, nodes } = _trackHandle;
     const ctx = _getAudioCtx();
-    try { masterGain.gain.linearRampToValueAtTime(0, ctx.currentTime+0.6); } catch {}
-    setTimeout(()=>{ nodes.forEach(n=>{ try{n.stop?.();}catch{} try{n.disconnect();}catch{} }); try{masterGain.disconnect();}catch{} }, 700);
+    try { masterGain.gain.linearRampToValueAtTime(0, ctx.currentTime+.5); } catch{}
+    setTimeout(()=>{ nodes.forEach(n=>{try{n.stop?.();}catch{}try{n.disconnect();}catch{}});try{masterGain.disconnect();}catch{};}, 600);
     _trackHandle = null;
   }
-  _currentTrack = null;
-  _ambientOn = false;
+  _currentTrack = null; _ambientOn = false;
 }
-
 function playTrack(id) {
   stopTrack();
   const ctx = _getAudioCtx();
-  const handle = _makeSound(id);
-  // Fade in
-  handle.masterGain.gain.setValueAtTime(0, ctx.currentTime);
-  handle.masterGain.gain.linearRampToValueAtTime(0.38, ctx.currentTime+1.2);
-  _trackHandle = handle;
-  _currentTrack = id;
-  _ambientOn = true;
+  const h = _makeSound(id);
+  h.masterGain.gain.setValueAtTime(0, ctx.currentTime);
+  h.masterGain.gain.linearRampToValueAtTime(.34, ctx.currentTime+1);
+  _trackHandle = h; _currentTrack = id; _ambientOn = true;
 }
-
 function toggleTrack(id) {
-  if (_currentTrack === id) {
-    stopTrack();
-    _renderSoundTracks(document.querySelector('.sound-cat.active')?.dataset.cat || 'focus');
-  } else {
-    playTrack(id);
-    _renderSoundTracks(document.querySelector('.sound-cat.active')?.dataset.cat || 'focus');
-  }
+  if (_currentTrack === id) { stopTrack(); } else { playTrack(id); }
+  _renderSoundTracks(document.querySelector('.sound-cat.active')?.dataset.cat || 'freq');
 }
 
-// ── UI ───────────────────────────────────────────────────────
-let _soundCat = 'focus';
-
+let _soundCat = 'freq';
 function setSoundCat(cat, btn) {
   _soundCat = cat;
   document.querySelectorAll('.sound-cat').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
   _renderSoundTracks(cat);
 }
-
 function _renderSoundTracks(cat) {
-  const el = document.getElementById('soundTracks');
-  if (!el) return;
-  const tracks = SOUND_TRACKS[cat] || [];
-  el.innerHTML = tracks.map(t => {
-    const active = _currentTrack === t.id;
-    return `<button class="sound-track${active?' active':''}" onclick="toggleTrack('${t.id}')" title="${t.desc}">
-      <span class="sound-track-icon">${t.icon}</span>
-      <span class="sound-track-label">${t.label}</span>
-      ${active
-        ? `<span class="sound-track-play"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></span>`
-        : `<span class="sound-track-play"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>`
-      }
-    </button>`;
+  const el = document.getElementById('soundTracks'); if(!el) return;
+  el.innerHTML = (SOUND_TRACKS[cat]||[]).map(t => {
+    const on = _currentTrack === t.id;
+    return `<button class="snd-row${on?' snd-on':''}" onclick="toggleTrack('${t.id}')"><span class="snd-ico">${SVGI[t.svgKey]||''}</span><span class="snd-info"><span class="snd-name">${t.label}</span><span class="snd-sub">${t.sub}</span></span><span class="snd-btn">${on?SVGI.pause:SVGI.play}</span></button>`;
   }).join('');
 }
-
-function initSoundWidget() {
-  _renderSoundTracks('focus');
-}
-
-// ── Compat stubs (old API) ───────────────────────────────────
-function toggleAmbient() { const t = document.querySelector('.sound-track.active'); if(t) toggleTrack(_currentTrack); else toggleTrack('white'); }
-function changeAmbient(type) { _ambientType = type; }
+function initSoundWidget() { _renderSoundTracks('freq'); }
+function toggleAmbient() { if(_currentTrack) toggleTrack(_currentTrack); else toggleTrack('rain'); }
+function changeAmbient() {}
 function stopAmbient() { stopTrack(); }
 function startAmbient(type) { playTrack(type); }
 function _updateAmbientBtn() {}
+
 
 // ── League picker before timer start ──────────────────────────
 function showLeaguePickerThenStart() {
