@@ -6731,7 +6731,7 @@ function renderKnowledgeBase() {
       .k3font-dd{position:relative;flex-shrink:0;}
       .k3font-btn{display:flex;align-items:center;gap:7px;padding:0 12px;height:32px;border-radius:9px;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.1);color:var(--t1);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;white-space:nowrap;min-width:110px;justify-content:space-between;}
       .k3font-btn:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);}
-      .k3font-list{position:absolute;top:calc(100% + 8px);left:0;background:rgba(20,20,26,.96);border:0.5px solid rgba(255,255,255,.09);border-radius:18px;padding:8px;min-width:230px;box-shadow:0 24px 64px rgba(0,0,0,.7),0 4px 16px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.07);z-index:9999;animation:dropIn .18s cubic-bezier(.34,1.15,.64,1) both;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);}
+      .k3font-list{position:absolute;top:calc(100% + 8px);left:0;background:rgba(14,14,20,.88);border:0.5px solid rgba(255,255,255,.14);border-radius:18px;padding:8px;min-width:230px;box-shadow:0 32px 80px rgba(0,0,0,.85),0 8px 24px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.1);z-index:9999;animation:dropIn .18s cubic-bezier(.34,1.15,.64,1) both;backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);}
       @keyframes dropIn{from{opacity:0;transform:translateY(-8px) scale(.97)}to{opacity:1;transform:none}}
       .k3font-opt{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:12px;cursor:pointer;color:var(--t1);transition:background .12s;position:relative;}
       .k3font-opt:hover{background:rgba(255,255,255,.07);}
@@ -6745,7 +6745,7 @@ function renderKnowledgeBase() {
       .k3style-dd{position:relative;flex-shrink:0;}
       .k3style-btn{display:flex;align-items:center;gap:7px;padding:0 12px;height:32px;border-radius:9px;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.1);color:var(--t2);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;white-space:nowrap;min-width:80px;justify-content:space-between;}
       .k3style-btn:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:var(--t1);}
-      .k3style-list{position:absolute;top:calc(100% + 8px);left:0;background:rgba(20,20,26,.96);border:0.5px solid rgba(255,255,255,.09);border-radius:18px;padding:8px;min-width:200px;box-shadow:0 24px 64px rgba(0,0,0,.7),0 4px 16px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.07);z-index:9999;animation:dropIn .18s cubic-bezier(.34,1.15,.64,1) both;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);}
+      .k3style-list{position:absolute;top:calc(100% + 8px);left:0;background:rgba(14,14,20,.88);border:0.5px solid rgba(255,255,255,.14);border-radius:18px;padding:8px;min-width:200px;box-shadow:0 32px 80px rgba(0,0,0,.85),0 8px 24px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.1);z-index:9999;animation:dropIn .18s cubic-bezier(.34,1.15,.64,1) both;backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);}
       .k3style-opt{padding:10px 14px;border-radius:12px;cursor:pointer;color:var(--t1);transition:background .12s;font-size:13px;display:flex;align-items:center;gap:10px;}
       .k3style-opt:hover{background:rgba(255,255,255,.07);}
       .k3style-opt-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:rgba(255,255,255,.06);flex-shrink:0;font-size:10px;font-weight:700;}
@@ -8351,47 +8351,15 @@ function _kbTogCat(cid){
   if(top)top.innerHTML='';
   _kbRS();_kbRNL();_kbRED();
 }
-// ── Render lock: prevents double-render on rapid clicks ──────────
-let _kbSFLock=0;
 function _kbSF(cid,fid){
   if(_kbS.edit&&_kbS.note) _kbFlush3();
   clearTimeout(_kbSaveTimer);
   _kbS.cat=cid; _kbS.folder=fid; _kbS.note=null; _kbS.edit=false;
   _kbS.collapsed[cid]=false;
   _kbLoad3();
-
-  // Show spinner immediately using fresh DOM ref
-  const contNow=document.getElementById('kb3edc');
-  if(contNow){
-    contNow.scrollTop=0;
-    contNow.innerHTML='<div style="display:flex;align-items:center;justify-content:center;padding:40px;gap:10px;color:var(--t3);font-size:13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite;opacity:.5"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0" stroke-opacity=".3"/><path d="M21 12a9 9 0 0 0-9-9"/></svg>Загрузка...</div>';
-  }
-  _kbRS();
-
-  // Render in next frame — always fetch fresh DOM refs to survive re-renders
-  const lockId=++_kbSFLock;
-  requestAnimationFrame(()=>{
-    if(lockId!==_kbSFLock) return; // superseded by newer click
-    const cont=document.getElementById('kb3edc');
-    const top=document.getElementById('kb3edt');
-    const tb=document.getElementById('kb3tb');
-    const st=document.getElementById('kb3st');
-    if(!cont) return;
-    if(top) top.innerHTML='';
-    if(tb) tb.style.display='none';
-    if(st) st.style.display='none';
-    cont.scrollTop=0;
-    try{
-      const c=ALL_CATS.find(x=>x.id===cid);
-      const f=_kbGetFolder(cid,fid);
-      if(c&&f){ _kbRFolderInline(cont); }
-      else if(c){ _kbS.folder=null; _kbRCatOverview(cont); }
-      else { _kbRHome(cont); }
-    }catch(err){
-      console.error('[KB] render error:',err);
-      try{ _kbRHome(document.getElementById('kb3edc')); }catch(e2){}
-    }
-  });
+  // Sync: update sidebar then render main area via _kbRED
+  // _kbRED checks _kbS.cat/_kbS.folder and calls _kbRFolderInline automatically
+  _kbRS(); _kbRED();
 }
 function _kbON(cid,fid,nid){
   if(_kbS.edit&&_kbS.note) _kbFlush3();
@@ -8575,9 +8543,20 @@ function _kbEK(e){
         const txtSpan=todoLbl.querySelector('span:not(.k3todo-box)');
         const isEmpty=!(txtSpan&&txtSpan.textContent.trim());
         if(isEmpty){
-          // Empty todo → remove it and insert plain line break
+          // Empty todo → remove it and insert a paragraph so cursor can continue
           todoLbl.remove();
-          document.execCommand('insertHTML',false,'<br>');
+          // Insert a real paragraph so Enter continues to work normally
+          document.execCommand('insertHTML',false,'<p>​</p>');
+          // Clean placeholder on next keystroke
+          const ea3=document.getElementById('kb3area');
+          if(ea3){
+            ea3.addEventListener('keydown',function clrTodo(ev){
+              ea3.querySelectorAll('p').forEach(p3=>{
+                if(p3.textContent==='​') p3.textContent='';
+              });
+              ea3.removeEventListener('keydown',clrTodo);
+            },{once:true});
+          }
         } else {
           // Create next todo after current
           const id2='todo_'+Date.now();
@@ -8596,6 +8575,47 @@ function _kbEK(e){
         }
         _kbEI();
         return;
+      }
+    }
+
+    // ── Exit UL/OL list on empty list item (double Enter) ──────────
+    const selLI=window.getSelection();
+    if(selLI&&selLI.rangeCount){
+      const rngLI=selLI.getRangeAt(0);
+      const nodeLI=rngLI.startContainer;
+      const elLI=nodeLI.nodeType===3?nodeLI.parentElement:nodeLI;
+      const li=elLI&&typeof elLI.closest==='function'?elLI.closest('li'):null;
+      const lst=li&&(li.closest('ul')||li.closest('ol'));
+      if(li&&lst){
+        // Check if this list item is empty
+        const liText=li.textContent||'';
+        if(liText.trim()===''){
+          e.preventDefault();
+          // Remove the empty li
+          const parent=li.parentNode;
+          li.remove();
+          // If list is now empty, remove the list element itself
+          if(parent&&parent.children.length===0) parent.remove();
+          // Insert paragraph after list
+          const p=document.createElement('p');
+          p.innerHTML='​';
+          const listEl=document.querySelector('#kb3area ul, #kb3area ol');
+          // Find the list in editor and insert after it, or just at cursor
+          document.execCommand('insertHTML',false,'<p>​</p>');
+          // Clean zero-width spaces on next keystroke
+          const ea2=document.getElementById('kb3area');
+          if(ea2){
+            const cleanup=()=>{
+              ea2.querySelectorAll('p').forEach(p2=>{
+                if(p2.textContent==='​') p2.textContent='';
+              });
+              ea2.removeEventListener('keydown',cleanup);
+            };
+            ea2.addEventListener('keydown',cleanup,{once:true});
+          }
+          _kbEI();
+          return;
+        }
       }
     }
 
