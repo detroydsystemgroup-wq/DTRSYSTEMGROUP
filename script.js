@@ -4649,7 +4649,24 @@ function showTab(name,el,skipHistory){
       // Consistency rows
       staggerList('.hab-consist-row', 30, 'row');
       // Progress bars animate width
-      setTimeout(()=>animateBars('.hab-prog-fill', 0), 200);
+      setTimeout(()=>{
+        animateBars('.hab-prog-fill', 0);
+        // Counter animation for % numbers
+        document.querySelectorAll('.hab-prog-pct[data-target]').forEach(el => {
+          const target = parseInt(el.dataset.target) || 0;
+          if (target === 0) { el.textContent = '0%'; return; }
+          let start = null;
+          const dur = 900;
+          const step = ts => {
+            if (!start) start = ts;
+            const p = Math.min((ts - start) / dur, 1);
+            const ease = 1 - Math.pow(1 - p, 3); // cubic ease-out
+            el.textContent = Math.round(ease * target) + '%';
+            if (p < 1) requestAnimationFrame(step);
+          };
+          requestAnimationFrame(step);
+        });
+      }, 200);
     }, 80);
   }
   if(name==='learn'){
@@ -6100,11 +6117,9 @@ window.addEventListener('load', ()=>{
 
 const NOTIF_STORAGE_KEY = 'dtr_notifications_v1';
 const NOTIF_MELODIES = [
-  { id: 'default', name: 'По умолчанию', desc: 'Стандартный звук браузера' },
-  { id: 'chime',   name: 'Колокольчик',  desc: 'Нежный перезвон' },
-  { id: 'pulse',   name: 'Пульс',         desc: 'Ритмичный сигнал' },
-  { id: 'gong',    name: 'Гонг',           desc: 'Глубокий удар' },
-  { id: 'digital', name: 'Digital',        desc: 'Электронный сигнал' },
+  { id: 'chime',   name: 'Колокольчик', desc: 'Нежный перезвон' },
+  { id: 'gong',    name: 'Гонг',        desc: 'Глубокий удар' },
+  { id: 'pulse',   name: 'Пульс',       desc: 'Ритмичный сигнал' },
 ];
 const NOTIF_DAYS_RU = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 let _notifSchedules = [];
@@ -6322,24 +6337,20 @@ function notifSelectAllDays() {
 function _renderNotifMelodies() {
   const cont = document.getElementById('notifMelodyList');
   if (!cont) return;
-  cont.innerHTML = NOTIF_MELODIES.map(m => `
-    <div class="notif-melody-item" data-mel="${m.id}" onclick="selectNotifMelody('${m.id}')"
-      style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;cursor:pointer;
-             border:${_notifSelMelody===m.id?'1.5px solid var(--gold)':'1px solid var(--border)'};
-             background:${_notifSelMelody===m.id?'rgba(245,200,66,.06)':'var(--card)'};transition:background-color .18s,border-color .18s,color .18s,box-shadow .18s,opacity .18s">
-      <div style="font-size:20px;flex-shrink:0">🎵</div>
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:600;color:${_notifSelMelody===m.id?'var(--gold)':'var(--t1)'}">${m.name}</div>
-        <div style="font-size:11px;color:var(--t3)">${m.desc}</div>
+  const noteIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`;
+  const playIcon = `<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+  cont.innerHTML = NOTIF_MELODIES.map(m => {
+    const on = _notifSelMelody === m.id;
+    return `<div class="notif-mel-row${on?' notif-mel-on':''}" onclick="selectNotifMelody('${m.id}')">
+      <div class="notif-mel-ico">${noteIcon}</div>
+      <div class="notif-mel-info">
+        <div class="notif-mel-name">${m.name}</div>
+        <div class="notif-mel-sub">${m.desc}</div>
       </div>
-      <button onclick="event.stopPropagation();previewNotifMelody('${m.id}')"
-        style="background:rgba(245,200,66,.1);border:0.5px solid rgba(245,200,66,.2);
-               border-radius:6px;padding:4px 10px;color:var(--gold);font-size:11px;
-               cursor:pointer;font-family:'DM Sans',sans-serif;flex-shrink:0">&#x25B6;</button>
-      <div style="width:16px;height:16px;border-radius:50%;flex-shrink:0;
-                  background:${_notifSelMelody===m.id?'var(--gold)':'transparent'};
-                  border:1.5px solid ${_notifSelMelody===m.id?'var(--gold)':'var(--border)'}"></div>
-    </div>`).join('');
+      <button class="notif-mel-play" onclick="event.stopPropagation();previewNotifMelody('${m.id}')">${playIcon}</button>
+      <div class="notif-mel-dot${on?' on':''}"></div>
+    </div>`;
+  }).join('');
 }
 
 function selectNotifMelody(id) {
@@ -7969,7 +7980,7 @@ function render(){
       <div class="hab-prog-wrap">
         <div class="hab-prog-head">
           <span class="hab-prog-lbl">Неделя</span>
-          <span class="hab-prog-pct" style="color:${weekPct===100?color:weekPct>=50?color:'var(--t3)'}">${weekPct}%</span>
+          <span class="hab-prog-pct" data-target="${weekPct}" style="color:${weekPct===100?color:weekPct>=50?color:'var(--t3)'}">0%</span>
         </div>
         <div class="hab-prog-bar">
           <div class="hab-prog-fill" style="width:${weekPct}%;background:${weekPct===100?`linear-gradient(90deg,${color}cc,${color})`:`linear-gradient(90deg,${color}66,${color}99)`};box-shadow:${weekPct>20?`0 0 10px ${color}44`:'none'}"></div>
