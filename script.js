@@ -2555,24 +2555,33 @@ async function openUserProfile(userId, name, av, avUrl){
   const ov = document.getElementById('userProfileOv');
   ov.classList.add('show');
 
-  // Instant skeleton while loading — show photo immediately if available
-  const upAvEl = document.getElementById('upAv');
-  if (avUrl) {
-    upAvEl.innerHTML = `<img src="${avUrl}" class="img-cover" style="border-radius:19px" onerror="this.parentNode.textContent='${av||'🎯'}'">`;
-  } else {
-    upAvEl.textContent = av || '🎯';
-  }
-  upAvEl.style.border = '3px solid rgba(245,200,66,.25)';
-  upAvEl.style.boxShadow = '0 8px 32px rgba(0,0,0,.5)';
-  document.getElementById('upName').textContent = name || '—';
-  document.getElementById('upMeta').innerHTML = '<span style="color:var(--t3)">Загружаем...</span>';
-  document.getElementById('upLeaguesList').innerHTML = '<div style="padding:32px;text-align:center;color:var(--t3)">⏳</div>';
+  // Store context
   ov.dataset.userId = userId;
   ov.dataset.userName = name || '—';
   ov.dataset.userAv = av || '🎯';
 
+  // Instant skeleton
+  const cover = document.getElementById('upCover');
+  const nameEl = document.getElementById('upName');
+  const metaEl = document.getElementById('upMeta');
+  const actEl  = document.getElementById('upActions');
+  const bodyEl = document.getElementById('upLeaguesList');
+
+  nameEl.textContent = name || '—';
+  metaEl.innerHTML = '<span style="color:var(--t3);font-size:11px">Загружаем...</span>';
+  actEl.innerHTML = '';
+  bodyEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:40px;color:var(--t3)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:.3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>`;
+
+  // Quick avatar in cover
+  cover.style.background = 'linear-gradient(135deg,rgba(245,200,66,.12) 0%,rgba(8,8,10,1) 100%)';
+  cover.innerHTML = `
+    <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(245,200,66,.08),transparent 60%);pointer-events:none"></div>
+    <button onclick="closeUserProfile()" style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:9px;background:rgba(0,0,0,.4);border:0.5px solid rgba(255,255,255,.1);color:rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:3;backdrop-filter:blur(8px);transition:background .15s" onmouseover="this.style.background='rgba(0,0,0,.7)'" onmouseout="this.style.background='rgba(0,0,0,.4)'">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div id="upAv" style="position:absolute;bottom:-28px;left:24px;width:88px;height:88px;border-radius:22px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:50px;border:2px solid rgba(245,200,66,.25);box-shadow:0 8px 32px rgba(0,0,0,.7),0 0 0 4px rgba(245,200,66,.06);overflow:hidden;z-index:2">${av||'🎯'}</div>`;
+
   try {
-    // All queries in parallel
     const [uRes, ucRes, achRes, likeRes] = await Promise.all([
       sb.from('users').select('id,username,avatar,avatar_url,streak,total_sessions,created_at').eq('id',userId).limit(1),
       sb.from('user_categories').select('category_id,hours').eq('user_id',userId).order('hours',{ascending:false}),
@@ -2580,161 +2589,173 @@ async function openUserProfile(userId, name, av, avUrl){
       sb.from('likes').select('id',{count:'exact',head:true}).eq('to_user_id',userId)
     ]);
 
-    const u = uRes.data?.[0] ?? null;
-    const uc = ucRes.data ?? [];
-    const achs = achRes.data ?? [];
-    const totalLikes = likeRes.count ?? 0;
+    const u         = uRes.data?.[0] ?? null;
+    const uc        = ucRes.data ?? [];
+    const achs      = achRes.data ?? [];
+    const totalLikes= likeRes.count ?? 0;
+    const totalH    = parseFloat(uc.reduce((s,r)=>s+(r.hours||0),0).toFixed(1));
+    const lvlInfo   = getLevelInfo(totalH);
+    const lvlColor  = lvlInfo.color.includes('gradient') ? 'var(--gold)' : lvlInfo.color;
+    const topCat    = ALL_CATS.find(c=>c.id===uc[0]?.category_id);
+    const streak    = u?.streak || 0;
+    const sessions  = u?.total_sessions || 0;
+    const username  = u?.username || name || '—';
+    const achCount  = achs.length;
+    const accentColor = topCat?.color || lvlColor;
 
-    // ── Compute stats (works even if u is null) ──
-    const totalH = parseFloat(uc.reduce((s,r)=>s+(r.hours||0),0).toFixed(1));
-    const lvlInfo = getLevelInfo(totalH);
-    const lvlColor = lvlInfo.color.includes('gradient') ? 'var(--gold)' : lvlInfo.color;
-    const topCat = ALL_CATS.find(c=>c.id===uc[0]?.category_id);
-    const streak = u?.streak || 0;
-    const sessions = u?.total_sessions || 0;
-    const username = u?.username || name || '—';
-    const achCount = achs.length;
+    ov.dataset.userName = username;
+    ov.dataset.userAv   = u?.avatar || av || '🎯';
 
-    // ── Cover ──
-    const cover = document.getElementById('upCover');
-    cover.style.background = topCat
-      ? `linear-gradient(135deg,${topCat.color}55 0%,#060610 100%)`
-      : `linear-gradient(135deg,${lvlColor}33 0%,#060610 100%)`;
-    // Animated glow orb only — no level badge in cover
-    cover.innerHTML =
-      `<div style="position:absolute;top:-40px;left:-40px;width:220px;height:220px;border-radius:50%;background:${lvlColor}14;filter:blur(50px);pointer-events:none"></div>`+
-      `<div style="position:absolute;top:-20px;right:-20px;width:140px;height:140px;border-radius:50%;background:${topCat?topCat.color+'0e':'rgba(168,85,247,.06)'};filter:blur(35px);pointer-events:none"></div>`+
-      `<div style="position:absolute;bottom:-42px;left:24px;width:110px;height:110px;border-radius:22px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:54px;border:3px solid ${lvlColor}55;box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 0 1px ${lvlColor}18,0 0 24px ${lvlColor}22;overflow:hidden;z-index:2;transition:transform .22s cubic-bezier(.34,1.56,.64,1),box-shadow .22s" id="upAv">${av||'🎯'}</div>`+
-      `<button class="up-close" onclick="closeUserProfile()" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.08);border:0.5px solid rgba(255,255,255,.12);color:var(--t2);font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:3">✕</button>`;
-
-    // ── Avatar with glow ──
-    const newAvEl = document.getElementById('upAv');
-    if(newAvEl){
-      newAvEl.style.border = `3px solid ${lvlColor}66`;
-      newAvEl.style.boxShadow = `0 8px 32px rgba(0,0,0,.6),0 0 0 1px ${lvlColor}18,0 0 28px ${lvlColor}44`;
+    // ── Cover with gradient ──
+    cover.style.background = `linear-gradient(160deg,${accentColor}28 0%,rgba(9,9,11,.98) 100%)`;
+    const avEl = document.getElementById('upAv');
+    if(avEl){
+      avEl.style.border = `2px solid ${accentColor}55`;
+      avEl.style.boxShadow = `0 8px 32px rgba(0,0,0,.7),0 0 0 4px ${accentColor}12,0 0 28px ${accentColor}22`;
       if(u?.avatar_url){
-        newAvEl.innerHTML = `<img src="${u.avatar_url}" class="img-cover" style="border-radius:19px" onerror="this.parentNode.textContent='${u?.avatar||'🎯'}'">`;
+        avEl.innerHTML = `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:20px" onerror="this.parentNode.textContent='${u?.avatar||'🎯'}'">`;
       } else {
-        newAvEl.textContent = u?.avatar || av || '🎯';
+        avEl.textContent = u?.avatar || av || '🎯';
       }
     }
 
     // ── Name + meta ──
-    document.getElementById('upName').textContent = username;
-    document.getElementById('upMeta').innerHTML =
-      `<span>📅 С ${new Date(u?.created_at||Date.now()).toLocaleDateString('ru',{month:'long',year:'numeric'})}</span>`+
-      `<span style="color:var(--green)">❤️ ${totalLikes}</span>`;
+    nameEl.textContent = username;
+    const joinDate = new Date(u?.created_at||Date.now()).toLocaleDateString('ru',{month:'long',year:'numeric'});
+    metaEl.innerHTML = `
+      <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--t3)">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        С ${joinDate}
+      </span>
+      <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--t3)">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" fill="#ef444430"/></svg>
+        ${totalLikes}
+      </span>`;
 
-    // Store for write message
-    ov.dataset.userId = userId;
-    ov.dataset.userName = username;
-    ov.dataset.userAv = u?.avatar || av || '🎯';
+    // ── Action buttons (ONE set, clean logic) ──
+    const isOwnProfile = SB_USER && (SB_USER.id === userId || SB_USER.isDemoUser);
+    const SOC = window._SOC;
+    const isFriend     = SOC?.friends?.some(f=>f.id===userId) ?? false;
+    const isPendingOut = SOC?.pendingOut?.some(f=>f.id===userId) ?? false;
+    const isFollowing  = SOC?.follows?.includes(userId) ?? false;
 
-    await refreshLikeBtn(userId);
+    let friendBtn = '';
+    if(!isOwnProfile){
+      if(isFriend){
+        friendBtn = `<button class="up-action-btn up-action-green" onclick="socConfirmRemoveFriend('${userId}')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><polyline points="20 6 9 17 4 12"/></svg>
+          Друг
+        </button>`;
+      } else if(isPendingOut){
+        friendBtn = `<button class="up-action-btn" style="opacity:.5;cursor:default" disabled>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Ожидание
+        </button>`;
+      } else {
+        friendBtn = `<button class="up-action-btn up-action-gold" onclick="window.socSendFriendRequest('${userId}','${escAttr(username||'')}',this)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+          В друзья
+        </button>`;
+      }
+    }
 
-    // ── Social buttons (friend / follow) ──
-    (function injectSocialBtns(){
-      try {
-        const actionsEl = document.getElementById('upActions');
-        if(!actionsEl || !window._SOC) return;
-        // Remove old injected buttons if any
-        actionsEl.querySelectorAll('.soc-injected-btn').forEach(b => b.remove());
-        const isFriend = window._SOC.friends.some(f => f.id === userId);
-        const isPendingOut = window._SOC.pendingOut.some(f => f.id === userId);
-        const isFollowing = window._SOC.follows.includes(userId);
+    const likeCount = totalLikes;
+    let isLiked = false;
+    try { const lr = await sb.from('likes').select('id').eq('from_user_id',SB_USER?.id).eq('to_user_id',userId).limit(1); isLiked = (lr.data||[]).length>0; } catch{}
 
-        let friendBtnHTML = '';
-        if(isFriend){
-          friendBtnHTML = `<button class="up-btn soc-injected-btn" style="background:rgba(34,197,94,.1);border:0.5px solid rgba(34,197,94,.3);color:var(--green)" onclick="socConfirmRemoveFriend('${userId}')">✓ Друг</button>`;
-        } else if(isPendingOut){
-          friendBtnHTML = `<button class="up-btn soc-injected-btn" style="opacity:.6;cursor:default" disabled>⏳ Запрос</button>`;
-        } else {
-          friendBtnHTML = `<button class="up-btn soc-injected-btn" style="background:rgba(245,200,66,.12);border:0.5px solid rgba(245,200,66,.3);color:var(--gold)" onclick="window.socSendFriendRequest('${userId}','${escAttr(username||'')}',this)">+ В друзья</button>`;
-        }
-        const followBtnHTML = `<button class="up-btn soc-injected-btn" id="socUpFollowBtn" style="background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.12);color:var(--t2)" onclick="socToggleFollowInModal('${userId}',this)">${isFollowing ? '👁 Слежу' : '+ Следить'}</button>`;
-        actionsEl.insertAdjacentHTML('beforeend', friendBtnHTML + followBtnHTML);
-      } catch(e){ console.warn('injectSocialBtns:', e); }
-    })();
+    actEl.innerHTML = `
+      <button class="up-action-btn${isLiked?' up-action-red':''}" id="upLikeBtn" onclick="toggleLikeUser()" data-liked="${isLiked}">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="${isLiked?'#ef4444':'none'}" stroke="#ef4444" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        <span id="upLikeCount">${likeCount}</span>
+      </button>
+      ${friendBtn}
+      <button class="up-action-btn" onclick="openChatWithUser()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Написать
+      </button>`;
 
-    // ── KPI ──
-    const SVG_ICONS_KPI=[`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`,`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="14 9 15.5 4 22 6"/><polyline points="10 9 8.5 4 2 6"/><path d="M4.23 12C2.86 11 2 9.6 2 8c0-3.31 2.69-6 6-6h8c3.31 0 6 2.69 6 6 0 1.6-.86 3-2.23 4"/><path d="M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/><line x1="12" y1="16" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>`];
-    const kpis = [
-      {v:(totalH<10?totalH.toFixed(1):Math.round(totalH)), l:'Часов',  c:'var(--gold)'},
-      {v:streak,            l:'Дисциплина',  c:'#f85149'},
-      {v:sessions,          l:'Сессий', c:'var(--blue)'},
-      {v:achCount,          l:'Наград', c:'var(--orange)'},
+    // ── KPI grid ──
+    const kpiColors = ['var(--gold)','#f97316','var(--blue)','#a855f7'];
+    const kpiIcons = [
+      `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+      `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`,
+      `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+      `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>`
     ];
-    const kpiHTML =
-      `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px">`+
-      kpis.map((k,i)=>
-        `<div style="background:var(--card);border:0.5px solid rgba(255,255,255,.07);border-left:3px solid ${k.c};border-radius:12px;padding:12px 8px;text-align:center">`+
-          `<div style="width:32px;height:32px;border-radius:9px;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.09);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;color:${k.c}">${SVG_ICONS_KPI[i]}</div>`+
-          `<div style="font-family:'DM Mono',monospace;font-size:20px;font-weight:400;line-height:1;color:${k.c}">${k.v}</div>`+
-          `<div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">${k.l}</div>`+
-        `</div>`
-      ).join('')+`</div>`;
+    const kpiData = [
+      {v: totalH<10?totalH.toFixed(1):Math.round(totalH), u:'ч',  l:'Часов'},
+      {v: streak,   u:'д',  l:'Дисциплина'},
+      {v: sessions, u:'',   l:'Сессий'},
+      {v: achCount, u:'',   l:'Наград'},
+    ];
+
+    const kpiHTML = `<div class="up-kpi-grid">${kpiData.map((k,i)=>`
+      <div class="up-kpi-tile" style="--tile-c:${kpiColors[i]}">
+        <div class="up-kpi-icon" style="color:${kpiColors[i]}">${kpiIcons[i]}</div>
+        <div class="up-kpi-number" style="color:${kpiColors[i]}">${k.v}<span class="up-kpi-unit">${k.u}</span></div>
+        <div class="up-kpi-label">${k.l}</div>
+      </div>`).join('')}</div>`;
 
     // ── XP bar ──
-    const xpHTML =
-      `<div style="margin-bottom:18px;background:linear-gradient(135deg,${lvlColor}10,var(--card));border:0.5px solid ${lvlColor}30;border-radius:12px;padding:14px 16px">`+
-        `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">`+
-          `<span style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:${lvlColor}">УР.${lvlInfo.lvl} · ${lvlInfo.name}</span>`+
-          `<span style="font-size:11px;color:var(--t3)">ещё ${lvlInfo.xpLeft} ч</span>`+
-        `</div>`+
-        `<div style="height:6px;background:var(--bg);border-radius:3px;overflow:hidden">`+
-          `<div style="height:100%;width:${lvlInfo.pct}%;background:${lvlColor};border-radius:3px;box-shadow:0 0 8px ${lvlColor}88;transition:width 1.2s ease"></div>`+
-        `</div>`+
-        `<div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--t3)">`+
-          `<span>${lvlInfo.curThresh}ч</span><span>${lvlInfo.pct}%</span><span>${lvlInfo.nextThresh}ч</span>`+
-        `</div>`+
-      `</div>`;
-
-    // ── Section divider helper ──
-    const sec = (ico, lbl) =>
-      `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;margin-top:4px">`+
-        `<div style="height:1px;width:20px;background:var(--border-l)"></div>`+
-        `<span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--t3);white-space:nowrap">${ico} ${lbl}</span>`+
-        `<div style="height:1px;flex:1;background:var(--border-l)"></div>`+
-      `</div>`;
+    const xpHTML = `
+      <div class="up-xp-bar">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:12px;font-weight:600;color:${lvlColor};letter-spacing:-.01em">УР.${lvlInfo.lvl} · ${lvlInfo.name}</span>
+          <span style="font-size:10px;color:var(--t3)">ещё ${lvlInfo.xpLeft} ч</span>
+        </div>
+        <div style="height:4px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden">
+          <div style="height:100%;width:${lvlInfo.pct}%;background:${lvlColor};border-radius:2px;box-shadow:0 0 8px ${lvlColor}66;transition:width 1.2s cubic-bezier(.25,.46,.45,.94)"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:5px;font-size:9.5px;color:rgba(255,255,255,.2);font-family:'DM Mono',monospace">${lvlInfo.curThresh}ч<span style="color:rgba(255,255,255,.18)">${lvlInfo.pct}%</span>${lvlInfo.nextThresh}ч</div>
+      </div>`;
 
     // ── Leagues ──
-    const maxHrs = Math.max(...uc.map(r=>r.hours), 0.1);
-    const leagueHTML = uc.length === 0 ? '' :
-      `<div style="margin-bottom:18px">${sec('⚔️','ЛИГИ')}`+
-      uc.map(row=>{
-        const cat = ALL_CATS.find(c=>c.id===row.category_id) || {name:row.category_id,icon:'📌',color:'#888'};
-        const pct = Math.min(100,Math.round((row.hours/maxHrs)*100));
-        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:6px;background:${cat.color}0d;border:0.5px solid ${cat.color}30;border-radius:10px">${catIconBox(cat.id,cat.color,28)}<div style="flex:1;min-width:0">`+
-            `<div style="font-size:12px;font-weight:700;color:${cat.color}">${cat.name}</div>`+
-            `<div style="height:3px;background:var(--bg);border-radius:2px;overflow:hidden;margin-top:5px">`+
-              `<div style="height:100%;width:${pct}%;background:${cat.color};border-radius:2px"></div>`+
-            `</div>`+
-          `</div>`+
-          `<div style="font-family:'DM Sans',sans-serif;font-size:18px;font-weight:700;color:${cat.color};flex-shrink:0">${row.hours.toFixed(1)}<span style="font-size:10px;color:var(--t3)"> ч</span></div>`+
-        `</div>`;
-      }).join('')+`</div>`;
+    const maxH = Math.max(...uc.map(r=>r.hours),0.1);
+    const leagueHTML = uc.length===0?'':`
+      <div class="up-section-label">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        Лиги
+      </div>
+      ${uc.map(row=>{
+        const cat = ALL_CATS.find(c=>c.id===row.category_id)||{name:row.category_id,color:'#888'};
+        const pct = Math.min(100,Math.round((row.hours/maxH)*100));
+        return `<div class="up-league-row">
+          ${catIconBox(cat.id,cat.color,34)}
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12.5px;font-weight:600;color:var(--t1);letter-spacing:-.01em;margin-bottom:5px">${cat.name}</div>
+            <div style="height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden">
+              <div style="height:100%;width:${pct}%;background:${cat.color};border-radius:2px;transition:width 1s cubic-bezier(.25,.46,.45,.94)"></div>
+            </div>
+          </div>
+          <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:400;color:${cat.color};flex-shrink:0;letter-spacing:-.02em">${row.hours.toFixed(1)}<span style="font-size:10px;color:var(--t3)">ч</span></div>
+        </div>`;
+      }).join('')}`;
 
     // ── Achievements ──
     const unlockedDefs = ACH_DEF.filter(d=>achs.find(a=>a.achievement_id===d.id));
-    const achHTML = unlockedDefs.length === 0 ? '' :
-      `<div style="margin-bottom:18px">${sec('🏅','ДОСТИЖЕНИЯ · '+unlockedDefs.length)}`+
-      `<div style="display:flex;flex-wrap:wrap;gap:6px">`+
-      unlockedDefs.slice(0,16).map(def=>
-        `<div title="${def.name}" style="width:40px;height:40px;border-radius:10px;background:${def.color||'#555'}18;border:0.5px solid ${def.color||'#555'}44;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;transition:transform .15s" `+
-        `onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform=''" `+
-        `onclick="closeUserProfile();openAch('${def.id}')">${def.icon}</div>`
-      ).join('')+
-      (unlockedDefs.length>16?`<div style="width:40px;height:40px;border-radius:10px;background:var(--card);border:0.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--t3)">+${unlockedDefs.length-16}</div>`:'') +
-      `</div></div>`;
+    const achHTML = unlockedDefs.length===0?'':`
+      <div class="up-section-label" style="margin-top:18px">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
+        Достижения · ${unlockedDefs.length}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${unlockedDefs.slice(0,16).map(def=>`
+          <div title="${def.name}" onclick="closeUserProfile();openAch('${def.id}')"
+            style="width:42px;height:42px;border-radius:12px;background:${def.color||'#555'}15;border:0.5px solid ${def.color||'#555'}35;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;transition:transform .22s cubic-bezier(.34,1.56,.64,1),box-shadow .2s"
+            onmouseover="this.style.transform='scale(1.18)';this.style.boxShadow='0 4px 16px ${def.color||'#555'}44'"
+            onmouseout="this.style.transform='';this.style.boxShadow=''">${def.icon}</div>`).join('')}
+        ${unlockedDefs.length>16?`<div style="width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--t3)">+${unlockedDefs.length-16}</div>`:''}
+      </div>`;
 
-    document.getElementById('upLeaguesList').innerHTML = kpiHTML + xpHTML + leagueHTML + achHTML;
+    bodyEl.innerHTML = kpiHTML + xpHTML + leagueHTML + achHTML;
 
   } catch(err){
     console.error('openUserProfile error:', err);
-    document.getElementById('upMeta').innerHTML = '<span style="color:var(--red);font-size:12px">Ошибка загрузки</span>';
-    document.getElementById('upLeaguesList').innerHTML = '<div style="padding:16px;color:var(--t3);font-size:13px">Не удалось загрузить данные профиля.</div>';
+    bodyEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--t3);font-size:12px">Не удалось загрузить профиль</div>';
   }
 }
+
+
 function closeUserProfile(){
   document.getElementById('userProfileOv').classList.remove('show');
 }
