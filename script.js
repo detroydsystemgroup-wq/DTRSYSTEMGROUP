@@ -1444,9 +1444,10 @@ function renderDash(){
       const isTop = seg.top >= totalVal - 0.001;
       const rx = isTop ? Math.min(4, barW / 2) : 0;
       barsHTML += `<rect x="${x}" y="${y1}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}"
-        fill="${seg.color}" opacity="0.85" rx="${rx}" ry="${rx}"/>`;
+        fill="${seg.color}" opacity="0.65" rx="${rx}" ry="${rx}"/>`;
     });
 
+    // Subtle hover highlight column
     // Hover overlay — only show tooltip when there is actual data
     const hoverHandlers = totalVal > 0
       ? `onmouseenter="showDashTip(event,\`${tipData}\`,\`${fmtH(totalVal)}\`,\`${labelDay}\`)" onmouseleave="hideDashTip()" onclick="showDashTip(event,\`${tipData}\`,\`${fmtH(totalVal)}\`,\`${labelDay}\`)"`
@@ -4336,81 +4337,47 @@ async function openPub(){
 
   const levelTitle = document.getElementById('profTitle')?.textContent || '';
   document.getElementById('pubPrev').innerHTML=`
-    <div style="
-      background:rgba(255,255,255,.025);
-      border:0.5px solid rgba(255,255,255,.07);
-      border-radius:16px;
-      overflow:hidden;
-    ">
+    <div style="background:rgba(255,255,255,.025);border:0.5px solid rgba(255,255,255,.07);border-radius:16px;overflow:hidden">
       <!-- Cover strip -->
-      <div style="height:60px;background:linear-gradient(135deg,rgba(245,200,66,.12) 0%,rgba(168,85,247,.08) 60%,transparent 100%);position:relative">
-        <div style="position:absolute;bottom:0;left:0;right:0;height:30px;background:linear-gradient(to bottom,transparent,rgba(10,10,14,1))"></div>
+      <div style="height:56px;background:linear-gradient(135deg,rgba(245,200,66,.1) 0%,rgba(168,85,247,.06) 60%,transparent 100%);position:relative">
+        <div style="position:absolute;bottom:0;left:0;right:0;height:24px;background:linear-gradient(to bottom,transparent,rgba(10,9,7,1))"></div>
       </div>
-      <!-- Avatar + name row -->
-      <div style="padding:0 18px 16px;margin-top:-28px;position:relative">
+      <!-- Avatar + name -->
+      <div style="padding:0 18px 16px;margin-top:-24px;position:relative">
         <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px">
           <div style="display:flex;align-items:flex-end;gap:12px">
-            <div style="width:56px;height:56px;border-radius:14px;overflow:hidden;font-size:30px;display:flex;align-items:center;justify-content:center;background:#0E0E16;border:2px solid rgba(245,200,66,.3);flex-shrink:0;box-shadow:0 4px 16px rgba(0,0,0,.6)">
+            <div style="width:52px;height:52px;border-radius:14px;overflow:hidden;font-size:28px;display:flex;align-items:center;justify-content:center;background:rgba(10,9,7,.95);border:1.5px solid rgba(245,200,66,.25);flex-shrink:0;box-shadow:0 4px 16px rgba(0,0,0,.6)">
               ${P.avatarUrl?`<img src="${P.avatarUrl}" style="width:100%;height:100%;object-fit:cover">`:P.avatar}
             </div>
             <div style="padding-bottom:4px">
-              <div style="font-family:'DM Sans',sans-serif;font-size:18px;font-weight:800;letter-spacing:-.03em;color:var(--t1);line-height:1">${P.name}</div>
-              <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);margin-top:4px;opacity:.8">${levelTitle}</div>
+              <div style="font-size:16px;font-weight:600;letter-spacing:-.02em;color:var(--t1);line-height:1.2">${P.name}</div>
+              <div style="font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-top:4px;opacity:.7">${levelTitle}</div>
             </div>
           </div>
-          <!-- Like button -->
-          <button id="likeBtn" onclick="likeMyProfile()" style="
-            display:inline-flex;align-items:center;gap:7px;
-            padding:8px 14px;margin-bottom:4px;
-            border-radius:10px;cursor:pointer;
-            background:${iLiked?'rgba(239,68,68,.12)':'rgba(255,255,255,.06)'};
-            border:0.5px solid ${iLiked?'rgba(239,68,68,.3)':'rgba(255,255,255,.12)'};
-            transition:all .22s cubic-bezier(.34,1.56,.64,1);
-            box-shadow:${iLiked?'0 2px 12px rgba(239,68,68,.2)':'none'};
-          ">
-            <svg width="15" height="15" viewBox="0 0 24 24"
-              fill="${iLiked?'#ef4444':'none'}"
-              stroke="${iLiked?'#ef4444':'rgba(255,255,255,.55)'}"
-              stroke-width="2"
-              style="${iLiked?'animation:heartPop .35s cubic-bezier(.34,1.56,.64,1) both':''}">
+          <button id="likeBtn" onclick="likeMyProfile()" style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;margin-bottom:4px;border-radius:10px;cursor:pointer;background:${iLiked?'rgba(239,68,68,.1)':'rgba(255,255,255,.05)'};border:0.5px solid ${iLiked?'rgba(239,68,68,.25)':'rgba(255,255,255,.1)'};transition:all .2s cubic-bezier(.34,1.4,.64,1)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="${iLiked?'#ef4444':'none'}" stroke="${iLiked?'#ef4444':'rgba(255,255,255,.45)'}" stroke-width="2">
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
             </svg>
-            <span id="likeCnt" style="
-              font-family:'DM Mono',monospace;
-              font-size:14px;font-weight:500;
-              color:${iLiked?'#ef4444':'rgba(255,255,255,.85)'};
-              min-width:16px;text-align:left;
-            ">${likesCount}</span>
+            <span id="likeCnt" style="font-family:'DM Mono',monospace;font-size:13px;font-weight:400;color:${iLiked?'#ef4444':'rgba(255,255,255,.6)'};letter-spacing:-.01em">${likesCount}</span>
           </button>
         </div>
-
         <!-- Stats row -->
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:14px">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px">
           ${[
             ['Часов', (thPub<10?thPub.toFixed(1):Math.round(thPub)), '#F5C842'],
             ['Наград', unl, '#F97316'],
             ['Дисциплина', P.streak, '#4ADE80']
           ].map(([l,v,c])=>`
-            <div style="
-              text-align:center;padding:12px 8px;
-              background:rgba(255,255,255,.03);
-              border:0.5px solid rgba(255,255,255,.06);
-              border-radius:12px;
-            ">
-              <div style="font-family:'DM Mono',monospace;font-size:24px;font-weight:400;color:${c};line-height:1;margin-bottom:5px">${v}</div>
-              <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.35)">${l}</div>
+            <div style="text-align:center;padding:11px 8px;background:rgba(255,255,255,.03);border:0.5px solid rgba(255,255,255,.06);border-top:1.5px solid ${c}55;border-radius:12px">
+              <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:400;color:${c};line-height:1;margin-bottom:4px;letter-spacing:-.02em">${v}</div>
+              <div style="font-size:8.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.3)">${l}</div>
             </div>`).join('')}
         </div>
-
         <!-- Leagues -->
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:12px">
-          <span style="font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.25)">Лиги</span>
-          ${cats.map(c=>`
-            <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.07);border-radius:6px;font-size:11px;font-weight:500;color:rgba(255,255,255,.5)">
-              ${c.icon} ${c.name}
-            </span>`).join('')}
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px">
+          <span style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.2)">Лиги</span>
+          ${cats.map(c=>`<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.07);border-radius:8px;font-size:11px;font-weight:400;color:rgba(255,255,255,.45)">${c.icon} ${c.name}</span>`).join('')}
         </div>
-
       </div>
     </div>`;
   document.getElementById('pubOv').classList.add('show');
