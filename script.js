@@ -1695,12 +1695,79 @@ function renderCats(){
 function renderSessions(all=false){
   // Re-compute relative dates fresh every render
   if(P&&P.sessions) P.sessions.forEach(s=>{if(s.isoDate) s.date=relDate(s.isoDate);});
-  const list=all?P.sessions.slice(0,10):P.sessions.slice(0,5);
   const el=document.getElementById(all?'allSessList':'sessList');
   if(!el)return;
-  if(all){const c=document.getElementById('allSessCnt');if(c)c.textContent=(P.totalSessions||P.sessions.length)+' сессий';}
-  el.innerHTML=list.length?list.map(s=>`
-    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:12px;margin-bottom:5px;background:linear-gradient(90deg,${s.color||'var(--blue)'}0a,var(--card));border:0.5px solid ${s.color||'var(--blue)'}22;transition:transform .15s,border-color .15s" onmouseover="this.style.transform='translateX(5px)';this.style.borderColor='${s.color||"var(--blue)"}55'" onmouseout="this.style.transform='';this.style.borderColor='${s.color||"var(--blue)"}22'"><div style="width:3px;height:36px;border-radius:2px;background:${s.color||'var(--blue)'};box-shadow:0 0 8px ${s.color||'var(--blue)'}88;flex-shrink:0"></div>${catIconBox(s.cat||'read', s.color||'var(--blue)', 36)}<div style="flex:1;min-width:0;overflow:hidden"><div style="font-size:12px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div><div style="font-size:10px;color:var(--t3);margin-top:1px">${s.date}</div></div><div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:400;color:${s.color||'var(--blue)'};flex-shrink:0;white-space:nowrap;padding-left:10px;letter-spacing:-.02em">${fmtD(s.dur)}</div></div>`).join(''):`<div class="empty" style="padding:16px"><div style="font-size:24px;margin-bottom:6px">⏱</div>Нет сессий</div>`;
+
+  // ── SIDEBAR MINI LIST (last 5) ──────────────────────────────
+  if(!all){
+    const list=P.sessions.slice(0,5);
+    el.innerHTML=list.length?list.map(s=>{
+      const c=s.color||'var(--blue)';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 13px;border-radius:13px;margin-bottom:4px;background:linear-gradient(90deg,${c}0d,var(--card));border:0.5px solid ${c}22;transition:transform .18s cubic-bezier(.34,1.4,.64,1),border-color .15s" onmouseover="this.style.transform='translateX(4px)';this.style.borderColor='${c}55'" onmouseout="this.style.transform='';this.style.borderColor='${c}22'">
+        <div style="width:3px;height:38px;border-radius:2px;background:${c};box-shadow:0 0 8px ${c}88;flex-shrink:0"></div>
+        ${catIconBox(s.cat||'read',c,36)}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:700;color:var(--t1);line-height:1.35;word-break:break-word">${s.name}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px">${s.date}</div>
+        </div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:400;color:${c};flex-shrink:0;white-space:nowrap;padding-left:8px;letter-spacing:-.02em">${fmtD(s.dur)}</div>
+      </div>`;
+    }).join(''):`<div class="empty" style="padding:16px"><div style="font-size:24px;margin-bottom:6px">⏱</div>Нет сессий</div>`;
+    return;
+  }
+
+  // ── ALL SESSIONS — grouped by date, Apple style ─────────────
+  const list=P.sessions;
+  const c=document.getElementById('allSessCnt');
+  if(c)c.textContent=(P.totalSessions||list.length)+' сессий';
+  if(!list.length){el.innerHTML=`<div class="empty" style="padding:24px;text-align:center"><div style="font-size:28px;margin-bottom:8px">⏱</div>Нет сессий</div>`;return;}
+
+  // Group sessions by date string
+  const groups=[];
+  const groupMap={};
+  list.forEach(s=>{
+    const key=s.date||'—';
+    if(!groupMap[key]){groupMap[key]={label:key,sessions:[],totalSec:0};groups.push(groupMap[key]);}
+    groupMap[key].sessions.push(s);
+    groupMap[key].totalSec+=s.dur||0;
+  });
+
+  // Date label → display text + class
+  function groupClass(label){
+    if(label==='сегодня')return'sess-group-hd-today';
+    if(label==='вчера')return'sess-group-hd-yesterday';
+    return'';
+  }
+  function groupDisplayLabel(label){
+    if(label==='сегодня')return'Сегодня';
+    if(label==='вчера')return'Вчера';
+    if(label.includes('дн. назад'))return label.replace('дн. назад','дн. назад');
+    return label;
+  }
+
+  el.innerHTML=groups.map((g,gi)=>{
+    const rows=g.sessions.map((s,si)=>{
+      const col=s.color||'#60A5FA';
+      return `<div class="sess-row-all" style="animation:appleFadeUp .3s ${(gi*0.05+si*0.03).toFixed(2)}s both">
+        <div class="sess-row-bar" style="background:${col};box-shadow:0 0 8px ${col}66"></div>
+        ${catIconBox(s.cat||'read',col,38)}
+        <div style="flex:1;min-width:0">
+          <div class="sess-row-name">${s.name}</div>
+        </div>
+        <div class="sess-row-dur" style="color:${col}">${fmtD(s.dur)}</div>
+      </div>`;
+    }).join('');
+
+    const totalLabel=fmtD(g.totalSec);
+    return `<div class="sess-group">
+      <div class="sess-group-hd ${groupClass(g.label)}">
+        <span class="sess-group-hd-lbl">${groupDisplayLabel(g.label)}</span>
+        <div class="sess-group-hd-line"></div>
+        <span class="sess-group-hd-sum">${totalLabel}</span>
+      </div>
+      <div class="sess-group-body">${rows}</div>
+    </div>`;
+  }).join('');
 }
 
 // ══ MANAGE ══════════════════════════════════════════════════
@@ -12092,42 +12159,4 @@ window.renderCollabView=renderCollabView;
     setTimeout(init, 0);
   }
 
-})();
-
-/* ═══════════════════════════════════════════════════════════════
-   TAB ICON ZOOM — single icon, no overflow, smooth spring
-   ═══════════════════════════════════════════════════════════════ */
-(function initTabZoom() {
-  const EASE = 'cubic-bezier(.34,1.56,.64,1)';
-  const EASE_OUT = 'cubic-bezier(.25,.46,.45,.94)';
-
-  function setup() {
-    const bar = document.querySelector('.ph-tabs');
-    if (!bar || bar._tabZoomInit) return;
-    bar._tabZoomInit = true;
-
-    bar.querySelectorAll('.stab').forEach(tab => {
-      const wrap = tab.querySelector('.tab-icon-wrap');
-      if (!wrap) return;
-
-      tab.addEventListener('mouseenter', () => {
-        wrap.style.transition = `transform .3s ${EASE}`;
-        wrap.style.transform  = 'scale(1.32)';
-        wrap.style.transformOrigin = 'center center';
-      });
-
-      tab.addEventListener('mouseleave', () => {
-        wrap.style.transition = `transform .25s ${EASE_OUT}`;
-        wrap.style.transform  = '';
-        wrap.style.transformOrigin = '';
-      });
-    });
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setup);
-  } else {
-    setup();
-  }
-  window._tabZoomSetup = setup;
 })();
