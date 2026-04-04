@@ -8534,8 +8534,7 @@ function _kbEK(e){
       if(bq){
         // Check if current line inside blockquote is empty
         const lineText=(nodeBQ.nodeType===3?nodeBQ.textContent:elBQ.textContent)||'';
-        const isEmptyLine=lineText.trim()===''||(nodeBQ.nodeType===3&&nodeBQ.textContent==='
-');
+        const isEmptyLine=lineText.trim()===''||(nodeBQ.nodeType===3&&nodeBQ.textContent==='\n');
         if(isEmptyLine){
           e.preventDefault();
           // Remove the empty trailing <br> or <div> inside blockquote if present
