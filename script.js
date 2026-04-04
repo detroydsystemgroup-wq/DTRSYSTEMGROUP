@@ -3724,6 +3724,13 @@ let _ambientOn = false;
 let _rainAudio = null;
 let _currentTrack = null;
 
+function _getAudioCtx() {
+  if (!_audioCtx || _audioCtx.state === 'closed')
+    _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_audioCtx.state === 'suspended') _audioCtx.resume();
+  return _audioCtx;
+}
+
 // ── SVG icon library ─────────────────────────────────────────
 const SVGI = {
   freq:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h3l3-8 4 16 3-8h3l2 0"/></svg>`,
@@ -6187,10 +6194,57 @@ function openNotifSettings() {
   _renderNotifMelodies();
   _renderNotifScheduleList();
   _updateNotifPermUI();
+  // Init drum pickers
+  setTimeout(() => {
+    _initDrumPicker('drumHour', 9);
+    _initDrumPicker('drumMinute', 0, true); // minutes: 0→0min, 1→5min, etc.
+  }, 100);
 }
 
 function closeNotifSettings() {
   document.getElementById('notifSettingsOv').style.display = 'none';
+}
+
+// ── Drum/scroll time picker ──────────────────────────────────
+function _initDrumPicker(id, defaultVal, isMinute=false) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const itemH = 44;
+  const idx = isMinute ? Math.round(defaultVal / 5) : defaultVal;
+  el.scrollTop = idx * itemH;
+  _highlightDrum(el, isMinute);
+}
+
+function syncDrum(type, el) {
+  const isMinute = type === 'minute';
+  _highlightDrum(el, isMinute);
+  // Update hidden select
+  const itemH = 44;
+  const idx = Math.round(el.scrollTop / itemH);
+  const val = isMinute ? String(idx * 5).padStart(2,'0') : String(idx).padStart(2,'0');
+  const sel = document.getElementById(isMinute ? 'notifMinute' : 'notifHour');
+  if (sel) { sel.innerHTML = `<option value="${val}" selected>${val}</option>`; }
+}
+
+function _highlightDrum(el, isMinute) {
+  const itemH = 44;
+  const idx = Math.round(el.scrollTop / itemH);
+  el.querySelectorAll('.drum-item').forEach((item, i) => {
+    const dist = Math.abs(i - idx);
+    if (dist === 0) {
+      item.style.color = 'var(--t1)';
+      item.style.fontSize = '26px';
+      item.style.opacity = '1';
+    } else if (dist === 1) {
+      item.style.color = 'rgba(255,255,255,.3)';
+      item.style.fontSize = '21px';
+      item.style.opacity = '0.6';
+    } else {
+      item.style.color = 'rgba(255,255,255,.12)';
+      item.style.fontSize = '17px';
+      item.style.opacity = '0.3';
+    }
+  });
 }
 
 function _detectBrowser() {
@@ -6306,18 +6360,9 @@ function _renderNotifDayBtns() {
   const cont = document.getElementById('notifDayBtns');
   if (!cont) return;
   cont.innerHTML = NOTIF_DAYS_RU.map((d, i) => `
-    <button class="notif-day-btn" data-day="${i}" onclick="toggleNotifDay(this)"
-      style="padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;
-             font-family:'DM Sans',sans-serif;transition:background-color .18s,border-color .18s,color .18s,box-shadow .18s,opacity .18s;
-             background:${_notifSelDays.includes(i)?'rgba(245,200,66,.15)':'var(--card)'};
-             border:${_notifSelDays.includes(i)?'1.5px solid var(--gold)':'0.5px solid var(--border)'};
-             color:${_notifSelDays.includes(i)?'var(--gold)':'var(--t2)'}"
-    >${d}</button>`
+    <button class="notif-day-btn${_notifSelDays.includes(i)?' active':''}" data-day="${i}" onclick="toggleNotifDay(this)">${d}</button>`
   ).join('') + `
-    <button onclick="notifSelectAllDays()"
-      style="padding:7px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;
-             font-family:'DM Sans',sans-serif;background:transparent;
-             border:0.5px solid rgba(255,255,255,.1);color:var(--t3);transition:background-color .18s,border-color .18s,color .18s,box-shadow .18s,opacity .18s">Все</button>`;
+    <button class="notif-day-btn" onclick="notifSelectAllDays()" style="padding:0 14px;color:var(--t3)">Все</button>`;
 }
 
 function toggleNotifDay(btn) {
@@ -6410,35 +6455,31 @@ function _renderNotifScheduleList() {
   const cont = document.getElementById('notifScheduleList');
   if (!cont) return;
   if (_notifSchedules.length === 0) {
-    cont.innerHTML = '<div style="font-size:12px;color:var(--t3);text-align:center;padding:8px 0">Нет настроенных уведомлений</div>';
+    cont.innerHTML = '<div style="font-size:11px;color:var(--t3);text-align:center;padding:6px 0 12px">Нет настроенных уведомлений</div>';
     return;
   }
-  cont.innerHTML = '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:10px">Расписание</div>' +
+  const bellSVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`;
+  cont.innerHTML = `<div style="height:0.5px;background:rgba(255,255,255,.05);margin-bottom:16px"></div>
+    <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.25);margin-bottom:10px">Расписание</div>` +
     _notifSchedules.map(n => {
       const daysStr = n.days.length === 7 ? 'Каждый день' : n.days.map(d => NOTIF_DAYS_RU[d]).join(', ');
       const mel = NOTIF_MELODIES.find(m => m.id === n.melody)?.name || n.melody;
-      return `
-        <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;
-                    background:var(--card);border:0.5px solid ${n.enabled?'rgba(245,200,66,.15)':'var(--border)'};
-                    margin-bottom:8px;transition:background-color .2s,border-color .2s,color .2s,box-shadow .2s,opacity .2s">
-          <div style="flex:1;min-width:0">
-            <div style="font-size:14px;font-weight:700;color:${n.enabled?'var(--t1)':'var(--t3)'}">&#x23F0; ${n.time}</div>
-            <div style="font-size:11px;color:var(--t3);margin-top:2px">${daysStr} &middot; ${mel}</div>
-            <div style="font-size:11px;color:var(--t2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(n.text)}</div>
-          </div>
-          <label style="position:relative;width:36px;height:20px;cursor:pointer;flex-shrink:0">
-            <input type="checkbox" ${n.enabled?'checked':''} onchange="toggleNotifSchedule('${n.id}')"
-              style="opacity:0;width:0;height:0;position:absolute">
-            <span style="position:absolute;inset:0;border-radius:10px;transition:.2s;
-                         background:${n.enabled?'var(--green)':'var(--border)'}"></span>
-            <span style="position:absolute;top:2px;left:${n.enabled?'18':'2'}px;width:16px;height:16px;
-                         border-radius:50%;background:#fff;transition:.2s"></span>
-          </label>
-          <button onclick="deleteNotifSchedule('${n.id}')"
-            style="background:rgba(239,68,68,.12);border:0.5px solid rgba(239,68,68,.25);
-                   border-radius:7px;padding:5px 8px;color:var(--red);cursor:pointer;
-                   font-size:12px;flex-shrink:0;transition:background-color .18s,border-color .18s,color .18s,box-shadow .18s,opacity .18s">&#x2715;</button>
-        </div>`;
+      return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:13px;background:rgba(255,255,255,.03);border:0.5px solid ${n.enabled?'rgba(245,200,66,.12)':'rgba(255,255,255,.06)'};margin-bottom:6px;transition:border-color .2s">
+        <div style="color:${n.enabled?'var(--gold)':'var(--t3)'};display:flex;align-items:center;justify-content:center;flex-shrink:0">${bellSVG}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:400;letter-spacing:-.02em;color:${n.enabled?'var(--t1)':'var(--t3)'};line-height:1">${n.time}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:3px;letter-spacing:.02em">${daysStr} · ${mel}</div>
+          <div style="font-size:10.5px;color:var(--t2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:400">${esc(n.text)}</div>
+        </div>
+        <label style="position:relative;width:36px;height:20px;cursor:pointer;flex-shrink:0">
+          <input type="checkbox" ${n.enabled?'checked':''} onchange="toggleNotifSchedule('${n.id}')" style="opacity:0;width:0;height:0;position:absolute">
+          <span style="position:absolute;inset:0;border-radius:10px;transition:.25s;background:${n.enabled?'var(--green)':'rgba(255,255,255,.08)'}"></span>
+          <span style="position:absolute;top:2px;left:${n.enabled?'18':'2'}px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.25s;box-shadow:0 1px 4px rgba(0,0,0,.3)"></span>
+        </label>
+        <button onclick="deleteNotifSchedule('${n.id}')" style="width:28px;height:28px;border-radius:8px;background:rgba(239,68,68,.07);border:0.5px solid rgba(239,68,68,.18);color:var(--red);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>`;
     }).join('');
 }
 
