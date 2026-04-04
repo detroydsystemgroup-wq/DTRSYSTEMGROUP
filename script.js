@@ -5473,27 +5473,23 @@ async function renderForecast(){
   const days=cmpPeriodDays;
   const cats=activeCats();
 
-  // ── Bar helper ──
+  // ── Bar helper — Apple-grade two-row comparison ──
   const bar=(myNum,avgNum,myLbl,avgLbl,color='#4ade80')=>{
     const mx=Math.max(myNum,avgNum,0.1);
     const myW=Math.min(100,Math.round((myNum/mx)*100));
     const avgW=Math.min(100,Math.round((avgNum/mx)*100));
     const iWin=myNum>=avgNum;
     return `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
-        <div style="width:54px;font-size:10px;font-weight:700;color:${color};flex-shrink:0">ТЫ</div>
-        <div style="flex:1;height:10px;background:var(--bg);border-radius:5px;overflow:hidden">
-          <div style="height:100%;width:${myW}%;background:${color};border-radius:5px;transition:width 1s cubic-bezier(.34,1.2,.64,1);${iWin?`box-shadow:0 0 8px ${color}88`:'opacity:.4'}"></div>
-        </div>
-        <div style="width:46px;text-align:right;font-size:11px;font-weight:700;color:${iWin?color:'rgba(255,255,255,.3)'}">${myLbl}</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div style="width:40px;font-size:9px;font-weight:700;letter-spacing:.07em;color:${color};flex-shrink:0;text-transform:uppercase">Ты</div>
+        <div class="cmp-bar-track"><div class="cmp-bar-fill" style="width:${myW}%;background:${color};${iWin?`box-shadow:0 0 8px ${color}55`:''};opacity:${iWin?1:.45}"></div></div>
+        <div style="width:38px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;font-weight:400;color:${iWin?color:'rgba(255,255,255,.25)'};">${myLbl}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <div style="width:54px;font-size:9px;font-weight:700;color:#f85149;letter-spacing:.3px;flex-shrink:0">СРЕДНИЙ</div>
-        <div style="flex:1;height:10px;background:var(--bg);border-radius:5px;overflow:hidden">
-          <div style="height:100%;width:${avgW}%;background:#f85149;border-radius:5px;transition:width 1s cubic-bezier(.34,1.2,.64,1);${!iWin?'box-shadow:0 0 8px #f8514988':'opacity:.4'}"></div>
-        </div>
-        <div style="width:46px;text-align:right;font-size:10px;font-weight:700;color:${!iWin?'#f85149':'rgba(248,81,73,.3)'}">${avgLbl}</div>
-      </div>`;
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:40px;font-size:9px;font-weight:700;letter-spacing:.07em;color:rgba(255,255,255,.28);flex-shrink:0;text-transform:uppercase">Лига</div>
+        <div class="cmp-bar-track"><div class="cmp-bar-fill" style="width:${avgW}%;background:rgba(255,255,255,.2);opacity:${!iWin?.75:.35}"></div></div>
+        <div style="width:38px;text-align:right;font-family:'DM Mono',monospace;font-size:11px;font-weight:400;color:rgba(255,255,255,.3)">${avgLbl}</div>
+      </div>`
   };
 
   // Show loading state
@@ -5581,32 +5577,39 @@ async function renderForecast(){
   const daysCls=daysDiff>0?'up':daysDiff<0?'dn':'eq';
 
   el.innerHTML=`
-    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px">
-      ${[1,3,7,10,14,30].map(d=>`<button class="cmp-period-btn${cmpPeriodDays===d?' active':''}" data-d="${d}" onclick="setCmpPeriod(${d})">${d===1?'1 день':d<=4?d+' дня':d+' дней'}</button>`).join('')}
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:16px">
+      ${[1,3,7,10,14,30].map(d=>`<button class="cmp-period-btn${cmpPeriodDays===d?' active':''}" data-d="${d}" onclick="setCmpPeriod(${d})">${d===1?'1 д':d<=4?d+' д':d+' д'}</button>`).join('')}
     </div>
-    <div style="font-size:12px;color:var(--t2);margin-bottom:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase">
-      Сравнение с <span style="color:#4ade80">${othersCount}</span> ${othersCount===1?'участником':'участниками'} твоих лиг · за <span style="color:var(--gold)">${days} ${days===1?'день':days<=4?'дня':'дней'}</span>
+    <div class="cmp-header-lbl">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.4"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      Vs ${othersCount} ${othersCount===1?'участник':'участников'} лиги · ${days} ${days===1?'день':days<=4?'дня':'дней'}
     </div>
 
-    <div class="cmp-card">
-      <div class="cmp-title" style="color:var(--gold);display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Общие часы за период</div>
+    <div class="cmp-card" style="--cmp-c:var(--gold)">
+      <div class="cmp-title" style="color:var(--gold)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Часы
+      </div>
       <div class="cmp-bars">${bar(myHrs,avgHrs,myHrs+'ч',avgHrs+'ч','var(--gold)')}</div>
-      <div style="margin-top:5px;font-size:10px;color:var(--t3)">Среднее по лигам: ${avgHrs}ч</div>
-      <span class="cmp-diff ${myHrs>=avgHrs?'up':'dn'}">${myHrs>=avgHrs?'+':''}${(myHrs-avgHrs).toFixed(1)}ч ${myHrs>=avgHrs?'выше среднего':'ниже среднего'}</span>
+      <span class="cmp-diff ${myHrs>=avgHrs?'up':'dn'}">${myHrs>=avgHrs?'▲':'▼'} ${myHrs>=avgHrs?'+':''}${(myHrs-avgHrs).toFixed(1)}ч ${myHrs>=avgHrs?'выше':'ниже'} среднего</span>
     </div>
 
-    <div class="cmp-card">
-      <div class="cmp-title" style="color:#f85149;display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg> Дисциплина — последовательность</div>
-      <div class="cmp-bars">${bar(myStreak,avgStreakReal,myStreak+' д',avgStreakReal+' д','#f85149')}</div>
-      <div style="margin-top:5px;font-size:10px;color:var(--t3)">Средняя дисциплина в лиге: ${avgStreakReal} дней</div>
-      <span class="cmp-diff ${streakCls}">${streakDiff>0?'+':''}${streakDiff} д ${streakCls==='up'?'выше среднего':streakCls==='dn'?'ниже среднего':'на уровне'}</span>
+    <div class="cmp-card" style="--cmp-c:#f97316">
+      <div class="cmp-title" style="color:#f97316">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+        Дисциплина
+      </div>
+      <div class="cmp-bars">${bar(myStreak,avgStreakReal,myStreak+' д',avgStreakReal+' д','#f97316')}</div>
+      <span class="cmp-diff ${streakCls}">${streakCls==='up'?'▲':'streakCls'==='dn'?'▼':'='} ${streakDiff>0?'+':''}${streakDiff} д ${streakCls==='up'?'выше':'ниже'} среднего</span>
     </div>
 
-    <div class="cmp-card">
-      <div class="cmp-title" style="color:var(--blue);display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Активных дней</div>
+    <div class="cmp-card" style="--cmp-c:var(--blue)">
+      <div class="cmp-title" style="color:var(--blue)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Активность
+      </div>
       <div class="cmp-bars">${bar(myActiveDays,avgActiveDays,myActiveDays+' д',avgActiveDays+' д','var(--blue)')}</div>
-      <div style="margin-top:5px;font-size:10px;color:var(--t3)">Среднее по лиге: ${avgActiveDays} дней активности</div>
-      <span class="cmp-diff ${daysCls}">${daysDiff>0?'+':''}${daysDiff} д ${daysCls==='up'?'выше среднего':daysCls==='dn'?'ниже среднего':'на уровне'}</span>
+      <span class="cmp-diff ${daysCls}">${daysCls==='up'?'▲':daysCls==='dn'?'▼':'='} ${daysDiff>0?'+':''}${daysDiff} д ${daysCls==='up'?'выше':'ниже'} среднего</span>
     </div>
 
     ${catCards}`;
@@ -6209,10 +6212,19 @@ function closeNotifSettings() {
 function _initDrumPicker(id, defaultVal, isMinute=false) {
   const el = document.getElementById(id);
   if (!el) return;
+  const count = isMinute ? 12 : 24;
   const itemH = 44;
+  // Build items
+  const items = Array.from({length: count}, (_, i) => {
+    const v = isMinute ? String(i*5).padStart(2,'0') : String(i).padStart(2,'0');
+    return `<div class="drum-item" style="height:${itemH}px;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:22px;font-weight:400;letter-spacing:-.02em;scroll-snap-align:start;color:rgba(255,255,255,.25);transition:color .1s,font-size .1s,opacity .1s">${v}</div>`;
+  }).join('');
+  // Inject between padding divs
+  el.innerHTML = `<div style="height:48px"></div>${items}<div style="height:48px"></div>`;
+  // Scroll to default
   const idx = isMinute ? Math.round(defaultVal / 5) : defaultVal;
   el.scrollTop = idx * itemH;
-  _highlightDrum(el, isMinute);
+  requestAnimationFrame(() => _highlightDrum(el, isMinute));
 }
 
 function syncDrum(type, el) {
