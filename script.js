@@ -3886,7 +3886,8 @@ function pauseTimer(){
   _pausedElapsed = getElapsed();
   stopTimerInterval();
   timerRunning = false; timerPaused = true;
-  setTimerState(null); // don't restore paused across reload
+  // Сохраняем paused-состояние в localStorage — чтобы после перезагрузки таймер не обнулялся
+  setTimerState({ paused: true, elapsed: _pausedElapsed, catId: quickSel, pomMode: pomMode || 0 });
   _setTimerUI('paused');
   haptic('light');
 }
@@ -3921,7 +3922,34 @@ function stopTimerPom(){
 // Restore timer across page reloads / tab switches
 function restoreTimer() {
   const state = getTimerState();
-  if (!state || !state.startTime) return;
+  if (!state) return;
+
+  // ── Восстановление ПАУЗЫ: таймер не обнуляется после перезагрузки ──
+  if (state.paused) {
+    _pausedElapsed  = state.elapsed || 0;
+    timerRunning    = false;
+    timerPaused     = true;
+    quickSel        = state.catId || defCat();
+    const savedPom  = state.pomMode || 0;
+    if (savedPom > 0) {
+      pomMode = savedPom;
+      const sel = document.getElementById('pomTimeSel');
+      if (sel) { sel.value = String(savedPom); sel.style.borderColor = 'var(--gold)'; sel.style.color = 'var(--gold)'; }
+      const freeBtn = document.getElementById('pomFreeBtn');
+      if (freeBtn) freeBtn.classList.remove('active');
+    }
+    _setTimerUI('paused');
+    const disp = document.getElementById('qDisp');
+    if (disp) disp.textContent = fmt(_pausedElapsed);
+    clearInterval(_mTimerSyncInterval);
+    _mTimerSyncInterval = setInterval(syncMobileTimerDisplay, 500);
+    setTimeout(syncMobileTimerDisplay, 100);
+    setTimeout(updateTimerTabState, 100);
+    setTimeout(updateNavTimerPill, 100);
+    return;
+  }
+
+  if (!state.startTime) return;
 
   timerRunning = true;
   timerPaused  = false;
@@ -12572,7 +12600,7 @@ async function buildRoomCard(room, myRole, user){
     ).length;
     // pct = % идеальных дней из прошедших дней недели
     const weekPct = possibleDays > 0 ? Math.round(perfectDays / possibleDays * 100) : 0;
-    return{...m, done, pct: weekPct, todayDone, streak, perfectDays};
+    return{...m, done, pct: pct, todayDone, streak, perfectDays};
   }).sort((a,b)=>b.pct-a.pct || b.streak-a.streak);
   const maxPct = Math.max(...scores.map(s=>s.pct), 1);
   const isOwner = myRole==='owner';
