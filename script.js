@@ -1017,11 +1017,10 @@ function _doRenderAll(){
   if(document.getElementById('tab-manage')?.classList.contains('active')) renderManageGrid();
   renderDash();
   setTimeout(renderDailyProgress, 100);
-  // Лиги НЕ вызываем из renderAll — showTab('leagues') уже вызывает их напрямую.
-  // Двойной вызов = двойная загрузка. Мини-виджет обновляем всегда (он лёгкий).
   renderLgMini();
   renderXP();renderHeatmap();renderRings();renderRecords();renderForecast();renderMotivation();
   if(typeof renderHeroZone === 'function') renderHeroZone();
+  setTimeout(initSoundWidget, 200);
 }
 
 function renderNav(){
@@ -1692,13 +1691,26 @@ function renderCats(){
 }
 
 // ══ SESSIONS ════════════════════════════════════════════════
+let _sessFilter = 'today';
+
+function setSessionFilter(filter, btn) {
+  _sessFilter = filter;
+  // Update buttons
+  document.querySelectorAll('.sfb').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  // Update title
+  const titles = { today:'Сегодня', yesterday:'Вчера', week:'Эта неделя', all:'Все сессии' };
+  const titleEl = document.getElementById('sessFilterTitle');
+  if (titleEl) titleEl.textContent = titles[filter] || 'Сессии';
+  renderSessions(true);
+}
+
 function renderSessions(all=false){
-  // Re-compute relative dates fresh every render
   if(P&&P.sessions) P.sessions.forEach(s=>{if(s.isoDate) s.date=relDate(s.isoDate);});
   const el=document.getElementById(all?'allSessList':'sessList');
   if(!el)return;
 
-  // ── SIDEBAR MINI LIST (last 5) ──────────────────────────────
+  // ── SIDEBAR MINI LIST ──
   if(!all){
     const list=P.sessions.slice(0,5);
     el.innerHTML=list.length?list.map(s=>{
@@ -1716,15 +1728,34 @@ function renderSessions(all=false){
     return;
   }
 
-  // ── ALL SESSIONS — grouped by date, Apple style ─────────────
-  const list=P.sessions;
-  const c=document.getElementById('allSessCnt');
-  if(c)c.textContent=(P.totalSessions||list.length)+' сессий';
-  if(!list.length){el.innerHTML=`<div class="empty" style="padding:24px;text-align:center"><div style="font-size:28px;margin-bottom:8px">⏱</div>Нет сессий</div>`;return;}
+  // ── ALL SESSIONS — filtered + grouped ─────────────────────────
+  const now = new Date(); now.setHours(0,0,0,0);
+  const todayMs = now.getTime();
+  const weekStart = getWeekStart ? getWeekStart() : (todayMs - 6*86400000);
 
-  // Group sessions by date string
-  const groups=[];
-  const groupMap={};
+  function sessInFilter(s){
+    const t = sessTs(s);
+    if(!t) return false;
+    const d = new Date(t); d.setHours(0,0,0,0);
+    const dMs = d.getTime();
+    if(_sessFilter === 'today')     return dMs === todayMs;
+    if(_sessFilter === 'yesterday') return dMs === todayMs - 86400000;
+    if(_sessFilter === 'week')      return t >= weekStart;
+    return true; // 'all'
+  }
+
+  const list = P.sessions.filter(sessInFilter);
+  const cnt = document.getElementById('allSessCnt');
+  if(cnt) cnt.textContent = list.length + ' сессий';
+
+  if(!list.length){
+    const labels = {today:'сегодня',yesterday:'вчера',week:'на этой неделе',all:''};
+    el.innerHTML=`<div style="padding:40px 20px;text-align:center;color:var(--t3)"><div style="font-size:32px;margin-bottom:12px">📭</div><div style="font-size:14px;font-weight:600;color:var(--t2);margin-bottom:4px">Нет сессий ${labels[_sessFilter]||''}</div><div style="font-size:12px">Начни первую сессию чтобы увидеть историю</div></div>`;
+    return;
+  }
+
+  // Group by date label
+  const groups=[];const groupMap={};
   list.forEach(s=>{
     const key=s.date||'—';
     if(!groupMap[key]){groupMap[key]={label:key,sessions:[],totalSec:0};groups.push(groupMap[key]);}
@@ -1732,23 +1763,16 @@ function renderSessions(all=false){
     groupMap[key].totalSec+=s.dur||0;
   });
 
-  // Date label → display text + class
   function groupClass(label){
     if(label==='сегодня')return'sess-group-hd-today';
     if(label==='вчера')return'sess-group-hd-yesterday';
     return'';
   }
-  function groupDisplayLabel(label){
-    if(label==='сегодня')return'Сегодня';
-    if(label==='вчера')return'Вчера';
-    if(label.includes('дн. назад'))return label.replace('дн. назад','дн. назад');
-    return label;
-  }
 
   el.innerHTML=groups.map((g,gi)=>{
     const rows=g.sessions.map((s,si)=>{
       const col=s.color||'#60A5FA';
-      return `<div class="sess-row-all" style="animation:appleFadeUp .3s ${(gi*0.05+si*0.03).toFixed(2)}s both">
+      return `<div class="sess-row-all" style="animation:appleFadeUp .28s ${(gi*0.04+si*0.025).toFixed(2)}s both">
         <div class="sess-row-bar" style="background:${col};box-shadow:0 0 8px ${col}66"></div>
         ${catIconBox(s.cat||'read',col,38)}
         <div style="flex:1;min-width:0">
@@ -1757,13 +1781,11 @@ function renderSessions(all=false){
         <div class="sess-row-dur" style="color:${col}">${fmtD(s.dur)}</div>
       </div>`;
     }).join('');
-
-    const totalLabel=fmtD(g.totalSec);
     return `<div class="sess-group">
       <div class="sess-group-hd ${groupClass(g.label)}">
-        <span class="sess-group-hd-lbl">${groupDisplayLabel(g.label)}</span>
+        <span class="sess-group-hd-lbl">${g.label==='сегодня'?'Сегодня':g.label==='вчера'?'Вчера':g.label}</span>
         <div class="sess-group-hd-line"></div>
-        <span class="sess-group-hd-sum">${totalLabel}</span>
+        <span class="sess-group-hd-sum">${fmtD(g.totalSec)}</span>
       </div>
       <div class="sess-group-body">${rows}</div>
     </div>`;
@@ -3691,7 +3713,8 @@ document.addEventListener('keydown', e => {
 
 
 // ══════════════════════════════════════════════════════════════
-// AMBIENT SOUND ENGINE (Web Audio API)
+// ══════════════════════════════════════════════════════════════
+// PREMIUM SOUND ENGINE v2
 // ══════════════════════════════════════════════════════════════
 let _audioCtx = null;
 let _ambientNode = null;
@@ -3699,146 +3722,276 @@ let _ambientGain = null;
 let _ambientType = 'white';
 let _ambientOn = false;
 let _rainAudio = null;
+let _currentTrack = null; // id of active track
 
 function _getAudioCtx() {
-  if (!_audioCtx || _audioCtx.state === 'closed') {
+  if (!_audioCtx || _audioCtx.state === 'closed')
     _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
   if (_audioCtx.state === 'suspended') _audioCtx.resume();
   return _audioCtx;
 }
 
-function _makeNoise(type) {
-  const ctx = _getAudioCtx();
-  const bufLen = ctx.sampleRate * 2; // 2 seconds looped
-  const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
-  const data = buf.getChannelData(0);
+// ── Sound track data ─────────────────────────────────────────
+const SOUND_TRACKS = {
+  focus: [
+    { id:'lofi',    label:'Lo-Fi Биты',       icon:'🎵', desc:'Расслабленный ритм' },
+    { id:'white',   label:'Белый шум',         icon:'〰️', desc:'Нейтральный фон' },
+    { id:'brown',   label:'Коричневый шум',    icon:'🌫️', desc:'Глубокий и тёплый' },
+    { id:'cafe',    label:'Кофейня',           icon:'☕', desc:'Городской фон' },
+    { id:'binaural',label:'Бинауральный 40Гц', icon:'🧠', desc:'Гамма-волны' },
+  ],
+  nature: [
+    { id:'rain',    label:'Дождь',             icon:'🌧️', desc:'Осенний дождь' },
+    { id:'ocean',   label:'Океан',             icon:'🌊', desc:'Морские волны' },
+    { id:'forest',  label:'Лес',               icon:'🌲', desc:'Птицы и ветер' },
+    { id:'wind',    label:'Ветер',             icon:'💨', desc:'Горный бриз' },
+    { id:'stream',  label:'Ручей',             icon:'💧', desc:'Журчание воды' },
+  ],
+  freq: [
+    { id:'hz528',   label:'528 Гц',            icon:'✨', desc:'Трансформация' },
+    { id:'hz432',   label:'432 Гц',            icon:'🎶', desc:'Гармония природы' },
+    { id:'hz174',   label:'174 Гц',            icon:'🌍', desc:'Заземление' },
+    { id:'hz417',   label:'417 Гц',            icon:'🔄', desc:'Исцеление' },
+    { id:'hz963',   label:'963 Гц',            icon:'👁️', desc:'Пробуждение' },
+  ]
+};
 
-  if (type === 'white') {
-    for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
-  } else if (type === 'brown') {
-    let last = 0;
-    for (let i = 0; i < bufLen; i++) {
-      const w = Math.random() * 2 - 1;
-      data[i] = (last + 0.02 * w) / 1.02;
-      last = data[i];
-      data[i] *= 3.5;
-    }
-  } else if (type === 'pink') {
-    let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
-    for (let i = 0; i < bufLen; i++) {
-      const w = Math.random() * 2 - 1;
-      b0=0.99886*b0+w*0.0555179; b1=0.99332*b1+w*0.0750759;
-      b2=0.96900*b2+w*0.1538520; b3=0.86650*b3+w*0.3104856;
-      b4=0.55000*b4+w*0.5329522; b5=-0.7616*b5-w*0.0168980;
-      data[i]=(b0+b1+b2+b3+b4+b5+b6+w*0.5362)*.11;
-      b6=w*0.115926;
-    }
+// ── Sound generators ─────────────────────────────────────────
+function _makeSound(id) {
+  const ctx = _getAudioCtx();
+  const sr = ctx.sampleRate;
+  const dur = 4; // seconds looped
+  const len = sr * dur;
+
+  // Helper: create buffer source
+  function bufSrc(data, channels=1) {
+    const buf = ctx.createBuffer(channels, data[0].length, sr);
+    data.forEach((ch,i) => buf.getChannelData(i).set(ch));
+    const src = ctx.createBufferSource();
+    src.buffer = buf; src.loop = true;
+    return src;
   }
 
-  const src = ctx.createBufferSource();
-  src.buffer = buf;
-  src.loop = true;
-  return src;
+  // White noise
+  function makeWhiteData(n) { const d=new Float32Array(n); for(let i=0;i<n;i++) d[i]=Math.random()*2-1; return d; }
+  // Brown noise
+  function makeBrownData(n) {
+    const d=new Float32Array(n); let last=0;
+    for(let i=0;i<n;i++){const w=Math.random()*2-1;d[i]=(last+0.02*w)/1.02;last=d[i];d[i]*=3.5;}
+    return d;
+  }
+  // Pink noise
+  function makePinkData(n) {
+    const d=new Float32Array(n); let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+    for(let i=0;i<n;i++){const w=Math.random()*2-1;b0=.99886*b0+w*.0555179;b1=.99332*b1+w*.0750759;b2=.96900*b2+w*.1538520;b3=.86650*b3+w*.3104856;b4=.55000*b4+w*.5329522;b5=-.7616*b5-w*.0168980;d[i]=(b0+b1+b2+b3+b4+b5+b6+w*.5362)*.11;b6=w*.115926;}
+    return d;
+  }
+
+  const masterGain = ctx.createGain();
+  masterGain.gain.value = 0;
+  masterGain.connect(ctx.destination);
+
+  let nodes = [];
+
+  if (id === 'white') {
+    const src = bufSrc([makeWhiteData(len)]);
+    const f = ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=2000; f.Q.value=0.3;
+    src.connect(f); f.connect(masterGain); src.start(); nodes=[src,f];
+  }
+  else if (id === 'brown') {
+    const src = bufSrc([makeBrownData(len)]);
+    const f = ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=800;
+    src.connect(f); f.connect(masterGain); src.start(); nodes=[src,f];
+  }
+  else if (id === 'lofi') {
+    // Pink noise + lowpass + amplitude modulate at 0.5Hz (slow breath)
+    const src = bufSrc([makePinkData(len)]);
+    const lp = ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1800;
+    const osc = ctx.createOscillator(); osc.frequency.value=0.3;
+    const modGain = ctx.createGain(); modGain.gain.value=0.15;
+    const ampGain = ctx.createGain(); ampGain.gain.value=0.85;
+    osc.connect(modGain); modGain.connect(ampGain.gain);
+    src.connect(lp); lp.connect(ampGain); ampGain.connect(masterGain);
+    src.start(); osc.start(); nodes=[src,lp,osc,modGain,ampGain];
+  }
+  else if (id === 'cafe') {
+    // Multiple bandpass filtered noise layers simulating cafe chatter
+    const layers = [[400,0.8],[800,0.5],[1500,0.3],[200,0.4]];
+    layers.forEach(([freq,q])=>{
+      const s=bufSrc([makeWhiteData(len)]);
+      const f=ctx.createBiquadFilter();f.type='bandpass';f.frequency.value=freq;f.Q.value=q;
+      const g=ctx.createGain();g.gain.value=0.25;
+      s.connect(f);f.connect(g);g.connect(masterGain);s.start();nodes.push(s,f,g);
+    });
+  }
+  else if (id === 'binaural') {
+    // 40Hz gamma binaural: left=200Hz, right=240Hz
+    const bufL=new Float32Array(len), bufR=new Float32Array(len);
+    for(let i=0;i<len;i++){
+      bufL[i]=Math.sin(2*Math.PI*200*i/sr)*0.3;
+      bufR[i]=Math.sin(2*Math.PI*240*i/sr)*0.3;
+    }
+    const src=bufSrc([bufL,bufR],2);
+    const split=ctx.createChannelSplitter(2);
+    const merge=ctx.createChannelMerger(2);
+    src.connect(split);split.connect(merge,0,0);split.connect(merge,1,1);
+    merge.connect(masterGain); src.start(); nodes=[src,split,merge];
+  }
+  else if (id === 'rain') {
+    const d=makeWhiteData(sr*3);
+    for(let i=0;i<d.length;i++) d[i]*=(0.3+Math.random()*0.15);
+    const src=bufSrc([d]);
+    const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1200;
+    src.connect(lp);lp.connect(masterGain);src.start();nodes=[src,lp];
+  }
+  else if (id === 'ocean') {
+    // Low freq amplitude modulation — waves
+    const src=bufSrc([makeBrownData(len)]);
+    const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=600;
+    const osc=ctx.createOscillator();osc.frequency.value=0.08;
+    const mod=ctx.createGain();mod.gain.value=0.4;
+    const amp=ctx.createGain();amp.gain.value=0.6;
+    osc.connect(mod);mod.connect(amp.gain);
+    src.connect(lp);lp.connect(amp);amp.connect(masterGain);
+    src.start();osc.start();nodes=[src,lp,osc,mod,amp];
+  }
+  else if (id === 'forest') {
+    // Wind: bandpass brown + periodic "bird" sine chirps
+    const wb=makeBrownData(len);
+    const src=bufSrc([wb]);
+    const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=700;bp.Q.value=0.5;
+    const wg=ctx.createGain();wg.gain.value=0.4;
+    src.connect(bp);bp.connect(wg);wg.connect(masterGain);src.start();
+    // Bird chirps via oscillators
+    const birds=[{f:2200,t:0.8},{f:3400,t:2.1},{f:2800,t:4.5},{f:1900,t:7.2},{f:3100,t:9.8}];
+    birds.forEach(b=>{
+      const chirpFunc=()=>{
+        const o=ctx.createOscillator();const g=ctx.createGain();
+        o.frequency.value=b.f;o.type='sine';
+        g.gain.setValueAtTime(0,ctx.currentTime);
+        g.gain.linearRampToValueAtTime(0.08,ctx.currentTime+0.05);
+        g.gain.linearRampToValueAtTime(0,ctx.currentTime+0.2);
+        o.connect(g);g.connect(masterGain);o.start();o.stop(ctx.currentTime+0.25);
+        setTimeout(chirpFunc,3000+Math.random()*8000);
+      };
+      setTimeout(chirpFunc,b.t*1000);
+    });
+    nodes=[src,bp,wg];
+  }
+  else if (id === 'wind') {
+    const src=bufSrc([makeBrownData(len)]);
+    const hp=ctx.createBiquadFilter();hp.type='highpass';hp.frequency.value=300;
+    const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=2000;
+    const osc=ctx.createOscillator();osc.frequency.value=0.15;
+    const mod=ctx.createGain();mod.gain.value=0.3;
+    const amp=ctx.createGain();amp.gain.value=0.5;
+    osc.connect(mod);mod.connect(amp.gain);
+    src.connect(hp);hp.connect(lp);lp.connect(amp);amp.connect(masterGain);
+    src.start();osc.start();nodes=[src,hp,lp,osc,mod,amp];
+  }
+  else if (id === 'stream') {
+    // High frequency filtered noise — bubbling
+    const d=makeWhiteData(len);
+    const src=bufSrc([d]);
+    const hp=ctx.createBiquadFilter();hp.type='bandpass';hp.frequency.value=3000;hp.Q.value=0.4;
+    const osc=ctx.createOscillator();osc.frequency.value=2.5;
+    const mod=ctx.createGain();mod.gain.value=0.25;
+    const amp=ctx.createGain();amp.gain.value=0.4;
+    osc.connect(mod);mod.connect(amp.gain);
+    src.connect(hp);hp.connect(amp);amp.connect(masterGain);
+    src.start();osc.start();nodes=[src,hp,osc,mod,amp];
+  }
+  else {
+    // Frequency tones (hz528, hz432, hz174, hz417, hz963)
+    const hz={hz528:528,hz432:432,hz174:174,hz417:417,hz963:963}[id]||528;
+    // Sine + slight harmonics + binaural offset
+    const bufL=new Float32Array(len),bufR=new Float32Array(len);
+    for(let i=0;i<len;i++){
+      const t=i/sr;
+      bufL[i]=(Math.sin(2*Math.PI*hz*t)*0.35+Math.sin(2*Math.PI*hz*2*t)*0.06+Math.sin(2*Math.PI*hz*3*t)*0.02);
+      bufR[i]=(Math.sin(2*Math.PI*(hz+0.5)*t)*0.35+Math.sin(2*Math.PI*(hz+0.5)*2*t)*0.06);
+    }
+    const src=bufSrc([bufL,bufR],2);
+    src.connect(masterGain);src.start();nodes=[src];
+  }
+
+  return { masterGain, nodes };
 }
 
-function _makeRain() {
-  const ctx = _getAudioCtx();
-  const bufLen = ctx.sampleRate * 3;
-  const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
-  const data = buf.getChannelData(0);
-  for (let i = 0; i < bufLen; i++) {
-    // Rain = filtered white noise + occasional drops
-    data[i] = (Math.random() * 2 - 1) * (0.3 + Math.random() * 0.15);
-  }
-  const src = ctx.createBufferSource();
-  src.buffer = buf;
-  src.loop = true;
+// ── Track playback state ─────────────────────────────────────
+let _trackHandle = null; // { masterGain, nodes }
 
-  // Low-pass filter for rain-like sound
-  const filter = ctx.createBiquadFilter();
-  filter.type = 'lowpass';
-  filter.frequency.value = 1200;
-  src.connect(filter);
-  return { src, extraNode: filter };
-}
-
-function stopAmbient() {
-  if (_ambientNode) {
-    try { _ambientNode.stop(); } catch {}
-    _ambientNode = null;
+function stopTrack() {
+  if (_trackHandle) {
+    const { masterGain, nodes } = _trackHandle;
+    const ctx = _getAudioCtx();
+    try { masterGain.gain.linearRampToValueAtTime(0, ctx.currentTime+0.6); } catch {}
+    setTimeout(()=>{ nodes.forEach(n=>{ try{n.stop?.();}catch{} try{n.disconnect();}catch{} }); try{masterGain.disconnect();}catch{} }, 700);
+    _trackHandle = null;
   }
-  if (_ambientGain) {
-    try { _ambientGain.disconnect(); } catch {}
-    _ambientGain = null;
-  }
+  _currentTrack = null;
   _ambientOn = false;
 }
 
-function startAmbient(type) {
-  stopAmbient();
+function playTrack(id) {
+  stopTrack();
   const ctx = _getAudioCtx();
-  _ambientGain = ctx.createGain();
-  _ambientGain.gain.value = 0;
-  _ambientGain.connect(ctx.destination);
-
-  let srcNode, extraNode;
-  if (type === 'rain') {
-    const r = _makeRain();
-    srcNode = r.src; extraNode = r.extraNode;
-    extraNode.connect(_ambientGain);
-  } else {
-    srcNode = _makeNoise(type);
-    srcNode.connect(_ambientGain);
-  }
-
-  srcNode.start();
-  _ambientNode = srcNode;
-
+  const handle = _makeSound(id);
   // Fade in
-  _ambientGain.gain.setValueAtTime(0, ctx.currentTime);
-  _ambientGain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + 1.2);
+  handle.masterGain.gain.setValueAtTime(0, ctx.currentTime);
+  handle.masterGain.gain.linearRampToValueAtTime(0.38, ctx.currentTime+1.2);
+  _trackHandle = handle;
+  _currentTrack = id;
   _ambientOn = true;
 }
 
-function toggleAmbient() {
-  if (_ambientOn) {
-    // Fade out then stop
-    const ctx = _getAudioCtx();
-    if (_ambientGain) {
-      _ambientGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.8);
-      setTimeout(stopAmbient, 900);
-    } else {
-      stopAmbient();
-    }
-    _ambientOn = false;
-    _updateAmbientBtn(false);
+function toggleTrack(id) {
+  if (_currentTrack === id) {
+    stopTrack();
+    _renderSoundTracks(document.querySelector('.sound-cat.active')?.dataset.cat || 'focus');
   } else {
-    const type = document.getElementById('ambientType')?.value || 'white';
-    _ambientType = type;
-    startAmbient(type);
-    _updateAmbientBtn(true);
+    playTrack(id);
+    _renderSoundTracks(document.querySelector('.sound-cat.active')?.dataset.cat || 'focus');
   }
 }
 
-function changeAmbient(type) {
-  _ambientType = type;
-  if (_ambientOn) {
-    startAmbient(type); // restart with new type
-    _updateAmbientBtn(true);
-  }
+// ── UI ───────────────────────────────────────────────────────
+let _soundCat = 'focus';
+
+function setSoundCat(cat, btn) {
+  _soundCat = cat;
+  document.querySelectorAll('.sound-cat').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  _renderSoundTracks(cat);
 }
 
-function _updateAmbientBtn(on) {
-  const btn = document.getElementById('ambientBtn');
-  const lbl = document.getElementById('ambientLabel');
-  if (btn) {
-    btn.style.background = on ? 'rgba(245,200,66,.15)' : '';
-    btn.style.borderColor = on ? 'rgba(245,200,66,.4)' : '';
-    btn.style.color = on ? 'var(--gold)' : '';
-  }
-  if (lbl) lbl.textContent = on ? '🔊 Звук вкл' : 'Фокус-звук';
+function _renderSoundTracks(cat) {
+  const el = document.getElementById('soundTracks');
+  if (!el) return;
+  const tracks = SOUND_TRACKS[cat] || [];
+  el.innerHTML = tracks.map(t => {
+    const active = _currentTrack === t.id;
+    return `<button class="sound-track${active?' active':''}" onclick="toggleTrack('${t.id}')" title="${t.desc}">
+      <span class="sound-track-icon">${t.icon}</span>
+      <span class="sound-track-label">${t.label}</span>
+      ${active
+        ? `<span class="sound-track-play"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></span>`
+        : `<span class="sound-track-play"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>`
+      }
+    </button>`;
+  }).join('');
 }
+
+function initSoundWidget() {
+  _renderSoundTracks('focus');
+}
+
+// ── Compat stubs (old API) ───────────────────────────────────
+function toggleAmbient() { const t = document.querySelector('.sound-track.active'); if(t) toggleTrack(_currentTrack); else toggleTrack('white'); }
+function changeAmbient(type) { _ambientType = type; }
+function stopAmbient() { stopTrack(); }
+function startAmbient(type) { playTrack(type); }
+function _updateAmbientBtn() {}
 
 // ── League picker before timer start ──────────────────────────
 function showLeaguePickerThenStart() {
