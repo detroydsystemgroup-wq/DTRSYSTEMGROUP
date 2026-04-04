@@ -1700,7 +1700,7 @@ function renderSessions(all=false){
   if(!el)return;
   if(all){const c=document.getElementById('allSessCnt');if(c)c.textContent=(P.totalSessions||P.sessions.length)+' сессий';}
   el.innerHTML=list.length?list.map(s=>`
-    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:12px;margin-bottom:5px;background:linear-gradient(90deg,${s.color||'var(--blue)'}0a,var(--card));border:0.5px solid ${s.color||'var(--blue)'}22;transition:transform .15s,border-color .15s" onmouseover="this.style.transform='translateX(5px)';this.style.borderColor='${s.color||"var(--blue)"}55'" onmouseout="this.style.transform='';this.style.borderColor='${s.color||"var(--blue)"}22'"><div style="width:3px;height:36px;border-radius:2px;background:${s.color||'var(--blue)'};box-shadow:0 0 8px ${s.color||'var(--blue)'}88;flex-shrink:0"></div>${catIconBox(s.cat||'read', s.color||'var(--blue)', 36)}<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:700;color:var(--t1)">${s.name}</div><div style="font-size:10px;color:var(--t3);margin-top:1px">${s.date}</div></div><div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:400;color:${s.color||'var(--blue)'}">${fmtD(s.dur)}</div></div>`).join(''):`<div class="empty" style="padding:16px"><div style="font-size:24px;margin-bottom:6px">⏱</div>Нет сессий</div>`;
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:12px;margin-bottom:5px;background:linear-gradient(90deg,${s.color||'var(--blue)'}0a,var(--card));border:0.5px solid ${s.color||'var(--blue)'}22;transition:transform .15s,border-color .15s" onmouseover="this.style.transform='translateX(5px)';this.style.borderColor='${s.color||"var(--blue)"}55'" onmouseout="this.style.transform='';this.style.borderColor='${s.color||"var(--blue)"}22'"><div style="width:3px;height:36px;border-radius:2px;background:${s.color||'var(--blue)'};box-shadow:0 0 8px ${s.color||'var(--blue)'}88;flex-shrink:0"></div>${catIconBox(s.cat||'read', s.color||'var(--blue)', 36)}<div style="flex:1;min-width:0;overflow:hidden"><div style="font-size:12px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div><div style="font-size:10px;color:var(--t3);margin-top:1px">${s.date}</div></div><div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:400;color:${s.color||'var(--blue)'};flex-shrink:0;white-space:nowrap;padding-left:10px;letter-spacing:-.02em">${fmtD(s.dur)}</div></div>`).join(''):`<div class="empty" style="padding:16px"><div style="font-size:24px;margin-bottom:6px">⏱</div>Нет сессий</div>`;
 }
 
 // ══ MANAGE ══════════════════════════════════════════════════
@@ -8013,7 +8013,7 @@ function render(){
   ${sortBar}
   <div class="hab-matrix">
     <!-- Column headers -->
-    <div style="display:grid;grid-template-columns:${colsDesktop};align-items:center;gap:12px;padding:10px 20px 8px;border-bottom:0.5px solid rgba(255,255,255,.05)">
+    <div style="display:grid;grid-template-columns:${colsDesktop};align-items:center;gap:4px;padding:10px 16px 8px;border-bottom:0.5px solid rgba(255,255,255,.05)">
       <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)">ПРИВЫЧКА</div>
       ${colHead}
       <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:0 4px">ПРОГРЕСС</div>
@@ -12092,4 +12092,77 @@ window.renderCollabView=renderCollabView;
     setTimeout(init, 0);
   }
 
+})();
+
+/* ═══════════════════════════════════════════════════════════════
+   macOS DOCK ZOOM — Tab navigation
+   ═══════════════════════════════════════════════════════════════ */
+(function initDockNav() {
+  function setup() {
+    const bar = document.querySelector('.ph-tabs');
+    if (!bar) return;
+
+    const PEAK   = 1.42;  // hovered tab scale
+    const NEAR1  = 1.18;  // immediate neighbour
+    const NEAR2  = 1.06;  // 2 away
+    const BASE   = 1.0;   // rest
+    const RADIUS = 2;     // tabs affected on each side
+
+    function getScale(dist) {
+      if (dist === 0) return PEAK;
+      if (dist === 1) return NEAR1;
+      if (dist === 2) return NEAR2;
+      return BASE;
+    }
+
+    function resetAll(tabs) {
+      tabs.forEach(t => {
+        t.style.removeProperty('--dock-scale');
+        t.style.transform = '';
+        t.style.transition = 'transform .22s cubic-bezier(.34,1.56,.64,1), color .18s ease';
+      });
+    }
+
+    function applyDock(tabs, idx) {
+      tabs.forEach((t, i) => {
+        const dist = Math.abs(i - idx);
+        const s = getScale(dist);
+        if (s !== BASE) {
+          const lift = (s - 1) * -9;
+          t.style.transform = `scale(${s}) translateY(${lift}px)`;
+          t.style.transition = 'transform .18s cubic-bezier(.34,1.56,.64,1), color .15s ease';
+        } else {
+          t.style.transform = 'scale(1) translateY(0)';
+          t.style.transition = 'transform .22s cubic-bezier(.34,1.56,.64,1), color .18s ease';
+        }
+      });
+    }
+
+    bar.addEventListener('mousemove', function(e) {
+      const tabs = Array.from(bar.querySelectorAll('.stab'));
+      if (!tabs.length) return;
+      // Find which tab is under cursor
+      let hovIdx = -1;
+      tabs.forEach((t, i) => {
+        const r = t.getBoundingClientRect();
+        if (e.clientX >= r.left && e.clientX <= r.right) hovIdx = i;
+      });
+      if (hovIdx === -1) { resetAll(tabs); return; }
+      applyDock(tabs, hovIdx);
+    });
+
+    bar.addEventListener('mouseleave', function() {
+      const tabs = Array.from(bar.querySelectorAll('.stab'));
+      resetAll(tabs);
+    });
+  }
+
+  // Run after DOM ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else {
+    setup();
+  }
+  // Re-init after dynamic renders
+  window._dockNavSetup = setup;
 })();
