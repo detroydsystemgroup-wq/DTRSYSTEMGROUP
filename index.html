@@ -532,12 +532,22 @@
     </div>
 
     <div id="tab-activity" class="tc">
+      <!-- Filter bar -->
+      <div class="sess-filter-bar" id="sessFilterBar">
+        <button class="sfb active" onclick="setSessionFilter('today',this)">Сегодня</button>
+        <button class="sfb" onclick="setSessionFilter('yesterday',this)">Вчера</button>
+        <button class="sfb" onclick="setSessionFilter('week',this)">Эта неделя</button>
+        <button class="sfb" onclick="setSessionFilter('all',this)">Все</button>
+      </div>
       <div class="card">
-        <div class="ch"><span class="ct" style="display:inline-flex;align-items:center;gap:7px">
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.6"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-  Все сессии
-</span><span id="allSessCnt" style="font-size:12px;color:var(--t3)"></span></div>
-        <div class="cb"><div class="sl" id="allSessList"></div></div>
+        <div class="ch">
+          <span class="ct" style="display:inline-flex;align-items:center;gap:7px">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.6"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            <span id="sessFilterTitle">Сегодня</span>
+          </span>
+          <span id="allSessCnt" style="font-size:12px;color:var(--t3)"></span>
+        </div>
+        <div class="cb" style="padding:0"><div id="allSessList"></div></div>
       </div>
     </div>
 
@@ -718,19 +728,25 @@
         Выбери активность и нажми Старт
       </div>
 
-      <!-- Ambient audio -->
-      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:14px 20px 20px;padding-top:14px;border-top:0.5px solid rgba(255,255,255,.05)">
-        <button id="ambientBtn" onclick="toggleAmbient()"
-          style="display:flex;align-items:center;gap:6px;padding:6px 13px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.08);border-radius:20px;color:var(--t2);font-size:11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background-color .2s,border-color .2s,color .2s,box-shadow .2s,opacity .2s">
-          <svg id="ambientIcon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-          <span id="ambientLabel">Фокус-звук</span>
-        </button>
-        <select id="ambientType" onchange="changeAmbient(this.value)"
-          style="background:var(--card);border:0.5px solid rgba(255,255,255,.08);border-radius:20px;color:var(--t2);font-size:11px;font-weight:600;padding:5px 10px;cursor:pointer;outline:none;font-family:'DM Sans',sans-serif">
-          <option value="white">Белый шум</option>
-          <option value="brown">Коричневый</option>
-          <option value="rain">Дождь</option>
-        </select>
+      <!-- Sound widget -->
+      <div class="sound-widget" id="soundWidget">
+        <!-- Category tabs -->
+        <div class="sound-cats">
+          <button class="sound-cat active" data-cat="focus" onclick="setSoundCat('focus',this)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+            Фокус
+          </button>
+          <button class="sound-cat" data-cat="nature" onclick="setSoundCat('nature',this)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22V12M12 12C12 12 7 9 7 5a5 5 0 0 1 10 0c0 4-5 7-5 7z"/></svg>
+            Природа
+          </button>
+          <button class="sound-cat" data-cat="freq" onclick="setSoundCat('freq',this)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h4l3-8 4 16 3-8h4"/></svg>
+            Частоты
+          </button>
+        </div>
+        <!-- Tracks -->
+        <div class="sound-tracks" id="soundTracks"></div>
       </div>
     </div>
 
