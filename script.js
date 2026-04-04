@@ -12095,74 +12095,39 @@ window.renderCollabView=renderCollabView;
 })();
 
 /* ═══════════════════════════════════════════════════════════════
-   macOS DOCK ZOOM — Tab navigation
+   TAB ICON ZOOM — single icon, no overflow, smooth spring
    ═══════════════════════════════════════════════════════════════ */
-(function initDockNav() {
+(function initTabZoom() {
+  const EASE = 'cubic-bezier(.34,1.56,.64,1)';
+  const EASE_OUT = 'cubic-bezier(.25,.46,.45,.94)';
+
   function setup() {
     const bar = document.querySelector('.ph-tabs');
-    if (!bar) return;
+    if (!bar || bar._tabZoomInit) return;
+    bar._tabZoomInit = true;
 
-    const PEAK   = 1.42;  // hovered tab scale
-    const NEAR1  = 1.18;  // immediate neighbour
-    const NEAR2  = 1.06;  // 2 away
-    const BASE   = 1.0;   // rest
-    const RADIUS = 2;     // tabs affected on each side
+    bar.querySelectorAll('.stab').forEach(tab => {
+      const wrap = tab.querySelector('.tab-icon-wrap');
+      if (!wrap) return;
 
-    function getScale(dist) {
-      if (dist === 0) return PEAK;
-      if (dist === 1) return NEAR1;
-      if (dist === 2) return NEAR2;
-      return BASE;
-    }
-
-    function resetAll(tabs) {
-      tabs.forEach(t => {
-        t.style.removeProperty('--dock-scale');
-        t.style.transform = '';
-        t.style.transition = 'transform .22s cubic-bezier(.34,1.56,.64,1), color .18s ease';
+      tab.addEventListener('mouseenter', () => {
+        wrap.style.transition = `transform .3s ${EASE}`;
+        wrap.style.transform  = 'scale(1.32)';
+        wrap.style.transformOrigin = 'center center';
       });
-    }
 
-    function applyDock(tabs, idx) {
-      tabs.forEach((t, i) => {
-        const dist = Math.abs(i - idx);
-        const s = getScale(dist);
-        if (s !== BASE) {
-          const lift = (s - 1) * -9;
-          t.style.transform = `scale(${s}) translateY(${lift}px)`;
-          t.style.transition = 'transform .18s cubic-bezier(.34,1.56,.64,1), color .15s ease';
-        } else {
-          t.style.transform = 'scale(1) translateY(0)';
-          t.style.transition = 'transform .22s cubic-bezier(.34,1.56,.64,1), color .18s ease';
-        }
+      tab.addEventListener('mouseleave', () => {
+        wrap.style.transition = `transform .25s ${EASE_OUT}`;
+        wrap.style.transform  = '';
+        wrap.style.transformOrigin = '';
       });
-    }
-
-    bar.addEventListener('mousemove', function(e) {
-      const tabs = Array.from(bar.querySelectorAll('.stab'));
-      if (!tabs.length) return;
-      // Find which tab is under cursor
-      let hovIdx = -1;
-      tabs.forEach((t, i) => {
-        const r = t.getBoundingClientRect();
-        if (e.clientX >= r.left && e.clientX <= r.right) hovIdx = i;
-      });
-      if (hovIdx === -1) { resetAll(tabs); return; }
-      applyDock(tabs, hovIdx);
-    });
-
-    bar.addEventListener('mouseleave', function() {
-      const tabs = Array.from(bar.querySelectorAll('.stab'));
-      resetAll(tabs);
     });
   }
 
-  // Run after DOM ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', setup);
   } else {
     setup();
   }
-  // Re-init after dynamic renders
-  window._dockNavSetup = setup;
+  window._tabZoomSetup = setup;
 })();
