@@ -8013,7 +8013,7 @@ function render(){
   ${sortBar}
   <div class="hab-matrix">
     <!-- Column headers -->
-    <div style="display:grid;grid-template-columns:${colsDesktop};align-items:center;gap:4px;padding:10px 16px 8px;border-bottom:0.5px solid rgba(255,255,255,.05)">
+    <div style="display:grid;grid-template-columns:${colsDesktop};align-items:center;gap:12px;padding:10px 20px 8px;border-bottom:0.5px solid rgba(255,255,255,.05)">
       <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)">ПРИВЫЧКА</div>
       ${colHead}
       <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:0 4px">ПРОГРЕСС</div>
