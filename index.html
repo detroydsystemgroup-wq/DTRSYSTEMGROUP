@@ -16905,17 +16905,20 @@ async function openUserProfile(userId, name, av, avUrl){
     let friendBtn = '';
     if(!isOwnProfile){
       if(isFriend){
-        friendBtn = `<button class="up-action-btn up-action-green" onclick="socConfirmRemoveFriend('${userId}')">
+        friendBtn = `<button id="upFriendBtn" class="up-action-btn" data-state="friend"
+          style="border:0.5px solid rgba(34,197,94,.35);background:rgba(34,197,94,.08);color:var(--green)"
+          onclick="upConfirmRemoveFriend('${userId}',this)">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><polyline points="20 6 9 17 4 12"/></svg>
           Друг
         </button>`;
       } else if(isPendingOut){
-        friendBtn = `<button class="up-action-btn" style="opacity:.5;cursor:default" disabled>
+        friendBtn = `<button id="upFriendBtn" class="up-action-btn" data-state="pending"
+          style="opacity:.55;cursor:default;border:0.5px solid rgba(255,255,255,.1)" disabled>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          Ожидание
+          Ожидание…
         </button>`;
       } else {
-        friendBtn = `<button class="up-action-btn up-action-gold" onclick="window.socSendFriendRequest('${userId}','${escAttr(username||'')}',this)">
+        friendBtn = `<button id="upFriendBtn" class="up-action-btn up-action-gold" onclick="upSendFriendRequest('${userId}','${escAttr(username||'')}',this)">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
           В друзья
         </button>`;
@@ -16978,7 +16981,7 @@ async function openUserProfile(userId, name, av, avUrl){
             </svg>
           </div>
           <div>
-            <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:400;
+            <div id="upStatFriendCount" style="font-family:'DM Mono',monospace;font-size:22px;font-weight:400;
                         color:#1a9fff;line-height:1;letter-spacing:-.03em">${friendsCount}</div>
             <div style="font-size:10px;font-weight:700;letter-spacing:.07em;
                         text-transform:uppercase;color:rgba(26,159,255,.55);margin-top:3px">Друзей</div>
@@ -16991,20 +16994,20 @@ async function openUserProfile(userId, name, av, avUrl){
 
       <!-- Like toggle button — fully functional -->
       <button id="upLikeBtn" onclick="toggleLikeUser()" data-liked="${isLiked}"
-        class="up-action-btn${isLiked?' up-like-active':''}"
-        style="border:0.5px solid rgba(239,68,68,${isLiked?'.4':'.18'});
-               background:rgba(239,68,68,${isLiked?'.12':'.04'});
-               color:${isLiked?'#ef4444':'rgba(255,255,255,.55)'};
+        class="up-action-btn"
+        style="border:0.5px solid ${isLiked?'rgba(239,68,68,.45)':'rgba(255,255,255,.1)'};
+               background:${isLiked?'rgba(239,68,68,.12)':'rgba(255,255,255,.04)'};
+               color:${isLiked?'#ef4444':'rgba(255,255,255,.6)'};
                gap:9px;position:relative;overflow:hidden;
                transition:all .22s cubic-bezier(.34,1.4,.64,1)">
         <svg id="upLikeBtnIcon" width="15" height="15" viewBox="0 0 24 24"
              fill="${isLiked?'#ef4444':'none'}" stroke="${isLiked?'#ef4444':'currentColor'}" stroke-width="2"
-             style="transition:all .25s cubic-bezier(.34,1.56,.64,1)">
+             style="flex-shrink:0;transition:all .25s cubic-bezier(.34,1.56,.64,1)">
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
         </svg>
-        <span id="upLikeBtnLabel">${isLiked ? 'Нравится' : 'Лайк'}</span>
-        <span id="upLikeCount" style="font-family:'DM Mono',monospace;font-size:13px;
-              font-weight:400;opacity:.7;letter-spacing:-.01em">${likeCount > 0 ? '· '+likeCount : ''}</span>
+        <span id="upLikeBtnLabel">${isLiked ? 'Нравится' : 'Поставить лайк'}</span>
+        <span id="upLikeCount" style="font-family:'DM Mono',monospace;font-size:12px;
+              font-weight:400;opacity:.6;letter-spacing:-.01em;margin-left:2px">${likeCount > 0 ? '· '+likeCount : ''}</span>
       </button>
 
       ${friendBtn}
@@ -17180,6 +17183,94 @@ async function openUserProfile(userId, name, av, avUrl){
 function closeUserProfile(){
   document.getElementById('userProfileOv').classList.remove('show');
 }
+
+// ─── Profile modal: friend request helpers ───────────────────
+window.upSendFriendRequest = async function(toUserId, toName, btn) {
+  if (!SB_USER) return;
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '.55';
+    btn.style.cursor  = 'default';
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Отправка…`;
+  }
+  try {
+    const { error } = await sb.from('friend_requests').insert({
+      from_user: SB_USER.id,
+      to_user:   toUserId,
+      status:    'pending'
+    });
+    if (error) throw error;
+
+    // Update local SOC state
+    const SOC = window._SOC;
+    if (SOC) SOC.pendingOut = SOC.pendingOut || [];
+    if (SOC) SOC.pendingOut.push({ id: toUserId, name: toName, reqId: 'pending', avatar:'🎯', avatarUrl:null });
+
+    showToast(`Запрос отправлен ${toName}`, '👥');
+    if (btn) {
+      btn.disabled = true;
+      btn.dataset.state = 'pending';
+      btn.style.opacity = '.55';
+      btn.style.cursor  = 'default';
+      btn.style.border  = '0.5px solid rgba(255,255,255,.1)';
+      btn.style.background = 'rgba(255,255,255,.04)';
+      btn.style.color   = 'rgba(255,255,255,.5)';
+      btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Ожидание…`;
+    }
+  } catch (e) {
+    console.warn('upSendFriendRequest:', e);
+    showToast('Ошибка отправки запроса', '⚠️');
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.style.cursor  = 'pointer';
+      btn.style.border  = '0.5px solid rgba(245,200,66,.35)';
+      btn.style.background = 'rgba(245,200,66,.08)';
+      btn.style.color   = 'var(--gold)';
+      btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg> В друзья`;
+    }
+  }
+};
+
+window.upConfirmRemoveFriend = function(userId, btn) {
+  if (!btn) return;
+  if (btn.dataset.confirm === '1') {
+    // Confirmed — remove
+    const SOC = window._SOC;
+    const f = SOC?.friends?.find(x => x.id === userId);
+    window.socRemoveFriend(f?.reqId || '', userId)
+      .then(() => {
+        btn.dataset.confirm = '';
+        btn.dataset.state   = 'none';
+        btn.style.border    = '0.5px solid rgba(245,200,66,.35)';
+        btn.style.background= 'rgba(245,200,66,.08)';
+        btn.style.color     = 'var(--gold)';
+        btn.style.opacity   = '1';
+        btn.disabled        = false;
+        btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg> В друзья`;
+        // Update friends stat card
+        const statFriends = document.getElementById('upStatFriendCount');
+        if (statFriends) statFriends.textContent = String(Math.max(0, parseInt(statFriends.textContent||'0') - 1));
+      })
+      .catch(() => showToast('Ошибка удаления','⚠️'));
+  } else {
+    // First click — ask confirmation
+    btn.dataset.confirm = '1';
+    btn.style.border    = '0.5px solid rgba(239,68,68,.35)';
+    btn.style.background= 'rgba(239,68,68,.1)';
+    btn.style.color     = 'var(--red)';
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Удалить?`;
+    setTimeout(() => {
+      if (btn.dataset.confirm === '1') {
+        btn.dataset.confirm = '';
+        btn.style.border    = '0.5px solid rgba(34,197,94,.35)';
+        btn.style.background= 'rgba(34,197,94,.08)';
+        btn.style.color     = 'var(--green)';
+        btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><polyline points="20 6 9 17 4 12"/></svg> Друг`;
+      }
+    }, 3000);
+  }
+};
 
 // ── Friend button helpers for profile modal ──────────────────
 function _upRefreshFriendBtn(userId){
@@ -19459,7 +19550,7 @@ async function toggleLikeUser() {
     btn.style.background  = 'rgba(239,68,68,.04)';
     btn.style.color       = 'rgba(255,255,255,.55)';
     if (iconEl) { iconEl.setAttribute('fill','none'); iconEl.setAttribute('stroke','currentColor'); }
-    if (labelEl) labelEl.textContent = 'Лайк';
+    if (labelEl) labelEl.textContent = 'Поставить лайк';
     if (countEl) countEl.textContent = newStatCount > 0 ? '· '+newStatCount : '';
     if (statCount) statCount.textContent = String(newStatCount);
   }
@@ -19492,7 +19583,7 @@ async function toggleLikeUser() {
       btn.style.background = 'rgba(239,68,68,.04)';
       btn.style.color = 'rgba(255,255,255,.55)';
       if (iconEl) { iconEl.setAttribute('fill','none'); iconEl.setAttribute('stroke','currentColor'); }
-      if (labelEl) labelEl.textContent = 'Лайк';
+      if (labelEl) labelEl.textContent = 'Поставить лайк';
       if (statCount) statCount.textContent = String(prevStatCount);
     }
     if (countEl) countEl.textContent = prevStatCount > 0 ? '· '+prevStatCount : '';
