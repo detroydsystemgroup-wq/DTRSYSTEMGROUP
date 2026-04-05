@@ -428,56 +428,73 @@
   </div>
 </div>
 
-<!-- ══ USER PROFILE MODAL — FULL WINDOW v2 ══════════════════ -->
+<!-- ══ USER PROFILE MODAL — v5 ═══════════════════════════════ -->
 <div id="userProfileOv" role="dialog" aria-modal="true" aria-label="Профиль игрока" onclick="if(event.target===this)closeUserProfile()">
   <div class="up-modal" id="upModal">
 
-    <!-- Cinematic cover: JS injects close-btn + #upAv avatar here -->
-    <div class="up-cover" id="upCover"></div>
+    <!-- ── CINEMATIC COVER ──
+         JS injects: close-btn + #upAv (avatar) into this div.
+         #upCoverLevel: backend populates with "УР.6 · Боец" and sets display:flex -->
+    <div class="up-cover" id="upCover">
+      <div class="up-cover-level" id="upCoverLevel" style="display:none">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        <span id="upCoverLevelText">УР.1 · Новичок</span>
+      </div>
+    </div>
 
-    <!-- Horizontal two-panel body -->
+    <!-- ── TWO-PANEL BODY ── -->
     <div class="up-layout">
 
-      <!-- ── LEFT SIDEBAR: Identity ── -->
+      <!-- LEFT: Identity -->
       <div class="up-sidebar">
 
-        <!-- Name — set by JS -->
+        <!-- Name -->
         <div class="up-name" id="upName">—</div>
 
-        <!-- Level badge — JS sets display when populated (backend hook).
-             CSS does NOT force display — stays hidden until JS shows it. -->
-        <div id="upLevelBadge" style="display:none"></div>
-
-        <!-- Thin gold divider under name/badge block -->
+        <!-- Gold thin divider -->
         <div class="up-sidebar-divider"></div>
 
-        <!-- Join date + likes — set by JS -->
+        <!-- Join date — JS renders full meta here (date + likes).
+             CSS hides the likes span; they show in #upStatsRow instead. -->
         <div class="up-meta" id="upMeta"></div>
 
-        <!-- Friend count chip — JS shows/hides -->
-        <div class="up-friend-count" id="upFriendCount" style="display:none">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          <span id="upFriendCountNum">0</span>&thinsp;друзей
-        </div>
+        <!-- Stats pills row: Friends · Likes -->
+        <div class="up-stats-row">
 
-        <!-- Activity quote — JS populates and shows -->
-        <div class="up-quote" id="upQuote" style="display:none">
-          <span class="up-quote-mark">✦</span>
-          <span class="up-quote-text" id="upQuoteText"></span>
-        </div>
+          <!-- Friend count pill — JS shows when loaded -->
+          <div class="up-stat-pill up-stat-friends" id="upFriendCount" style="display:none">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            <span id="upFriendCountNum">0</span>
+            <span class="up-stat-label">друзей</span>
+          </div>
 
-        <!-- Action buttons — fully rendered by JS -->
+          <!-- Likes pill — backend populates #upLikesNum, sets display:flex -->
+          <div class="up-stat-pill up-stat-likes" id="upLikesChip" style="display:none">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="#ef4444" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+            <span id="upLikesNum">0</span>
+            <span class="up-stat-label">лайков</span>
+          </div>
+
+        </div><!-- /.up-stats-row -->
+
+        <!-- Action buttons — rendered by JS -->
         <div class="up-actions" id="upActions"></div>
 
       </div><!-- /.up-sidebar -->
 
-      <!-- ── RIGHT DATA PANEL: KPIs + XP + Leagues + Achievements ── -->
+      <!-- RIGHT: Stats + Leagues -->
       <div class="up-data">
         <div id="upLeaguesList"></div>
       </div>
 
     </div><!-- /.up-layout -->
-
   </div><!-- /.up-modal -->
 </div><!-- /#userProfileOv -->
 
