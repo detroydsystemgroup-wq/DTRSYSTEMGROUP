@@ -13035,6 +13035,38 @@ html[data-theme="light"] .nav-icon-btn:hover {
 #upLikeBtn:active {
   transform: scale(.96) !important;
 }
+
+/* ═══ Timer Panel — perfect symmetry ═══ */
+.timer-panel {
+  padding: 0 !important;
+  overflow: hidden !important;
+  border-radius: 18px !important;
+}
+/* Every section same horizontal padding */
+.t-lbl          { padding: 18px 22px 0 !important; margin: 0 !important;
+                  font-size: 10px !important; letter-spacing: .12em !important;
+                  text-transform: uppercase !important; color: var(--t2) !important;
+                  font-weight: 700 !important; text-align: center !important; }
+.timer-panel > div[style*="position:relative"] { padding: 12px 22px 0 !important; margin: 0 !important; }
+#timerLeagueSel { border-radius: 12px !important; font-size: 12px !important;
+                  font-weight: 600 !important; letter-spacing: .04em !important; }
+#pomBtns        { padding: 10px 22px 0 !important; gap: 8px !important;
+                  margin: 0 !important; }
+.timer-mode-btn { border-radius: 10px !important; font-size: 11.5px !important;
+                  font-weight: 600 !important; padding: 9px 10px !important; }
+.t-disp         { margin: 18px 0 18px !important; padding: 0 22px !important;
+                  text-align: center !important; font-size: 58px !important;
+                  letter-spacing: .06em !important; }
+.timer-btn-row  { padding: 0 22px !important; display: flex !important;
+                  gap: 8px !important; }
+.t-btn-start    { padding: 14px 20px !important; font-size: 15px !important;
+                  letter-spacing: .04em !important; border-radius: 13px !important; }
+.t-btn-pause, .t-btn-stop { border-radius: 13px !important; padding: 13px 16px !important; }
+.t-note         { margin: 10px 22px 20px !important; text-align: center !important;
+                  font-size: 11px !important; color: var(--t2) !important;
+                  letter-spacing: .01em !important; }
+/* Fix note not having bottom padding */
+#qNote          { margin: 10px 22px 20px !important; text-align: center !important; }
 </style>
   <link rel="manifest" id="pwaManifest">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23080808'/%3E%3Cpolygon points='58,10 38,52 52,52 42,90 62,46 46,46' fill='%23F5C842'/%3E%3C/svg%3E">
@@ -14239,6 +14271,17 @@ const CAT_ICONS = {
 };
 
 // Helper: render cat icon as SVG (size param controls viewBox display size)
+
+// ── getCatIcon: unified icon helper (SVG or fallback emoji) ──
+function getCatIcon(catIdOrObj, size=20, forText=false) {
+  const id = typeof catIdOrObj === 'string' ? catIdOrObj : catIdOrObj?.id;
+  const cat = ALL_CATS.find(c=>c.id===id);
+  if (forText) return cat?.icon || '';  // emoji for text-only contexts
+  const svg = CAT_ICONS?.[id];
+  if (svg) return `<span style="display:inline-flex;align-items:center;color:${cat?.color||'currentColor'}">${svg.replace('width="22" height="22"', `width="${size}" height="${size}"`)}</span>`;
+  return cat?.icon || '';
+}
+
 function getCatSVG(catId, size=22) {
   const svg = CAT_ICONS[catId];
   if (!svg) return '';
@@ -14462,7 +14505,7 @@ function renderCatSelGrid(){
     <div class="csg-item ${selCatIds.has(c.id)?'sel':''}" onclick="toggleCS('${c.id}')"
       style="${selCatIds.has(c.id)?`border-color:${c.color}`:''}">
       <div class="csg-check" style="background:${c.color}22;color:${c.color}">✓</div>
-      <div class="csg-emo">${c.icon}</div>
+      <div class="csg-emo" style="color:${c.color};display:flex;align-items:center;justify-content:center">${getCatSVG(c.id,40)}</div>
       <div class="csg-txt">
         <div class="csg-name" style="${selCatIds.has(c.id)?`color:${c.color}`:''}">${c.name}</div>
         <div class="csg-desc">${c.desc}</div>
@@ -14908,7 +14951,7 @@ async function saveSession(catId,secs){
     P.totalSessions=(P.totalSessions||0)+1;
     const newly=checkAchsLocal({dur:secs});
     renderAll();
-    showToast(`${cat.icon} +${fmtD(secs)} в "${cat.name}"`, '✅');
+    showToast(`+${fmtD(secs)} в "${cat.name}"`, '✅');
     newly.forEach((a,i)=>setTimeout(()=>showToast(a.name,'🏆',true,'Новая награда разблокирована!'),(i+1)*900));
     _sessionSaving = false;
     return;
@@ -14970,7 +15013,7 @@ async function saveSession(catId,secs){
 
   renderAll();
   setTimeout(renderDailyProgress, 200);
-  showToast(`${cat.icon} +${fmtD(secs)} в "${esc(cat.name)}"`, '✅');
+  showToast(`+${fmtD(secs)} в "${esc(cat.name)}"`, '✅');
   newly.forEach((a,i)=>setTimeout(()=>showToast(`🏆 ${esc(a.name)}`,a.icon,true),(i+1)*900));
   if(typeof renderHeroZone === 'function') renderHeroZone();
   // ── Social events ──
@@ -15150,7 +15193,7 @@ function toggleCatEpic(id){
           console.error('toggleCatEpic upsert (network):', e);
         });
     }
-    showToast(`${ALL_CATS.find(c=>c.id===id)?.icon} Добавлено в лигу!`,'✅');
+    showToast(`Добавлено в лигу!`,'✅');
   }
   // Инвалидируем только эту категорию, а не весь кеш
   delete lgCache[id]; delete lgCacheTime[id];
@@ -15171,7 +15214,7 @@ async function toggleCat(id){
     if(!SB_USER?.isDemoUser){
       await sb.from('user_categories').upsert({user_id:SB_USER.id,category_id:id,hours:P.categories.find(c=>c.id===id)?.hours||0});
     }
-    showToast(`${ALL_CATS.find(c=>c.id===id)?.icon} Добавлено в лигу!`,'✅');
+    showToast(`Добавлено в лигу!`,'✅');
   }
   // Инвалидируем только эту категорию
   delete lgCache[id]; delete lgCacheTime[id];
@@ -15920,7 +15963,7 @@ function renderCats(){
   el.innerHTML=P.categories.filter(c=>P.activeCatIds.includes(c.id)).map(c=>{
     const last=P.sessions.find(s=>s.cat===c.id);
     return `<div class="cat-item" onclick="selCat('${c.id}')">
-      <div class="ci-box" style="background:${c.color}20">${c.icon}</div>
+      <div class="ci-box" style="background:${c.color}15;display:flex;align-items:center;justify-content:center;color:${c.color}">${getCatSVG(c.id,20)}</div>
       <div class="ci-info">
         <div class="ci-name">${c.name}</div>
         <div class="ci-sub">Последний: ${last?last.date:'никогда'}</div>
@@ -16675,7 +16718,7 @@ function _buildArenaHTML(cats, results){
           <div style="width:44px;height:44px;border-radius:13px;flex-shrink:0;
             background:${cat.color}16;border:0.5px solid ${cat.color}30;
             display:flex;align-items:center;justify-content:center;color:${cat.color}">
-            ${(ICONS[catKey]||'').replace(/width="20" height="20"/g,'width="20" height="20"')}
+            ${getCatSVG(cat?.id||catKey, 22)}
           </div>
           <div>
             <div style="font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--t1);margin-bottom:2px">${cat.name}</div>
@@ -16773,7 +16816,7 @@ async function checkSundayBanner(){
     if(wrap) {
       wrap.innerHTML = topPlayers.map(({player,cat}) => `
         <div class="sw-player-card" onclick="closeSundayBanner();${player.userId?`openUserProfile('${esc(player.userId)}','${escAttr(player.name)}','${escAttr(player.av)}')`:''}" style="cursor:${player.userId?'pointer':'default'}">
-          <div class="sw-player-lbl">${cat.icon} ${cat.name}</div>
+          <div class="sw-player-lbl" style="display:flex;align-items:center;gap:4px"><span style="color:${cat.color};display:inline-flex">${getCatSVG(cat.id,13)}</span>${cat.name}</div>
           <div class="sw-player-av">${player.av}</div>
           <div class="sw-player-name">${esc(player.name)}</div>
           <div class="sw-player-stat" style="color:${cat.color}">${player.hrs} ч</div>
@@ -17864,7 +17907,7 @@ function renderQuickCats() {
       `<button class="tc-b ${c.id === quickSel ? 'sel' : ''}" onclick="selCat('${c.id}')" title="${c.name}"
         style="${c.id === quickSel ? `border-color:${c.color};background:${c.color}18;box-shadow:0 0 0 2px ${c.color}28` : ''}">
         <span style="display:flex;align-items:center;justify-content:center;width:20px;height:20px;color:${c.id===quickSel?c.color:'var(--t2)'}">
-          ${(ICONS[c.id] || '').replace(/width="20" height="20"/, 'width="18" height="18"') || `<span style="font-size:16px">${c.icon}</span>`}
+          ${getCatSVG(c.id, 18)}
         </span>
         <span style="font-size:8.5px;font-weight:700;color:${c.id===quickSel?c.color:'var(--t3)'};letter-spacing:.3px;max-width:50px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center">${c.name.slice(0,6)}</span>
       </button>`
@@ -17882,7 +17925,7 @@ function renderQuickCats() {
       // Use SVG from ICONS map, fallback to emoji
       const svgIcon = (typeof ICONS !== 'undefined' && ICONS[selCat.id])
         ? ICONS[selCat.id].replace(/width="20" height="20"/, 'width="18" height="18"')
-        : `<span style="font-size:17px">${selCat.icon}</span>`;
+        : `<span style="color:${selCat.color};display:flex;align-items:center">${getCatSVG(selCat.id,18)}</span>`;
       if(iconEl) iconEl.innerHTML = svgIcon;
       if(lblEl)  lblEl.textContent = selCat.name.toUpperCase();
       tls.style.borderColor = selCat.color || 'var(--gold)';
@@ -18169,8 +18212,7 @@ function filterCmds(q) {
         ? `<div class="cmd-item-desc">${c.desc}</div>`
         : '';
       // SVG icons render as HTML; emoji icons render as text
-      const isHtml = c.icon && c.icon.trim().startsWith('<');
-      const iconInner = isHtml ? c.icon : `<span style="font-size:16px;line-height:1">${c.icon}</span>`;
+      const iconInner = getCatSVG(c.id, 18) || `<span style="font-size:16px;line-height:1">${c.icon}</span>`;
       html += `
         <div class="cmd-item" data-idx="${c._idx}"
           style="animation-delay:${itemDelay * 22}ms"
@@ -18295,7 +18337,7 @@ function showLeaguePickerThenStart() {
           " onmouseover="this.style.borderColor='${c.color}'" onmouseout="this.style.borderColor='${quickSel===c.id?c.color:'var(--border)'}'">
             <span style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;
               border-radius:7px;background:${c.color}18;color:${c.color};flex-shrink:0">
-              ${(typeof ICONS !== 'undefined' && ICONS[c.id]) ? ICONS[c.id].replace(/width="20" height="20"/g,'width="15" height="15"') : c.icon}
+              ${getCatSVG(c.id,15)}
             </span>
             <span style="font-size:12px;font-weight:700;color:var(--t1);line-height:1.3">${c.name}</span>
           </button>`).join('')}
@@ -18744,7 +18786,7 @@ async function openPub(){
         <!-- Leagues -->
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px">
           <span style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.2)">Лиги</span>
-          ${cats.map(c=>`<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.07);border-radius:8px;font-size:11px;font-weight:400;color:rgba(255,255,255,.45)">${c.icon} ${c.name}</span>`).join('')}
+          ${cats.map(c=>`<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.07);border-radius:8px;font-size:11px;font-weight:400;color:rgba(255,255,255,.45)"><span style="color:${c.color};display:inline-flex;align-items:center">${getCatSVG(c.id,12)}</span>${c.name}</span>`).join('')}
         </div>
       </div>
     </div>`;
@@ -19790,7 +19832,7 @@ function renderRings(){
         <text x="40" y="36" text-anchor="middle" fill="${c.color}" font-family="Rajdhani,sans-serif" font-size="15" font-weight="700">${c.hours < 10 ? c.hours.toFixed(1) : Math.round(c.hours)}</text>
         <text x="40" y="50" text-anchor="middle" fill="var(--t3)" font-family="Inter,sans-serif" font-size="8">/ ${next}ч</text>
       </svg>
-      <div class="ring-name">${c.icon} ${c.name}</div>
+      <div class="ring-name" style="display:flex;align-items:center;justify-content:center;gap:4px"><span style="color:${c.color}">${getCatSVG(c.id,11)}</span><span>${c.name}</span></div>
       <div class="ring-hrs">${Math.round(pct)}% до ${next}ч</div>
     </div>`;
   }).join('');
@@ -20257,7 +20299,7 @@ function renderCatFilter(){
     </div>`+cats.map(c=>{
       const isActive=dashCatFilter===c.id;
       return `<div onclick="setDashCatFromSel({value:'${c.id}'})" style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;cursor:pointer;background:${isActive?'rgba(245,200,66,.08)':'transparent'};transition:background .14s" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='${isActive?'rgba(245,200,66,.08)':'transparent'}'">
-        <div style="width:28px;height:28px;border-radius:8px;background:${c.color}18;border:0.5px solid ${c.color}30;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:${c.color}">${ICONS[{read:"read",lang:"lang",code:"code",trading:"trading",cooking:"cooking",intellect:"intellect"}[c.id]]||c.icon}</div>
+        <div style="width:28px;height:28px;border-radius:8px;background:${c.color}18;border:0.5px solid ${c.color}30;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:${c.color}">${getCatSVG(c.id,14)}</div>
         <div style="flex:1">
           <div style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:${isActive?'var(--gold)':c.color}">${c.name}</div>
         </div>
@@ -20324,7 +20366,7 @@ function renderCatFilter(){
   if(!el)return;
   el.innerHTML=`<button class="cf-btn ${!dashCatFilter?'active':''}" onclick="setDashCat(null)">${t('cat_filter_all')}</button>`
     +cats.map(c=>`<button class="cf-btn ${dashCatFilter===c.id?'active':''}" onclick="setDashCat('${c.id}')" style="${dashCatFilter===c.id?`border-color:${c.color};background:${c.color}22;color:${c.color}`:''}">
-      ${c.icon} ${c.name}</button>`).join('');
+      ${getCatIcon(c,14)} ${c.name}</button>`).join('');
 }
 
 function setDashCat(id){
@@ -21439,7 +21481,7 @@ function _kbRenderSidebar(){
     const nc=_kbCatCount(c.id);
     const isOpen=!_kbS.collapsed[c.id];
     const isCatActive=_kbS.cat===c.id;
-    const catIcon=(typeof ICONS!=='undefined'&&ICONS[c.id])?ICONS[c.id].replace(/width="\d+" height="\d+"/g,'width="14" height="14"'):'';
+    const catIcon=(typeof ICONS!=='undefined'&&ICONS[c.id])? getCatSVG(c.id,14) : '';
 
     h+=`<div>
       <button class="kb5-cat-btn${isCatActive?' active':''}" onclick="_kbTogCat('${c.id}')" style="${isCatActive?`border-left:2px solid ${c.color};padding-left:6px;`:''}" >
@@ -21540,7 +21582,7 @@ function _kbRenderHome(cont){
       ${ALL_CATS.map(c=>{
         const nc=_kbCatCount(c.id);
         const nf=(_kb3[c.id]?.folders||[]).length;
-        const ico=(typeof ICONS!=='undefined'&&ICONS[c.id])?ICONS[c.id].replace(/width="\d+" height="\d+"/g,'width="18" height="18"'):'';
+        const ico=(typeof ICONS!=='undefined'&&ICONS[c.id])? getCatSVG(c.id,18) : '';
         return `<div class="kb5-cat-card" onclick="_kbTogCat('${c.id}')" style="border-color:${c.color}20">
           <div style="width:36px;height:36px;border-radius:10px;background:${c.color}18;display:flex;align-items:center;justify-content:center;color:${c.color};flex-shrink:0">${ico}</div>
           <div style="min-width:0">
@@ -21580,7 +21622,7 @@ function _kbRenderCatHome(cont){
   const folders=d.folders||[];
   const allN=folders.flatMap(f=>(f.notes||[]).map(n=>({...n,catId:c.id,folderId:f.id,folderTitle:f.title,catColor:c.color})));
   const recent=_kbSortNotes(allN).slice(0,6);
-  const ico=(typeof ICONS!=='undefined'&&ICONS[c.id])?ICONS[c.id].replace(/width="\d+" height="\d+"/g,'width="22" height="22"'):'';
+  const ico=(typeof ICONS!=='undefined'&&ICONS[c.id])? getCatSVG(c.id,22) : '';
 
   cont.innerHTML=`<div class="kb5-anim">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:18px;flex-wrap:wrap">
