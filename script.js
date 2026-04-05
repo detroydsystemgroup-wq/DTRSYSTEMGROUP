@@ -2573,160 +2573,102 @@ async function openUserProfile(userId, name, av, avUrl){
   actEl.innerHTML = '';
   bodyEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:40px;color:var(--t3)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:.3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>`;
 
-  // Quick avatar in cover
+  // Cover — только градиент и кнопка закрытия (аватар теперь в сайдбаре)
   cover.style.background = 'linear-gradient(135deg,rgba(245,200,66,.12) 0%,rgba(8,8,10,1) 100%)';
   cover.innerHTML = `
     <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(245,200,66,.08),transparent 60%);pointer-events:none"></div>
     <button onclick="closeUserProfile()" style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:9px;background:rgba(0,0,0,.4);border:0.5px solid rgba(255,255,255,.1);color:rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:3;backdrop-filter:blur(8px);transition:background .15s" onmouseover="this.style.background='rgba(0,0,0,.7)'" onmouseout="this.style.background='rgba(0,0,0,.4)'">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
-    <div id="upAv" style="position:absolute;bottom:-28px;left:24px;width:88px;height:88px;border-radius:22px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:50px;border:2px solid rgba(245,200,66,.25);box-shadow:0 8px 32px rgba(0,0,0,.7),0 0 0 4px rgba(245,200,66,.06);overflow:hidden;z-index:2">${av||'🎯'}</div>`;
+    </button>`;
 
   try {
-    // ── Все запросы параллельно одним roundtrip ──────────────
-    const isOwnProfile = SB_USER && (SB_USER.id === userId || SB_USER.isDemoUser);
-
-    const [uRes, ucRes, achRes, likeCountRes, myLikeRes, friendRes] = await Promise.all([
+    const [uRes, ucRes, achRes, likeRes] = await Promise.all([
       sb.from('users').select('id,username,avatar,avatar_url,streak,total_sessions,created_at').eq('id',userId).limit(1),
       sb.from('user_categories').select('category_id,hours').eq('user_id',userId).order('hours',{ascending:false}),
       sb.from('user_achievements').select('achievement_id').eq('user_id',userId).eq('unlocked',true).limit(30),
-      // Общее число лайков этого пользователя
-      sb.from('likes').select('id',{count:'exact',head:true}).eq('to_user_id',userId),
-      // Поставил ли я лайк? (пропускаем для своего профиля и демо)
-      (!isOwnProfile && SB_USER && !SB_USER.isDemoUser)
-        ? sb.from('likes').select('id').eq('from_user_id',SB_USER.id).eq('to_user_id',userId).limit(1)
-        : Promise.resolve({data:[]}),
-      // Статус дружбы — ПРЯМО из БД, не из кеша _SOC
-      (!isOwnProfile && SB_USER && !SB_USER.isDemoUser)
-        ? sb.from('friend_requests')
-            .select('id,from_user,to_user,status')
-            .or(`and(from_user.eq.${SB_USER.id},to_user.eq.${userId}),and(from_user.eq.${userId},to_user.eq.${SB_USER.id})`)
-            .limit(1)
-        : Promise.resolve({data:[]}),
+      sb.from('likes').select('id',{count:'exact',head:true}).eq('to_user_id',userId)
     ]);
 
-    const u          = uRes.data?.[0] ?? null;
-    const uc         = ucRes.data ?? [];
-    const achs       = achRes.data ?? [];
-    const totalLikes = likeCountRes.count ?? 0;
-    const isLiked    = (myLikeRes.data||[]).length > 0;
-
-    // ── Статус дружбы из БД ──────────────────────────────────
-    const friendRow    = (friendRes.data||[])[0] ?? null;
-    const isFriend     = friendRow?.status === 'accepted';
-    const isPendingOut = friendRow?.status === 'pending' && friendRow?.from_user === SB_USER?.id;
-    const isPendingIn  = friendRow?.status === 'pending' && friendRow?.to_user   === SB_USER?.id;
-    const friendReqId  = friendRow?.id ?? null;
-
-    // Синхронизируем кеш _SOC чтобы не разъезжались данные
-    if(window._SOC && SB_USER && !SB_USER.isDemoUser){
-      const S = window._SOC;
-      if(isFriend){
-        if(!S.friends.some(f=>f.id===userId))
-          S.friends.push({reqId:friendReqId, id:userId, name:u?.username||'?', avatar:u?.avatar||'🎯', avatarUrl:u?.avatar_url||null, status:'accepted'});
-      } else {
-        S.friends = S.friends.filter(f=>f.id!==userId);
-      }
-      if(isPendingOut){
-        if(!S.pendingOut.some(f=>f.id===userId))
-          S.pendingOut.push({reqId:friendReqId, id:userId, name:u?.username||'?', avatar:u?.avatar||'🎯', avatarUrl:u?.avatar_url||null});
-      } else {
-        S.pendingOut = S.pendingOut.filter(f=>f.id!==userId);
-      }
-    }
-
-    const totalH      = parseFloat(uc.reduce((s,r)=>s+(r.hours||0),0).toFixed(1));
-    const lvlInfo     = getLevelInfo(totalH);
-    const lvlColor    = lvlInfo.color.includes('gradient') ? 'var(--gold)' : lvlInfo.color;
-    const topCat      = ALL_CATS.find(c=>c.id===uc[0]?.category_id);
-    const streak      = u?.streak || 0;
-    const sessions    = u?.total_sessions || 0;
-    const username    = u?.username || name || '—';
-    const achCount    = achs.length;
+    const u         = uRes.data?.[0] ?? null;
+    const uc        = ucRes.data ?? [];
+    const achs      = achRes.data ?? [];
+    const totalLikes= likeRes.count ?? 0;
+    const totalH    = parseFloat(uc.reduce((s,r)=>s+(r.hours||0),0).toFixed(1));
+    const lvlInfo   = getLevelInfo(totalH);
+    const lvlColor  = lvlInfo.color.includes('gradient') ? 'var(--gold)' : lvlInfo.color;
+    const topCat    = ALL_CATS.find(c=>c.id===uc[0]?.category_id);
+    const streak    = u?.streak || 0;
+    const sessions  = u?.total_sessions || 0;
+    const username  = u?.username || name || '—';
+    const achCount  = achs.length;
     const accentColor = topCat?.color || lvlColor;
 
     ov.dataset.userName = username;
     ov.dataset.userAv   = u?.avatar || av || '🎯';
 
-    // ── Cover ─────────────────────────────────────────────────
+    // ── Cover: обновляем только градиент ──
     cover.style.background = `linear-gradient(160deg,${accentColor}28 0%,rgba(9,9,11,.98) 100%)`;
+
+    // ── Аватар: теперь в сайдбаре (#upAv.up-av-inline) ──
     const avEl = document.getElementById('upAv');
     if(avEl){
-      avEl.style.border = `2px solid ${accentColor}55`;
-      avEl.style.boxShadow = `0 8px 32px rgba(0,0,0,.7),0 0 0 4px ${accentColor}12,0 0 28px ${accentColor}22`;
+      avEl.style.border = `2.5px solid ${accentColor}66`;
+      avEl.style.boxShadow = `0 8px 32px rgba(0,0,0,.5),0 0 0 4px ${accentColor}12,0 0 28px ${accentColor}22`;
       if(u?.avatar_url){
-        avEl.innerHTML = `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:20px" onerror="this.parentNode.textContent='${u?.avatar||'🎯'}'">`;
+        avEl.innerHTML = `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:18px" onerror="this.parentNode.textContent='${u?.avatar||'🎯'}'">`;
       } else {
         avEl.textContent = u?.avatar || av || '🎯';
       }
     }
 
-    // ── Имя + дата (БЕЗ сердечка) ────────────────────────────
+    // ── Name + meta ──
     nameEl.textContent = username;
     const joinDate = new Date(u?.created_at||Date.now()).toLocaleDateString('ru',{month:'long',year:'numeric'});
     metaEl.innerHTML = `
       <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--t3)">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        с ${joinDate}
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" fill="#ef444430"/></svg>
+        ${totalLikes}
       </span>`;
 
-    // ── Кнопка «Друг/В друзья» — реальный статус из БД ──────
+    // ── Action buttons (ONE set, clean logic) ──
+    const isOwnProfile = SB_USER && (SB_USER.id === userId || SB_USER.isDemoUser);
+    const SOC = window._SOC;
+    const isFriend     = SOC?.friends?.some(f=>f.id===userId) ?? false;
+    const isPendingOut = SOC?.pendingOut?.some(f=>f.id===userId) ?? false;
+    const isFollowing  = SOC?.follows?.includes(userId) ?? false;
+
     let friendBtn = '';
     if(!isOwnProfile){
       if(isFriend){
-        friendBtn = `
-          <button class="up-action-btn up-action-green up-friend-active"
-            data-reqid="${friendReqId}" data-targetid="${userId}"
-            onclick="_upRemoveFriendDirect(this)"
-            onmouseenter="this.classList.add('up-friend-hover');this.querySelector('.fr-label').textContent='Удалить'"
-            onmouseleave="this.classList.remove('up-friend-hover');this.querySelector('.fr-label').textContent='Друг'">
-            <svg class="fr-icon-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-            <svg class="fr-icon-x"    width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="display:none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            <span class="fr-label">Друг</span>
-          </button>`;
-      } else if(isPendingIn){
-        friendBtn = `
-          <button class="up-action-btn up-action-gold"
-            data-reqid="${friendReqId}" data-targetid="${userId}"
-            onclick="_upAcceptFriendDirect(this)">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-            Принять запрос
-          </button>`;
+        friendBtn = `<button class="up-action-btn up-action-green" onclick="socConfirmRemoveFriend('${userId}')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><polyline points="20 6 9 17 4 12"/></svg>
+          Друг
+        </button>`;
       } else if(isPendingOut){
-        friendBtn = `
-          <button class="up-action-btn" style="opacity:.55;cursor:default" disabled>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            Запрос отправлен
-          </button>`;
+        friendBtn = `<button class="up-action-btn" style="opacity:.5;cursor:default" disabled>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Ожидание
+        </button>`;
       } else {
-        friendBtn = `
-          <button class="up-action-btn up-action-gold"
-            onclick="window.socSendFriendRequest('${userId}','${escAttr(username||'')}',this)">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-            В друзья
-          </button>`;
+        friendBtn = `<button class="up-action-btn up-action-gold" onclick="window.socSendFriendRequest('${userId}','${escAttr(username||'')}',this)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+          В друзья
+        </button>`;
       }
     }
 
-    // ── Лайк + все кнопки ────────────────────────────────────
+    const likeCount = totalLikes;
+    let isLiked = false;
+    try { const lr = await sb.from('likes').select('id').eq('from_user_id',SB_USER?.id).eq('to_user_id',userId).limit(1); isLiked = (lr.data||[]).length>0; } catch{}
+
     actEl.innerHTML = `
-      ${!isOwnProfile ? `
-        <button class="up-action-btn${isLiked?' up-action-red':''}"
-          id="upLikeBtn" onclick="toggleLikeUser()"
-          data-liked="${isLiked}"
-          title="${isLiked?'Убрать лайк':'Поставить лайк'}">
-          <svg width="14" height="14" viewBox="0 0 24 24"
-            fill="${isLiked?'#ef4444':'none'}"
-            stroke="${isLiked?'#ef4444':'currentColor'}"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-            style="transition:fill .2s,stroke .2s">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-          </svg>
-          <span id="upLikeCount">${totalLikes}</span>
-        </button>` : ''}
+      <button class="up-action-btn${isLiked?' up-action-red':''}" id="upLikeBtn" onclick="toggleLikeUser()" data-liked="${isLiked}">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="${isLiked?'#ef4444':'none'}" stroke="#ef4444" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        <span id="upLikeCount">${likeCount}</span>
+      </button>
       ${friendBtn}
       <button class="up-action-btn" onclick="openChatWithUser()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         Написать
       </button>`;
 
@@ -2892,54 +2834,6 @@ async function refreshLikeBtn(userId){
   btn.className = 'up-btn' + (myLike ? ' liked' : '');
   btn.innerHTML = (myLike ? '❤️ Нравится ' : '♡ Лайк ') + '<span id="upLikeCount">' + (count||0) + '</span>';
 }
-
-// ══ FRIEND ACTIONS — прямые DB-хелперы для кнопок профиля ═══
-
-window._upRemoveFriendDirect = async function(btn){
-  if(!SB_USER||SB_USER.isDemoUser){showToast('Недоступно в демо','⚠️');return;}
-  const targetId = btn.dataset.targetid;
-  if(!targetId) return;
-  if(!confirm('Удалить из друзей?')) return;
-  btn.disabled = true;
-  try {
-    await sb.from('friend_requests').delete()
-      .or(`and(from_user.eq.${SB_USER.id},to_user.eq.${targetId}),and(from_user.eq.${targetId},to_user.eq.${SB_USER.id})`);
-    if(window._SOC) window._SOC.friends = window._SOC.friends.filter(f=>f.id!==targetId);
-    const username = document.getElementById('upName')?.textContent||'?';
-    btn.outerHTML = `<button class="up-action-btn up-action-gold"
-      onclick="window.socSendFriendRequest('${targetId}','${escAttr(username)}',this)">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-      В друзья
-    </button>`;
-    showToast('Удалено из друзей','🗑️');
-  } catch(e){ btn.disabled=false; showToast('Ошибка удаления','⚠️'); console.error(e); }
-};
-
-window._upAcceptFriendDirect = async function(btn){
-  if(!SB_USER||SB_USER.isDemoUser){showToast('Недоступно в демо','⚠️');return;}
-  const reqId=btn.dataset.reqid, targetId=btn.dataset.targetid;
-  if(!reqId||!targetId) return;
-  btn.disabled=true;
-  try {
-    await sb.from('friend_requests').update({status:'accepted'}).eq('id',reqId);
-    if(window._SOC){
-      const S=window._SOC;
-      const p=S.pendingIn.find(f=>f.id===targetId);
-      if(p) S.friends.push({...p,status:'accepted'});
-      S.pendingIn=S.pendingIn.filter(f=>f.id!==targetId);
-    }
-    btn.outerHTML=`<button class="up-action-btn up-action-green up-friend-active"
-      data-reqid="${reqId}" data-targetid="${targetId}"
-      onclick="_upRemoveFriendDirect(this)"
-      onmouseenter="this.classList.add('up-friend-hover');this.querySelector('.fr-label').textContent='Удалить'"
-      onmouseleave="this.classList.remove('up-friend-hover');this.querySelector('.fr-label').textContent='Друг'">
-      <svg class="fr-icon-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-      <svg class="fr-icon-x" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="display:none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      <span class="fr-label">Друг</span>
-    </button>`;
-    showToast('Теперь вы друзья! 🤝','✅');
-  } catch(e){ btn.disabled=false; showToast('Ошибка','⚠️'); console.error(e); }
-};
 
 // ══ MESSAGES SYSTEM ════════════════════════════════════════
 let activeConvUserId = null;
@@ -5103,44 +4997,39 @@ function appendMessage(msg, isMine) {
 // ══════════════════════════════════════════════════════════════
 async function toggleLikeUser() {
   const ov = document.getElementById('userProfileOv');
-  const userId = ov?.dataset.userId;
-  if(!userId||!SB_USER||SB_USER.isDemoUser){showToast('Войди чтобы ставить лайки','ℹ️');return;}
+  const userId = ov.dataset.userId;
+  if (!userId || !SB_USER) return;
 
-  const btn     = document.getElementById('upLikeBtn');
+  const btn = document.getElementById('upLikeBtn');
   const countEl = document.getElementById('upLikeCount');
-  if(!btn||!countEl) return;
+  const wasLiked = btn.classList.contains('liked');
+  const prevCount = parseInt(countEl?.textContent || '0');
 
-  const wasLiked  = btn.dataset.liked === 'true';
-  const prevCount = parseInt(countEl.textContent||'0', 10);
-  const newCount  = wasLiked ? Math.max(0,prevCount-1) : prevCount+1;
-
-  // Optimistic UI
-  btn.dataset.liked = String(!wasLiked);
-  countEl.textContent = newCount;
-  const svg = btn.querySelector('svg');
-  if(svg){
-    svg.setAttribute('fill',   wasLiked ? 'none'         : '#ef4444');
-    svg.setAttribute('stroke', wasLiked ? 'currentColor' : '#ef4444');
-  }
-  wasLiked ? btn.classList.remove('up-action-red') : btn.classList.add('up-action-red');
-  if(!wasLiked){ btn.style.transform='scale(1.2)'; setTimeout(()=>{btn.style.transform='';},180); }
+  // OPTIMISTIC: instant UI update (0ms)
+  const newCount = wasLiked ? Math.max(0, prevCount - 1) : prevCount + 1;
+  btn.className = 'up-btn' + (wasLiked ? '' : ' liked');
+  btn.innerHTML = (wasLiked ? '♡ Лайк ' : '❤️ Нравится ') +
+    `<span id="upLikeCount">${newCount}</span>`;
 
   try {
-    if(wasLiked){
-      const {error}=await sb.from('likes').delete().eq('from_user_id',SB_USER.id).eq('to_user_id',userId);
-      if(error) throw error;
+    if (wasLiked) {
+      const { error } = await sb.from('likes')
+        .delete().eq('from_user_id', SB_USER.id).eq('to_user_id', userId);
+      if (error) throw error;
+      showToast('Лайк убран', '♡');
     } else {
-      const {error}=await sb.from('likes').insert({from_user_id:SB_USER.id,to_user_id:userId});
-      if(error) throw error;
+      const { error } = await sb.from('likes')
+        .insert({ from_user_id: SB_USER.id, to_user_id: userId });
+      if (error) throw error;
+      showToast('Лайк поставлен!', '❤️');
     }
-  } catch(err){
-    // Rollback
-    btn.dataset.liked = String(wasLiked);
-    countEl.textContent = prevCount;
-    if(svg){ svg.setAttribute('fill',wasLiked?'#ef4444':'none'); svg.setAttribute('stroke',wasLiked?'#ef4444':'currentColor'); }
-    wasLiked ? btn.classList.add('up-action-red') : btn.classList.remove('up-action-red');
-    showToast('Ошибка — повтори','⚠️');
-    console.error('toggleLikeUser:',err);
+  } catch (err) {
+    // ROLLBACK on error
+    btn.className = 'up-btn' + (wasLiked ? ' liked' : '');
+    btn.innerHTML = (wasLiked ? '❤️ Нравится ' : '♡ Лайк ') +
+      `<span id="upLikeCount">${prevCount}</span>`;
+    showToast('Ошибка сети. Повтори.', '⚠️');
+    console.error('Like error:', err);
   }
 }
 
@@ -10662,24 +10551,98 @@ window.socToggleFollow = async function(userId, btn){
 };
 
 // ─── PUBLIC PROFILE MODAL — PATCH ────────────────────────────
-// ── socOpenUserProfile: единственная точка входа из соцмодуля ──
-// Больше не создаёт отдельных модалов и не читает кеш SOC.
-// Просто делегирует в openUserProfile, который сам запросит DB.
+// Extends the existing openUserProfile function with social buttons
 window.socOpenUserProfile = function(userId){
-  if(!userId) return;
-  if(SB_USER && userId === SB_USER.id){ showToast('Это твой профиль','ℹ️'); return; }
-  if(socIsDemo()){ showToast('Профили доступны после регистрации','ℹ️'); return; }
-  // openUserProfile сам подтянет имя/аватар из БД
-  if(typeof window.openUserProfile === 'function'){
-    window.openUserProfile(userId, '', '🎯', '');
+  if(!userId || userId === SB_USER?.id) return;
+  // Try to load user data and open their profile
+  if(socIsDemo()){
+    showToast('Профили доступны после регистрации','ℹ️');
+    return;
   }
+  // Re-use existing openUserProfile if available, extended with social actions
+  sb.from('users')
+    .select('id,username,avatar,avatar_url,streak,total_sessions,active_days')
+    .eq('id', userId).single()
+    .then(({data: u}) => {
+      if(!u) return;
+      _socShowPublicProfile(u);
+    });
 };
 
 function _socShowPublicProfile(u){
-  // Устаревшая функция — делегируем в openUserProfile
-  if(typeof window.openUserProfile === 'function'){
-    window.openUserProfile(u.id, u.username, u.avatar||'🎯', u.avatar_url||'');
+  const isFriend = SOC.friends.some(f => f.id === u.id);
+  const isPendingOut = SOC.pendingOut.some(f => f.id === u.id);
+  const isFollowing = SOC.follows.includes(u.id);
+
+  let friendBtn = '';
+  if(isFriend){
+    friendBtn = `<button class="soc-btn soc-btn-outline" onclick="this.textContent='Удалить?';this.onclick=()=>socRemoveFriend('${SOC.friends.find(f=>f.id===u.id)?.reqId||''}','${u.id}')">✓ Друг</button>`;
+  } else if(isPendingOut){
+    friendBtn = `<button class="soc-btn soc-btn-outline" disabled style="opacity:.6">Запрос отправлен</button>`;
+  } else {
+    friendBtn = `<button class="soc-btn soc-btn-gold" onclick="socSendFriendRequest('${u.id}','${esc(u.username)}',this)">+ В друзья</button>`;
   }
+
+  const followBtn = `<button class="soc-btn soc-btn-outline" id="socFollowBtn_${u.id}" onclick="socToggleFollow('${u.id}',this)" data-following="${isFollowing}">
+    ${isFollowing ? '👁 Слежу' : '+ Следить'}
+  </button>`;
+
+  const avHtml = u.avatar_url
+    ? `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:14px" onerror="this.parentNode.textContent='${(u.avatar||'🎯').replace(/'/g,'')}'">` 
+    : esc(u.avatar||'🎯');
+
+  // Inject into existing up-modal or create one
+  const existingModal = document.getElementById('upModal');
+  if(existingModal){
+    // Patch the existing profile modal by calling openUserProfile and then injecting
+    if(typeof window.openUserProfile === 'function'){
+      window.openUserProfile(u.id, u.username, u.avatar||'🎯', u.avatar_url||'');
+      // Add social buttons after a tick
+      setTimeout(() => {
+        const actRow = existingModal.querySelector('.up-btn-row') || existingModal.querySelector('[style*="display:flex"]');
+        const socRow = existingModal.querySelector('#socBtnsInjected');
+        if(!socRow && actRow){
+          const div = document.createElement('div');
+          div.id = 'socBtnsInjected';
+          div.style.cssText = 'display:flex;gap:8px;margin-top:8px;padding:0 0 4px';
+          div.innerHTML = friendBtn + followBtn;
+          actRow.parentNode.insertBefore(div, actRow.nextSibling);
+        }
+      }, 60);
+      return;
+    }
+  }
+
+  // Fallback: create a simple standalone modal
+  const ovId = 'socProfileOv';
+  document.getElementById(ovId)?.remove();
+  const ov = document.createElement('div');
+  ov.id = ovId;
+  ov.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.72);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.onclick = e => { if(e.target === ov) ov.remove(); };
+  ov.innerHTML = `
+    <div style="background:var(--panel);border:0.5px solid var(--border);border-radius:20px;padding:28px;width:90%;max-width:400px;box-shadow:0 32px 80px rgba(0,0,0,.6)">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+        <div style="width:64px;height:64px;border-radius:14px;background:var(--card);border:0.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:32px;overflow:hidden;flex-shrink:0">${avHtml}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:20px;font-weight:800;letter-spacing:-.03em;color:var(--t1);margin-bottom:4px">${esc(u.username)}</div>
+          <div style="display:flex;gap:12px;font-size:12px;color:var(--t3)">
+            <span>🔥 ${u.streak||0} дней</span>
+            <span>⏱ ${u.total_sessions||0} сессий</span>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        ${friendBtn}
+        ${followBtn}
+        <button class="soc-btn soc-btn-outline" onclick="openConv && typeof openConv === 'function' ? (document.getElementById('${ovId}').remove(), showTab('messages'), setTimeout(()=>openConv('${u.id}','${esc(u.username)}','${esc(u.avatar||'🎯')}','${esc(u.avatar_url||'')}'),300)) : null()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Написать
+        </button>
+      </div>
+      <button onclick="document.getElementById('${ovId}').remove()" style="width:100%;padding:10px;border-radius:10px;background:var(--card);border:0.5px solid var(--border);color:var(--t2);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">Закрыть</button>
+    </div>`;
+  document.body.appendChild(ov);
 }
 
 // ─── PROFILE MODAL HELPER ACTIONS ─────────────────────────────
