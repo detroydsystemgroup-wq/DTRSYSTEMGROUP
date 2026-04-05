@@ -77,10 +77,10 @@
 </div>
 
 <!-- ══ FOMO STREAK BANNER ══════════════════════════════════════ -->
-<div id="streakFomoBar" class="hidden" role="alert" aria-live="polite">
+<div id="streakFomoBar" role="alert" aria-live="polite">
   <span class="fomo-fire">🔥</span>
   <span id="streakFomoMsg">Твоя серия под угрозой! Проведи сессию до конца дня.</span>
-  <button class="fomo-close" onclick="this.parentElement.classList.add('hidden')" aria-label="Закрыть">×</button>
+  <button class="fomo-close" onclick="document.getElementById('streakFomoBar').classList.remove('fomo-visible')" aria-label="Закрыть">×</button>
 </div>
 
 <div id="onboard">
@@ -1393,14 +1393,14 @@ function closeSettings(){
 (function(){
   // Exposed by main app logic when relevant; called externally via showStreakFomo()
   window.showStreakFomo = function(streakDays, hoursToday){
-    if(hoursToday > 0 || streakDays < 2) return; // no need to warn
+    if(hoursToday > 0 || streakDays < 2) return;
     var bar = document.getElementById('streakFomoBar');
     var msg = document.getElementById('streakFomoMsg');
     if(!bar) return;
     if(msg) msg.textContent = '🔥 Серия '+streakDays+' '+
       (streakDays===1?'день':(streakDays<5?'дня':'дней'))+
       ' сгорит в полночь! Сделай хотя бы одну сессию сегодня.';
-    bar.classList.remove('hidden');
+    bar.classList.add('fomo-visible');
   };
 })();
 
