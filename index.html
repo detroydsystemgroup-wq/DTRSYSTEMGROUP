@@ -5197,37 +5197,46 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
 /* Avatar row */
 .pub-avatar-row {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  margin-top: -36px;
-  margin-bottom: 16px;
+  align-items: flex-start;
+  gap: 16px;
+  margin-top: -44px;
+  margin-bottom: 20px;
   position: relative;
   z-index: 2;
 }
 .pub-avatar {
-  width: 72px; height: 72px;
-  border-radius: 20px;
-  font-size: 36px;
+  width: 88px; height: 88px;
+  border-radius: 24px;
+  font-size: 44px;
   display: flex; align-items: center; justify-content: center;
   background: linear-gradient(135deg, #1A1814, #0E0D0A);
-  border: 2px solid rgba(245,200,66,.4);
-  box-shadow: 0 8px 32px rgba(0,0,0,.8);
+  border: 2px solid rgba(245,200,66,.45);
+  box-shadow: 0 8px 36px rgba(0,0,0,.85), 0 0 0 4px rgba(245,200,66,.07);
   overflow: hidden;
   flex-shrink: 0;
   animation: pubAvatarGlow 3s ease-in-out infinite;
 }
 .pub-avatar img { width:100%; height:100%; object-fit:cover; }
 
+/* Ник + уровень — по центру между аватаром и лайком */
+.pub-identity {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 /* Like button */
 .pub-like-btn {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 8px 14px;
-  border-radius: 12px;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px;
+  border-radius: 8px;
   cursor: pointer;
   border: 0.5px solid rgba(255,255,255,.1);
   background: rgba(255,255,255,.04);
   transition: all .22s cubic-bezier(.34,1.4,.64,1);
-  margin-bottom: 2px;
 }
 .pub-like-btn:hover { transform: scale(1.05); }
 .pub-like-btn.liked {
@@ -5243,16 +5252,19 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
   letter-spacing: -.03em;
   color: var(--t1);
   line-height: 1.1;
-  margin-bottom: 6px;
+  margin-bottom: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .pub-level-pill {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 10px 3px 8px;
-  border-radius: 20px;
-  background: rgba(245,200,66,.08);
-  border: 0.5px solid rgba(245,200,66,.2);
+  padding: 5px 10px 5px 8px;
+  border-radius: 8px;
+  background: rgba(245,200,66,.07);
+  border: 0.5px solid rgba(245,200,66,.22);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .06em;
@@ -13424,22 +13436,36 @@ html[data-theme="light"] .nav-icon-btn:hover {
     <!-- ── BODY ── -->
     <div class="pub-body">
 
-      <!-- Avatar row -->
+      <!-- Avatar row: аватар | ник + уровень | лайк — всё в одну строку -->
       <div class="pub-avatar-row">
-        <div class="pub-avatar" id="pubAvatar">🎯</div>
-        <button id="likeBtn" class="pub-like-btn" onclick="likeMyProfile()">
-          <svg id="likeIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="2">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-          </svg>
-          <span id="likeCnt" style="font-family:'DM Mono',monospace;font-size:14px;font-weight:400;color:rgba(255,255,255,.55);letter-spacing:-.01em">0</span>
-        </button>
-      </div>
 
-      <!-- Name + level -->
-      <div class="pub-name" id="pubName">—</div>
-      <div class="pub-level-pill" id="pubLevelPill">
-        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-        <span id="pubLevelText">Новичок</span>
+        <!-- Аватар — крупный, выезжает из cover -->
+        <div class="pub-avatar" id="pubAvatar">🎯</div>
+
+        <!-- Ник сверху / уровень + лайк в одну строку снизу -->
+        <div class="pub-identity" style="padding-top:24px">
+
+          <!-- Строка 1: имя -->
+          <div class="pub-name" id="pubName">—</div>
+
+          <!-- Строка 2: уровень-бейдж и лайк на одной линии -->
+          <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+
+            <div class="pub-level-pill" id="pubLevelPill">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <span id="pubLevelText">Новичок</span>
+            </div>
+
+            <button id="likeBtn" class="pub-like-btn" onclick="likeMyProfile()">
+              <svg id="likeIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="2">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
+              <span id="likeCnt" style="font-family:'DM Mono',monospace;font-size:13px;font-weight:400;color:rgba(255,255,255,.55);letter-spacing:-.01em">0</span>
+            </button>
+
+          </div>
+        </div>
+
       </div>
 
       <div class="pub-divider"></div>
