@@ -12085,9 +12085,55 @@ html[data-theme="light"] .nav-icon-btn:hover {
 /* ══════════════════════════════════════
 
 /* ══════════════════════════════════════════════════════════════
-   USER PROFILE  ·  PREMIUM DESKTOP  ·  v4
-   Fixes: пустоты убраны · скролл Apple-style · баги уровня
+   USER PROFILE  ·  PREMIUM DESKTOP  ·  v5
+   New: Cover level · Stats pills row · Rich animations · No quote
 ══════════════════════════════════════════════════════════════ */
+
+/* ━━ KEYFRAMES ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+@keyframes upOvIn      { from{opacity:0} to{opacity:1} }
+@keyframes upModalIn {
+  0%   { opacity:0; transform:scale(.88) translateY(36px); }
+  55%  { opacity:1; transform:scale(1.016) translateY(-6px); }
+  80%  { transform:scale(.996) translateY(2px); }
+  100% { transform:scale(1) translateY(0); }
+}
+/* Sidebar elements — slide in from left */
+@keyframes upSlideL {
+  from { opacity:0; transform:translateX(-16px); }
+  to   { opacity:1; transform:translateX(0); }
+}
+/* Data elements — slide in from right/bottom */
+@keyframes upSlideU {
+  from { opacity:0; transform:translateY(16px) scale(.97); }
+  to   { opacity:1; transform:translateY(0) scale(1); }
+}
+@keyframes upSlideR {
+  from { opacity:0; transform:translateX(14px); }
+  to   { opacity:1; transform:translateX(0); }
+}
+/* Avatar glow pulse */
+@keyframes upAvGlow {
+  0%,100% { box-shadow:0 24px 72px rgba(0,0,0,.95),0 0 0 4px rgba(245,200,66,.07),0 0 50px rgba(245,200,66,.2); }
+  50%      { box-shadow:0 24px 72px rgba(0,0,0,.95),0 0 0 6px rgba(245,200,66,.18),0 0 72px rgba(245,200,66,.4); }
+}
+/* Cover topline shimmer */
+@keyframes upToplineFlow {
+  0%   { opacity:.6; background-position:0% 0; }
+  50%  { opacity:1; }
+  100% { opacity:.6; background-position:200% 0; }
+}
+/* Stats pill hover pop */
+@keyframes upPillPop {
+  0%   { transform:scale(1); }
+  40%  { transform:scale(.94); }
+  70%  { transform:scale(1.05); }
+  100% { transform:scale(1); }
+}
+/* Cover level badge entrance */
+@keyframes upLevelIn {
+  from { opacity:0; transform:translateY(8px) scale(.9); }
+  to   { opacity:1; transform:translateY(0) scale(1); }
+}
 
 /* ━━ OVERLAY ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv {
@@ -12101,11 +12147,10 @@ html[data-theme="light"] .nav-icon-btn:hover {
 }
 #userProfileOv.show {
   display: flex !important;
-  animation: upOvIn .2s ease both !important;
+  animation: upOvIn .22s ease both !important;
 }
-@keyframes upOvIn { from{opacity:0} to{opacity:1} }
 
-/* ━━ MODAL SHELL ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ━━ MODAL ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv #upModal {
   width: 92vw !important; max-width: 1240px !important;
   height: 84vh !important; max-height: 840px !important;
@@ -12113,67 +12158,76 @@ html[data-theme="light"] .nav-icon-btn:hover {
   display: flex !important; flex-direction: column !important;
   overflow: hidden !important; box-sizing: border-box !important;
   background: #09090b !important;
-  border: 0.5px solid rgba(245,200,66,.25) !important;
+  border: 0.5px solid rgba(245,200,66,.26) !important;
   border-radius: 26px !important;
   box-shadow:
     0 0 0 1px rgba(255,255,255,.04),
-    0 60px 150px rgba(0,0,0,.95),
-    inset 0 1px 0 rgba(245,200,66,.1) !important;
-  animation: upModalIn .32s cubic-bezier(.34,1.1,.64,1) both !important;
-}
-@keyframes upModalIn {
-  0%   { opacity:0; transform:scale(.9) translateY(32px); }
-  60%  { opacity:1; transform:scale(1.014) translateY(-5px); }
-  82%  { transform:scale(.997) translateY(2px); }
-  100% { transform:scale(1) translateY(0); }
+    0 64px 160px rgba(0,0,0,.96),
+    inset 0 1px 0 rgba(245,200,66,.12) !important;
+  animation: upModalIn .34s cubic-bezier(.34,1.1,.64,1) both !important;
 }
 
 /* ━━ COVER ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv #upCover {
-  height: 145px !important; min-height: 145px !important;
+  height: 148px !important; min-height: 148px !important;
   flex-shrink: 0 !important; position: relative !important;
-  overflow: visible !important;
-  border-radius: 26px 26px 0 0 !important;
+  overflow: visible !important; border-radius: 26px 26px 0 0 !important;
 }
-/* Gold topline */
+/* Animated gold topline */
 #userProfileOv #upCover::before {
   content:'' !important; position:absolute !important;
-  top:0 !important; left:0 !important; right:0 !important; height:1.5px !important;
+  top:0 !important; left:0 !important; right:0 !important; height:2px !important;
   background: linear-gradient(90deg,
-    transparent 0%, rgba(245,200,66,.8) 25%,
-    rgba(245,200,66,1) 50%, rgba(168,85,247,.5) 75%, transparent 100%) !important;
+    transparent, rgba(245,200,66,.9) 30%,
+    #F5C842 50%, rgba(168,85,247,.5) 75%, transparent) !important;
+  background-size: 200% 100% !important;
   border-radius: 26px 26px 0 0 !important; z-index:5 !important;
+  animation: upToplineFlow 4s ease-in-out infinite !important;
 }
-/* Fade to body */
+/* Fade into body */
 #userProfileOv #upCover::after {
   content:'' !important; position:absolute !important;
-  bottom:0 !important; left:0 !important; right:0 !important; height:60px !important;
-  background: linear-gradient(to bottom, transparent, #09090b) !important;
+  bottom:0 !important; left:0 !important; right:0 !important; height:64px !important;
+  background: linear-gradient(to bottom,transparent,#09090b) !important;
   z-index:2 !important; pointer-events:none !important;
 }
 
+/* ── Level badge in cover (bottom-left, right of avatar) ── */
+#userProfileOv .up-cover-level {
+  position: absolute !important;
+  bottom: 14px !important; left: 188px !important;
+  z-index: 7 !important;
+  display: inline-flex !important; align-items: center !important; gap: 6px !important;
+  padding: 5px 13px 5px 10px !important;
+  background: rgba(9,9,11,.82) !important;
+  backdrop-filter: blur(16px) !important;
+  border: 0.5px solid rgba(245,200,66,.38) !important;
+  border-radius: 20px !important;
+  font-family: 'DM Sans', sans-serif !important;
+  font-size: 11.5px !important; font-weight: 700 !important;
+  letter-spacing: .05em !important; text-transform: uppercase !important;
+  color: var(--gold) !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,.5), 0 0 16px rgba(245,200,66,.18) !important;
+  animation: upLevelIn .4s .55s cubic-bezier(.34,1.56,.64,1) both !important;
+}
+/* Hide level if display:none set by style (won't show until JS populates) */
+#userProfileOv .up-cover-level[style*="display:none"] { display: none !important; }
+
 /* ━━ AVATAR ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv #upAv {
-  width: 128px !important; height: 128px !important;
-  font-size: 64px !important; border-radius: 26px !important;
-  position: absolute !important;
-  bottom: -50px !important; left: 36px !important; z-index: 6 !important;
+  width: 132px !important; height: 132px !important;
+  font-size: 66px !important; border-radius: 26px !important;
+  position: absolute !important; bottom: -52px !important; left: 36px !important;
+  z-index: 6 !important;
   background: linear-gradient(135deg,#1a1809,#2a2410) !important;
   border: 2.5px solid rgba(245,200,66,.5) !important;
   display: flex !important; align-items: center !important;
   justify-content: center !important; overflow: hidden !important;
-  box-shadow:
-    0 24px 72px rgba(0,0,0,.95),
-    0 0 0 5px rgba(245,200,66,.07),
-    0 0 52px rgba(245,200,66,.22) !important;
-  transition: transform .24s cubic-bezier(.34,1.56,.64,1), box-shadow .24s !important;
+  animation: upAvGlow 3.5s ease-in-out infinite !important;
+  transition: transform .24s cubic-bezier(.34,1.56,.64,1) !important;
 }
 #userProfileOv #upAv:hover {
   transform: scale(1.05) translateY(-5px) !important;
-  box-shadow:
-    0 32px 88px rgba(0,0,0,.95),
-    0 0 0 7px rgba(245,200,66,.12),
-    0 0 70px rgba(245,200,66,.32) !important;
 }
 
 /* Close button */
@@ -12181,15 +12235,15 @@ html[data-theme="light"] .nav-icon-btn:hover {
   position:absolute !important; top:16px !important; right:16px !important;
   width:36px !important; height:36px !important; border-radius:10px !important;
   background:rgba(0,0,0,.55) !important; backdrop-filter:blur(16px) !important;
-  border:0.5px solid rgba(255,255,255,.16) !important;
+  border:0.5px solid rgba(255,255,255,.18) !important;
   color:rgba(255,255,255,.65) !important; cursor:pointer !important;
   display:flex !important; align-items:center !important;
   justify-content:center !important; z-index:10 !important;
-  transition:background .15s,color .15s,transform .15s !important;
+  transition:background .15s,color .15s,transform .18s cubic-bezier(.34,1.56,.64,1) !important;
 }
 #userProfileOv #upCover > button:hover {
   background:rgba(20,20,22,.9) !important; color:#fff !important;
-  transform:scale(1.1) !important;
+  transform:scale(1.12) !important;
 }
 
 /* ━━ BODY ROW ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
@@ -12200,111 +12254,115 @@ html[data-theme="light"] .nav-icon-btn:hover {
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   LEFT SIDEBAR — compact, no gap, Apple smooth scroll if needed
+   LEFT SIDEBAR
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv .up-sidebar {
   width: 300px !important; min-width: 300px !important; flex-shrink: 0 !important;
-  padding: 66px 28px 28px !important; box-sizing: border-box !important;
-  display: flex !important; flex-direction: column !important;
-  /* Natural compact stacking — NO gap, each child controls own margin */
-  gap: 0 !important;
-  /* Apple smooth scroll — active when content overflows */
+  padding: 70px 28px 28px !important; box-sizing: border-box !important;
+  display: flex !important; flex-direction: column !important; gap: 0 !important;
   overflow-y: auto !important; overflow-x: hidden !important;
-  scroll-behavior: smooth !important;
-  -webkit-overflow-scrolling: touch !important;
-  overscroll-behavior: contain !important;
-  scrollbar-width: none !important;      /* hidden scrollbar */
+  scroll-behavior: smooth !important; -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain !important; scrollbar-width: none !important;
   border-right: 0.5px solid rgba(255,255,255,.07) !important;
-  background: linear-gradient(180deg, rgba(255,255,255,.015) 0%, transparent 30%) !important;
 }
-#userProfileOv .up-sidebar::-webkit-scrollbar { display: none !important; }
+#userProfileOv .up-sidebar::-webkit-scrollbar { display:none !important; }
 
-/* ── Name ── */
+/* ── Name — staggered entrance ── */
 #userProfileOv #upName {
   font-family: 'DM Sans', sans-serif !important;
   font-size: 30px !important; font-weight: 800 !important;
   letter-spacing: -.05em !important; line-height: 1.05 !important;
-  color: #F2F0E8 !important;
-  margin: 0 0 10px !important; padding: 0 !important;
+  color: #F2F0E8 !important; margin: 0 0 10px !important;
   word-break: break-word !important;
+  animation: upSlideL .4s .1s ease both !important;
 }
 
-/* ── Level badge — ONLY styled, NOT forced visible
-      JS controls display. CSS must NOT set display !important here. ── */
-#userProfileOv #upLevelBadge {
-  /* display controlled by JS/inline — do not override */
-  align-items: center !important; gap: 7px !important;
-  padding: 5px 13px !important; border-radius: 20px !important;
-  width: fit-content !important; margin-bottom: 10px !important;
-  font-family: 'DM Sans', sans-serif !important;
-  font-size: 11.5px !important; font-weight: 700 !important;
-  letter-spacing: .05em !important; text-transform: uppercase !important;
-  background: rgba(245,200,66,.1) !important;
-  border: 0.5px solid rgba(245,200,66,.35) !important;
-  color: var(--gold) !important;
-  box-shadow: 0 0 14px rgba(245,200,66,.12) !important;
-}
-/* When JS sets display:flex or display:inline-flex */
-#userProfileOv #upLevelBadge[style*="flex"],
-#userProfileOv #upLevelBadge[style*="inline-flex"],
-#userProfileOv #upLevelBadge[style*="block"] {
-  display: inline-flex !important;
-}
-
-/* ── Thin gold divider ── */
+/* ── Gold thin divider ── */
 #userProfileOv .up-sidebar-divider {
-  height: 0.5px !important; margin: 0 0 14px !important;
-  background: linear-gradient(90deg, rgba(245,200,66,.3), transparent 80%) !important;
-  flex-shrink: 0 !important;
+  height: 0.5px !important; margin: 0 0 14px !important; flex-shrink: 0 !important;
+  background: linear-gradient(90deg,rgba(245,200,66,.35),transparent 80%) !important;
+  animation: upSlideL .35s .18s ease both !important;
 }
 
-/* ── Meta ── */
+/* ── Join date (from upMeta). Hides the likes span — they show in pills ── */
 #userProfileOv #upMeta {
   display: flex !important; flex-direction: column !important;
-  gap: 7px !important; margin-bottom: 12px !important;
+  gap: 0 !important; margin-bottom: 14px !important;
+  animation: upSlideL .4s .22s ease both !important;
 }
-#userProfileOv #upMeta > span {
+#userProfileOv #upMeta > span:first-child {
   display: inline-flex !important; align-items: center !important;
   gap: 6px !important; font-size: 12.5px !important;
   color: var(--t2) !important; font-weight: 500 !important;
 }
+/* Hide likes span — shown in #upLikesChip pill instead */
+#userProfileOv #upMeta > span:nth-child(2) { display: none !important; }
 
-/* ── Friend count ── */
-#userProfileOv #upFriendCount {
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   STATS PILLS ROW — Friends · Likes
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+#userProfileOv .up-stats-row {
+  display: flex !important; flex-direction: row !important;
+  gap: 8px !important; flex-wrap: wrap !important;
+  margin-bottom: 18px !important;
+  animation: upSlideL .4s .28s ease both !important;
+}
+
+/* Base pill style */
+#userProfileOv .up-stat-pill {
   display: inline-flex !important; align-items: center !important;
-  gap: 6px !important; font-size: 12px !important; font-weight: 600 !important;
-  color: var(--t3) !important;
-  background: rgba(255,255,255,.04) !important;
-  border: 0.5px solid rgba(255,255,255,.09) !important;
-  border-radius: 20px !important; padding: 5px 13px !important;
-  width: fit-content !important; margin-bottom: 14px !important;
+  gap: 6px !important; padding: 7px 14px !important;
+  border-radius: 22px !important;                /* мягкие прямоугольные углы */
+  font-family: 'DM Sans', sans-serif !important;
+  font-size: 13px !important; font-weight: 700 !important;
+  cursor: default !important;
+  transition: transform .18s cubic-bezier(.34,1.56,.64,1),
+              box-shadow .18s, border-color .18s !important;
+  flex-shrink: 0 !important;
+}
+#userProfileOv .up-stat-pill:hover {
+  transform: translateY(-2px) scale(1.04) !important;
+}
+#userProfileOv .up-stat-pill:active {
+  animation: upPillPop .25s ease !important;
+}
+#userProfileOv .up-stat-label {
+  font-size: 11px !important; font-weight: 600 !important;
+  opacity: .65 !important; letter-spacing: .02em !important;
 }
 
-/* ── Quote ── */
-#userProfileOv #upQuote {
-  display: flex !important; align-items: flex-start !important;
-  gap: 9px !important; margin-bottom: 16px !important;
-  padding: 11px 14px !important;
-  background: rgba(245,200,66,.04) !important;
-  border: 0.5px solid rgba(245,200,66,.13) !important;
-  border-left: 2.5px solid rgba(245,200,66,.7) !important;
-  border-radius: 0 10px 10px 0 !important;
+/* Friends pill — blue tint */
+#userProfileOv .up-stat-friends {
+  background: rgba(26,159,255,.1) !important;
+  border: 0.5px solid rgba(26,159,255,.35) !important;
+  color: #60a5fa !important;
+  box-shadow: 0 2px 12px rgba(26,159,255,.12) !important;
 }
-#userProfileOv .up-quote-mark {
-  font-size:13px !important; color:var(--gold) !important;
-  opacity:.45 !important; flex-shrink:0 !important; margin-top:1px !important;
+#userProfileOv .up-stat-friends:hover {
+  background: rgba(26,159,255,.18) !important;
+  border-color: rgba(26,159,255,.55) !important;
+  box-shadow: 0 6px 20px rgba(26,159,255,.2) !important;
 }
-#userProfileOv #upQuoteText {
-  font-size:12px !important; color:var(--t2) !important;
-  line-height:1.6 !important; font-style:italic !important;
+#userProfileOv .up-stat-friends svg { stroke: #60a5fa !important; }
+
+/* Likes pill — red tint */
+#userProfileOv .up-stat-likes {
+  background: rgba(239,68,68,.1) !important;
+  border: 0.5px solid rgba(239,68,68,.35) !important;
+  color: #ef4444 !important;
+  box-shadow: 0 2px 12px rgba(239,68,68,.12) !important;
+}
+#userProfileOv .up-stat-likes:hover {
+  background: rgba(239,68,68,.18) !important;
+  border-color: rgba(239,68,68,.55) !important;
+  box-shadow: 0 6px 20px rgba(239,68,68,.2) !important;
 }
 
-/* ── Actions: compact stack, NO auto margin, NO gaps ── */
+/* ── ACTION BUTTONS — compact, no gaps ── */
 #userProfileOv #upActions {
   display: flex !important; flex-direction: column !important;
-  gap: 8px !important;
-  /* margin-top: auto REMOVED — was causing empty space */
-  margin-top: 4px !important;
+  gap: 8px !important; margin-top: 4px !important;
+  animation: upSlideL .4s .34s ease both !important;
 }
 #userProfileOv #upActions .up-action-btn,
 #userProfileOv #upActions button[class] {
@@ -12330,15 +12388,14 @@ html[data-theme="light"] .nav-icon-btn:hover {
 }
 #userProfileOv #upActions .up-action-btn:active,
 #userProfileOv #upActions button[class]:active {
-  transform: scale(.96) !important; transition-duration: .07s !important;
+  transform: scale(.95) !important; transition-duration: .07s !important;
 }
 #userProfileOv #upActions .up-action-gold {
   background: rgba(245,200,66,.1) !important;
   border-color: rgba(245,200,66,.4) !important; color: var(--gold) !important;
 }
 #userProfileOv #upActions .up-action-gold:hover {
-  background: rgba(245,200,66,.18) !important;
-  border-color: rgba(245,200,66,.6) !important;
+  background: rgba(245,200,66,.18) !important; border-color: rgba(245,200,66,.6) !important;
   box-shadow: 0 6px 28px rgba(245,200,66,.25) !important;
 }
 #userProfileOv #upActions .up-action-red {
@@ -12351,24 +12408,22 @@ html[data-theme="light"] .nav-icon-btn:hover {
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   RIGHT DATA PANEL — Apple smooth scroll, hidden bar
+   RIGHT DATA PANEL — Apple smooth scroll
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv .up-data {
   flex: 1 1 0 !important; min-width: 0 !important;
   padding: 28px 32px 28px !important; box-sizing: border-box !important;
-  /* Apple smooth scroll */
   overflow-y: auto !important; overflow-x: hidden !important;
   scroll-behavior: smooth !important;
   -webkit-overflow-scrolling: touch !important;
   overscroll-behavior: contain !important;
-  scrollbar-width: none !important;      /* hidden — content scrolls invisibly */
+  scrollbar-width: none !important;
 }
-#userProfileOv .up-data::-webkit-scrollbar { display: none !important; }
+#userProfileOv .up-data::-webkit-scrollbar { display:none !important; }
 
-/* ━━ KPI: 4 tiles one row ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ━━ KPI GRID — 4 cols, staggered entrance ━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv .up-kpi-grid {
-  display: grid !important;
-  grid-template-columns: repeat(4, 1fr) !important;
+  display: grid !important; grid-template-columns: repeat(4,1fr) !important;
   gap: 12px !important; margin-bottom: 16px !important;
 }
 #userProfileOv .up-kpi-tile {
@@ -12377,36 +12432,41 @@ html[data-theme="light"] .nav-icon-btn:hover {
   border-radius: 18px !important; padding: 18px 20px 16px !important;
   position: relative !important; overflow: hidden !important;
   min-width: 0 !important; box-sizing: border-box !important;
-  transition: transform .2s cubic-bezier(.34,1.56,.64,1),
-              box-shadow .2s, border-color .2s !important;
+  transition: transform .22s cubic-bezier(.34,1.56,.64,1),
+              box-shadow .22s, border-color .22s !important;
 }
+/* Staggered entrance for KPI tiles */
+#userProfileOv .up-kpi-tile:nth-child(1) { animation: upSlideU .4s .32s ease both !important; }
+#userProfileOv .up-kpi-tile:nth-child(2) { animation: upSlideU .4s .40s ease both !important; }
+#userProfileOv .up-kpi-tile:nth-child(3) { animation: upSlideU .4s .48s ease both !important; }
+#userProfileOv .up-kpi-tile:nth-child(4) { animation: upSlideU .4s .56s ease both !important; }
+/* Colored top bar */
 #userProfileOv .up-kpi-tile::before {
   content:'' !important; position:absolute !important;
   top:0 !important; left:0 !important; right:0 !important; height:2.5px !important;
-  background: var(--tile-c, var(--gold)) !important;
+  background:var(--tile-c,var(--gold)) !important;
   border-radius:18px 18px 0 0 !important; opacity:.9 !important;
 }
+/* Subtle glow */
 #userProfileOv .up-kpi-tile::after {
   content:'' !important; position:absolute !important; inset:0 !important;
-  background: radial-gradient(ellipse 80% 50% at 50% 0%,
-    rgba(255,255,255,.03), transparent 70%) !important;
+  background:radial-gradient(ellipse 90% 50% at 50% 0%,
+    rgba(255,255,255,.03),transparent 70%) !important;
   pointer-events:none !important;
 }
 #userProfileOv .up-kpi-tile:hover {
-  transform: translateY(-5px) !important;
-  box-shadow: 0 14px 40px rgba(0,0,0,.45) !important;
-  border-color: rgba(255,255,255,.15) !important;
+  transform: translateY(-6px) scale(1.01) !important;
+  box-shadow: 0 18px 44px rgba(0,0,0,.5) !important;
+  border-color: rgba(255,255,255,.16) !important;
 }
-#userProfileOv .up-kpi-icon {
-  display:block !important; margin-bottom:10px !important; opacity:.65 !important;
-}
+#userProfileOv .up-kpi-icon  { display:block !important; margin-bottom:10px !important; opacity:.65 !important; }
 #userProfileOv .up-kpi-number {
   display:block !important; font-family:'DM Mono',monospace !important;
   font-size:36px !important; font-weight:400 !important;
   letter-spacing:-.03em !important; line-height:1 !important;
-  margin-bottom:7px !important; overflow:visible !important; white-space:nowrap !important;
+  margin-bottom:7px !important; white-space:nowrap !important;
 }
-#userProfileOv .up-kpi-unit { font-size:15px !important; opacity:.5 !important; }
+#userProfileOv .up-kpi-unit  { font-size:15px !important; opacity:.5 !important; }
 #userProfileOv .up-kpi-label {
   display:block !important; font-family:'DM Sans',sans-serif !important;
   font-size:10px !important; font-weight:700 !important;
@@ -12414,18 +12474,19 @@ html[data-theme="light"] .nav-icon-btn:hover {
   color:var(--t3) !important; white-space:nowrap !important;
 }
 
-/* ━━ XP BAR ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ━━ XP BAR — animated entrance ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv .up-xp-bar {
   background: linear-gradient(135deg,rgba(245,200,66,.07),rgba(245,200,66,.02)) !important;
-  border: 0.5px solid rgba(245,200,66,.25) !important;
+  border: 0.5px solid rgba(245,200,66,.26) !important;
   border-radius: 18px !important; padding: 18px 22px !important;
   margin-bottom: 20px !important;
   box-shadow: inset 0 1px 0 rgba(245,200,66,.1) !important;
   position: relative !important; overflow: hidden !important;
+  animation: upSlideU .4s .62s ease both !important;
 }
 #userProfileOv .up-xp-bar::before {
   content:'' !important; position:absolute !important; inset:0 !important;
-  background: radial-gradient(ellipse 50% 100% at 0% 50%,rgba(245,200,66,.06),transparent) !important;
+  background:radial-gradient(ellipse 50% 100% at 0% 50%,rgba(245,200,66,.07),transparent) !important;
   pointer-events:none !important;
 }
 
@@ -12437,9 +12498,10 @@ html[data-theme="light"] .nav-icon-btn:hover {
   display:flex !important; align-items:center !important; gap:8px !important;
   margin:0 0 12px !important; padding-bottom:10px !important;
   border-bottom:0.5px solid rgba(255,255,255,.06) !important;
+  animation: upSlideU .35s .7s ease both !important;
 }
 
-/* ━━ LEAGUE ROWS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ━━ LEAGUE ROWS — staggered slide-in ━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv .up-league-row {
   display:flex !important; align-items:center !important;
   gap:16px !important; padding:12px 16px !important;
@@ -12448,17 +12510,30 @@ html[data-theme="light"] .nav-icon-btn:hover {
   background:rgba(255,255,255,.025) !important;
   border:0.5px solid rgba(255,255,255,.06) !important;
   transition:background .15s,border-color .15s,
-             transform .2s cubic-bezier(.34,1.56,.64,1) !important;
+             transform .22s cubic-bezier(.34,1.56,.64,1),
+             box-shadow .22s !important;
 }
+/* Stagger per row */
+#userProfileOv .up-league-row:nth-child(1) { animation: upSlideR .35s .74s ease both !important; }
+#userProfileOv .up-league-row:nth-child(2) { animation: upSlideR .35s .80s ease both !important; }
+#userProfileOv .up-league-row:nth-child(3) { animation: upSlideR .35s .86s ease both !important; }
+#userProfileOv .up-league-row:nth-child(4) { animation: upSlideR .35s .92s ease both !important; }
+#userProfileOv .up-league-row:nth-child(5) { animation: upSlideR .35s .98s ease both !important; }
+#userProfileOv .up-league-row:nth-child(6) { animation: upSlideR .35s 1.04s ease both !important; }
 #userProfileOv .up-league-row:hover {
   background:rgba(255,255,255,.055) !important;
   border-color:rgba(255,255,255,.11) !important;
-  transform:translateX(6px) !important;
+  transform:translateX(7px) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,.2) !important;
 }
 #userProfileOv .up-league-row > div { min-width:0 !important; }
 
 /* ━━ SUPPRESS LEGACY ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv .up-head { display:none !important; }
 #userProfileOv .up-body { padding:0 !important; background:transparent !important; }
+#userProfileOv .up-quote,
+#userProfileOv #upQuote  { display:none !important; }
+#userProfileOv #upLevelBadge { display:none !important; } /* level shown in cover */
+#userProfileOv .up-friend-count { display:none !important; }  /* replaced by .up-stats-row */
 
-/* END USER PROFILE PREMIUM v4 */
+/* END USER PROFILE PREMIUM v5 */
