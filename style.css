@@ -12736,3 +12736,432 @@ html[data-theme="light"] .nav-icon-btn:hover {
   background: rgba(255,255,255,.025) !important;
   border-color: rgba(255,255,255,.06) !important;
 }
+
+
+/* ══════════════════════════════════════════════════════════════
+   USER PROFILE — FULL WINDOW v2  (горизонтальный макет)
+   Все правила с !important чтобы перебить legacy-стили выше
+══════════════════════════════════════════════════════════════ */
+
+/* ── Overlay ── */
+#userProfileOv {
+  display: none !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 600 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(0,0,0,.82) !important;
+  backdrop-filter: blur(20px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+  padding: 20px !important;
+  box-sizing: border-box !important;
+}
+#userProfileOv.show {
+  display: flex !important;
+  animation: fadeIn .22s ease both !important;
+}
+
+/* ── Modal container ── */
+.up-modal {
+  background: linear-gradient(160deg, #0e0c09 0%, #09090b 60%) !important;
+  border: 0.5px solid rgba(245,200,66,.18) !important;
+  border-radius: 24px !important;
+  width: 100% !important;
+  max-width: 960px !important;
+  max-height: 88vh !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-shadow:
+    0 40px 100px rgba(0,0,0,.85),
+    0 0 0 1px rgba(255,255,255,.04),
+    inset 0 1px 0 rgba(245,200,66,.06) !important;
+  animation: upModalIn .34s cubic-bezier(.34,1.15,.64,1) both !important;
+}
+@keyframes upModalIn {
+  0%   { opacity:0; transform: scale(.93) translateY(24px); }
+  60%  { opacity:1; transform: scale(1.01) translateY(-4px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+/* ── Cover ── */
+.up-cover {
+  height: 200px !important;
+  flex-shrink: 0 !important;
+  position: relative !important;
+  overflow: visible !important;  /* let avatar overflow bottom */
+  border-radius: 24px 24px 0 0 !important;
+  background: linear-gradient(135deg,#0d0a1a,#0a0d0a,#100a0d) !important;
+}
+/* Decorative cover lines */
+.up-cover::after {
+  content: '' !important;
+  position: absolute !important;
+  bottom: 0 !important; left: 0 !important; right: 0 !important; height: 1px !important;
+  background: linear-gradient(90deg,transparent,rgba(245,200,66,.4),rgba(168,85,247,.2),transparent) !important;
+  pointer-events: none !important;
+}
+
+/* ── Avatar override (JS injects #upAv into #upCover) ── */
+#upAv {
+  width: 130px !important;
+  height: 130px !important;
+  font-size: 68px !important;
+  border-radius: 26px !important;
+  border-width: 3px !important;
+  bottom: -52px !important;
+  left: 36px !important;
+  box-shadow:
+    0 16px 48px rgba(0,0,0,.85),
+    0 0 0 5px rgba(245,200,66,.08),
+    0 0 32px rgba(245,200,66,.12) !important;
+}
+
+/* Close button override */
+#upCover > button {
+  top: 16px !important;
+  right: 16px !important;
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 10px !important;
+  background: rgba(0,0,0,.5) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 0.5px solid rgba(255,255,255,.12) !important;
+  color: rgba(255,255,255,.6) !important;
+  z-index: 10 !important;
+}
+
+/* ── Horizontal layout ── */
+.up-layout {
+  display: grid !important;
+  grid-template-columns: 300px 1fr !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* ── LEFT SIDEBAR ── */
+.up-sidebar {
+  padding: 72px 28px 28px !important;
+  border-right: 0.5px solid rgba(255,255,255,.05) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+  scrollbar-width: none !important;
+}
+.up-sidebar::-webkit-scrollbar { display: none !important; }
+
+/* ── Name ── */
+.up-name {
+  font-family: 'DM Sans', sans-serif !important;
+  font-size: 30px !important;
+  font-weight: 800 !important;
+  letter-spacing: -.045em !important;
+  color: var(--t1) !important;
+  line-height: 1.05 !important;
+  margin-bottom: 0 !important;
+}
+
+/* ── Friend count chip ── */
+.up-friend-count {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: var(--t3) !important;
+  background: rgba(255,255,255,.04) !important;
+  border: 0.5px solid rgba(255,255,255,.07) !important;
+  border-radius: 20px !important;
+  padding: 4px 10px !important;
+  width: fit-content !important;
+}
+
+/* ── Meta (join date + likes) ── */
+.up-meta {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+/* Override any inline styles JS sets */
+#upMeta span {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  font-size: 11.5px !important;
+  color: var(--t2) !important;
+  font-weight: 500 !important;
+}
+
+/* ── Activity quote ── */
+.up-quote {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 8px !important;
+  padding: 11px 14px !important;
+  background: rgba(245,200,66,.04) !important;
+  border: 0.5px solid rgba(245,200,66,.12) !important;
+  border-left: 2.5px solid var(--gold) !important;
+  border-radius: 0 10px 10px 0 !important;
+}
+.up-quote-mark {
+  font-size: 11px !important;
+  color: var(--gold) !important;
+  opacity: .5 !important;
+  flex-shrink: 0 !important;
+  margin-top: 1px !important;
+}
+.up-quote-text {
+  font-size: 12px !important;
+  color: var(--t2) !important;
+  line-height: 1.6 !important;
+  font-style: italic !important;
+}
+
+/* ── Action buttons — vertical stack ── */
+.up-actions {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  margin-top: 4px !important;
+}
+/* Reset up-btn (old class) */
+.up-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  padding: 10px 16px !important;
+  border-radius: 12px !important;
+  border: 0.5px solid rgba(255,255,255,.1) !important;
+  background: rgba(255,255,255,.05) !important;
+  color: var(--t2) !important;
+  font-family: 'DM Sans',sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all .18s cubic-bezier(.34,1.56,.64,1) !important;
+  width: 100% !important;
+  justify-content: center !important;
+  letter-spacing: .01em !important;
+}
+.up-btn:hover {
+  background: rgba(255,255,255,.1) !important;
+  color: var(--t1) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 14px rgba(0,0,0,.25) !important;
+}
+.up-btn:active { transform: scale(.96) !important; }
+
+/* ── Action buttons (JS uses up-action-btn class) ── */
+.up-action-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  width: 100% !important;
+  padding: 11px 16px !important;
+  border-radius: 12px !important;
+  border: 0.5px solid rgba(255,255,255,.1) !important;
+  background: rgba(255,255,255,.04) !important;
+  color: var(--t2) !important;
+  font-family: 'DM Sans', sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: background .16s cubic-bezier(.34,1.56,.64,1),
+              border-color .16s, color .16s,
+              transform .16s cubic-bezier(.34,1.56,.64,1),
+              box-shadow .16s !important;
+  letter-spacing: .01em !important;
+}
+.up-action-btn:hover {
+  background: rgba(255,255,255,.09) !important;
+  color: var(--t1) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 14px rgba(0,0,0,.22) !important;
+}
+.up-action-btn:active {
+  transform: scale(.95) !important;
+  transition-duration: .08s !important;
+}
+.up-action-gold {
+  background: rgba(245,200,66,.09) !important;
+  border-color: rgba(245,200,66,.32) !important;
+  color: var(--gold) !important;
+}
+.up-action-gold:hover {
+  background: rgba(245,200,66,.16) !important;
+  border-color: rgba(245,200,66,.5) !important;
+  box-shadow: 0 4px 20px rgba(245,200,66,.2) !important;
+}
+.up-action-red {
+  background: rgba(239,68,68,.07) !important;
+  border-color: rgba(239,68,68,.22) !important;
+  color: #ef4444 !important;
+}
+.up-action-green {
+  background: rgba(34,197,94,.07) !important;
+  border-color: rgba(34,197,94,.22) !important;
+  color: var(--green) !important;
+}
+
+/* ── RIGHT DATA PANEL ── */
+.up-data {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 24px 28px 28px !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(255,255,255,.06) transparent !important;
+}
+.up-data::-webkit-scrollbar { width: 4px !important; }
+.up-data::-webkit-scrollbar-track { background: transparent !important; }
+.up-data::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08) !important; border-radius: 2px !important; }
+
+/* ── KPI grid (JS renders .up-kpi-grid) ── */
+.up-kpi-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 10px !important;
+  margin-bottom: 16px !important;
+}
+.up-kpi-tile {
+  background: rgba(255,255,255,.03) !important;
+  border: 0.5px solid rgba(255,255,255,.07) !important;
+  border-radius: 14px !important;
+  padding: 14px 16px !important;
+  position: relative !important;
+  overflow: hidden !important;
+  transition: transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s !important;
+}
+.up-kpi-tile::before {
+  content: '' !important;
+  position: absolute !important; top: 0 !important; left: 0 !important; right: 0 !important; height: 2px !important;
+  background: var(--tile-c, var(--gold)) !important;
+  opacity: .8 !important;
+}
+.up-kpi-tile:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,.3) !important;
+  border-color: rgba(255,255,255,.12) !important;
+}
+.up-kpi-icon {
+  margin-bottom: 8px !important;
+  opacity: .65 !important;
+  display: block !important;
+}
+.up-kpi-number {
+  font-family: 'DM Mono', monospace !important;
+  font-size: 28px !important;
+  font-weight: 400 !important;
+  letter-spacing: -.025em !important;
+  line-height: 1 !important;
+  margin-bottom: 4px !important;
+  display: block !important;
+}
+.up-kpi-unit {
+  font-size: 13px !important;
+  opacity: .55 !important;
+}
+.up-kpi-label {
+  font-size: 8.5px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .1em !important;
+  color: var(--t3) !important;
+  display: block !important;
+}
+
+/* ── XP bar (JS renders .up-xp-bar) ── */
+.up-xp-bar {
+  background: linear-gradient(135deg, rgba(245,200,66,.06), rgba(245,200,66,.02)) !important;
+  border: 0.5px solid rgba(245,200,66,.18) !important;
+  border-radius: 14px !important;
+  padding: 16px 18px !important;
+  margin-bottom: 20px !important;
+  box-shadow: inset 0 1px 0 rgba(245,200,66,.06) !important;
+}
+
+/* ── Section labels ── */
+.up-section-label {
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .12em !important;
+  color: var(--t3) !important;
+  margin: 20px 0 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  padding-bottom: 8px !important;
+  border-bottom: 0.5px solid rgba(255,255,255,.05) !important;
+}
+.up-section-label:first-child { margin-top: 0 !important; }
+
+/* ── League rows ── */
+.up-league-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  padding: 12px 14px !important;
+  border-radius: 12px !important;
+  margin-bottom: 6px !important;
+  background: rgba(255,255,255,.02) !important;
+  border: 0.5px solid rgba(255,255,255,.04) !important;
+  transition: background .15s, border-color .15s, transform .18s cubic-bezier(.34,1.56,.64,1) !important;
+}
+.up-league-row:hover {
+  background: rgba(255,255,255,.05) !important;
+  border-color: rgba(255,255,255,.09) !important;
+  transform: translateX(4px) !important;
+}
+
+/* ── Old up-body for fallback ── */
+.up-head { display: none !important; }
+.up-body {
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+/* ══ MOBILE — stack vertically ═══════════════════════════════ */
+@media (max-width: 700px) {
+  #userProfileOv {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .up-modal {
+    max-width: 100% !important;
+    border-radius: 24px 24px 0 0 !important;
+    max-height: 92dvh !important;
+  }
+  .up-cover {
+    height: 140px !important;
+    overflow: hidden !important;
+  }
+  .up-layout {
+    grid-template-columns: 1fr !important;
+    overflow-y: auto !important;
+  }
+  .up-sidebar {
+    padding: 60px 20px 18px !important;
+    border-right: none !important;
+    border-bottom: 0.5px solid rgba(255,255,255,.05) !important;
+    gap: 12px !important;
+  }
+  .up-name { font-size: 24px !important; }
+  .up-actions { flex-direction: row !important; flex-wrap: wrap !important; }
+  .up-action-btn { flex: 1 !important; min-width: 0 !important; font-size: 12px !important; padding: 10px 10px !important; }
+  .up-data { padding: 18px 20px 24px !important; }
+  .up-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  #upAv {
+    width: 90px !important;
+    height: 90px !important;
+    font-size: 46px !important;
+    border-radius: 20px !important;
+    bottom: -38px !important;
+    left: 20px !important;
+  }
+}
+/* END USER PROFILE v2 */
