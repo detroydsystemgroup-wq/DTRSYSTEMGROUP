@@ -7438,7 +7438,7 @@ body {
   transition:border-color .25s, box-shadow .25s;
 }
 .hab-matrix:hover{ border-color:rgba(255,255,255,.12); box-shadow:0 4px 20px rgba(0,0,0,.2); }
-.hab-matrix-head{display:grid;padding:10px 16px 8px;align-items:center;gap:6px;}
+.hab-matrix-head{display:grid;padding:10px 20px 8px;align-items:center;gap:12px;}
 .hab-matrix-head-left{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t3);}
 .hab-col-lbl{text-align:center;}
 .hab-col-day{font-size:8px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px;}
@@ -11482,19 +11482,20 @@ html[data-theme="light"] .nav-icon-btn:hover {
 #soundTracks { display:flex!important; flex-direction:column!important; gap:2px!important; }
 .sound-tracks { display:flex!important; flex-direction:column!important; }
 
-/* ── FIX 2: Habit progress bar animation ── */
-@keyframes progBarIn {
-  from { width: 0 !important; }
-}
+/* ── FIX 2: Habit progress bar — smooth bidirectional transition ── */
 @keyframes countUp {
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+/* Remove animation that was locking width to 0 on every re-render.
+   Use transition only so the bar smoothly grows AND shrinks. */
 .hab-prog-fill {
-  animation: progBarIn 1.1s cubic-bezier(.25,.46,.45,.94) both !important;
+  animation: none !important;
+  transition: width 0.85s cubic-bezier(.34,1.18,.64,1) !important;
 }
-.hab-prog-pct { animation: countUp .5s .2s cubic-bezier(.25,.46,.45,.94) both !important; }
-.hab-prog-sub { animation: countUp .4s .35s cubic-bezier(.25,.46,.45,.94) both !important; }
+/* Tiny fade-in for label/sub only on first mount — won't retrigger on toggle */
+.hab-prog-pct { transition: color .3s ease !important; }
+.hab-prog-sub { transition: opacity .25s ease !important; }
 
 /* ── FIX 3: Nav tabs — gold hover only, no unique colors ── */
 .stab:hover { color: var(--gold) !important; }
