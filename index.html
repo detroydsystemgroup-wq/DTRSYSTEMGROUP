@@ -12867,53 +12867,108 @@ html[data-theme="light"] .nav-icon-btn:hover {
 /* END HORIZONTAL HEADER LAYOUT */
 
 
-/* ── Profile modal: horizontal avatar + name header ── */
+/* ═══ Profile modal: Apple-grade sidebar redesign ═══ */
+
+/* ── Sidebar container ── */
+#userProfileOv .up-sidebar {
+  align-items: flex-start !important;
+  padding: 28px 20px 24px !important;
+  gap: 0 !important;
+}
+
+/* ── Header row: avatar left, name right ── */
 #userProfileOv #upSidebarTop {
   display: flex !important;
   align-items: center !important;
-  gap: 14px !important;
+  gap: 16px !important;
   width: 100% !important;
-  margin-bottom: 14px !important;
+  margin-bottom: 18px !important;
   flex-shrink: 0 !important;
 }
+
+/* ── Avatar: bigger, premium gold ring ── */
 #userProfileOv .up-av-inline,
 #userProfileOv #upAv {
-  width: 72px !important;
-  height: 72px !important;
-  font-size: 36px !important;
-  border-radius: 16px !important;
+  width: 96px !important;
+  height: 96px !important;
+  font-size: 48px !important;
+  border-radius: 22px !important;
   margin: 0 !important;
   flex-shrink: 0 !important;
   position: static !important;
+  box-shadow:
+    0 0 0 2px rgba(245,200,66,.4),
+    0 0 0 4px rgba(245,200,66,.1),
+    0 8px 28px rgba(0,0,0,.6) !important;
+  transition: transform .22s cubic-bezier(.34,1.56,.64,1), box-shadow .22s !important;
 }
+#userProfileOv .up-av-inline:hover,
+#userProfileOv #upAv:hover {
+  transform: scale(1.04) translateY(-2px) !important;
+  box-shadow:
+    0 0 0 2.5px rgba(245,200,66,.6),
+    0 0 0 5px rgba(245,200,66,.15),
+    0 14px 36px rgba(0,0,0,.65) !important;
+}
+
+/* ── Name ── */
 #userProfileOv #upName {
-  font-size: 20px !important;
+  font-size: 22px !important;
   font-weight: 800 !important;
-  letter-spacing: -.03em !important;
+  letter-spacing: -.035em !important;
   text-align: left !important;
   white-space: normal !important;
+  word-break: break-word !important;
+  line-height: 1.15 !important;
   width: auto !important;
   flex: 1 !important;
   min-width: 0 !important;
   margin: 0 !important;
   animation: none !important;
-  word-break: break-word !important;
+  color: var(--t1) !important;
 }
+
+/* ── Hide meta ── */
 #userProfileOv #upMeta { display: none !important; }
-/* Sidebar: align to start instead of center */
-#userProfileOv .up-sidebar {
-  align-items: flex-start !important;
-  padding-top: 24px !important;
-}
+
+/* ── Divider ── */
 #userProfileOv .up-sidebar-divider {
   width: 100% !important;
-  margin: 12px 0 !important;
+  margin: 14px 0 !important;
+  background: linear-gradient(90deg,transparent,rgba(245,200,66,.35),transparent) !important;
+  height: 0.5px !important;
 }
+
+/* ── Actions: full width, Apple button style ── */
 #userProfileOv #upActions {
   width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
   align-items: stretch !important;
+  gap: 8px !important;
 }
-/* Achievements grid: 18 per row for profile modal */
+#userProfileOv #upActions .up-action-btn,
+#userProfileOv #upActions button.up-action-btn {
+  border-radius: 14px !important;
+  min-height: 46px !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: -.01em !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  transition: transform .18s cubic-bezier(.34,1.4,.64,1), background .18s, box-shadow .18s !important;
+}
+#userProfileOv #upActions .up-action-btn:hover {
+  transform: translateY(-2px) !important;
+}
+#userProfileOv #upActions .up-action-btn:active {
+  transform: scale(.97) !important;
+}
+
+/* ── Achievements grid: 18 per row ── */
 .up-ach-grid-profile {
   display: flex !important;
   flex-wrap: wrap !important;
@@ -16756,22 +16811,65 @@ async function openUserProfile(userId, name, av, avUrl){
     try { const lr = await sb.from('likes').select('id').eq('from_user_id',SB_USER?.id).eq('to_user_id',userId).limit(1); isLiked = (lr.data||[]).length>0; } catch{}
 
     actEl.innerHTML = `
-      <div style="display:flex;gap:8px;width:100%;margin-bottom:8px">
-        <button class="up-action-btn${isLiked?' up-action-red':''}" id="upLikeBtn" onclick="toggleLikeUser()" data-liked="${isLiked}"
-          style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 8px;border-radius:14px;border:0.5px solid rgba(239,68,68,${isLiked?'.4':'.2'});background:rgba(239,68,68,${isLiked?'.12':'.06'})">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="${isLiked?'#ef4444':'none'}" stroke="#ef4444" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-          <span style="font-family:'DM Mono',monospace;font-size:16px;font-weight:400;color:#ef4444;line-height:1" id="upLikeCount">${likeCount}</span>
-          <span style="font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(239,68,68,.6)">Лайков</span>
+      <!-- ── STAT CARDS: Likes + Friends ── -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;margin-bottom:14px">
+
+        <!-- Likes card — clickable, toggles like -->
+        <button id="upLikeBtn" onclick="toggleLikeUser()" data-liked="${isLiked}"
+          style="display:flex;align-items:center;gap:10px;padding:13px 14px;
+                 border-radius:16px;cursor:pointer;text-align:left;
+                 border:0.5px solid rgba(239,68,68,${isLiked?'.4':'.2'});
+                 background:rgba(239,68,68,${isLiked?'.1':'.05'});
+                 transition:all .22s cubic-bezier(.34,1.4,.64,1)">
+          <div style="width:34px;height:34px;border-radius:10px;flex-shrink:0;
+                      background:rgba(239,68,68,${isLiked?'.22':'.12'});
+                      border:0.5px solid rgba(239,68,68,${isLiked?'.5':'.3'});
+                      display:flex;align-items:center;justify-content:center">
+            <svg width="16" height="16" viewBox="0 0 24 24"
+                 fill="${isLiked?'#ef4444':'none'}" stroke="#ef4444" stroke-width="2">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+          </div>
+          <div>
+            <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:400;
+                        color:#ef4444;line-height:1;letter-spacing:-.03em"
+                 id="upLikeCount">${likeCount}</div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:.07em;
+                        text-transform:uppercase;color:rgba(239,68,68,.55);margin-top:3px">Лайков</div>
+          </div>
         </button>
-        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 8px;border-radius:14px;border:0.5px solid rgba(26,159,255,.2);background:rgba(26,159,255,.06)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1a9fff" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          <span style="font-family:'DM Mono',monospace;font-size:16px;font-weight:400;color:#1a9fff;line-height:1">${friendsCount}</span>
-          <span style="font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(26,159,255,.6)">Друзей</span>
+
+        <!-- Friends card — info only -->
+        <div style="display:flex;align-items:center;gap:10px;padding:13px 14px;
+                    border-radius:16px;
+                    border:0.5px solid rgba(26,159,255,.2);
+                    background:rgba(26,159,255,.05)">
+          <div style="width:34px;height:34px;border-radius:10px;flex-shrink:0;
+                      background:rgba(26,159,255,.12);border:0.5px solid rgba(26,159,255,.3);
+                      display:flex;align-items:center;justify-content:center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a9fff" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </div>
+          <div>
+            <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:400;
+                        color:#1a9fff;line-height:1;letter-spacing:-.03em">${friendsCount}</div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:.07em;
+                        text-transform:uppercase;color:rgba(26,159,255,.55);margin-top:3px">Друзей</div>
+          </div>
         </div>
+
       </div>
+
+      <!-- ── ACTION BUTTONS ── -->
       ${friendBtn}
       <button class="up-action-btn" onclick="openChatWithUser()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
         Написать
       </button>`;
 
