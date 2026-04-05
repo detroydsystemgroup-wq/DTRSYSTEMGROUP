@@ -12699,8 +12699,9 @@ html[data-theme="light"] .nav-icon-btn:hover {
   background: var(--bg);
   display: flex;
   align-items: center; justify-content: center;
-  pointer-events: none;
+  pointer-events: none;   /* never block clicks */
   animation: splashFadeOut .35s ease .85s both;
+  will-change: opacity;
 }
 @keyframes splashFadeOut {
   to { opacity: 0; visibility: hidden; }
@@ -12840,7 +12841,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
   position: fixed;
   top: 58px; left: 0; right: 0;
   z-index: 98;
-  display: flex;
+  display: none; /* hidden by default — shown by JS via showStreakFomo() */
   align-items: center;
   gap: 10px;
   padding: 9px 36px;
@@ -12855,6 +12856,9 @@ html[data-theme="light"] .nav-icon-btn:hover {
   font-weight: 600;
   color: var(--orange);
   letter-spacing: .01em;
+}
+#streakFomoBar.fomo-visible {
+  display: flex !important;
   animation: fomoSlideDown .4s var(--spring) both;
 }
 #streakFomoBar.hidden { display: none !important; }
@@ -12937,8 +12941,10 @@ body.fomo-active .nav { top: 40px !important; }
   background-clip: text;
   animation: goldTextShimmer 5s linear infinite;
 }
+/* The span inside is already gold — inherit transparent for shimmer */
 .auth-logo > div span {
-  -webkit-text-fill-color: transparent !important;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
 }
 @keyframes goldTextShimmer {
   from { background-position: 250% center; }
@@ -13094,18 +13100,11 @@ body.fomo-active .nav { top: 40px !important; }
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   9. PAGE TRANSITIONS — smooth tab switching
+   9. PAGE TRANSITIONS — defer to existing dtrTabIn system
+   NOTE: do NOT override .tc or .tc.active animation here —
+   the existing dtrTabIn !important rule handles this.
    ═══════════════════════════════════════════════════════════════ */
-.tc {
-  animation: none;
-}
-.tc.active {
-  animation: tabFadeIn .28s var(--smooth) both !important;
-}
-@keyframes tabFadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+/* Page transition is already handled by dtrTabIn system at line ~8912 */
 
 /* ═══════════════════════════════════════════════════════════════
    10. ACHIEVEMENT UNLOCK BURST — dopamine reward animation
