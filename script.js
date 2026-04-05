@@ -1,134 +1,7 @@
 // ══ SUPABASE ═════════════════════════════════════════════════
 const SUPABASE_URL='https://jwqvlhmtjtpoxwncmpex.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3cXZsaG10anRwb3h3bmNtcGV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyMDY0NTIsImV4cCI6MjA4OTc4MjQ1Mn0.uCSike4yk_tbNUxdMUTVGjHof8aV8QnEsSWyo8KR-8Y';
-const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
-  auth:{
-    persistSession:true,          // JWT → localStorage (дефолт, явно для надёжности)
-    autoRefreshToken:true,         // автообновление токена до истечения
-    detectSessionInUrl:false       // не нужен magic-link
-  }
-});
-
-// ══ AUTO-LOGIN ═══════════════════════════════════════════════
-// Проверяем сохранённую сессию сразу после инициализации Supabase.
-// Supabase хранит JWT в localStorage — если он есть и не просрочен,
-// пользователь входит автоматически без логина/пароля.
-(async function initAutoLogin(){
-  const bootEl = document.getElementById('bootscreen');
-
-  // Пробуем восстановить кэш профиля для мгновенного скелетона
-  const cached = _getCachedProfile();
-
-  try {
-    const { data:{ session } } = await sb.auth.getSession();
-
-    if(session && session.user){
-      // ✅ Сессия валидна → заходим без экрана логина
-      SB_USER = session.user;
-      _loadUserRetryCount = 0;
-
-      // Если есть кэш — покажем скелет немедленно, данные обновятся в loadUser
-      if(cached){
-        _applyProfileCache(cached);
-      }
-
-      await loadUser(session.user.id);
-    } else {
-      // ❌ Сессии нет → показываем онбординг
-      _showOnboarding(bootEl);
-    }
-  } catch(e){
-    console.warn('initAutoLogin error:', e);
-    _showOnboarding(bootEl);
-  } finally {
-    // Убираем boot-экран в любом случае
-    if(bootEl){ bootEl.style.opacity='0'; setTimeout(()=>{ bootEl.style.display='none'; },350); }
-  }
-
-  // Обновление токена в фоне (silent refresh)
-  sb.auth.onAuthStateChange((event, session)=>{
-    if(event==='TOKEN_REFRESHED' && session){
-      SB_USER = session.user;
-    }
-    if(event==='SIGNED_OUT'){
-      // Очищаем кэш при выходе
-      _clearProfileCache();
-    }
-  });
-})();
-
-// ══ PROFILE CACHE ════════════════════════════════════════════
-// Быстрый localStorage-кэш профиля: показываем данные мгновенно
-// пока идёт запрос к Supabase (устраняет пустой экран при старте).
-const _CACHE_KEY = 'dtr_profile_v3';
-const _CACHE_TTL = 24 * 60 * 60 * 1000; // 24 часа
-
-function _getCachedProfile(){
-  try{
-    const raw = localStorage.getItem(_CACHE_KEY);
-    if(!raw) return null;
-    const obj = JSON.parse(raw);
-    if(Date.now() - obj._ts > _CACHE_TTL){ localStorage.removeItem(_CACHE_KEY); return null; }
-    return obj;
-  }catch(e){ return null; }
-}
-
-function _saveProfileCache(profile){
-  try{
-    const slim = {
-      _ts: Date.now(),
-      id: profile.id,
-      name: profile.name,
-      avatar: profile.avatar,
-      avatarUrl: profile.avatarUrl||null,
-      streak: profile.streak||0,
-      totalSessions: profile.totalSessions||0,
-      totalActiveDays: profile.totalActiveDays||0,
-      activeCatIds: profile.activeCatIds||[],
-      joinedDate: profile.joinedDate||'',
-    };
-    localStorage.setItem(_CACHE_KEY, JSON.stringify(slim));
-  }catch(e){}
-}
-
-function _clearProfileCache(){
-  try{ localStorage.removeItem(_CACHE_KEY); }catch(e){}
-}
-
-// Применяем кэш как скелет: только nav + header, цифры появятся из DB
-function _applyProfileCache(cached){
-  if(!cached) return;
-  try{
-    // Минимальный P для рендера nav/header
-    P = {
-      id: cached.id,
-      name: cached.name,
-      avatar: cached.avatar,
-      avatarUrl: cached.avatarUrl,
-      joinedDate: cached.joinedDate,
-      streak: cached.streak,
-      totalSessions: cached.totalSessions,
-      totalActiveDays: cached.totalActiveDays,
-      activeCatIds: cached.activeCatIds||[],
-      categories: [],
-      sessions: [],
-      achievements: [],
-      _loading: true // флаг: реальные данные ещё грузятся
-    };
-    // Показываем app немедленно с данными из кэша
-    document.getElementById('onboard').style.display='none';
-    document.getElementById('catSel').style.display='none';
-    document.getElementById('app').style.display='';
-    applyTheme(); applyLang();
-    renderNav();  // имя + аватар мгновенно
-  }catch(e){ console.warn('_applyProfileCache error:', e); P=null; }
-}
-
-// Показываем онбординг с анимацией
-function _showOnboarding(bootEl){
-  const onboardEl = document.getElementById('onboard');
-  if(onboardEl){ onboardEl.style.display='flex'; initBanner(); rpAv('avPicker',selAv,'selAvFn'); }
-}
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 // ══ CONSTANTS ════════════════════════════════════════════════
 const AVATARS=['🌀','💫','⚡','🔮','🌑','💎','🦋','🫡','🌊','🎯','🏔️','🦅','🐉','🌙','⭐','🔱','🫧','💠','🌐','🦾'];
@@ -449,8 +322,6 @@ async function doLogout(){
   if(msgRealtimeChannel){ sb.removeChannel(msgRealtimeChannel); msgRealtimeChannel=null; }
   if(usersRealtimeChannel){ sb.removeChannel(usersRealtimeChannel); usersRealtimeChannel=null; }
   if(msgsPolling){ clearInterval(msgsPolling); msgsPolling=null; }
-  // Очищаем кэш профиля при явном выходе
-  _clearProfileCache();
   await sb.auth.signOut();
   P=null;SB_USER=null;lgCache={};lgCacheTime={};activeConvUserId=null;
   document.getElementById('app').style.display='none';
@@ -739,9 +610,6 @@ async function loadUser(userId){
     const _newIds  = (P.activeCatIds||[]).slice().sort().join(',');
     if(_prevIds !== _newIds){ lgCache = {}; lgCacheTime = {}; }
   }
-  // Сохраняем профиль в localStorage-кэш для быстрого старта при следующем визите
-  _saveProfileCache(P);
-
   if(typeof renderHeroZone === 'function') renderHeroZone();
   renderAll();
   showTab('dash');
@@ -2755,10 +2623,11 @@ async function openUserProfile(userId, name, av, avUrl){
     // ── Name + meta ──
     nameEl.textContent = username;
     const joinDate = new Date(u?.created_at||Date.now()).toLocaleDateString('ru',{month:'long',year:'numeric'});
+    // Показываем только дату регистрации — без сердечка под ником
     metaEl.innerHTML = `
       <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--t3)">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" fill="#ef444430"/></svg>
-        ${totalLikes}
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        с ${joinDate}
       </span>`;
 
     // ── Action buttons (ONE set, clean logic) ──
@@ -2771,18 +2640,27 @@ async function openUserProfile(userId, name, av, avUrl){
     let friendBtn = '';
     if(!isOwnProfile){
       if(isFriend){
-        friendBtn = `<button class="up-action-btn up-action-green" onclick="socConfirmRemoveFriend('${userId}')">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><polyline points="20 6 9 17 4 12"/></svg>
-          Друг
+        // Instagram: зелёная кнопка «Друг ✓», при наведении → «Удалить» красным
+        friendBtn = `<button class="up-action-btn up-action-green up-friend-active"
+          onclick="socConfirmRemoveFriend('${userId}')"
+          onmouseenter="this.classList.add('up-friend-hover');this.querySelector('.fr-label').textContent='Удалить'"
+          onmouseleave="this.classList.remove('up-friend-hover');this.querySelector('.fr-label').textContent='Друг'"
+          title="Нажми чтобы удалить из друзей">
+          <svg class="fr-icon-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <svg class="fr-icon-x" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="display:none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <span class="fr-label">Друг</span>
         </button>`;
       } else if(isPendingOut){
-        friendBtn = `<button class="up-action-btn" style="opacity:.5;cursor:default" disabled>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          Ожидание
+        // Запрос отправлен — неактивная кнопка как в Instagram
+        friendBtn = `<button class="up-action-btn" style="opacity:.55;cursor:default" disabled>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Запрос отправлен
         </button>`;
       } else {
-        friendBtn = `<button class="up-action-btn up-action-gold" onclick="window.socSendFriendRequest('${userId}','${escAttr(username||'')}',this)">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+        // Кнопка «+ В друзья» — золотая
+        friendBtn = `<button class="up-action-btn up-action-gold"
+          onclick="window.socSendFriendRequest('${userId}','${escAttr(username||'')}',this)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
           В друзья
         </button>`;
       }
@@ -2792,14 +2670,33 @@ async function openUserProfile(userId, name, av, avUrl){
     let isLiked = false;
     try { const lr = await sb.from('likes').select('id').eq('from_user_id',SB_USER?.id).eq('to_user_id',userId).limit(1); isLiked = (lr.data||[]).length>0; } catch{}
 
+    // ── Action buttons — Instagram style ──────────────────────
+    // Лайк: heart заполнен/не заполнен + счётчик
+    // Друзья: «В друзья» (gold) / «Друг ✓» (green, нажать = удалить) / «Ожидание…»
+    // Написать: всегда
+
+    const likeBtn = isOwnProfile ? '' : `
+      <button class="up-action-btn${isLiked?' up-action-red':''}"
+        id="upLikeBtn"
+        onclick="toggleLikeUser()"
+        data-liked="${isLiked}"
+        data-count="${likeCount}"
+        title="${isLiked?'Убрать лайк':'Поставить лайк'}">
+        <svg width="14" height="14" viewBox="0 0 24 24"
+          fill="${isLiked?'#ef4444':'none'}"
+          stroke="${isLiked?'#ef4444':'currentColor'}"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          style="transition:fill .2s,stroke .2s">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+        </svg>
+        <span id="upLikeCount" style="font-variant-numeric:tabular-nums">${likeCount}</span>
+      </button>`;
+
     actEl.innerHTML = `
-      <button class="up-action-btn${isLiked?' up-action-red':''}" id="upLikeBtn" onclick="toggleLikeUser()" data-liked="${isLiked}">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="${isLiked?'#ef4444':'none'}" stroke="#ef4444" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-        <span id="upLikeCount">${likeCount}</span>
-      </button>
+      ${likeBtn}
       ${friendBtn}
       <button class="up-action-btn" onclick="openChatWithUser()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         Написать
       </button>`;
 
@@ -5128,39 +5025,67 @@ function appendMessage(msg, isMine) {
 // ══════════════════════════════════════════════════════════════
 async function toggleLikeUser() {
   const ov = document.getElementById('userProfileOv');
-  const userId = ov.dataset.userId;
-  if (!userId || !SB_USER) return;
+  const userId = ov?.dataset.userId;
+  if (!userId || !SB_USER || SB_USER.isDemoUser) {
+    showToast('Войди чтобы ставить лайки', 'ℹ️'); return;
+  }
 
   const btn = document.getElementById('upLikeBtn');
   const countEl = document.getElementById('upLikeCount');
-  const wasLiked = btn.classList.contains('liked');
-  const prevCount = parseInt(countEl?.textContent || '0');
+  if (!btn || !countEl) return;
 
-  // OPTIMISTIC: instant UI update (0ms)
-  const newCount = wasLiked ? Math.max(0, prevCount - 1) : prevCount + 1;
-  btn.className = 'up-btn' + (wasLiked ? '' : ' liked');
-  btn.innerHTML = (wasLiked ? '♡ Лайк ' : '❤️ Нравится ') +
-    `<span id="upLikeCount">${newCount}</span>`;
+  // ── Читаем state из data-атрибута (не из класса!) ──────────
+  const wasLiked = btn.dataset.liked === 'true';
+  const prevCount = parseInt(countEl.textContent || '0', 10);
+  const newCount  = wasLiked ? Math.max(0, prevCount - 1) : prevCount + 1;
 
+  // ── OPTIMISTIC UI: мгновенный отклик как в Instagram ───────
+  btn.dataset.liked = String(!wasLiked);
+  btn.dataset.count = String(newCount);
+  countEl.textContent = newCount;
+
+  // Анимация сердечка: pop on like, deflate on unlike
+  const svg = btn.querySelector('svg');
+  if (svg) {
+    const newFill  = wasLiked ? 'none'    : '#ef4444';
+    const newColor = wasLiked ? 'currentColor' : '#ef4444';
+    svg.setAttribute('fill',   newFill);
+    svg.setAttribute('stroke', newColor);
+    // Micro-animation: scale pop
+    btn.style.transform = 'scale(1.18)';
+    setTimeout(()=>{ btn.style.transform = ''; }, 160);
+  }
+
+  if (wasLiked) {
+    btn.classList.remove('up-action-red');
+    btn.title = 'Поставить лайк';
+  } else {
+    btn.classList.add('up-action-red');
+    btn.title = 'Убрать лайк';
+  }
+
+  // ── Синхронизируем с Supabase ───────────────────────────────
   try {
     if (wasLiked) {
       const { error } = await sb.from('likes')
         .delete().eq('from_user_id', SB_USER.id).eq('to_user_id', userId);
       if (error) throw error;
-      showToast('Лайк убран', '♡');
     } else {
       const { error } = await sb.from('likes')
         .insert({ from_user_id: SB_USER.id, to_user_id: userId });
       if (error) throw error;
-      showToast('Лайк поставлен!', '❤️');
     }
   } catch (err) {
-    // ROLLBACK on error
-    btn.className = 'up-btn' + (wasLiked ? ' liked' : '');
-    btn.innerHTML = (wasLiked ? '❤️ Нравится ' : '♡ Лайк ') +
-      `<span id="upLikeCount">${prevCount}</span>`;
-    showToast('Ошибка сети. Повтори.', '⚠️');
-    console.error('Like error:', err);
+    // ── ROLLBACK ────────────────────────────────────────────
+    btn.dataset.liked = String(wasLiked);
+    countEl.textContent = prevCount;
+    if (svg) {
+      svg.setAttribute('fill',   wasLiked ? '#ef4444' : 'none');
+      svg.setAttribute('stroke', wasLiked ? '#ef4444' : 'currentColor');
+    }
+    wasLiked ? btn.classList.add('up-action-red') : btn.classList.remove('up-action-red');
+    showToast('Ошибка сети — повтори', '⚠️');
+    console.error('toggleLikeUser error:', err);
   }
 }
 
@@ -6074,17 +5999,10 @@ function injectPWAManifest(){
 }
 
 // ══════════════════════════════════════════════════════════════
-// 4. SERVICE WORKER — offline support + asset caching
+// 4. SERVICE WORKER — offline support
 // ══════════════════════════════════════════════════════════════
 function registerServiceWorker(){
-  if(!('serviceWorker' in navigator)) return;
-  navigator.serviceWorker.register('/sw.js', { scope:'/' })
-    .then(reg=>{
-      // Проверяем обновления при каждом запуске
-      reg.update();
-      console.log('[DTR] Service Worker registered, scope:', reg.scope);
-    })
-    .catch(e=> console.warn('[DTR] SW registration failed (ok in dev):', e));
+  /* SW requires a real file on same origin — skipped for single-file build */
 }
 
 // ══════════════════════════════════════════════════════════════
