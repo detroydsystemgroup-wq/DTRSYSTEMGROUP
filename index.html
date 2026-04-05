@@ -12974,6 +12974,45 @@ html[data-theme="light"] .nav-icon-btn:hover {
   flex-wrap: wrap !important;
   gap: 6px !important;
 }
+
+/* ═══ Profile modal — entrance animations ═══ */
+@keyframes upFadeUp {
+  from { opacity:0; transform:translateY(18px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+@keyframes upScaleIn {
+  0%   { opacity:0; transform:scale(.82) translateY(10px); }
+  60%  { opacity:1; transform:scale(1.04) translateY(-2px); }
+  100% { opacity:1; transform:scale(1) translateY(0); }
+}
+@keyframes upNumReveal {
+  from { opacity:0; transform:translateY(10px) scale(.8); filter:blur(4px); }
+  to   { opacity:1; transform:translateY(0) scale(1); filter:blur(0); }
+}
+@keyframes upSlideLeft {
+  from { opacity:0; transform:translateX(-14px); }
+  to   { opacity:1; transform:translateX(0); }
+}
+@keyframes upBarIn {
+  from { opacity:0; transform:scaleX(0); transform-origin:left; }
+  to   { opacity:1; transform:scaleX(1); transform-origin:left; }
+}
+@keyframes upAchPop {
+  0%  { opacity:0; transform:scale(.5) rotate(-10deg); }
+  60% { transform:scale(1.2) rotate(4deg); }
+  100%{ opacity:1; transform:scale(1) rotate(0deg); }
+}
+@keyframes upStatCard {
+  0%  { opacity:0; transform:translateY(14px) scale(.94); }
+  65% { transform:translateY(-3px) scale(1.01); }
+  100%{ opacity:1; transform:translateY(0) scale(1); }
+}
+.up-anim-1 { animation:upFadeUp .36s cubic-bezier(.25,.46,.45,.94) .05s both; }
+.up-anim-2 { animation:upFadeUp .36s cubic-bezier(.25,.46,.45,.94) .12s both; }
+.up-anim-3 { animation:upFadeUp .36s cubic-bezier(.25,.46,.45,.94) .19s both; }
+.up-anim-4 { animation:upFadeUp .36s cubic-bezier(.25,.46,.45,.94) .26s both; }
+.up-anim-5 { animation:upFadeUp .36s cubic-bezier(.25,.46,.45,.94) .33s both; }
+.up-anim-scale { animation:upScaleIn .4s cubic-bezier(.34,1.15,.64,1) both; }
 </style>
   <link rel="manifest" id="pwaManifest">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23080808'/%3E%3Cpolygon points='58,10 38,52 52,52 42,90 62,46 46,46' fill='%23F5C842'/%3E%3C/svg%3E">
@@ -16721,9 +16760,31 @@ async function openUserProfile(userId, name, av, avUrl){
   const bodyEl = document.getElementById('upLeaguesList');
 
   nameEl.textContent = name || '—';
-  metaEl.innerHTML = '<span style="color:var(--t3);font-size:11px">Загружаем...</span>';
-  actEl.innerHTML = '';
-  bodyEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:40px;color:var(--t3)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:.3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>`;
+  metaEl.innerHTML = '';
+
+  // ── Skeleton for sidebar actions ──
+  actEl.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <div class="dtr-skel" style="height:74px;border-radius:16px"></div>
+      <div class="dtr-skel" style="height:74px;border-radius:16px"></div>
+    </div>
+    <div class="dtr-skel" style="height:46px;border-radius:14px;margin-bottom:8px"></div>
+    <div class="dtr-skel" style="height:46px;border-radius:14px"></div>`;
+
+  // ── Skeleton for body (matches real layout) ──
+  bodyEl.innerHTML = `
+    <div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px">
+        ${Array(4).fill('<div class="dtr-skel" style="height:104px;border-radius:18px"></div>').join('')}
+      </div>
+      <div class="dtr-skel" style="height:78px;border-radius:18px;margin-bottom:20px"></div>
+      <div class="dtr-skel" style="height:16px;width:68px;border-radius:6px;margin-bottom:14px"></div>
+      ${Array(2).fill('<div class="dtr-skel" style="height:54px;border-radius:14px;margin-bottom:8px"></div>').join('')}
+      <div class="dtr-skel" style="height:16px;width:120px;border-radius:6px;margin:18px 0 12px"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${Array(8).fill('<div class="dtr-skel" style="width:42px;height:42px;border-radius:12px"></div>').join('')}
+      </div>
+    </div>`;
 
   // Cover — только градиент и кнопка закрытия (аватар теперь в сайдбаре)
   cover.style.background = 'linear-gradient(135deg,rgba(245,200,66,.12) 0%,rgba(8,8,10,1) 100%)';
@@ -16775,8 +16836,15 @@ async function openUserProfile(userId, name, av, avUrl){
       }
     }
 
+    // ── Avatar entrance animation ──
+    const avEl2 = document.getElementById('upAv');
+    if(avEl2){ avEl2.style.animation='upScaleIn .45s cubic-bezier(.34,1.15,.64,1) .06s both'; }
+    const sidTop = document.getElementById('upSidebarTop');
+    if(sidTop){ sidTop.style.animation='upSlideLeft .38s cubic-bezier(.25,.46,.45,.94) .02s both'; }
+
     // ── Name + meta ──
     nameEl.textContent = username;
+    nameEl.style.animation='upSlideLeft .38s cubic-bezier(.25,.46,.45,.94) .08s both';
     metaEl.innerHTML = '';
 
     // ── Action buttons (ONE set, clean logic) ──
@@ -16812,7 +16880,7 @@ async function openUserProfile(userId, name, av, avUrl){
 
     actEl.innerHTML = `
       <!-- ── STAT CARDS: Likes + Friends ── -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;margin-bottom:14px">
+      <div class="up-anim-1" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;margin-bottom:14px">
 
         <!-- Likes card — clickable, toggles like -->
         <button id="upLikeBtn" onclick="toggleLikeUser()" data-liked="${isLiked}"
@@ -16889,23 +16957,33 @@ async function openUserProfile(userId, name, av, avUrl){
     ];
 
     const kpiHTML = `<div class="up-kpi-grid">${kpiData.map((k,i)=>`
-      <div class="up-kpi-tile" style="--tile-c:${kpiColors[i]}">
+      <div class="up-kpi-tile" style="--tile-c:${kpiColors[i]};
+           animation:upStatCard .42s cubic-bezier(.34,1.15,.64,1) ${.08+i*.07}s both">
         <div class="up-kpi-icon" style="color:${kpiColors[i]}">${kpiIcons[i]}</div>
-        <div class="up-kpi-number" style="color:${kpiColors[i]}">${k.v}<span class="up-kpi-unit">${k.u}</span></div>
+        <div class="up-kpi-number" id="upKpiV${i}" style="color:${kpiColors[i]};
+             animation:upNumReveal .4s cubic-bezier(.25,.46,.45,.94) ${.18+i*.07}s both">0<span class="up-kpi-unit">${k.u}</span></div>
         <div class="up-kpi-label">${k.l}</div>
       </div>`).join('')}</div>`;
 
     // ── XP bar ──
     const xpHTML = `
-      <div class="up-xp-bar">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <span style="font-size:12px;font-weight:600;color:${lvlColor};letter-spacing:-.01em">УР.${lvlInfo.lvl} · ${lvlInfo.name}</span>
-          <span style="font-size:10px;color:var(--t3)">ещё ${lvlInfo.xpLeft} ч</span>
+      <div class="up-xp-bar up-anim-2">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <span style="font-size:12.5px;font-weight:700;color:${lvlColor};letter-spacing:-.01em">УР.${lvlInfo.lvl} · ${lvlInfo.name}</span>
+          <span style="font-size:10px;color:var(--t3);font-family:'DM Mono',monospace">ещё ${lvlInfo.xpLeft} ч</span>
         </div>
-        <div style="height:4px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden">
-          <div style="height:100%;width:${lvlInfo.pct}%;background:${lvlColor};border-radius:2px;box-shadow:0 0 8px ${lvlColor}66;transition:width 1.2s cubic-bezier(.25,.46,.45,.94)"></div>
+        <div style="height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;margin-bottom:7px">
+          <div class="up-xp-fill-anim" data-pct="${lvlInfo.pct}"
+               style="height:100%;width:0%;background:${lvlColor};border-radius:3px;
+                      box-shadow:0 0 10px ${lvlColor}88;
+                      transition:width 1.3s cubic-bezier(.25,.46,.45,.94)"></div>
         </div>
-        <div style="display:flex;justify-content:space-between;margin-top:5px;font-size:9.5px;color:rgba(255,255,255,.2);font-family:'DM Mono',monospace">${lvlInfo.curThresh}ч<span style="color:rgba(255,255,255,.18)">${lvlInfo.pct}%</span>${lvlInfo.nextThresh}ч</div>
+        <div style="display:flex;justify-content:space-between;font-size:9.5px;
+                    color:rgba(255,255,255,.22);font-family:'DM Mono',monospace">
+          <span>${lvlInfo.curThresh}ч</span>
+          <span style="color:${lvlColor};opacity:.7">${lvlInfo.pct}%</span>
+          <span>${lvlInfo.nextThresh}ч</span>
+        </div>
       </div>`;
 
     // ── Leagues ──
@@ -16918,15 +16996,23 @@ async function openUserProfile(userId, name, av, avUrl){
       ${uc.map(row=>{
         const cat = ALL_CATS.find(c=>c.id===row.category_id)||{name:row.category_id,color:'#888'};
         const pct = Math.min(100,Math.round((row.hours/maxH)*100));
-        return `<div class="up-league-row">
+        const rowIdx = uc.indexOf(row);
+        return `<div class="up-league-row" style="animation:upFadeUp .35s cubic-bezier(.25,.46,.45,.94) ${.28+rowIdx*.06}s both">
           ${catIconBox(cat.id,cat.color,34)}
           <div style="flex:1;min-width:0">
-            <div style="font-size:12.5px;font-weight:600;color:var(--t1);letter-spacing:-.01em;margin-bottom:5px">${cat.name}</div>
-            <div style="height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden">
-              <div style="height:100%;width:${pct}%;background:${cat.color};border-radius:2px;transition:width 1s cubic-bezier(.25,.46,.45,.94)"></div>
+            <div style="font-size:12.5px;font-weight:600;color:var(--t1);letter-spacing:-.01em;margin-bottom:6px">${cat.name}</div>
+            <div style="height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden">
+              <div class="up-bar-fill" data-w="${pct}%"
+                   style="height:100%;width:0%;background:${cat.color};border-radius:2px;
+                          box-shadow:0 0 8px ${cat.color}66;
+                          transition:width 1.1s cubic-bezier(.25,.46,.45,.94)"></div>
             </div>
           </div>
-          <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:400;color:${cat.color};flex-shrink:0;letter-spacing:-.02em">${row.hours.toFixed(1)}<span style="font-size:10px;color:var(--t3)">ч</span></div>
+          <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:400;
+                      color:${cat.color};flex-shrink:0;letter-spacing:-.02em;
+                      animation:upNumReveal .4s cubic-bezier(.25,.46,.45,.94) ${.35+rowIdx*.06}s both">
+            ${row.hours.toFixed(1)}<span style="font-size:10px;color:var(--t3)">ч</span>
+          </div>
         </div>`;
       }).join('')}`;
 
@@ -16940,12 +17026,75 @@ async function openUserProfile(userId, name, av, avUrl){
       <div class="up-ach-grid-profile" style="display:flex;flex-wrap:wrap;gap:6px">
         ${unlockedDefs.map(def=>`
           <div title="${def.name}: ${def.desc}" onclick="closeUserProfile();openAch('${def.id}')"
-            style="width:42px;height:42px;border-radius:12px;background:${def.color||'#555'}15;border:0.5px solid ${def.color||'#555'}35;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;transition:transform .22s cubic-bezier(.34,1.56,.64,1),box-shadow .2s;flex-shrink:0"
+            class="up-ach-item"
+            style="width:42px;height:42px;border-radius:12px;background:${def.color||'#555'}15;border:0.5px solid ${def.color||'#555'}35;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;flex-shrink:0;transition:transform .22s cubic-bezier(.34,1.56,.64,1),box-shadow .2s"
             onmouseover="this.style.transform='scale(1.18)';this.style.boxShadow='0 4px 16px ${def.color||'#555'}44'"
             onmouseout="this.style.transform='';this.style.boxShadow=''">${def.icon}</div>`).join('')}
       </div>`;
 
     bodyEl.innerHTML = kpiHTML + xpHTML + leagueHTML + achHTML;
+
+    // ── Post-render: trigger all animations ──
+    requestAnimationFrame(() => {
+      // 1. Animate KPI number counters
+      const kpiTargets = [
+        { id:'upKpiV0', val:totalH,   float:true,  dur:900 },
+        { id:'upKpiV1', val:streak,   float:false, dur:700 },
+        { id:'upKpiV2', val:sessions, float:false, dur:1000 },
+        { id:'upKpiV3', val:achCount, float:false, dur:600 },
+      ];
+      kpiTargets.forEach(({id,val,float:isFloat,dur}) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const unit = el.querySelector('.up-kpi-unit');
+        const unitTxt = unit ? unit.outerHTML : '';
+        const t0 = performance.now();
+        const tick = now => {
+          const p = Math.min((now-t0)/dur, 1);
+          const e = 1 - Math.pow(1-p, 3);
+          const v = isFloat ? (val*e).toFixed(1) : Math.round(val*e);
+          el.innerHTML = v + unitTxt;
+          if(p < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
+
+      // 2. Animate XP bar fill (after tiny delay so transition works)
+      setTimeout(() => {
+        document.querySelectorAll('.up-xp-fill-anim').forEach(bar => {
+          bar.style.width = bar.dataset.pct + '%';
+        });
+        // Animate league bars
+        document.querySelectorAll('.up-bar-fill').forEach(bar => {
+          bar.style.width = bar.dataset.w;
+        });
+      }, 120);
+
+      // 3. Achievement icons — staggered pop-in
+      document.querySelectorAll('.up-ach-item').forEach((el, i) => {
+        el.style.animation = `upAchPop .4s cubic-bezier(.34,1.56,.64,1) ${.32 + i*0.028}s both`;
+      });
+
+      // 4. Animate stat cards in actEl
+      const likeBtn = document.getElementById('upLikeBtn');
+      if(likeBtn){ likeBtn.style.animation='upStatCard .4s cubic-bezier(.34,1.15,.64,1) .08s both'; }
+
+      // 5. Counter for like/friend numbers
+      ['upLikeCount'].forEach(id => {
+        const el = document.getElementById(id);
+        if(!el) return;
+        const target = parseInt(el.textContent) || 0;
+        el.textContent = '0';
+        const t0 = performance.now();
+        const tick = now => {
+          const p = Math.min((now-t0)/600, 1);
+          const e = 1-Math.pow(1-p,3);
+          el.textContent = Math.round(target*e);
+          if(p<1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
+    });
 
   } catch(err){
     console.error('openUserProfile error:', err);
