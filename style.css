@@ -12085,40 +12085,33 @@ html[data-theme="light"] .nav-icon-btn:hover {
 /* ══════════════════════════════════════
 
 /* ══════════════════════════════════════════════════════════════
-   USER PROFILE  ·  PREMIUM DESKTOP  ·  v3
-   — Один layout, никаких @media, максимальный приоритет через #id
-   — Всё помещается в одном окне без скролла
-   — Симметрия: 300px sidebar | flex data panel
+   USER PROFILE  ·  PREMIUM DESKTOP  ·  v4
+   Fixes: пустоты убраны · скролл Apple-style · баги уровня
 ══════════════════════════════════════════════════════════════ */
 
-/* ━━━ OVERLAY ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ━━ OVERLAY ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv {
   display: none !important;
-  position: fixed !important; inset: 0 !important;
-  z-index: 900 !important;
+  position: fixed !important; inset: 0 !important; z-index: 900 !important;
   align-items: center !important; justify-content: center !important;
   padding: 28px !important; box-sizing: border-box !important;
-  background: rgba(0,0,0,.87) !important;
+  background: rgba(0,0,0,.88) !important;
   backdrop-filter: blur(28px) saturate(200%) !important;
   -webkit-backdrop-filter: blur(28px) saturate(200%) !important;
 }
 #userProfileOv.show {
   display: flex !important;
-  animation: upOvIn .22s ease both !important;
+  animation: upOvIn .2s ease both !important;
 }
-@keyframes upOvIn { from{opacity:0;} to{opacity:1;} }
+@keyframes upOvIn { from{opacity:0} to{opacity:1} }
 
-/* ━━━ MODAL SHELL ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ━━ MODAL SHELL ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv #upModal {
   width: 92vw !important; max-width: 1240px !important;
   height: 84vh !important; max-height: 840px !important;
-  min-width: 860px !important; min-height: 520px !important;
-
+  min-width: 860px !important;
   display: flex !important; flex-direction: column !important;
-  overflow: hidden !important;                 /* clips border-radius only */
-  box-sizing: border-box !important;
-
-  /* Premium glass surface */
+  overflow: hidden !important; box-sizing: border-box !important;
   background: #09090b !important;
   border: 0.5px solid rgba(245,200,66,.25) !important;
   border-radius: 26px !important;
@@ -12126,62 +12119,49 @@ html[data-theme="light"] .nav-icon-btn:hover {
     0 0 0 1px rgba(255,255,255,.04),
     0 60px 150px rgba(0,0,0,.95),
     inset 0 1px 0 rgba(245,200,66,.1) !important;
-
   animation: upModalIn .32s cubic-bezier(.34,1.1,.64,1) both !important;
 }
 @keyframes upModalIn {
   0%   { opacity:0; transform:scale(.9) translateY(32px); }
-  55%  { opacity:1; transform:scale(1.014) translateY(-5px); }
-  80%  { transform:scale(.997) translateY(2px); }
+  60%  { opacity:1; transform:scale(1.014) translateY(-5px); }
+  82%  { transform:scale(.997) translateY(2px); }
   100% { transform:scale(1) translateY(0); }
 }
 
-/* ━━━ CINEMATIC COVER ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ━━ COVER ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv #upCover {
   height: 145px !important; min-height: 145px !important;
-  flex-shrink: 0 !important;
-  position: relative !important;
-  overflow: visible !important;                /* avatar sticks out below */
+  flex-shrink: 0 !important; position: relative !important;
+  overflow: visible !important;
   border-radius: 26px 26px 0 0 !important;
 }
-/* Topline shimmer */
+/* Gold topline */
 #userProfileOv #upCover::before {
-  content:'' !important;
-  position: absolute !important; top:0 !important; left:0 !important; right:0 !important; height:1.5px !important;
+  content:'' !important; position:absolute !important;
+  top:0 !important; left:0 !important; right:0 !important; height:1.5px !important;
   background: linear-gradient(90deg,
-    transparent 0%, rgba(245,200,66,.7) 30%,
-    rgba(245,200,66,1) 50%, rgba(168,85,247,.4) 75%, transparent 100%) !important;
+    transparent 0%, rgba(245,200,66,.8) 25%,
+    rgba(245,200,66,1) 50%, rgba(168,85,247,.5) 75%, transparent 100%) !important;
   border-radius: 26px 26px 0 0 !important; z-index:5 !important;
-  animation: coverShimmer 4s ease-in-out infinite !important;
 }
-@keyframes coverShimmer {
-  0%,100% { opacity:.7; } 50% { opacity:1; }
-}
-/* Bottom fade into modal body */
+/* Fade to body */
 #userProfileOv #upCover::after {
-  content:'' !important;
-  position:absolute !important; bottom:0 !important; left:0 !important; right:0 !important; height:60px !important;
+  content:'' !important; position:absolute !important;
+  bottom:0 !important; left:0 !important; right:0 !important; height:60px !important;
   background: linear-gradient(to bottom, transparent, #09090b) !important;
   z-index:2 !important; pointer-events:none !important;
 }
 
-/* Divider line between sidebar and data — visible inside cover too */
-#userProfileOv #upCover .up-cover-vdivider {
-  position:absolute !important; left:300px !important; top:0 !important; bottom:0 !important;
-  width:0.5px !important; background: rgba(255,255,255,.07) !important; z-index:4 !important;
-}
-
-/* ━━━ AVATAR ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ━━ AVATAR ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv #upAv {
   width: 128px !important; height: 128px !important;
   font-size: 64px !important; border-radius: 26px !important;
   position: absolute !important;
   bottom: -50px !important; left: 36px !important; z-index: 6 !important;
-
   background: linear-gradient(135deg,#1a1809,#2a2410) !important;
   border: 2.5px solid rgba(245,200,66,.5) !important;
-  display: flex !important; align-items: center !important; justify-content: center !important;
-  overflow: hidden !important;
+  display: flex !important; align-items: center !important;
+  justify-content: center !important; overflow: hidden !important;
   box-shadow:
     0 24px 72px rgba(0,0,0,.95),
     0 0 0 5px rgba(245,200,66,.07),
@@ -12196,15 +12176,15 @@ html[data-theme="light"] .nav-icon-btn:hover {
     0 0 70px rgba(245,200,66,.32) !important;
 }
 
-/* Close btn */
+/* Close button */
 #userProfileOv #upCover > button {
   position:absolute !important; top:16px !important; right:16px !important;
   width:36px !important; height:36px !important; border-radius:10px !important;
   background:rgba(0,0,0,.55) !important; backdrop-filter:blur(16px) !important;
   border:0.5px solid rgba(255,255,255,.16) !important;
-  color:rgba(255,255,255,.65) !important;
-  display:flex !important; align-items:center !important; justify-content:center !important;
-  cursor:pointer !important; z-index:10 !important;
+  color:rgba(255,255,255,.65) !important; cursor:pointer !important;
+  display:flex !important; align-items:center !important;
+  justify-content:center !important; z-index:10 !important;
   transition:background .15s,color .15s,transform .15s !important;
 }
 #userProfileOv #upCover > button:hover {
@@ -12212,67 +12192,73 @@ html[data-theme="light"] .nav-icon-btn:hover {
   transform:scale(1.1) !important;
 }
 
-/* ━━━ BODY: sidebar | data  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ━━ BODY ROW ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv .up-layout {
   display: flex !important; flex-direction: row !important;
-  flex: 1 1 0 !important; min-height: 0 !important;
-  overflow: hidden !important;                 /* enforce no-scroll container */
-  border-top: 0.5px solid rgba(255,255,255,.05) !important;
+  flex: 1 1 0 !important; min-height: 0 !important; overflow: hidden !important;
+  border-top: 0.5px solid rgba(255,255,255,.06) !important;
 }
 
-/* ━━━ LEFT SIDEBAR ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   LEFT SIDEBAR — compact, no gap, Apple smooth scroll if needed
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv .up-sidebar {
   width: 300px !important; min-width: 300px !important; flex-shrink: 0 !important;
-  padding: 68px 28px 28px !important; box-sizing: border-box !important;
+  padding: 66px 28px 28px !important; box-sizing: border-box !important;
   display: flex !important; flex-direction: column !important;
-  gap: 0 !important; overflow: hidden !important;    /* NO scroll */
+  /* Natural compact stacking — NO gap, each child controls own margin */
+  gap: 0 !important;
+  /* Apple smooth scroll — active when content overflows */
+  overflow-y: auto !important; overflow-x: hidden !important;
+  scroll-behavior: smooth !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain !important;
+  scrollbar-width: none !important;      /* hidden scrollbar */
   border-right: 0.5px solid rgba(255,255,255,.07) !important;
-  background: linear-gradient(180deg, rgba(255,255,255,.015) 0%, transparent 40%) !important;
-  position: relative !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.015) 0%, transparent 30%) !important;
 }
+#userProfileOv .up-sidebar::-webkit-scrollbar { display: none !important; }
 
 /* ── Name ── */
 #userProfileOv #upName {
   font-family: 'DM Sans', sans-serif !important;
   font-size: 30px !important; font-weight: 800 !important;
   letter-spacing: -.05em !important; line-height: 1.05 !important;
-  color: #F2F0E8 !important; margin: 0 0 10px !important;
+  color: #F2F0E8 !important;
+  margin: 0 0 10px !important; padding: 0 !important;
   word-break: break-word !important;
 }
 
-/* ── Level badge (backend populates #upLevelBadge) ── */
+/* ── Level badge — ONLY styled, NOT forced visible
+      JS controls display. CSS must NOT set display !important here. ── */
 #userProfileOv #upLevelBadge {
-  display: inline-flex !important;
+  /* display controlled by JS/inline — do not override */
   align-items: center !important; gap: 7px !important;
-  padding: 6px 14px !important; border-radius: 20px !important;
-  width: fit-content !important; margin-bottom: 14px !important;
+  padding: 5px 13px !important; border-radius: 20px !important;
+  width: fit-content !important; margin-bottom: 10px !important;
   font-family: 'DM Sans', sans-serif !important;
-  font-size: 12px !important; font-weight: 700 !important;
-  letter-spacing: .04em !important; text-transform: uppercase !important;
+  font-size: 11.5px !important; font-weight: 700 !important;
+  letter-spacing: .05em !important; text-transform: uppercase !important;
   background: rgba(245,200,66,.1) !important;
   border: 0.5px solid rgba(245,200,66,.35) !important;
   color: var(--gold) !important;
-  box-shadow: 0 0 16px rgba(245,200,66,.12) !important;
+  box-shadow: 0 0 14px rgba(245,200,66,.12) !important;
+}
+/* When JS sets display:flex or display:inline-flex */
+#userProfileOv #upLevelBadge[style*="flex"],
+#userProfileOv #upLevelBadge[style*="inline-flex"],
+#userProfileOv #upLevelBadge[style*="block"] {
+  display: inline-flex !important;
 }
 
-/* Level badge that JS already renders inside XP bar — style it large */
-#userProfileOv .up-xp-bar > div:first-child > span:first-child {
-  font-family: 'DM Sans', sans-serif !important;
-  font-size: 13px !important; font-weight: 700 !important;
-  letter-spacing: .01em !important;
-}
-
-/* ── Divider between name block and meta ── */
-#userProfileOv .up-sidebar::before {
-  content: '' !important;
-  display: block !important;
-  height: 0.5px !important;
+/* ── Thin gold divider ── */
+#userProfileOv .up-sidebar-divider {
+  height: 0.5px !important; margin: 0 0 14px !important;
   background: linear-gradient(90deg, rgba(245,200,66,.3), transparent 80%) !important;
-  margin: 0 0 14px !important;
   flex-shrink: 0 !important;
 }
 
-/* ── Meta (join date + likes) ── */
+/* ── Meta ── */
 #userProfileOv #upMeta {
   display: flex !important; flex-direction: column !important;
   gap: 7px !important; margin-bottom: 12px !important;
@@ -12283,7 +12269,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
   color: var(--t2) !important; font-weight: 500 !important;
 }
 
-/* ── Friend count chip ── */
+/* ── Friend count ── */
 #userProfileOv #upFriendCount {
   display: inline-flex !important; align-items: center !important;
   gap: 6px !important; font-size: 12px !important; font-weight: 600 !important;
@@ -12308,20 +12294,17 @@ html[data-theme="light"] .nav-icon-btn:hover {
   font-size:13px !important; color:var(--gold) !important;
   opacity:.45 !important; flex-shrink:0 !important; margin-top:1px !important;
 }
-#userProfileOv .up-quote-text,
 #userProfileOv #upQuoteText {
   font-size:12px !important; color:var(--t2) !important;
   line-height:1.6 !important; font-style:italic !important;
 }
 
-/* ── Spacer pushes buttons to bottom ── */
-#userProfileOv .up-sidebar > #upActions {
-  margin-top: auto !important;
-}
-
-/* ── Action buttons ── */
+/* ── Actions: compact stack, NO auto margin, NO gaps ── */
 #userProfileOv #upActions {
-  display: flex !important; flex-direction: column !important; gap: 9px !important;
+  display: flex !important; flex-direction: column !important;
+  gap: 8px !important;
+  /* margin-top: auto REMOVED — was causing empty space */
+  margin-top: 4px !important;
 }
 #userProfileOv #upActions .up-action-btn,
 #userProfileOv #upActions button[class] {
@@ -12367,23 +12350,26 @@ html[data-theme="light"] .nav-icon-btn:hover {
   border-color: rgba(34,197,94,.32) !important; color: var(--green) !important;
 }
 
-/* ━━━ RIGHT DATA PANEL ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   RIGHT DATA PANEL — Apple smooth scroll, hidden bar
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv .up-data {
   flex: 1 1 0 !important; min-width: 0 !important;
-  overflow: hidden !important;                 /* NO scroll — everything fits */
   padding: 28px 32px 28px !important; box-sizing: border-box !important;
-  display: flex !important; flex-direction: column !important; gap: 0 !important;
+  /* Apple smooth scroll */
+  overflow-y: auto !important; overflow-x: hidden !important;
+  scroll-behavior: smooth !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain !important;
+  scrollbar-width: none !important;      /* hidden — content scrolls invisibly */
 }
-#userProfileOv .up-data > #upLeaguesList {
-  display: flex !important; flex-direction: column !important;
-  flex: 1 1 0 !important; min-height: 0 !important; overflow: hidden !important;
-}
+#userProfileOv .up-data::-webkit-scrollbar { display: none !important; }
 
-/* ━━━ KPI GRID: 4 tiles in ONE row ━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ━━ KPI: 4 tiles one row ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv .up-kpi-grid {
   display: grid !important;
   grid-template-columns: repeat(4, 1fr) !important;
-  gap: 12px !important; margin-bottom: 16px !important; flex-shrink: 0 !important;
+  gap: 12px !important; margin-bottom: 16px !important;
 }
 #userProfileOv .up-kpi-tile {
   background: rgba(255,255,255,.03) !important;
@@ -12394,18 +12380,16 @@ html[data-theme="light"] .nav-icon-btn:hover {
   transition: transform .2s cubic-bezier(.34,1.56,.64,1),
               box-shadow .2s, border-color .2s !important;
 }
-/* Colored accent top bar */
 #userProfileOv .up-kpi-tile::before {
   content:'' !important; position:absolute !important;
   top:0 !important; left:0 !important; right:0 !important; height:2.5px !important;
   background: var(--tile-c, var(--gold)) !important;
   border-radius:18px 18px 0 0 !important; opacity:.9 !important;
 }
-/* Subtle glow bg matching tile color */
 #userProfileOv .up-kpi-tile::after {
   content:'' !important; position:absolute !important; inset:0 !important;
-  background: radial-gradient(ellipse 70% 50% at 50% 0%,
-    color-mix(in srgb, var(--tile-c, var(--gold)) 8%, transparent), transparent 70%) !important;
+  background: radial-gradient(ellipse 80% 50% at 50% 0%,
+    rgba(255,255,255,.03), transparent 70%) !important;
   pointer-events:none !important;
 }
 #userProfileOv .up-kpi-tile:hover {
@@ -12417,66 +12401,53 @@ html[data-theme="light"] .nav-icon-btn:hover {
   display:block !important; margin-bottom:10px !important; opacity:.65 !important;
 }
 #userProfileOv .up-kpi-number {
-  display:block !important;
-  font-family:'DM Mono',monospace !important;
+  display:block !important; font-family:'DM Mono',monospace !important;
   font-size:36px !important; font-weight:400 !important;
   letter-spacing:-.03em !important; line-height:1 !important;
-  margin-bottom:7px !important;
-  overflow:visible !important; white-space:nowrap !important;
+  margin-bottom:7px !important; overflow:visible !important; white-space:nowrap !important;
 }
-#userProfileOv .up-kpi-unit {
-  font-size:15px !important; opacity:.5 !important;
-}
+#userProfileOv .up-kpi-unit { font-size:15px !important; opacity:.5 !important; }
 #userProfileOv .up-kpi-label {
-  display:block !important;
-  font-family:'DM Sans',sans-serif !important;
+  display:block !important; font-family:'DM Sans',sans-serif !important;
   font-size:10px !important; font-weight:700 !important;
   text-transform:uppercase !important; letter-spacing:.1em !important;
   color:var(--t3) !important; white-space:nowrap !important;
 }
 
-/* ━━━ XP / LEVEL BAR ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ━━ XP BAR ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv .up-xp-bar {
-  flex-shrink: 0 !important;
-  background: linear-gradient(135deg, rgba(245,200,66,.07) 0%, rgba(245,200,66,.02) 100%) !important;
+  background: linear-gradient(135deg,rgba(245,200,66,.07),rgba(245,200,66,.02)) !important;
   border: 0.5px solid rgba(245,200,66,.25) !important;
   border-radius: 18px !important; padding: 18px 22px !important;
   margin-bottom: 20px !important;
-  box-shadow: inset 0 1px 0 rgba(245,200,66,.1), 0 4px 20px rgba(0,0,0,.2) !important;
+  box-shadow: inset 0 1px 0 rgba(245,200,66,.1) !important;
   position: relative !important; overflow: hidden !important;
 }
 #userProfileOv .up-xp-bar::before {
-  content:'' !important; position:absolute !important;
-  inset:0 !important;
-  background: radial-gradient(ellipse 50% 100% at 0% 50%, rgba(245,200,66,.06), transparent) !important;
+  content:'' !important; position:absolute !important; inset:0 !important;
+  background: radial-gradient(ellipse 50% 100% at 0% 50%,rgba(245,200,66,.06),transparent) !important;
   pointer-events:none !important;
 }
 
-/* ━━━ SECTION LABELS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ━━ SECTION LABELS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv .up-section-label {
-  flex-shrink: 0 !important;
-  font-family:'DM Sans',sans-serif !important;
-  font-size:10px !important; font-weight:700 !important;
-  text-transform:uppercase !important; letter-spacing:.16em !important;
-  color:var(--t3) !important;
+  font-family:'DM Sans',sans-serif !important; font-size:10px !important;
+  font-weight:700 !important; text-transform:uppercase !important;
+  letter-spacing:.16em !important; color:var(--t3) !important;
   display:flex !important; align-items:center !important; gap:8px !important;
   margin:0 0 12px !important; padding-bottom:10px !important;
   border-bottom:0.5px solid rgba(255,255,255,.06) !important;
 }
 
-/* ━━━ LEAGUE ROWS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-/* Wrapper for all league rows — fills remaining space */
-#userProfileOv .up-data > #upLeaguesList > div:has(.up-league-row) {
-  flex: 1 1 0 !important; display:flex !important; flex-direction:column !important;
-  gap:8px !important; overflow:hidden !important;
-}
+/* ━━ LEAGUE ROWS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv .up-league-row {
-  display:flex !important; align-items:center !important; gap:16px !important;
-  padding:12px 16px !important; border-radius:14px !important;
-  min-width:0 !important; box-sizing:border-box !important; flex-shrink:0 !important;
+  display:flex !important; align-items:center !important;
+  gap:16px !important; padding:12px 16px !important;
+  border-radius:14px !important; margin-bottom:8px !important;
+  min-width:0 !important; box-sizing:border-box !important;
   background:rgba(255,255,255,.025) !important;
   border:0.5px solid rgba(255,255,255,.06) !important;
-  transition:background .15s, border-color .15s,
+  transition:background .15s,border-color .15s,
              transform .2s cubic-bezier(.34,1.56,.64,1) !important;
 }
 #userProfileOv .up-league-row:hover {
@@ -12485,25 +12456,9 @@ html[data-theme="light"] .nav-icon-btn:hover {
   transform:translateX(6px) !important;
 }
 #userProfileOv .up-league-row > div { min-width:0 !important; }
-/* League name text — no truncation */
-#userProfileOv .up-league-row div[style*="font-size:12"] {
-  font-size:13px !important; font-weight:600 !important;
-  letter-spacing:-.01em !important; white-space:nowrap !important;
-  overflow:hidden !important; text-overflow:ellipsis !important;
-}
-/* League hours number */
-#userProfileOv .up-league-row div[style*="DM Mono"] {
-  font-size:16px !important; font-weight:400 !important;
-  letter-spacing:-.02em !important;
-}
 
-/* ━━━ ACHIEVEMENTS ROW (compact) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-#userProfileOv div[style*="display:flex;flex-wrap:wrap"] {
-  margin-top:4px !important;
-}
-
-/* ━━━ SUPPRESS LEGACY ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ━━ SUPPRESS LEGACY ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv .up-head { display:none !important; }
 #userProfileOv .up-body { padding:0 !important; background:transparent !important; }
 
-/* END USER PROFILE PREMIUM v3 */
+/* END USER PROFILE PREMIUM v4 */
