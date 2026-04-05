@@ -1,7 +1,134 @@
 // ══ SUPABASE ═════════════════════════════════════════════════
 const SUPABASE_URL='https://jwqvlhmtjtpoxwncmpex.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3cXZsaG10anRwb3h3bmNtcGV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyMDY0NTIsImV4cCI6MjA4OTc4MjQ1Mn0.uCSike4yk_tbNUxdMUTVGjHof8aV8QnEsSWyo8KR-8Y';
-const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
+  auth:{
+    persistSession:true,          // JWT → localStorage (дефолт, явно для надёжности)
+    autoRefreshToken:true,         // автообновление токена до истечения
+    detectSessionInUrl:false       // не нужен magic-link
+  }
+});
+
+// ══ AUTO-LOGIN ═══════════════════════════════════════════════
+// Проверяем сохранённую сессию сразу после инициализации Supabase.
+// Supabase хранит JWT в localStorage — если он есть и не просрочен,
+// пользователь входит автоматически без логина/пароля.
+(async function initAutoLogin(){
+  const bootEl = document.getElementById('bootscreen');
+
+  // Пробуем восстановить кэш профиля для мгновенного скелетона
+  const cached = _getCachedProfile();
+
+  try {
+    const { data:{ session } } = await sb.auth.getSession();
+
+    if(session && session.user){
+      // ✅ Сессия валидна → заходим без экрана логина
+      SB_USER = session.user;
+      _loadUserRetryCount = 0;
+
+      // Если есть кэш — покажем скелет немедленно, данные обновятся в loadUser
+      if(cached){
+        _applyProfileCache(cached);
+      }
+
+      await loadUser(session.user.id);
+    } else {
+      // ❌ Сессии нет → показываем онбординг
+      _showOnboarding(bootEl);
+    }
+  } catch(e){
+    console.warn('initAutoLogin error:', e);
+    _showOnboarding(bootEl);
+  } finally {
+    // Убираем boot-экран в любом случае
+    if(bootEl){ bootEl.style.opacity='0'; setTimeout(()=>{ bootEl.style.display='none'; },350); }
+  }
+
+  // Обновление токена в фоне (silent refresh)
+  sb.auth.onAuthStateChange((event, session)=>{
+    if(event==='TOKEN_REFRESHED' && session){
+      SB_USER = session.user;
+    }
+    if(event==='SIGNED_OUT'){
+      // Очищаем кэш при выходе
+      _clearProfileCache();
+    }
+  });
+})();
+
+// ══ PROFILE CACHE ════════════════════════════════════════════
+// Быстрый localStorage-кэш профиля: показываем данные мгновенно
+// пока идёт запрос к Supabase (устраняет пустой экран при старте).
+const _CACHE_KEY = 'dtr_profile_v3';
+const _CACHE_TTL = 24 * 60 * 60 * 1000; // 24 часа
+
+function _getCachedProfile(){
+  try{
+    const raw = localStorage.getItem(_CACHE_KEY);
+    if(!raw) return null;
+    const obj = JSON.parse(raw);
+    if(Date.now() - obj._ts > _CACHE_TTL){ localStorage.removeItem(_CACHE_KEY); return null; }
+    return obj;
+  }catch(e){ return null; }
+}
+
+function _saveProfileCache(profile){
+  try{
+    const slim = {
+      _ts: Date.now(),
+      id: profile.id,
+      name: profile.name,
+      avatar: profile.avatar,
+      avatarUrl: profile.avatarUrl||null,
+      streak: profile.streak||0,
+      totalSessions: profile.totalSessions||0,
+      totalActiveDays: profile.totalActiveDays||0,
+      activeCatIds: profile.activeCatIds||[],
+      joinedDate: profile.joinedDate||'',
+    };
+    localStorage.setItem(_CACHE_KEY, JSON.stringify(slim));
+  }catch(e){}
+}
+
+function _clearProfileCache(){
+  try{ localStorage.removeItem(_CACHE_KEY); }catch(e){}
+}
+
+// Применяем кэш как скелет: только nav + header, цифры появятся из DB
+function _applyProfileCache(cached){
+  if(!cached) return;
+  try{
+    // Минимальный P для рендера nav/header
+    P = {
+      id: cached.id,
+      name: cached.name,
+      avatar: cached.avatar,
+      avatarUrl: cached.avatarUrl,
+      joinedDate: cached.joinedDate,
+      streak: cached.streak,
+      totalSessions: cached.totalSessions,
+      totalActiveDays: cached.totalActiveDays,
+      activeCatIds: cached.activeCatIds||[],
+      categories: [],
+      sessions: [],
+      achievements: [],
+      _loading: true // флаг: реальные данные ещё грузятся
+    };
+    // Показываем app немедленно с данными из кэша
+    document.getElementById('onboard').style.display='none';
+    document.getElementById('catSel').style.display='none';
+    document.getElementById('app').style.display='';
+    applyTheme(); applyLang();
+    renderNav();  // имя + аватар мгновенно
+  }catch(e){ console.warn('_applyProfileCache error:', e); P=null; }
+}
+
+// Показываем онбординг с анимацией
+function _showOnboarding(bootEl){
+  const onboardEl = document.getElementById('onboard');
+  if(onboardEl){ onboardEl.style.display='flex'; initBanner(); rpAv('avPicker',selAv,'selAvFn'); }
+}
 
 // ══ CONSTANTS ════════════════════════════════════════════════
 const AVATARS=['🌀','💫','⚡','🔮','🌑','💎','🦋','🫡','🌊','🎯','🏔️','🦅','🐉','🌙','⭐','🔱','🫧','💠','🌐','🦾'];
@@ -322,6 +449,8 @@ async function doLogout(){
   if(msgRealtimeChannel){ sb.removeChannel(msgRealtimeChannel); msgRealtimeChannel=null; }
   if(usersRealtimeChannel){ sb.removeChannel(usersRealtimeChannel); usersRealtimeChannel=null; }
   if(msgsPolling){ clearInterval(msgsPolling); msgsPolling=null; }
+  // Очищаем кэш профиля при явном выходе
+  _clearProfileCache();
   await sb.auth.signOut();
   P=null;SB_USER=null;lgCache={};lgCacheTime={};activeConvUserId=null;
   document.getElementById('app').style.display='none';
@@ -610,6 +739,9 @@ async function loadUser(userId){
     const _newIds  = (P.activeCatIds||[]).slice().sort().join(',');
     if(_prevIds !== _newIds){ lgCache = {}; lgCacheTime = {}; }
   }
+  // Сохраняем профиль в localStorage-кэш для быстрого старта при следующем визите
+  _saveProfileCache(P);
+
   if(typeof renderHeroZone === 'function') renderHeroZone();
   renderAll();
   showTab('dash');
@@ -5942,10 +6074,17 @@ function injectPWAManifest(){
 }
 
 // ══════════════════════════════════════════════════════════════
-// 4. SERVICE WORKER — offline support
+// 4. SERVICE WORKER — offline support + asset caching
 // ══════════════════════════════════════════════════════════════
 function registerServiceWorker(){
-  /* SW requires a real file on same origin — skipped for single-file build */
+  if(!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('/sw.js', { scope:'/' })
+    .then(reg=>{
+      // Проверяем обновления при каждом запуске
+      reg.update();
+      console.log('[DTR] Service Worker registered, scope:', reg.scope);
+    })
+    .catch(e=> console.warn('[DTR] SW registration failed (ok in dev):', e));
 }
 
 // ══════════════════════════════════════════════════════════════
