@@ -13788,6 +13788,16 @@ const CAT_ICONS = {
     <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-1.66z"/>
     <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-1.66z"/>
   </svg>`,
+  project: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2" y="7" width="20" height="14" rx="2"/>
+    <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+    <line x1="12" y1="12" x2="12" y2="16"/>
+    <line x1="10" y1="14" x2="14" y2="14"/>
+  </svg>`,
+  study: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+    <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+  </svg>`,
 };
 
 // Helper: render cat icon as SVG (size param controls viewBox display size)
@@ -13809,12 +13819,14 @@ function getCatSVG(catId, size=22) {
 }
 
 let ALL_CATS=[
-  {id:'read',   name:'Чтение',                icon:'📚',color:'#58a6ff',desc:'Книги, статьи, учебники',         members:0},
-  {id:'lang',   name:'Изучение языков',        icon:'🌍',color:'#FBBF24',desc:'Английский, испанский, японский', members:0},
-  {id:'code',   name:'Новая профессия',        icon:'🚀',color:'#bc8cff',desc:'Курсы, навыки, карьера',          members:0},
-  {id:'trading', name:'Повышение квалификации',icon:'📈',color:'#f7931a',desc:'Профессиональный рост',           members:0},
-  {id:'cooking', name:'Духовность',            icon:'🫀',color:'#ff6b6b',desc:'Осознанность, душа, внутренний рост', members:0},
-  {id:'intellect', name:'Интеллект',             icon:'💡',color:'#60d9fa',desc:'Логика, мышление, саморазвитие',      members:0},
+  {id:'read',    name:'Чтение',                icon:'📚',color:'#58a6ff',desc:'Книги, статьи, учебники',              members:0},
+  {id:'lang',    name:'Изучение языков',        icon:'🌍',color:'#FBBF24',desc:'Английский, испанский, японский',      members:0},
+  {id:'code',    name:'Новая профессия',        icon:'🚀',color:'#bc8cff',desc:'Курсы, навыки, карьера',               members:0},
+  {id:'trading', name:'Повышение квалификации', icon:'📈',color:'#f7931a',desc:'Профессиональный рост',                members:0},
+  {id:'cooking', name:'Духовность',             icon:'🫀',color:'#ff6b6b',desc:'Осознанность, душа, внутренний рост',  members:0},
+  {id:'intellect',name:'Интеллект',             icon:'💡',color:'#60d9fa',desc:'Логика, мышление, саморазвитие',       members:0},
+  {id:'project', name:'Работа над проектом',    icon:'💼',color:'#34D399',desc:'Стартапы, задачи, дедлайны',           members:0},
+  {id:'study',   name:'Учёба',                  icon:'🎓',color:'#818CF8',desc:'Университет, курсы, самообразование',  members:0},
 ];
 // Загружаем реальные счётчики из БД
 async function loadMemberCounts(){
@@ -13823,6 +13835,21 @@ async function loadMemberCounts(){
   const counts={};
   data.forEach(r=>{counts[r.category_id]=(counts[r.category_id]||0)+1;});
   ALL_CATS=ALL_CATS.map(c=>({...c,members:counts[c.id]||0}));
+}
+
+// ── Seed новых категорий в таблицу categories (если она есть в БД) ──
+async function seedNewCategories(){
+  try{
+    const newCats=[
+      {id:'project',name:'Работа над проектом',color:'#34D399',icon:'💼',description:'Стартапы, задачи, дедлайны'},
+      {id:'study',  name:'Учёба',              color:'#818CF8',icon:'🎓',description:'Университет, курсы, самообразование'},
+    ];
+    // upsert — безопасно: ничего не затирает если уже есть
+    await sb.from('categories').upsert(newCats,{onConflict:'id',ignoreDuplicates:true});
+  }catch(e){
+    // Таблица categories может не существовать — это нормально (категории хранятся фронтом)
+    console.info('seedNewCategories: categories table not found or already seeded',e?.message);
+  }
 }
 const ACH_DEF=[
   // ── СТАРТ ──────────────────────────────────────────────────
@@ -13901,6 +13928,8 @@ const ICONS = {
   trading:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`,
   cooking:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`,
   intellect:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><path d="M12 6a6 6 0 1 1 0 12"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>`,
+  project:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>`,
+  study:    `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
   zap:      `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
   flame:    `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`,
   trophy:   `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="14 9 15.5 4 22 6"/><polyline points="10 9 8.5 4 2 6"/><path d="M4.23 12C2.86 11 2 9.6 2 8c0-3.31 2.69-6 6-6h8c3.31 0 6 2.69 6 6 0 1.6-.86 3-2.23 4"/><path d="M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/><line x1="12" y1="16" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>`,
@@ -13922,7 +13951,7 @@ function iconBox(id, color='var(--t2)', size=36, radius=10){
 }
 
 function catIconBox(catId, color, size=42){
-  const map={read:'read',lang:'lang',code:'code',trading:'trading',cooking:'cooking',intellect:'intellect'};
+  const map={read:'read',lang:'lang',code:'code',trading:'trading',cooking:'cooking',intellect:'intellect',project:'project',study:'study'};
   return iconBox(map[catId]||'timer', color, size, 12);
 }
 
@@ -14262,6 +14291,8 @@ async function loadUser(userId){
   }
 
   // ФАЗА 2: грузим все данные параллельно (сессии, категории, достижения)
+  // Попутно сидируем новые категории в БД (fire-and-forget, не блокирует)
+  seedNewCategories();
   const [r2, r3, r4] = await Promise.all([
     sb.from('user_categories').select('category_id,hours').eq('user_id',userId),
     sb.from('sessions').select('id,category_id,duration_seconds,created_at').eq('user_id',userId).order('created_at',{ascending:false}).limit(300),
@@ -15639,7 +15670,7 @@ function renderManageGrid(){
     const hrs = P.categories.find(x => x.id === c.id)?.hours || 0;
     const mc  = c.members || 0;
     const col = c.color;
-    const iconKey = {read:'read',lang:'lang',code:'code',trading:'trading',cooking:'cooking',intellect:'intellect'}[c.id];
+    const iconKey = {read:'read',lang:'lang',code:'code',trading:'trading',cooking:'cooking',intellect:'intellect',project:'project',study:'study'}[c.id];
     const delay = i * 50;
     const hrsLabel = hrs > 0 ? (hrs >= 100 ? Math.round(hrs) : hrs.toFixed(1)) + ' ч' : '—';
 
@@ -16116,7 +16147,7 @@ function _buildArenaHTML(cats, results){
     const top10  = sorted.slice(0, 10);
     const maxVal = Math.max(...top10.map(p=>getArenaValue(p,arenaMode)), 0.1);
     const myRank = myIdx >= 0 ? myIdx + 1 : null;
-    const catKey = {read:'read',lang:'lang',code:'code',trading:'trading',cooking:'cooking',intellect:'intellect'}[cat.id];
+    const catKey = {read:'read',lang:'lang',code:'code',trading:'trading',cooking:'cooking',intellect:'intellect',project:'project',study:'study'}[cat.id];
 
     const podiumColors = [
       { txt:'#FFD60A', glow:'rgba(255,214,10,.5)',  ring:'rgba(255,214,10,.25)' },
