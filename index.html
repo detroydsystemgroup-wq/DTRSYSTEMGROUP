@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
@@ -62,41 +63,7 @@
 </head>
 <body>
 
-<!-- ══ SPLASH SCREEN ═══════════════════════════════════════════ -->
-<div id="splashScreen" aria-hidden="true">
-  <div class="splash-inner">
-    <div class="splash-bolt">
-      <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect width="40" height="40" rx="10" fill="#0A0A0B"/>
-        <polygon points="23,4 15,20 21,20 17,36 25,18 19,18" fill="#F5C842"/>
-      </svg>
-    </div>
-    <div class="splash-logo">DTR <span>Progress</span> Club</div>
-    <div class="splash-loader"><div class="splash-loader-fill"></div></div>
-  </div>
-</div>
-
-<!-- ══ FOMO STREAK BANNER ══════════════════════════════════════ -->
-<div id="streakFomoBar" role="alert" aria-live="polite">
-  <span class="fomo-fire">🔥</span>
-  <span id="streakFomoMsg">Твоя серия под угрозой! Проведи сессию до конца дня.</span>
-  <button class="fomo-close" onclick="document.getElementById('streakFomoBar').classList.remove('fomo-visible')" aria-label="Закрыть">×</button>
-</div>
-
 <div id="onboard">
-  <!-- Background orbs / particles -->
-  <div class="ob-particles" aria-hidden="true">
-    <div class="ob-orb ob-orb-1"></div>
-    <div class="ob-orb ob-orb-2"></div>
-    <div class="ob-orb ob-orb-3"></div>
-  </div>
-
-  <!-- Social proof live counter -->
-  <div class="ob-social-proof" id="obSocialProof" aria-label="Онлайн-участников">
-    <div class="ob-live-dot"></div>
-    <span id="obOnlineText">Загрузка...</span>
-  </div>
-
   <div class="banner-wrap">
     <div class="banner-track">
       <div class="bslide s0 active"><div class="bs-art">🎮</div><div><div class="bs-tag">Steam для реальной жизни</div><div class="bs-title">Твой профиль навыков</div><div class="bs-desc">Отслеживай часы которые ты вкладываешь в себя — как Steam считает часы в играх.</div></div></div>
@@ -330,8 +297,6 @@
     </div>
 
     <div class="ph-tabs" role="tablist" aria-label="Разделы профиля">
-      <!-- Animated gold indicator -->
-      <div class="tab-active-indicator" id="tabIndicator" aria-hidden="true"></div>
       <div class="stab active" onclick="showTab('dash',this)" data-tab="dash" role="tab" aria-selected="true" aria-label="Дашборд">
         <div class="tab-icon-wrap">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="9" height="9" rx="2"/><rect x="13" y="2" width="9" height="9" rx="2"/><rect x="2" y="13" width="9" height="9" rx="2"/><rect x="13" y="13" width="9" height="9" rx="2"/></svg>
@@ -455,15 +420,6 @@
         <div class="cb">
 
           <div class="cat-filter" id="dashCatFilter" style="display:none"></div>
-
-          <!-- ── DAILY MOTIVATION ZONE ── -->
-          <div id="dailyMotivation" style="display:none">
-            <span class="dm-icon" id="dmIcon">💡</span>
-            <div>
-              <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:4px">Цитата дня</div>
-              <div class="dm-quote" id="dmQuote"></div>
-            </div>
-          </div></div>
 
 
           <!-- ── HERO TODAY ZONE ── -->
@@ -1321,130 +1277,6 @@ function closeSettings(){
     modal.classList.remove('settings-modal-out');
   }, 280);
 }
-</script>
-
-<script>
-/* ══ DTR PREMIUM UX v5 — Behavioral Design Layer ═══════════════ */
-
-/* 1. Splash screen auto-dismiss */
-(function(){
-  var splash = document.getElementById('splashScreen');
-  if(!splash) return;
-  // Hide after animation completes
-  setTimeout(function(){ splash.style.display='none'; }, 1200);
-})();
-
-/* 2. Social proof online counter (uses existing globalOnline data) */
-(function(){
-  var el = document.getElementById('obOnlineText');
-  if(!el) return;
-  // Poll the globalOnline element for synced count
-  var sync = function(){
-    var cnt = document.getElementById('onlineCnt');
-    var n = cnt ? (parseInt(cnt.textContent)||0) : 0;
-    if(n > 0){
-      el.textContent = n + (n===1?' участник ':n<5?' участника ':' участников')+' прокачиваются сейчас';
-    } else {
-      // Fallback: show a plausible number while data loads
-      var seed = 847 + Math.floor(Math.random()*40);
-      el.textContent = seed+' участников прокачиваются сейчас';
-    }
-  };
-  sync();
-  setInterval(sync, 15000);
-})();
-
-/* 3. Tab indicator — gold sliding line follows active tab */
-(function(){
-  var indicator = document.getElementById('tabIndicator');
-  var tabBar = indicator ? indicator.closest('.ph-tabs') : null;
-  if(!indicator || !tabBar) return;
-
-  function moveIndicator(tab){
-    if(!tab) return;
-    var tr = tabBar.getBoundingClientRect();
-    var tr2 = tab.getBoundingClientRect();
-    var left = tr2.left - tr.left + tabBar.scrollLeft;
-    indicator.style.left = left+'px';
-    indicator.style.width = tr2.width+'px';
-  }
-
-  // Initial position
-  requestAnimationFrame(function(){
-    var active = tabBar.querySelector('.stab.active');
-    if(active) moveIndicator(active);
-  });
-
-  // On tab click — intercept all stab clicks
-  tabBar.addEventListener('click', function(e){
-    var tab = e.target.closest('.stab');
-    if(tab){ requestAnimationFrame(function(){ moveIndicator(tab); }); }
-  });
-
-  // MutationObserver in case JS sets active class
-  var mo = new MutationObserver(function(){
-    var active = tabBar.querySelector('.stab.active');
-    if(active) moveIndicator(active);
-  });
-  mo.observe(tabBar, {subtree:true, attributeFilter:['class']});
-})();
-
-/* 4. FOMO streak banner — show if user has streak & hasn't done today */
-(function(){
-  // Exposed by main app logic when relevant; called externally via showStreakFomo()
-  window.showStreakFomo = function(streakDays, hoursToday){
-    if(hoursToday > 0 || streakDays < 2) return;
-    var bar = document.getElementById('streakFomoBar');
-    var msg = document.getElementById('streakFomoMsg');
-    if(!bar) return;
-    if(msg) msg.textContent = '🔥 Серия '+streakDays+' '+
-      (streakDays===1?'день':(streakDays<5?'дня':'дней'))+
-      ' сгорит в полночь! Сделай хотя бы одну сессию сегодня.';
-    bar.classList.add('fomo-visible');
-  };
-})();
-
-/* 5. Daily motivation quotes */
-(function(){
-  var quotes = [
-    {icon:'⚡', text:'Дисциплина — это мост между целями и достижениями. — Джим Рон'},
-    {icon:'🎯', text:'Каждый час инвестиций в себя — это актив, который не обесценится.'},
-    {icon:'🏆', text:'Не сравнивай себя со вчерашним лидером — сравнивай со вчерашним собой.'},
-    {icon:'🔥', text:'Маленький прогресс каждый день приводит к большим результатам.'},
-    {icon:'💡', text:'Тот, кто движется вперёд — всегда обгонит того, кто ждёт идеального момента.'},
-    {icon:'🚀', text:'Прокачка — не спринт. Это марафон с накопительным эффектом.'},
-    {icon:'💪', text:'Сессия, которую ты сделал устав — ценнее десяти в состоянии отдыха.'},
-  ];
-  var zone = document.getElementById('dailyMotivation');
-  var qEl = document.getElementById('dmQuote');
-  var iEl = document.getElementById('dmIcon');
-  if(!zone || !qEl) return;
-  var idx = (new Date().getDay() + new Date().getDate()) % quotes.length;
-  var q = quotes[idx];
-  qEl.textContent = q.text;
-  if(iEl) iEl.textContent = q.icon;
-  zone.style.display = 'flex';
-})();
-
-/* 6. Achievement unlock animation */
-window.playAchUnlock = function(el){
-  if(!el) return;
-  el.classList.add('unlocked-anim');
-  setTimeout(function(){ el.classList.remove('unlocked-anim'); }, 1000);
-};
-
-/* 7. cs-count update helper — add has-sel class when items selected */
-(function(){
-  var countEl = document.getElementById('selCntDisp');
-  if(!countEl) return;
-  var mo = new MutationObserver(function(){
-    var n = parseInt(countEl.textContent)||0;
-    var parent = countEl.closest('.cs-count');
-    if(parent){ parent.classList.toggle('has-sel', n>0); }
-  });
-  mo.observe(countEl, {childList:true, characterData:true, subtree:true});
-})();
-
 </script>
 
 </body>
