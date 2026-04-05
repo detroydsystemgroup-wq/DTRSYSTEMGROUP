@@ -12917,19 +12917,22 @@ html[data-theme="light"] .nav-icon-btn:hover {
 
 /* ── Name ── */
 #userProfileOv #upName {
-  font-size: 22px !important;
-  font-weight: 800 !important;
-  letter-spacing: -.035em !important;
+  font-family: 'DM Sans', sans-serif !important;
+  font-size: 19px !important;
+  font-weight: 600 !important;
+  letter-spacing: .012em !important;
   text-align: left !important;
-  white-space: normal !important;
-  word-break: break-word !important;
-  line-height: 1.15 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  line-height: 1.25 !important;
   width: auto !important;
   flex: 1 !important;
   min-width: 0 !important;
   margin: 0 !important;
   animation: none !important;
-  color: var(--t1) !important;
+  color: #EDEAE0 !important;
+  text-shadow: none !important;
 }
 
 /* ── Hide meta ── */
@@ -13043,6 +13046,20 @@ html[data-theme="light"] .nav-icon-btn:hover {
 .up-stat-card:hover {
   transform: translateY(-3px) scale(1.02) !important;
   box-shadow: 0 8px 24px rgba(0,0,0,.4) !important;
+}
+
+/* ── Like action button states ── */
+#upLikeBtn.up-like-active {
+  border-color: rgba(239,68,68,.45) !important;
+  background: rgba(239,68,68,.12) !important;
+  color: #ef4444 !important;
+}
+#upLikeBtn:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(239,68,68,.2) !important;
+}
+#upLikeBtn:active {
+  transform: scale(.96) !important;
 }
 </style>
   <link rel="manifest" id="pwaManifest">
@@ -16913,20 +16930,18 @@ async function openUserProfile(userId, name, av, avUrl){
       <!-- ── STAT CARDS: Likes + Friends ── -->
       <div class="up-anim-1" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;margin-bottom:8px;box-sizing:border-box">
 
-        <!-- Likes card — clickable, toggles like -->
-        <button id="upLikeBtn" onclick="toggleLikeUser()" data-liked="${isLiked}"
-          class="up-stat-card"
+        <!-- Likes card — DECORATIVE ONLY (count display) -->
+        <div class="up-stat-card"
           style="display:flex;align-items:center;gap:10px;padding:10px 12px;
-                 min-height:46px;border-radius:14px;cursor:pointer;text-align:left;
+                 min-height:46px;border-radius:14px;cursor:default;text-align:left;
                  box-sizing:border-box;
-                 border:0.5px solid rgba(239,68,68,${isLiked?'.4':'.2'});
-                 background:rgba(239,68,68,${isLiked?'.1':'.05'});
-                 transition:all .22s cubic-bezier(.34,1.4,.64,1)">
+                 border:0.5px solid rgba(239,68,68,.2);
+                 background:rgba(239,68,68,.05);">
           <div class="up-stat-card-icon"
                style="width:30px;height:30px;border-radius:9px;flex-shrink:0;
                       color:#ef4444;
-                      background:rgba(239,68,68,${isLiked?'.22':'.12'});
-                      border:0.5px solid rgba(239,68,68,${isLiked?'.5':'.3'});
+                      background:rgba(239,68,68,.12);
+                      border:0.5px solid rgba(239,68,68,.3);
                       display:flex;align-items:center;justify-content:center">
             <svg width="16" height="16" viewBox="0 0 24 24"
                  fill="${isLiked?'#ef4444':'none'}" stroke="#ef4444" stroke-width="2">
@@ -16936,11 +16951,11 @@ async function openUserProfile(userId, name, av, avUrl){
           <div>
             <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:400;
                         color:#ef4444;line-height:1;letter-spacing:-.03em"
-                 id="upLikeCount">${likeCount}</div>
+                 id="upStatLikeCount">${likeCount}</div>
             <div style="font-size:10px;font-weight:700;letter-spacing:.07em;
                         text-transform:uppercase;color:rgba(239,68,68,.55);margin-top:3px">Лайков</div>
           </div>
-        </button>
+        </div>
 
         <!-- Friends card — info only -->
         <div class="up-stat-card"
@@ -16973,6 +16988,25 @@ async function openUserProfile(userId, name, av, avUrl){
       </div>
 
       <!-- ── ACTION BUTTONS ── -->
+
+      <!-- Like toggle button — fully functional -->
+      <button id="upLikeBtn" onclick="toggleLikeUser()" data-liked="${isLiked}"
+        class="up-action-btn${isLiked?' up-like-active':''}"
+        style="border:0.5px solid rgba(239,68,68,${isLiked?'.4':'.18'});
+               background:rgba(239,68,68,${isLiked?'.12':'.04'});
+               color:${isLiked?'#ef4444':'rgba(255,255,255,.55)'};
+               gap:9px;position:relative;overflow:hidden;
+               transition:all .22s cubic-bezier(.34,1.4,.64,1)">
+        <svg id="upLikeBtnIcon" width="15" height="15" viewBox="0 0 24 24"
+             fill="${isLiked?'#ef4444':'none'}" stroke="${isLiked?'#ef4444':'currentColor'}" stroke-width="2"
+             style="transition:all .25s cubic-bezier(.34,1.56,.64,1)">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+        </svg>
+        <span id="upLikeBtnLabel">${isLiked ? 'Нравится' : 'Лайк'}</span>
+        <span id="upLikeCount" style="font-family:'DM Mono',monospace;font-size:13px;
+              font-weight:400;opacity:.7;letter-spacing:-.01em">${likeCount > 0 ? '· '+likeCount : ''}</span>
+      </button>
+
       ${friendBtn}
       <button class="up-action-btn" onclick="openChatWithUser()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -19389,17 +19423,48 @@ async function toggleLikeUser() {
   const userId = ov.dataset.userId;
   if (!userId || !SB_USER) return;
 
-  const btn = document.getElementById('upLikeBtn');
-  const countEl = document.getElementById('upLikeCount');
-  const wasLiked = btn.classList.contains('liked');
-  const prevCount = parseInt(countEl?.textContent || '0');
+  const btn       = document.getElementById('upLikeBtn');
+  const labelEl   = document.getElementById('upLikeBtnLabel');
+  const countEl   = document.getElementById('upLikeCount');
+  const statCount = document.getElementById('upStatLikeCount');
+  const iconEl    = document.getElementById('upLikeBtnIcon');
+  if (!btn) return;
 
-  // OPTIMISTIC: instant UI update (0ms)
-  const newCount = wasLiked ? Math.max(0, prevCount - 1) : prevCount + 1;
-  btn.className = 'up-btn' + (wasLiked ? '' : ' liked');
-  btn.innerHTML = (wasLiked ? '♡ Лайк ' : '❤️ Нравится ') +
-    `<span id="upLikeCount">${newCount}</span>`;
+  const wasLiked = btn.dataset.liked === 'true';
 
+  // ── Parse current stat count ──
+  const prevStatCount = parseInt(statCount?.textContent || '0');
+  const newStatCount  = wasLiked ? Math.max(0, prevStatCount - 1) : prevStatCount + 1;
+
+  // ── OPTIMISTIC UI UPDATE ──
+  btn.dataset.liked = String(!wasLiked);
+
+  if (!wasLiked) {
+    // → Liked state
+    btn.style.border      = '0.5px solid rgba(239,68,68,.45)';
+    btn.style.background  = 'rgba(239,68,68,.14)';
+    btn.style.color       = '#ef4444';
+    if (iconEl) { iconEl.setAttribute('fill','#ef4444'); iconEl.setAttribute('stroke','#ef4444'); }
+    if (labelEl) labelEl.textContent = 'Нравится';
+    if (countEl) countEl.textContent = newStatCount > 0 ? '· '+newStatCount : '';
+    if (statCount) statCount.textContent = String(newStatCount);
+    // Heart bounce animation
+    if (iconEl) {
+      iconEl.style.animation = 'upIconBounce .5s cubic-bezier(.34,1.56,.64,1) both';
+      setTimeout(() => { if(iconEl) iconEl.style.animation=''; }, 550);
+    }
+  } else {
+    // → Unliked state
+    btn.style.border      = '0.5px solid rgba(239,68,68,.18)';
+    btn.style.background  = 'rgba(239,68,68,.04)';
+    btn.style.color       = 'rgba(255,255,255,.55)';
+    if (iconEl) { iconEl.setAttribute('fill','none'); iconEl.setAttribute('stroke','currentColor'); }
+    if (labelEl) labelEl.textContent = 'Лайк';
+    if (countEl) countEl.textContent = newStatCount > 0 ? '· '+newStatCount : '';
+    if (statCount) statCount.textContent = String(newStatCount);
+  }
+
+  // ── DB SYNC ──
   try {
     if (wasLiked) {
       const { error } = await sb.from('likes')
@@ -19413,10 +19478,24 @@ async function toggleLikeUser() {
       showToast('Лайк поставлен!', '❤️');
     }
   } catch (err) {
-    // ROLLBACK on error
-    btn.className = 'up-btn' + (wasLiked ? ' liked' : '');
-    btn.innerHTML = (wasLiked ? '❤️ Нравится ' : '♡ Лайк ') +
-      `<span id="upLikeCount">${prevCount}</span>`;
+    // ── ROLLBACK ──
+    btn.dataset.liked = String(wasLiked);
+    if (wasLiked) {
+      btn.style.border = '0.5px solid rgba(239,68,68,.45)';
+      btn.style.background = 'rgba(239,68,68,.14)';
+      btn.style.color = '#ef4444';
+      if (iconEl) { iconEl.setAttribute('fill','#ef4444'); iconEl.setAttribute('stroke','#ef4444'); }
+      if (labelEl) labelEl.textContent = 'Нравится';
+      if (statCount) statCount.textContent = String(prevStatCount);
+    } else {
+      btn.style.border = '0.5px solid rgba(239,68,68,.18)';
+      btn.style.background = 'rgba(239,68,68,.04)';
+      btn.style.color = 'rgba(255,255,255,.55)';
+      if (iconEl) { iconEl.setAttribute('fill','none'); iconEl.setAttribute('stroke','currentColor'); }
+      if (labelEl) labelEl.textContent = 'Лайк';
+      if (statCount) statCount.textContent = String(prevStatCount);
+    }
+    if (countEl) countEl.textContent = prevStatCount > 0 ? '· '+prevStatCount : '';
     showToast('Ошибка сети. Повтори.', '⚠️');
     console.error('Like error:', err);
   }
