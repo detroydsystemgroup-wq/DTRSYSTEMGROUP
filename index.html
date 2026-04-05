@@ -10644,7 +10644,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
 
 .sess-filter-bar {
   display: flex;
-  gap: 6px;
+  gap: 10px;
   padding: 16px 0 8px;
 }
 .sfb {
@@ -10661,6 +10661,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
   font-family: 'DM Sans', sans-serif;
   transition: all .2s cubic-bezier(.25,.46,.45,.94);
   white-space: nowrap;
+  will-change: transform;
 }
 .sfb:hover {
   background: rgba(255,255,255,.07);
@@ -11546,7 +11547,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
 .snd-row:hover    { transform: translateX(3px) !important; }
 .notif-mel-row:hover { transform: translateX(3px) !important; }
 .notif-day-btn:hover { transform: scale(1.12) !important; }
-.sfb:hover        { transform: translateY(-2px) scale(1.04) !important; }
+.sfb:hover        { transform: translateY(-2px) scale(1.02) !important; }
 
 /* ══════════════════════════════════════
    NOTIFICATION MODAL — Full redesign
@@ -19562,33 +19563,75 @@ async function renderForecast(){
       Vs ${othersCount} ${othersCount===1?'участник':'участников'} лиги · ${days} ${days===1?'день':days<=4?'дня':'дней'}
     </div>
 
-    <div class="cmp-card" style="--cmp-c:var(--gold)">
-      <div class="cmp-title" style="color:var(--gold)">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        Часы
+    <!-- ── 3 главных метрики в ряд ── -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+
+      <div class="cmp-card" style="--cmp-c:var(--gold)">
+        <div class="cmp-title" style="color:var(--gold);margin-bottom:12px">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Часы
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px">
+          <div>
+            <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:400;color:${myHrs>=avgHrs?'var(--gold)':'rgba(255,255,255,.35)'};line-height:1;letter-spacing:-.03em">${myHrs}ч</div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);margin-top:3px">Ты</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:400;color:rgba(255,255,255,.3);line-height:1;letter-spacing:-.02em">${avgHrs}ч</div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.25);margin-top:3px">Лига</div>
+          </div>
+        </div>
+        <div style="height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;margin-bottom:8px">
+          <div style="height:100%;width:${Math.min(100,Math.round((myHrs/Math.max(myHrs,avgHrs,0.1))*100))}%;background:var(--gold);border-radius:2px;box-shadow:0 0 8px rgba(245,200,66,.5)"></div>
+        </div>
+        <span class="cmp-diff ${myHrs>=avgHrs?'up':'dn'}">${myHrs>=avgHrs?'▲':'▼'} ${Math.abs((myHrs-avgHrs).toFixed(1))}ч</span>
       </div>
-      <div class="cmp-bars">${bar(myHrs,avgHrs,myHrs+'ч',avgHrs+'ч','var(--gold)')}</div>
-      <span class="cmp-diff ${myHrs>=avgHrs?'up':'dn'}">${myHrs>=avgHrs?'▲':'▼'} ${myHrs>=avgHrs?'+':''}${(myHrs-avgHrs).toFixed(1)}ч ${myHrs>=avgHrs?'выше':'ниже'} среднего</span>
+
+      <div class="cmp-card" style="--cmp-c:#f97316">
+        <div class="cmp-title" style="color:#f97316;margin-bottom:12px">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+          Дисциплина
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px">
+          <div>
+            <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:400;color:${myStreak>=avgStreakReal?'#f97316':'rgba(255,255,255,.35)'};line-height:1;letter-spacing:-.03em">${myStreak}д</div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#f97316;margin-top:3px">Ты</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:400;color:rgba(255,255,255,.3);line-height:1;letter-spacing:-.02em">${avgStreakReal}д</div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.25);margin-top:3px">Лига</div>
+          </div>
+        </div>
+        <div style="height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;margin-bottom:8px">
+          <div style="height:100%;width:${Math.min(100,Math.round((myStreak/Math.max(myStreak,avgStreakReal,0.1))*100))}%;background:#f97316;border-radius:2px;box-shadow:0 0 8px rgba(249,115,22,.5)"></div>
+        </div>
+        <span class="cmp-diff ${streakCls}">${streakCls==='up'?'▲':streakCls==='dn'?'▼':'='} ${Math.abs(streakDiff)}д</span>
+      </div>
+
+      <div class="cmp-card" style="--cmp-c:var(--blue)">
+        <div class="cmp-title" style="color:var(--blue);margin-bottom:12px">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Активность
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px">
+          <div>
+            <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:400;color:${myActiveDays>=avgActiveDays?'var(--blue)':'rgba(255,255,255,.35)'};line-height:1;letter-spacing:-.03em">${myActiveDays}д</div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--blue);margin-top:3px">Ты</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:400;color:rgba(255,255,255,.3);line-height:1;letter-spacing:-.02em">${avgActiveDays}д</div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.25);margin-top:3px">Лига</div>
+          </div>
+        </div>
+        <div style="height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;margin-bottom:8px">
+          <div style="height:100%;width:${Math.min(100,Math.round((myActiveDays/Math.max(myActiveDays,avgActiveDays,0.1))*100))}%;background:var(--blue);border-radius:2px;box-shadow:0 0 8px rgba(26,159,255,.5)"></div>
+        </div>
+        <span class="cmp-diff ${daysCls}">${daysCls==='up'?'▲':daysCls==='dn'?'▼':'='} ${Math.abs(daysDiff)}д</span>
+      </div>
+
     </div>
 
-    <div class="cmp-card" style="--cmp-c:#f97316">
-      <div class="cmp-title" style="color:#f97316">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
-        Дисциплина
-      </div>
-      <div class="cmp-bars">${bar(myStreak,avgStreakReal,myStreak+' д',avgStreakReal+' д','#f97316')}</div>
-      <span class="cmp-diff ${streakCls}">${streakCls==='up'?'▲':'streakCls'==='dn'?'▼':'='} ${streakDiff>0?'+':''}${streakDiff} д ${streakCls==='up'?'выше':'ниже'} среднего</span>
-    </div>
-
-    <div class="cmp-card" style="--cmp-c:var(--blue)">
-      <div class="cmp-title" style="color:var(--blue)">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        Активность
-      </div>
-      <div class="cmp-bars">${bar(myActiveDays,avgActiveDays,myActiveDays+' д',avgActiveDays+' д','var(--blue)')}</div>
-      <span class="cmp-diff ${daysCls}">${daysCls==='up'?'▲':daysCls==='dn'?'▼':'='} ${daysDiff>0?'+':''}${daysDiff} д ${daysCls==='up'?'выше':'ниже'} среднего</span>
-    </div>
-
+    <!-- ── Категории по одной ── -->
     ${catCards}`;
 }
 
@@ -21871,23 +21914,18 @@ function mkRing(pct,color,size=34){
 }
 
 // ── Arc SVG (hero score) ─────────────────────────────────────
-function mkArc(pct,size=90){
-  const r=36,cx=size/2,cy=size/2;
-  const startAngle=-200,sweepAngle=220;
-  function polarToCartesian(angle){
-    const rad=angle*Math.PI/180;
-    return{x:cx+r*Math.cos(rad),y:cy+r*Math.sin(rad)};
-  }
-  const s=polarToCartesian(startAngle),e=polarToCartesian(startAngle+sweepAngle);
-  const bg=`M ${s.x} ${s.y} A ${r} ${r} 0 1 1 ${e.x} ${e.y}`;
-  const prog=polarToCartesian(startAngle+sweepAngle*(pct/100));
-  const largeArc=sweepAngle*(pct/100)>180?1:0;
-  const fg=`M ${s.x} ${s.y} A ${r} ${r} 0 ${largeArc} 1 ${prog.x} ${prog.y}`;
+function mkArc(pct,size=80){
+  const r=30,cx=size/2,cy=size/2;
+  const circumference=2*Math.PI*r;
+  const fillLen=circumference*(pct/100);
   const color=pct===100?'#22C55E':pct>=70?'#F5C842':pct>=40?'#F97316':'#EF4444';
-  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-    <path d="${bg}" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="5" stroke-linecap="round"/>
-    <path d="${fg}" fill="none" stroke="${color}" stroke-width="5" stroke-linecap="round"
-      style="transition:stroke-dashoffset 1s ease;filter:drop-shadow(0 0 6px ${color}88)"/>
+  const trackColor='rgba(255,255,255,.06)';
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="transform:rotate(-90deg)">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${trackColor}" stroke-width="5.5"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="5.5"
+      stroke-dasharray="${fillLen.toFixed(2)} ${(circumference-fillLen).toFixed(2)}"
+      stroke-linecap="round"
+      style="filter:drop-shadow(0 0 7px ${color}99);transition:stroke-dasharray 1.1s cubic-bezier(.4,0,.2,1)"/>
   </svg>`;
 }
 
@@ -22150,10 +22188,10 @@ function render(){
   ${sortBar}
   <div class="hab-matrix">
     <!-- Column headers -->
-    <div style="display:grid;grid-template-columns:${colsDesktop};align-items:center;gap:4px;padding:10px 16px 8px;border-bottom:0.5px solid rgba(255,255,255,.05)">
+    <div style="display:grid;grid-template-columns:${colsDesktop};align-items:center;gap:12px;padding:10px 20px 8px;border-bottom:0.5px solid rgba(255,255,255,.05)">
       <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)">ПРИВЫЧКА</div>
       ${colHead}
-      <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:0 4px">ПРОГРЕСС</div>
+      <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)">ПРОГРЕСС</div>
       <div></div>
     </div>
     <!-- Rows -->
@@ -22226,6 +22264,23 @@ window.habToggle=function(hid,key){
   const wasDone=!!l[hid][key];
   if(wasDone)delete l[hid][key];else l[hid][key]=1;
   lSave(l);render();
+  // Анимируем прогресс-бары и счётчики после перерисовки
+  setTimeout(()=>{
+    animateBars('.hab-prog-fill', 0);
+    document.querySelectorAll('.hab-prog-pct[data-target]').forEach(el=>{
+      const target=parseInt(el.dataset.target)||0;
+      if(target===0){el.textContent='0%';return;}
+      let start=null;const dur=700;
+      const step=ts=>{
+        if(!start)start=ts;
+        const p=Math.min((ts-start)/dur,1);
+        const ease=1-Math.pow(1-p,3);
+        el.textContent=Math.round(ease*target)+'%';
+        if(p<1)requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+  }, 30);
   if(!wasDone&&key===today()){
     try{window.showToast&&showToast('Выполнено!','✅');}catch{}
     // Check perfect day
@@ -25240,12 +25295,22 @@ async function buildRoomCard(room, myRole, user){
       <!-- top strip: score pill + text -->
       <div class="chab-hero-top">
 
-        <!-- Score pill -->
-        <div class="chab-score-pill">
-          <div class="chab-score-fill" style="height:${myTodayPct}%;background:linear-gradient(180deg,${heroColor}77,${heroColor})"></div>
-          <div class="chab-score-shine"></div>
-          <div class="chab-score-text">
-            <div class="chab-score-num" style="color:${myTodayPct>10?'#fff':heroColor}">${myTodayPct}%</div>
+        <!-- Score ring -->
+        <div style="position:relative;flex-shrink:0;width:80px;height:80px;">
+          ${(()=>{
+            const r2=30,sz2=80,cx2=sz2/2,cy2=sz2/2;
+            const circ2=2*Math.PI*r2;
+            const fill2=circ2*(myTodayPct/100);
+            return `<svg width="${sz2}" height="${sz2}" viewBox="0 0 ${sz2} ${sz2}" style="transform:rotate(-90deg)">
+              <circle cx="${cx2}" cy="${cy2}" r="${r2}" fill="none" stroke="rgba(168,85,247,.12)" stroke-width="5.5"/>
+              <circle cx="${cx2}" cy="${cy2}" r="${r2}" fill="none" stroke="${heroColor}" stroke-width="5.5"
+                stroke-dasharray="${fill2.toFixed(2)} ${(circ2-fill2).toFixed(2)}"
+                stroke-linecap="round"
+                style="filter:drop-shadow(0 0 7px ${heroColor}99);transition:stroke-dasharray 1.1s cubic-bezier(.4,0,.2,1)"/>
+            </svg>`;
+          })()}
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
+            <div class="chab-score-num" style="color:${heroColor}">${myTodayPct}%</div>
             <div class="chab-score-lbl">Мой день</div>
           </div>
         </div>
