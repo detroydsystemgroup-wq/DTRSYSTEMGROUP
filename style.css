@@ -13165,3 +13165,180 @@ html[data-theme="light"] .nav-icon-btn:hover {
   }
 }
 /* END USER PROFILE v2 */
+
+/* ══════════════════════════════════════════════════════════════
+   USER PROFILE v2 — BUG-FIX PATCH
+   Fixes: overflow clipping, grid squeezing, KPI wrapping
+══════════════════════════════════════════════════════════════ */
+
+/* 1. Overlay — full screen, zero padding, no squeezing */
+#userProfileOv {
+  padding: 0 !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* 2. Modal — true full-window panel, fixed height so it never scrolls externally */
+.up-modal {
+  width: 96vw !important;
+  max-width: 1100px !important;
+  height: 88vh !important;
+  max-height: 88vh !important;
+  min-height: 0 !important;
+  overflow: hidden !important;          /* only clips border-radius — children handle own scroll */
+  display: flex !important;
+  flex-direction: column !important;
+  border-radius: 22px !important;
+}
+
+/* 3. Cover — fixed height, never shrinks */
+.up-cover {
+  flex-shrink: 0 !important;
+  height: 200px !important;
+  min-height: 200px !important;
+  overflow: hidden !important;
+}
+
+/* 4. Layout grid — CRITICAL: flex:1 + min-height:0 unlocks child scrolling */
+.up-layout {
+  display: grid !important;
+  grid-template-columns: 300px 1fr !important;
+  flex: 1 1 0 !important;
+  min-height: 0 !important;             /* CSS grid/flex must have this or children can't scroll */
+  overflow: hidden !important;
+  align-items: stretch !important;
+}
+
+/* 5. Sidebar — min-width:0 prevents grid blowout, overflow-y for its own scroll */
+.up-sidebar {
+  min-width: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 68px 26px 28px !important;
+  border-right: 0.5px solid rgba(255,255,255,.06) !important;
+  height: 100% !important;
+  box-sizing: border-box !important;
+  scrollbar-width: none !important;
+}
+.up-sidebar::-webkit-scrollbar { display: none !important; }
+
+/* 6. Data panel — min-width:0 is the KEY fix for 1fr grid column overflow */
+.up-data {
+  min-width: 0 !important;              /* without this, 1fr ignores its constraint */
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 26px 30px 30px !important;
+  height: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* 7. KPI grid — 2×2 avoids horizontal overflow on any realistic viewport */
+.up-kpi-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 10px !important;
+  margin-bottom: 18px !important;
+}
+
+/* 8. KPI tiles — prevent text overflow inside each tile */
+.up-kpi-tile {
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+.up-kpi-number {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.up-kpi-label {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* 9. League rows — prevent text bleed */
+.up-league-row {
+  min-width: 0 !important;
+}
+.up-league-row > div { min-width: 0 !important; }
+
+/* 10. Name — ellipsis if extremely long */
+.up-name {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* 11. Actions inside sidebar — full width columns */
+.up-actions {
+  width: 100% !important;
+}
+.up-action-btn {
+  box-sizing: border-box !important;
+}
+
+/* ── Responsive breakpoints ─────────────────────────────── */
+
+/* Medium viewport: narrow sidebar */
+@media (max-width: 860px) {
+  .up-layout {
+    grid-template-columns: 240px 1fr !important;
+  }
+  .up-sidebar {
+    padding: 64px 20px 20px !important;
+  }
+  .up-name {
+    font-size: 22px !important;
+  }
+  .up-data {
+    padding: 20px 20px 24px !important;
+  }
+}
+
+/* Mobile — full-width bottom sheet, single column */
+@media (max-width: 600px) {
+  #userProfileOv {
+    align-items: flex-end !important;
+  }
+  .up-modal {
+    width: 100% !important;
+    height: auto !important;
+    max-height: 92dvh !important;
+    border-radius: 24px 24px 0 0 !important;
+  }
+  .up-cover {
+    height: 140px !important;
+    min-height: 140px !important;
+  }
+  .up-layout {
+    grid-template-columns: 1fr !important;
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+    overflow-y: auto !important;
+    max-height: calc(92dvh - 140px) !important;
+  }
+  .up-sidebar {
+    height: auto !important;
+    padding: 56px 18px 16px !important;
+    border-right: none !important;
+    border-bottom: 0.5px solid rgba(255,255,255,.06) !important;
+    overflow: visible !important;
+  }
+  .up-data {
+    height: auto !important;
+    overflow: visible !important;
+    padding: 18px 18px 24px !important;
+  }
+  .up-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  #upAv {
+    width: 90px !important;
+    height: 90px !important;
+    font-size: 44px !important;
+    bottom: -36px !important;
+    left: 18px !important;
+  }
+}
+/* END BUG-FIX PATCH */
