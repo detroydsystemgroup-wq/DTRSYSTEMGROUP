@@ -11576,12 +11576,13 @@ html[data-theme="light"] .nav-icon-btn:hover {
   background: linear-gradient(180deg, rgba(14,13,10,.98), rgba(10,10,8,.99)) !important;
 }
 .up-cover {
-  height: 160px !important;
+  height: 80px !important;             /* уменьшаем: аватар больше не в cover */
   position: relative !important;
   background: linear-gradient(135deg, rgba(20,18,14,.95), rgba(30,28,20,.9)) !important;
   display: flex !important;
   align-items: flex-end !important;
   padding: 0 24px 0 !important;
+  flex-shrink: 0 !important;
 }
 .up-av {
   width: 90px !important;
@@ -12215,21 +12216,28 @@ html[data-theme="light"] .nav-icon-btn:hover {
 #userProfileOv .up-cover-level[style*="display:none"] { display: none !important; }
 
 /* ━━ AVATAR ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-#userProfileOv #upAv {
-  width: 120px !important; height: 120px !important;
-  font-size: 60px !important; border-radius: 24px !important;
-  position: absolute !important; bottom: -44px !important;
-  left: 50% !important; transform: translateX(-50%) !important;
-  z-index: 6 !important;
+#userProfileOv #upAv,
+#userProfileOv .up-av-inline {
+  width: 108px !important; height: 108px !important;
+  font-size: 54px !important; border-radius: 22px !important;
+  position: static !important;            /* нормальный поток, не absolute */
   background: linear-gradient(135deg,#1a1809,#2a2410) !important;
-  border: 2.5px solid rgba(245,200,66,.5) !important;
+  border: 2.5px solid rgba(245,200,66,.45) !important;
   display: flex !important; align-items: center !important;
   justify-content: center !important; overflow: hidden !important;
+  flex-shrink: 0 !important;
+  margin: 0 auto 16px !important;         /* по центру + отступ под аватар */
+  box-shadow: 0 8px 32px rgba(0,0,0,.55),
+              0 0 0 4px rgba(245,200,66,.08),
+              0 0 28px rgba(245,200,66,.15) !important;
   animation: upAvGlow 3.5s ease-in-out infinite !important;
-  transition: transform .24s cubic-bezier(.34,1.56,.64,1) !important;
+  transition: transform .24s cubic-bezier(.34,1.56,.64,1),
+              border-color .3s, box-shadow .3s !important;
+  cursor: default !important;
 }
-#userProfileOv #upAv:hover {
-  transform: translateX(-50%) scale(1.05) translateY(-5px) !important;
+#userProfileOv #upAv:hover,
+#userProfileOv .up-av-inline:hover {
+  transform: scale(1.05) translateY(-4px) !important;
 }
 
 /* Close button */
@@ -12259,10 +12267,11 @@ html[data-theme="light"] .nav-icon-btn:hover {
    LEFT SIDEBAR
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv .up-sidebar {
-  width: 300px !important; min-width: 300px !important; flex-shrink: 0 !important;
-  padding: 82px 24px 28px !important; box-sizing: border-box !important;
+  width: 280px !important; min-width: 280px !important; flex-shrink: 0 !important;
+  padding: 28px 24px 28px !important;    /* без огромного top-padding под аватар */
+  box-sizing: border-box !important;
   display: flex !important; flex-direction: column !important; gap: 0 !important;
-  align-items: center !important;                /* центровка по горизонтали */
+  align-items: center !important;        /* всё по центру */
   overflow-y: auto !important; overflow-x: hidden !important;
   scroll-behavior: smooth !important; -webkit-overflow-scrolling: touch !important;
   overscroll-behavior: contain !important; scrollbar-width: none !important;
@@ -12270,39 +12279,40 @@ html[data-theme="light"] .nav-icon-btn:hover {
 }
 #userProfileOv .up-sidebar::-webkit-scrollbar { display:none !important; }
 
-/* ── Name — по центру ── */
+/* ── Name — по центру, без обрезки ── */
 #userProfileOv #upName {
   font-family: 'DM Sans', sans-serif !important;
-  font-size: 28px !important; font-weight: 800 !important;
-  letter-spacing: -.05em !important; line-height: 1.1 !important;
+  font-size: 26px !important; font-weight: 800 !important;
+  letter-spacing: -.04em !important; line-height: 1.15 !important;
   color: #F2F0E8 !important; margin: 0 0 6px !important;
   word-break: break-word !important;
   text-align: center !important;
   width: 100% !important;
+  white-space: normal !important;
   animation: upSlideL .4s .1s ease both !important;
 }
 
-/* ── Gold thin divider — по центру ── */
+/* ── Gold divider — симметричный fade ── */
 #userProfileOv .up-sidebar-divider {
-  height: 0.5px !important; margin: 0 0 14px !important; flex-shrink: 0 !important;
+  height: 0.5px !important; margin: 14px 0 !important; flex-shrink: 0 !important;
   width: 100% !important;
   background: linear-gradient(90deg,transparent,rgba(245,200,66,.4),transparent) !important;
   animation: upSlideL .35s .18s ease both !important;
 }
 
-/* ── Join date — по центру ── */
+/* ── Date — по центру ── */
 #userProfileOv #upMeta {
   display: flex !important; flex-direction: column !important;
   align-items: center !important;
-  gap: 0 !important; margin-bottom: 14px !important;
+  gap: 0 !important; margin-bottom: 0 !important;
   animation: upSlideL .4s .22s ease both !important;
 }
 #userProfileOv #upMeta > span:first-child {
   display: inline-flex !important; align-items: center !important;
-  gap: 6px !important; font-size: 12.5px !important;
-  color: var(--t2) !important; font-weight: 500 !important;
+  gap: 6px !important; font-size: 12px !important;
+  color: var(--t3) !important; font-weight: 500 !important;
+  text-align: center !important;
 }
-/* Hide likes span — shown in #upLikesChip pill instead */
 #userProfileOv #upMeta > span:nth-child(2) { display: none !important; }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -12368,7 +12378,9 @@ html[data-theme="light"] .nav-icon-btn:hover {
 /* ── ACTION BUTTONS — compact, no gaps ── */
 #userProfileOv #upActions {
   display: flex !important; flex-direction: column !important;
+  align-items: stretch !important;
   gap: 8px !important; margin-top: 4px !important;
+  width: 100% !important;
   animation: upSlideL .4s .34s ease both !important;
 }
 #userProfileOv #upActions .up-action-btn,
@@ -12592,80 +12604,73 @@ html[data-theme="light"] .nav-icon-btn:hover {
 /* END SYMMETRY FIX */
 
 /* ══════════════════════════════════════════════════════════════
-   PROFILE SIDEBAR — HERO ROW LAYOUT v6 (центрированный)
-   Аватар по центру · Ник + дата под ним · симметрия
+   PROFILE SIDEBAR — HERO ROW LAYOUT v5.2
+   Аватар слева · Ник + дата справа · Pills + кнопки под ними
 ══════════════════════════════════════════════════════════════ */
 
-/* Сайдбар: padding-top даёт место под выступающий аватар */
+/* Сайдбар: уменьшаем top padding (имя теперь рядом с аватаром) */
 #userProfileOv .up-sidebar {
-  padding: 80px 20px 28px !important;
-  align-items: center !important;      /* всё по центру */
+  padding: 6px 20px 28px !important;
 }
 
-/* ── HERO ROW: column — аватар-slot сверху, инфо снизу ── */
+/* ── HERO ROW: [avatar-slot] [name + date] ── */
 #userProfileOv .up-hero-row {
   display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  gap: 0 !important;
-  margin-bottom: 10px !important;
-  width: 100% !important;
-  min-height: unset !important;
+  flex-direction: row !important;
+  align-items: flex-end !important;  /* прижать к нижнему краю аватара */
+  gap: 14px !important;
+  margin-bottom: 14px !important;
+  /* min-height = перекрытие аватара в sidebar (bottom:-52px, h:132px → 52px видимой части) */
+  min-height: 58px !important;
 }
 
-/* Slot = держит вертикальное место под выступающий аватар (44px) */
+/* Slot = визуальная "колонка аватара".
+   Аватар: left:36px от modal, padding sidebar: 20px → 16px от края контента.
+   Ширина аватара 132px → правый край аватара: 16+132 = 148px от контента. */
 #userProfileOv .up-avatar-slot {
-  width: 100% !important;
-  min-width: unset !important;
-  height: 44px !important;
+  width: 148px !important;
+  min-width: 148px !important;
   flex-shrink: 0 !important;
+  /* Пустой блок — только держит пространство под аватар */
 }
 
-/* Info = имя + дата — по центру */
+/* Info = ник + дата, занимает остаток */
 #userProfileOv .up-hero-info {
-  flex: unset !important;
-  width: 100% !important;
+  flex: 1 !important;
   min-width: 0 !important;
   display: flex !important;
   flex-direction: column !important;
-  align-items: center !important;
-  gap: 4px !important;
-  padding: 8px 0 0 !important;
+  gap: 5px !important;
+  padding-bottom: 6px !important; /* выровнять с нижним краем аватара */
   animation: upSlideL .4s .1s ease both !important;
 }
 
-/* Ник — по центру, полная ширина, без обрезки */
+/* Ник — меньше, чтобы вписаться в оставшиеся ~120px */
 #userProfileOv #upName {
-  font-size: 26px !important;
+  font-size: 22px !important;
   font-weight: 800 !important;
   letter-spacing: -.04em !important;
-  line-height: 1.15 !important;
+  line-height: 1.1 !important;
   margin: 0 !important;
-  white-space: normal !important;
-  overflow: visible !important;
-  text-overflow: unset !important;
-  word-break: break-word !important;
-  text-align: center !important;
-  width: 100% !important;
-  animation: none !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  animation: none !important; /* наследуется от up-hero-info */
 }
 
-/* Дата — по центру */
+/* Дата — компактная, без нижнего отступа */
 #userProfileOv #upMeta {
   margin-bottom: 0 !important;
-  align-items: center !important;
-  text-align: center !important;
   animation: none !important;
 }
 #userProfileOv #upMeta > span:first-child {
   font-size: 11.5px !important;
   color: var(--t3) !important;
   font-weight: 500 !important;
-  text-align: center !important;
 }
 #userProfileOv #upMeta > span:nth-child(2) { display: none !important; }
 
-/* Разделитель — по центру, fade из центра */
+/* Разделитель — полная ширина после hero row */
 #userProfileOv .up-sidebar-divider {
   animation: upSlideL .35s .22s ease both !important;
 }
@@ -12687,14 +12692,10 @@ html[data-theme="light"] .nav-icon-btn:hover {
   white-space: nowrap !important;
 }
 
-/* Кнопки — по центру, полная ширина */
+/* Кнопки — тот же border-radius и высота */
 #userProfileOv #upActions {
   gap: 8px !important;
   margin-top: 0 !important;
-  width: 100% !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: stretch !important;
   animation: upSlideL .4s .34s ease both !important;
 }
 #userProfileOv #upActions .up-action-btn,
@@ -12717,76 +12718,68 @@ html[data-theme="light"] .nav-icon-btn:hover {
   gap: 0 !important;
 }
 
-/* ── Hero row: column — аватар по центру, имя ниже ── */
+/* ── Hero row: flex, аватар-placeholder слева, инфо справа ── */
 #userProfileOv .up-hero-row,
 #userProfileOv .up-sidebar-header {
   display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  gap: 0 !important;
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
+  flex-direction: row !important;
+  align-items: flex-end !important;   /* выравнивание по нижней части аватара */
+  gap: 14px !important;
+  padding-top: 12px !important;       /* маленький отступ сверху */
+  padding-bottom: 14px !important;
   margin-bottom: 0 !important;
-  width: 100% !important;
 }
 
-/* ── Avatar placeholder: только высота ── */
+/* ── Avatar placeholder (зеркалит позицию реального #upAv) ──
+   Реальный аватар: left:36px, width:132px, выступает 52px ниже cover.
+   132px → 36-24=12px от левого края контента → 144px суммарно.         */
 #userProfileOv .up-avatar-slot,
 #userProfileOv .up-sidebar-av-space {
-  width: 100% !important;
-  height: 44px !important;
+  width: 120px !important;            /* чуть меньше аватара — органичный отступ */
+  height: 56px !important;            /* видимая часть аватара в sidebar */
   flex-shrink: 0 !important;
   pointer-events: none !important;
 }
 
-/* ── Info block: по центру ── */
+/* ── Info block: имя + дата ── */
 #userProfileOv .up-hero-info,
 #userProfileOv .up-sidebar-info {
-  flex: unset !important;
-  width: 100% !important;
+  flex: 1 1 0 !important;
   min-width: 0 !important;
   display: flex !important;
   flex-direction: column !important;
-  align-items: center !important;
   gap: 4px !important;
-  padding: 8px 0 6px !important;
+  padding-bottom: 4px !important;
 }
 
-/* ── Name — по центру, полная ширина ── */
+/* ── Name — компактнее для горизонтального макета ── */
 #userProfileOv #upName {
-  font-size: 28px !important;
+  font-size: 26px !important;
   font-weight: 800 !important;
   letter-spacing: -.04em !important;
-  line-height: 1.15 !important;
+  line-height: 1.1 !important;
   margin: 0 !important;
-  overflow: visible !important;
-  text-overflow: unset !important;
-  white-space: normal !important;
-  word-break: break-word !important;
-  text-align: center !important;
-  width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
   animation: upSlideL .4s .1s ease both !important;
 }
 
-/* ── Meta (дата) — по центру ── */
+/* ── Meta (дата) — в info block ── */
 #userProfileOv #upMeta {
   margin-bottom: 0 !important;
-  align-items: center !important;
-  text-align: center !important;
   animation: upSlideL .35s .18s ease both !important;
 }
 #userProfileOv #upMeta > span:first-child {
   font-size: 11.5px !important;
   color: var(--t3) !important;
   font-weight: 500 !important;
-  text-align: center !important;
 }
 #userProfileOv #upMeta > span:nth-child(2) { display: none !important; }
 
-/* ── Divider: fade из центра ── */
+/* ── Divider: сразу после hero row ── */
 #userProfileOv .up-sidebar-divider {
   margin: 0 0 14px !important;
-  background: linear-gradient(90deg,transparent,rgba(245,200,66,.4),transparent) !important;
   animation: upSlideL .3s .22s ease both !important;
 }
 
