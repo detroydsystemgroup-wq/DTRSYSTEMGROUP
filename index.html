@@ -5081,13 +5081,338 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
 
 
 /* ══ PUBLIC PROFILE MODAL ══════════════════════════════════════ */
+/* ══ PUBLIC PROFILE MODAL v2 ══════════════════════════════════ */
+@keyframes pubModalIn {
+  0%   { opacity:0; transform:scale(.88) translateY(32px); filter:blur(6px); }
+  55%  { opacity:1; transform:scale(1.012) translateY(-4px); filter:blur(0); }
+  80%  { transform:scale(.997) translateY(1px); }
+  100% { transform:scale(1) translateY(0); }
+}
+@keyframes pubCoverShimmer {
+  0%   { transform:translateX(-100%) skewX(-15deg); opacity:0; }
+  30%  { opacity:1; }
+  100% { transform:translateX(200%) skewX(-15deg); opacity:0; }
+}
+@keyframes pubAvatarGlow {
+  0%,100% { box-shadow:0 0 0 0 rgba(245,200,66,0), 0 8px 32px rgba(0,0,0,.8); }
+  50%     { box-shadow:0 0 0 6px rgba(245,200,66,.12), 0 8px 32px rgba(0,0,0,.8); }
+}
+@keyframes pubStatPop {
+  0%   { opacity:0; transform:translateY(14px) scale(.9); }
+  65%  { transform:translateY(-2px) scale(1.03); }
+  100% { opacity:1; transform:translateY(0) scale(1); }
+}
+@keyframes pubLinkSlide {
+  from { opacity:0; transform:translateY(10px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+@keyframes pubAuroraMove {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 .pub-modal {
-  background: #0C0C14 !important;
-  border: 0.5px solid rgba(255,255,255,.08) !important;
-  border-radius: 22px !important;
-  padding: 24px !important;
-  max-width: 400px !important;
-  box-shadow: 0 24px 60px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.04) !important;
+  background: linear-gradient(180deg, #0E0D0A 0%, #09090B 100%) !important;
+  border: 0.5px solid rgba(245,200,66,.15) !important;
+  border-radius: 28px !important;
+  padding: 0 !important;
+  max-width: 460px !important;
+  width: 100% !important;
+  box-shadow:
+    0 0 0 0.5px rgba(255,255,255,.04),
+    0 32px 80px rgba(0,0,0,.85),
+    0 8px 32px rgba(0,0,0,.5),
+    inset 0 1px 0 rgba(255,255,255,.05) !important;
+  overflow: hidden !important;
+  animation: pubModalIn .52s cubic-bezier(.34,1.15,.64,1) both !important;
+}
+
+/* Cover section */
+.pub-cover {
+  position: relative;
+  height: 120px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #0F0E08, #0A0A0F);
+}
+.pub-cover-aurora {
+  position: absolute;
+  inset: -30px;
+  background: linear-gradient(
+    -45deg,
+    rgba(245,200,66,.22) 0%,
+    rgba(168,85,247,.14) 25%,
+    rgba(26,159,255,.1) 50%,
+    rgba(245,200,66,.18) 75%,
+    rgba(168,85,247,.12) 100%
+  );
+  background-size: 300% 300%;
+  animation: pubAuroraMove 6s ease infinite;
+  filter: blur(20px);
+}
+.pub-cover-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(to bottom, transparent, rgba(0,0,0,.4) 40%, rgba(0,0,0,.8) 100%);
+}
+.pub-cover-fade {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 60px;
+  background: linear-gradient(to bottom, transparent, #09090B);
+}
+.pub-cover-shimmer-sweep {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,.06) 50%, transparent 60%);
+  animation: pubCoverShimmer 3.5s ease-in-out infinite 1s;
+}
+/* Close btn */
+.pub-close-btn {
+  position: absolute;
+  top: 14px; right: 14px;
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  background: rgba(0,0,0,.5);
+  border: 0.5px solid rgba(255,255,255,.1);
+  color: rgba(255,255,255,.5);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s;
+  z-index: 2;
+  backdrop-filter: blur(8px);
+}
+.pub-close-btn:hover { background: rgba(255,255,255,.1); color: var(--t1); }
+
+/* Body */
+.pub-body {
+  padding: 0 24px 24px;
+  position: relative;
+}
+
+/* Avatar row */
+.pub-avatar-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-top: -36px;
+  margin-bottom: 16px;
+  position: relative;
+  z-index: 2;
+}
+.pub-avatar {
+  width: 72px; height: 72px;
+  border-radius: 20px;
+  font-size: 36px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #1A1814, #0E0D0A);
+  border: 2px solid rgba(245,200,66,.4);
+  box-shadow: 0 8px 32px rgba(0,0,0,.8);
+  overflow: hidden;
+  flex-shrink: 0;
+  animation: pubAvatarGlow 3s ease-in-out infinite;
+}
+.pub-avatar img { width:100%; height:100%; object-fit:cover; }
+
+/* Like button */
+.pub-like-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 0.5px solid rgba(255,255,255,.1);
+  background: rgba(255,255,255,.04);
+  transition: all .22s cubic-bezier(.34,1.4,.64,1);
+  margin-bottom: 2px;
+}
+.pub-like-btn:hover { transform: scale(1.05); }
+.pub-like-btn.liked {
+  background: rgba(239,68,68,.1) !important;
+  border-color: rgba(239,68,68,.3) !important;
+  box-shadow: 0 4px 16px rgba(239,68,68,.15) !important;
+}
+
+/* Name block */
+.pub-name {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -.03em;
+  color: var(--t1);
+  line-height: 1.1;
+  margin-bottom: 6px;
+}
+.pub-level-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px 3px 8px;
+  border-radius: 20px;
+  background: rgba(245,200,66,.08);
+  border: 0.5px solid rgba(245,200,66,.2);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+/* Divider */
+.pub-divider {
+  height: 0.5px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.08) 30%, rgba(255,255,255,.08) 70%, transparent);
+  margin: 16px 0;
+}
+
+/* Stats grid */
+.pub-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.pub-stat {
+  text-align: center;
+  padding: 14px 10px;
+  border-radius: 16px;
+  background: rgba(255,255,255,.025);
+  border: 0.5px solid rgba(255,255,255,.06);
+  position: relative;
+  overflow: hidden;
+  transition: transform .22s cubic-bezier(.34,1.4,.64,1), box-shadow .2s;
+}
+.pub-stat::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--stat-color, var(--gold));
+  opacity: .7;
+  border-radius: 2px 2px 0 0;
+}
+.pub-stat::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, var(--stat-bg, rgba(245,200,66,.06)), transparent 70%);
+  pointer-events: none;
+}
+.pub-stat:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+.pub-stat-val {
+  font-family: 'DM Mono', monospace;
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: -.03em;
+  line-height: 1;
+  color: var(--stat-color, var(--gold));
+  margin-bottom: 5px;
+  text-shadow: 0 0 24px var(--stat-glow, rgba(245,200,66,.3));
+}
+.pub-stat-lbl {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.28);
+}
+
+/* Leagues row */
+.pub-leagues {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.pub-league-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.2);
+  margin-right: 2px;
+}
+.pub-league-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.03);
+  border: 0.5px solid rgba(255,255,255,.08);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: rgba(255,255,255,.55);
+  transition: all .18s cubic-bezier(.34,1.4,.64,1);
+}
+.pub-league-pill:hover {
+  background: rgba(255,255,255,.07);
+  color: var(--t1);
+  transform: translateY(-1px);
+}
+
+/* Share section */
+.pub-share {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  animation: pubLinkSlide .4s .3s cubic-bezier(.34,1.2,.64,1) both;
+}
+.pub-url-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  height: 46px;
+  background: rgba(255,255,255,.03);
+  border: 0.5px solid rgba(255,255,255,.07);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: border-color .18s, background .18s;
+}
+.pub-url-wrap:focus-within {
+  border-color: rgba(245,200,66,.3);
+  background: rgba(245,200,66,.03);
+}
+.pub-url-wrap input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: rgba(255,255,255,.4);
+  font-size: 11px;
+  font-family: 'DM Mono', monospace;
+  letter-spacing: .01em;
+  min-width: 0;
+}
+.pub-copy-btn {
+  height: 46px;
+  padding: 0 22px;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(135deg, var(--gold-d), var(--gold));
+  color: #0A0A0B;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'DM Sans', sans-serif;
+  letter-spacing: .02em;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 4px 20px rgba(245,200,66,.3), inset 0 1px 0 rgba(255,255,255,.2);
+  transition: all .22s cubic-bezier(.34,1.4,.64,1);
+}
+.pub-copy-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(245,200,66,.45), inset 0 1px 0 rgba(255,255,255,.2);
+}
+.pub-copy-btn:active { transform: translateY(0) scale(.97); }
+.pub-copy-btn.copied {
+  background: linear-gradient(135deg, #15803d, #22C55E) !important;
+  box-shadow: 0 4px 20px rgba(34,197,94,.35) !important;
 }
 
 
@@ -13084,27 +13409,71 @@ html[data-theme="light"] .nav-icon-btn:hover {
 
 <div class="ov" id="pubOv" onclick="olClick(event,'pubOv')">
   <div class="modal pub-modal">
-    <!-- Header -->
-    <div style="padding:22px 24px 18px;border-bottom:0.5px solid rgba(255,255,255,.05);display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <div style="font-size:15px;font-weight:500;color:var(--t1);letter-spacing:-.01em">Публичный профиль</div>
-        <div style="font-size:11px;color:var(--t3);margin-top:2px;font-weight:400">Поделись своим прогрессом</div>
-      </div>
-      <button onclick="closePub()" style="width:30px;height:30px;border-radius:9px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.07);color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s" onmouseover="this.style.background='rgba(255,255,255,.1)';this.style.color='var(--t1)'" onmouseout="this.style.background='rgba(255,255,255,.05)';this.style.color='var(--t3)'">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+
+    <!-- ── CINEMATIC COVER ── -->
+    <div class="pub-cover">
+      <div class="pub-cover-aurora"></div>
+      <div class="pub-cover-grid"></div>
+      <div class="pub-cover-shimmer-sweep"></div>
+      <div class="pub-cover-fade"></div>
+      <button class="pub-close-btn" onclick="closePub()">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
-    <!-- Profile card preview -->
-    <div style="padding:20px 24px">
-      <div id="pubPrev" style="margin-bottom:18px;border-radius:18px;overflow:hidden"></div>
-      <!-- Share URL row -->
-      <div style="display:flex;gap:8px;align-items:center">
-        <div style="flex:1;display:flex;align-items:center;gap:9px;padding:0 14px;height:42px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.08);border-radius:13px;overflow:hidden">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="2" style="flex-shrink:0"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-          <input id="pubUrl" readonly onclick="this.select()" style="flex:1;background:transparent;border:none;outline:none;color:var(--t3);font-size:11.5px;font-family:'DM Mono',monospace;letter-spacing:.01em;min-width:0">
-        </div>
-        <button id="cpyBtn" onclick="copyUrl()" style="height:42px;padding:0 18px;border-radius:13px;border:none;background:linear-gradient(135deg,#1a6e3a,#22C55E);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;flex-shrink:0;letter-spacing:.02em;box-shadow:0 4px 16px rgba(34,197,94,.25)">Копировать</button>
+
+    <!-- ── BODY ── -->
+    <div class="pub-body">
+
+      <!-- Avatar row -->
+      <div class="pub-avatar-row">
+        <div class="pub-avatar" id="pubAvatar">🎯</div>
+        <button id="likeBtn" class="pub-like-btn" onclick="likeMyProfile()">
+          <svg id="likeIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="2">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+          <span id="likeCnt" style="font-family:'DM Mono',monospace;font-size:14px;font-weight:400;color:rgba(255,255,255,.55);letter-spacing:-.01em">0</span>
+        </button>
       </div>
+
+      <!-- Name + level -->
+      <div class="pub-name" id="pubName">—</div>
+      <div class="pub-level-pill" id="pubLevelPill">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        <span id="pubLevelText">Новичок</span>
+      </div>
+
+      <div class="pub-divider"></div>
+
+      <!-- Stats -->
+      <div class="pub-stats" id="pubStats">
+        <div class="pub-stat" style="--stat-color:#F5C842;--stat-bg:rgba(245,200,66,.07);--stat-glow:rgba(245,200,66,.25)">
+          <div class="pub-stat-val" id="pubStatHrs">—</div>
+          <div class="pub-stat-lbl">Часов</div>
+        </div>
+        <div class="pub-stat" style="--stat-color:#F97316;--stat-bg:rgba(249,115,22,.07);--stat-glow:rgba(249,115,22,.25)">
+          <div class="pub-stat-val" id="pubStatAch">—</div>
+          <div class="pub-stat-lbl">Наград</div>
+        </div>
+        <div class="pub-stat" style="--stat-color:#4ADE80;--stat-bg:rgba(74,222,128,.07);--stat-glow:rgba(74,222,128,.2)">
+          <div class="pub-stat-val" id="pubStatStreak">—</div>
+          <div class="pub-stat-lbl">Дисциплина</div>
+        </div>
+      </div>
+
+      <!-- Leagues -->
+      <div class="pub-leagues" id="pubLeagues">
+        <span class="pub-league-label">Лиги</span>
+      </div>
+
+      <!-- Share -->
+      <div class="pub-share">
+        <div class="pub-url-wrap">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="2" style="flex-shrink:0"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          <input id="pubUrl" readonly onclick="this.select()">
+        </div>
+        <button id="cpyBtn" class="pub-copy-btn" onclick="copyUrl()">Копировать</button>
+      </div>
+
     </div>
   </div>
 </div>
@@ -17856,74 +18225,101 @@ async function openPub(){
     iLiked=!!myLike;
   }
 
-  const levelTitle = document.getElementById('profTitle')?.textContent || '';
-  document.getElementById('pubPrev').innerHTML=`
-    <div style="background:rgba(255,255,255,.025);border:0.5px solid rgba(255,255,255,.07);border-radius:16px;overflow:hidden">
-      <!-- Cover strip -->
-      <div style="height:56px;background:linear-gradient(135deg,rgba(245,200,66,.1) 0%,rgba(168,85,247,.06) 60%,transparent 100%);position:relative">
-        <div style="position:absolute;bottom:0;left:0;right:0;height:24px;background:linear-gradient(to bottom,transparent,rgba(10,9,7,1))"></div>
-      </div>
-      <!-- Avatar + name -->
-      <div style="padding:0 18px 16px;margin-top:-24px;position:relative">
-        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px">
-          <div style="display:flex;align-items:flex-end;gap:12px">
-            <div style="width:52px;height:52px;border-radius:14px;overflow:hidden;font-size:28px;display:flex;align-items:center;justify-content:center;background:rgba(10,9,7,.95);border:1.5px solid rgba(245,200,66,.25);flex-shrink:0;box-shadow:0 4px 16px rgba(0,0,0,.6)">
-              ${P.avatarUrl?`<img src="${P.avatarUrl}" style="width:100%;height:100%;object-fit:cover">`:P.avatar}
-            </div>
-            <div style="padding-bottom:4px">
-              <div style="font-size:16px;font-weight:600;letter-spacing:-.02em;color:var(--t1);line-height:1.2">${P.name}</div>
-              <div style="font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-top:4px;opacity:.7">${levelTitle}</div>
-            </div>
-          </div>
-          <button id="likeBtn" onclick="likeMyProfile()" style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;margin-bottom:4px;border-radius:10px;cursor:pointer;background:${iLiked?'rgba(239,68,68,.1)':'rgba(255,255,255,.05)'};border:0.5px solid ${iLiked?'rgba(239,68,68,.25)':'rgba(255,255,255,.1)'};transition:all .2s cubic-bezier(.34,1.4,.64,1)">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="${iLiked?'#ef4444':'none'}" stroke="${iLiked?'#ef4444':'rgba(255,255,255,.45)'}" stroke-width="2">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-            </svg>
-            <span id="likeCnt" style="font-family:'DM Mono',monospace;font-size:13px;font-weight:400;color:${iLiked?'#ef4444':'rgba(255,255,255,.6)'};letter-spacing:-.01em">${likesCount}</span>
-          </button>
-        </div>
-        <!-- Stats row -->
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px">
-          ${[
-            ['Часов', (thPub<10?thPub.toFixed(1):Math.round(thPub)), '#F5C842'],
-            ['Наград', unl, '#F97316'],
-            ['Дисциплина', P.streak, '#4ADE80']
-          ].map(([l,v,c])=>`
-            <div style="text-align:center;padding:11px 8px;background:rgba(255,255,255,.03);border:0.5px solid rgba(255,255,255,.06);border-top:1.5px solid ${c}55;border-radius:12px">
-              <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:400;color:${c};line-height:1;margin-bottom:4px;letter-spacing:-.02em">${v}</div>
-              <div style="font-size:8.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.3)">${l}</div>
-            </div>`).join('')}
-        </div>
-        <!-- Leagues -->
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px">
-          <span style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.2)">Лиги</span>
-          ${cats.map(c=>`<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.07);border-radius:8px;font-size:11px;font-weight:400;color:rgba(255,255,255,.45)"><span style="color:${c.color};display:inline-flex;align-items:center">${getCatSVG(c.id,12)}</span>${c.name}</span>`).join('')}
-        </div>
-      </div>
-    </div>`;
+  const levelTitle = document.getElementById('profTitle')?.textContent || 'Новичок';
+
+  // ── Заполняем новые DOM-элементы ──
+  // Аватар
+  const pubAv = document.getElementById('pubAvatar');
+  if(pubAv) {
+    if(P.avatarUrl) {
+      pubAv.innerHTML = `<img src="${P.avatarUrl}" style="width:100%;height:100%;object-fit:cover">`;
+    } else {
+      pubAv.textContent = P.avatar || '🎯';
+    }
+  }
+
+  // Имя
+  const pubName = document.getElementById('pubName');
+  if(pubName) pubName.textContent = P.name;
+
+  // Уровень
+  const pubLevelText = document.getElementById('pubLevelText');
+  if(pubLevelText) pubLevelText.textContent = levelTitle;
+
+  // Статы
+  const hrs = thPub < 10 ? thPub.toFixed(1) : Math.round(thPub);
+  const pubStatHrs = document.getElementById('pubStatHrs');
+  const pubStatAch = document.getElementById('pubStatAch');
+  const pubStatStreak = document.getElementById('pubStatStreak');
+  if(pubStatHrs) pubStatHrs.textContent = hrs;
+  if(pubStatAch) pubStatAch.textContent = unl;
+  if(pubStatStreak) pubStatStreak.textContent = P.streak;
+
+  // Анимируем статы по очереди
+  document.querySelectorAll('.pub-stat').forEach((el, i) => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(14px) scale(.9)';
+    setTimeout(() => {
+      el.style.transition = 'opacity .35s ease, transform .45s cubic-bezier(.34,1.4,.64,1)';
+      el.style.opacity = '1';
+      el.style.transform = 'translateY(0) scale(1)';
+    }, 120 + i * 70);
+  });
+
+  // Лиги
+  const pubLeagues = document.getElementById('pubLeagues');
+  if(pubLeagues) {
+    pubLeagues.innerHTML = `<span class="pub-league-label">Лиги</span>` +
+      cats.map(c => `<span class="pub-league-pill">
+        <span style="color:${c.color};display:inline-flex;align-items:center">${getCatSVG(c.id,12)}</span>
+        ${c.name}
+      </span>`).join('');
+  }
+
+  // Like button
+  const likeBtn = document.getElementById('likeBtn');
+  const likeIcon = document.getElementById('likeIcon');
+  const likeCntEl = document.getElementById('likeCnt');
+  if(likeBtn) {
+    likeBtn.classList.toggle('liked', iLiked);
+    if(likeIcon) {
+      likeIcon.setAttribute('fill', iLiked ? '#ef4444' : 'none');
+      likeIcon.setAttribute('stroke', iLiked ? '#ef4444' : 'rgba(255,255,255,.45)');
+    }
+    if(likeCntEl) {
+      likeCntEl.textContent = likesCount;
+      likeCntEl.style.color = iLiked ? '#ef4444' : 'rgba(255,255,255,.55)';
+    }
+  }
+
   document.getElementById('pubOv').classList.add('show');
 }
 
 async function likeMyProfile(){
   if(SB_USER?.isDemoUser)return;
-  const btn=document.getElementById('likeBtn');
-  const cnt=document.getElementById('likeCnt');
-  const liked=btn.style.background.includes('248');
-  // FIX: unified to 'likes' table
-  if(liked){
+  const btn    = document.getElementById('likeBtn');
+  const icon   = document.getElementById('likeIcon');
+  const cnt    = document.getElementById('likeCnt');
+  if(!btn||!cnt) return;
+  const isLiked = btn.classList.contains('liked');
+  const n = parseInt(cnt.textContent) || 0;
+
+  if(isLiked){
     await sb.from('likes').delete().eq('from_user_id',SB_USER.id).eq('to_user_id',P.id);
-    btn.innerHTML=`🤍 <span style="font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700" id="likeCnt">${parseInt(cnt.textContent)-1}</span>`;
-    btn.style.background='var(--card)';
+    btn.classList.remove('liked');
+    if(icon){ icon.setAttribute('fill','none'); icon.setAttribute('stroke','rgba(255,255,255,.45)'); }
+    cnt.textContent = Math.max(0, n-1);
+    cnt.style.color = 'rgba(255,255,255,.55)';
   } else {
     await sb.from('likes').insert({from_user_id:SB_USER.id,to_user_id:P.id});
-    btn.style.background='rgba(239,68,68,.12)';
-    btn.style.borderColor='rgba(239,68,68,.3)';
-    btn.style.boxShadow='0 2px 12px rgba(239,68,68,.2)';
-    btn.innerHTML=`
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="#ef4444" stroke="#ef4444" stroke-width="2" style="animation:heartPop .35s cubic-bezier(.34,1.56,.64,1) both">
-        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-      </svg>
-      <span id="likeCnt" style="font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:#ef4444;min-width:16px">${parseInt(cnt.textContent)+1}</span>`;
+    btn.classList.add('liked');
+    if(icon){
+      icon.setAttribute('fill','#ef4444');
+      icon.setAttribute('stroke','#ef4444');
+      icon.style.animation='heartPop .38s cubic-bezier(.34,1.56,.64,1) both';
+    }
+    cnt.textContent = n+1;
+    cnt.style.color = '#ef4444';
   }
 }
 
@@ -17943,8 +18339,9 @@ async function copyUrl(){
     } catch(e2){}
   }
   if(ok){
-    b.textContent='✅ Скопировано!';
-    setTimeout(()=>b.textContent='Копировать',2200);
+    b.textContent='✓ Скопировано';
+    b.classList.add('copied');
+    setTimeout(()=>{ b.textContent='Копировать'; b.classList.remove('copied'); }, 2400);
     showToast('Ссылка скопирована!','🔗');
   } else {
     showToast('Не удалось скопировать','⚠️');
