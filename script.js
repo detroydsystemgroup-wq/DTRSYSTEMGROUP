@@ -2583,25 +2583,64 @@ async function openUserProfile(userId, name, av, avUrl){
     <div id="upAv" style="position:absolute;bottom:-28px;left:24px;width:88px;height:88px;border-radius:22px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:50px;border:2px solid rgba(245,200,66,.25);box-shadow:0 8px 32px rgba(0,0,0,.7),0 0 0 4px rgba(245,200,66,.06);overflow:hidden;z-index:2">${av||'🎯'}</div>`;
 
   try {
-    const [uRes, ucRes, achRes, likeRes] = await Promise.all([
+    // ── Все запросы параллельно: профиль + лиги + достижения + лайки + друг-статус ──
+    const isOwnProfile = SB_USER && (SB_USER.id === userId || SB_USER.isDemoUser);
+
+    const [uRes, ucRes, achRes, likeCountRes, myLikeRes, friendRes] = await Promise.all([
       sb.from('users').select('id,username,avatar,avatar_url,streak,total_sessions,created_at').eq('id',userId).limit(1),
       sb.from('user_categories').select('category_id,hours').eq('user_id',userId).order('hours',{ascending:false}),
       sb.from('user_achievements').select('achievement_id').eq('user_id',userId).eq('unlocked',true).limit(30),
-      sb.from('likes').select('id',{count:'exact',head:true}).eq('to_user_id',userId)
+      // Общее число лайков профиля
+      sb.from('likes').select('id',{count:'exact',head:true}).eq('to_user_id',userId),
+      // Поставил ли текущий пользователь лайк? (null если свой профиль или демо)
+      (!isOwnProfile && SB_USER && !SB_USER.isDemoUser)
+        ? sb.from('likes').select('id').eq('from_user_id',SB_USER.id).eq('to_user_id',userId).limit(1)
+        : Promise.resolve({data:[]}),
+      // Статус дружбы — прямо из БД, не из кеша _SOC
+      (!isOwnProfile && SB_USER && !SB_USER.isDemoUser)
+        ? sb.from('friend_requests')
+            .select('id,from_user,to_user,status')
+            .or(`and(from_user.eq.${SB_USER.id},to_user.eq.${userId}),and(from_user.eq.${userId},to_user.eq.${SB_USER.id})`)
+            .limit(1)
+        : Promise.resolve({data:[]}),
     ]);
 
-    const u         = uRes.data?.[0] ?? null;
-    const uc        = ucRes.data ?? [];
-    const achs      = achRes.data ?? [];
-    const totalLikes= likeRes.count ?? 0;
-    const totalH    = parseFloat(uc.reduce((s,r)=>s+(r.hours||0),0).toFixed(1));
-    const lvlInfo   = getLevelInfo(totalH);
-    const lvlColor  = lvlInfo.color.includes('gradient') ? 'var(--gold)' : lvlInfo.color;
-    const topCat    = ALL_CATS.find(c=>c.id===uc[0]?.category_id);
-    const streak    = u?.streak || 0;
-    const sessions  = u?.total_sessions || 0;
-    const username  = u?.username || name || '—';
-    const achCount  = achs.length;
+    const u          = uRes.data?.[0] ?? null;
+    const uc         = ucRes.data ?? [];
+    const achs       = achRes.data ?? [];
+    const totalLikes = likeCountRes.count ?? 0;
+    const isLiked    = (myLikeRes.data||[]).length > 0;
+
+    // ── Разбираем статус дружбы из БД ──────────────────────────
+    const friendRow    = (friendRes.data||[])[0] ?? null;
+    const isFriend     = friendRow?.status === 'accepted';
+    const isPendingOut = friendRow?.status === 'pending' && friendRow?.from_user === SB_USER?.id;
+    const isPendingIn  = friendRow?.status === 'pending' && friendRow?.to_user   === SB_USER?.id;
+    const friendReqId  = friendRow?.id ?? null; // нужен для удаления
+
+    // Синхронизируем кеш _SOC если он есть (чтобы не разъезжался)
+    if(window._SOC && friendRow && SB_USER && !SB_USER.isDemoUser){
+      const S = window._SOC;
+      if(isFriend && !S.friends.some(f=>f.id===userId)){
+        S.friends.push({reqId:friendReqId, id:userId, name:u?.username||'?', avatar:u?.avatar||'🎯', avatarUrl:u?.avatar_url||null});
+      } else if(!isFriend){
+        S.friends = S.friends.filter(f=>f.id!==userId);
+      }
+      if(isPendingOut && !S.pendingOut.some(f=>f.id===userId)){
+        S.pendingOut.push({reqId:friendReqId, id:userId, name:u?.username||'?', avatar:u?.avatar||'🎯', avatarUrl:u?.avatar_url||null});
+      } else if(!isPendingOut){
+        S.pendingOut = S.pendingOut.filter(f=>f.id!==userId);
+      }
+    }
+
+    const totalH     = parseFloat(uc.reduce((s,r)=>s+(r.hours||0),0).toFixed(1));
+    const lvlInfo    = getLevelInfo(totalH);
+    const lvlColor   = lvlInfo.color.includes('gradient') ? 'var(--gold)' : lvlInfo.color;
+    const topCat     = ALL_CATS.find(c=>c.id===uc[0]?.category_id);
+    const streak     = u?.streak || 0;
+    const sessions   = u?.total_sessions || 0;
+    const username   = u?.username || name || '—';
+    const achCount   = achs.length;
     const accentColor = topCat?.color || lvlColor;
 
     ov.dataset.userName = username;
@@ -2620,44 +2659,47 @@ async function openUserProfile(userId, name, av, avUrl){
       }
     }
 
-    // ── Name + meta ──
+    // ── Name + meta (дата, без сердечка) ──
     nameEl.textContent = username;
     const joinDate = new Date(u?.created_at||Date.now()).toLocaleDateString('ru',{month:'long',year:'numeric'});
-    // Показываем только дату регистрации — без сердечка под ником
     metaEl.innerHTML = `
       <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--t3)">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         с ${joinDate}
       </span>`;
 
-    // ── Action buttons (ONE set, clean logic) ──
-    const isOwnProfile = SB_USER && (SB_USER.id === userId || SB_USER.isDemoUser);
-    const SOC = window._SOC;
-    const isFriend     = SOC?.friends?.some(f=>f.id===userId) ?? false;
-    const isPendingOut = SOC?.pendingOut?.some(f=>f.id===userId) ?? false;
-    const isFollowing  = SOC?.follows?.includes(userId) ?? false;
-
+    // ── Кнопка «Друзья» — строится по реальному статусу из БД ──
     let friendBtn = '';
     if(!isOwnProfile){
       if(isFriend){
-        // Instagram: зелёная кнопка «Друг ✓», при наведении → «Удалить» красным
+        // Уже друг → зелёная «Друг ✓», hover → «Удалить» (Instagram)
         friendBtn = `<button class="up-action-btn up-action-green up-friend-active"
-          onclick="socConfirmRemoveFriend('${userId}')"
+          data-reqid="${friendReqId}"
+          data-targetid="${userId}"
+          onclick="_upRemoveFriendDirect(this)"
           onmouseenter="this.classList.add('up-friend-hover');this.querySelector('.fr-label').textContent='Удалить'"
-          onmouseleave="this.classList.remove('up-friend-hover');this.querySelector('.fr-label').textContent='Друг'"
-          title="Нажми чтобы удалить из друзей">
+          onmouseleave="this.classList.remove('up-friend-hover');this.querySelector('.fr-label').textContent='Друг'">
           <svg class="fr-icon-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
           <svg class="fr-icon-x" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="display:none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           <span class="fr-label">Друг</span>
         </button>`;
+      } else if(isPendingIn){
+        // Он отправил нам запрос — можно принять
+        friendBtn = `<button class="up-action-btn up-action-gold"
+          data-reqid="${friendReqId}"
+          data-targetid="${userId}"
+          onclick="_upAcceptFriendDirect(this)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Принять запрос
+        </button>`;
       } else if(isPendingOut){
-        // Запрос отправлен — неактивная кнопка как в Instagram
+        // Мы отправили запрос — ожидаем
         friendBtn = `<button class="up-action-btn" style="opacity:.55;cursor:default" disabled>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           Запрос отправлен
         </button>`;
       } else {
-        // Кнопка «+ В друзья» — золотая
+        // Не друг → золотая «+ В друзья»
         friendBtn = `<button class="up-action-btn up-action-gold"
           onclick="window.socSendFriendRequest('${userId}','${escAttr(username||'')}',this)">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
@@ -2666,21 +2708,14 @@ async function openUserProfile(userId, name, av, avUrl){
       }
     }
 
+    // ── Лайк — реальный статус из БД ───────────────────────────
     const likeCount = totalLikes;
-    let isLiked = false;
-    try { const lr = await sb.from('likes').select('id').eq('from_user_id',SB_USER?.id).eq('to_user_id',userId).limit(1); isLiked = (lr.data||[]).length>0; } catch{}
-
-    // ── Action buttons — Instagram style ──────────────────────
-    // Лайк: heart заполнен/не заполнен + счётчик
-    // Друзья: «В друзья» (gold) / «Друг ✓» (green, нажать = удалить) / «Ожидание…»
-    // Написать: всегда
-
-    const likeBtn = isOwnProfile ? '' : `
+    actEl.innerHTML = `
+      ${!isOwnProfile ? `
       <button class="up-action-btn${isLiked?' up-action-red':''}"
         id="upLikeBtn"
         onclick="toggleLikeUser()"
         data-liked="${isLiked}"
-        data-count="${likeCount}"
         title="${isLiked?'Убрать лайк':'Поставить лайк'}">
         <svg width="14" height="14" viewBox="0 0 24 24"
           fill="${isLiked?'#ef4444':'none'}"
@@ -2690,10 +2725,7 @@ async function openUserProfile(userId, name, av, avUrl){
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
         </svg>
         <span id="upLikeCount" style="font-variant-numeric:tabular-nums">${likeCount}</span>
-      </button>`;
-
-    actEl.innerHTML = `
-      ${likeBtn}
+      </button>` : ''}
       ${friendBtn}
       <button class="up-action-btn" onclick="openChatWithUser()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -2863,7 +2895,75 @@ async function refreshLikeBtn(userId){
   btn.innerHTML = (myLike ? '❤️ Нравится ' : '♡ Лайк ') + '<span id="upLikeCount">' + (count||0) + '</span>';
 }
 
-// ══ MESSAGES SYSTEM ════════════════════════════════════════
+// ══ FRIEND ACTIONS — прямые запросы к БД (не через кеш _SOC) ═
+// Используются в кнопках профиля. reqId и targetId берутся из data-атрибутов.
+
+window._upRemoveFriendDirect = async function(btn){
+  if(!SB_USER || SB_USER.isDemoUser){ showToast('Недоступно в демо','⚠️'); return; }
+  const targetId = btn.dataset.targetid;
+  if(!targetId) return;
+  if(!confirm('Удалить из друзей?')) return;
+
+  btn.disabled = true;
+  try {
+    // Удаляем в обоих направлениях (надёжно)
+    await sb.from('friend_requests')
+      .delete()
+      .or(`and(from_user.eq.${SB_USER.id},to_user.eq.${targetId}),and(from_user.eq.${targetId},to_user.eq.${SB_USER.id})`);
+
+    // Синхронизируем кеш
+    if(window._SOC) window._SOC.friends = window._SOC.friends.filter(f=>f.id!==targetId);
+
+    // Меняем кнопку на «+ В друзья»
+    const username = document.getElementById('upName')?.textContent || '?';
+    btn.outerHTML = `<button class="up-action-btn up-action-gold"
+      onclick="window.socSendFriendRequest('${targetId}','${escAttr(username)}',this)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+      В друзья
+    </button>`;
+    showToast('Удалено из друзей','🗑️');
+  } catch(e){
+    btn.disabled = false;
+    showToast('Ошибка удаления','⚠️');
+    console.error('_upRemoveFriendDirect:', e);
+  }
+};
+
+window._upAcceptFriendDirect = async function(btn){
+  if(!SB_USER || SB_USER.isDemoUser){ showToast('Недоступно в демо','⚠️'); return; }
+  const reqId    = btn.dataset.reqid;
+  const targetId = btn.dataset.targetid;
+  if(!reqId || !targetId) return;
+
+  btn.disabled = true;
+  try {
+    await sb.from('friend_requests').update({status:'accepted'}).eq('id', reqId);
+
+    // Синхронизируем кеш
+    if(window._SOC){
+      const S = window._SOC;
+      const pending = S.pendingIn.find(f=>f.id===targetId);
+      if(pending){ S.friends.push({...pending, status:'accepted'}); }
+      S.pendingIn = S.pendingIn.filter(f=>f.id!==targetId);
+    }
+
+    // Меняем кнопку на «Друг ✓»
+    btn.outerHTML = `<button class="up-action-btn up-action-green up-friend-active"
+      data-reqid="${reqId}" data-targetid="${targetId}"
+      onclick="_upRemoveFriendDirect(this)"
+      onmouseenter="this.classList.add('up-friend-hover');this.querySelector('.fr-label').textContent='Удалить'"
+      onmouseleave="this.classList.remove('up-friend-hover');this.querySelector('.fr-label').textContent='Друг'">
+      <svg class="fr-icon-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+      <svg class="fr-icon-x" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="display:none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      <span class="fr-label">Друг</span>
+    </button>`;
+    showToast('Теперь вы друзья! 🤝','✅');
+  } catch(e){
+    btn.disabled = false;
+    showToast('Ошибка принятия запроса','⚠️');
+    console.error('_upAcceptFriendDirect:', e);
+  }
+};
 let activeConvUserId = null;
 let msgsPolling = null;
 let _convsLoading = false;
@@ -5026,66 +5126,60 @@ function appendMessage(msg, isMine) {
 async function toggleLikeUser() {
   const ov = document.getElementById('userProfileOv');
   const userId = ov?.dataset.userId;
-  if (!userId || !SB_USER || SB_USER.isDemoUser) {
-    showToast('Войди чтобы ставить лайки', 'ℹ️'); return;
+  if(!userId || !SB_USER || SB_USER.isDemoUser){
+    showToast('Войди чтобы ставить лайки','ℹ️'); return;
   }
 
-  const btn = document.getElementById('upLikeBtn');
+  const btn     = document.getElementById('upLikeBtn');
   const countEl = document.getElementById('upLikeCount');
-  if (!btn || !countEl) return;
+  if(!btn || !countEl) return;
 
-  // ── Читаем state из data-атрибута (не из класса!) ──────────
+  // ── Читаем state из data-атрибута — надёжно, не теряется при ре-рендере ──
   const wasLiked = btn.dataset.liked === 'true';
-  const prevCount = parseInt(countEl.textContent || '0', 10);
-  const newCount  = wasLiked ? Math.max(0, prevCount - 1) : prevCount + 1;
+  const prevCount = parseInt(countEl.textContent||'0', 10);
+  const newCount  = wasLiked ? Math.max(0, prevCount-1) : prevCount+1;
 
-  // ── OPTIMISTIC UI: мгновенный отклик как в Instagram ───────
+  // ── OPTIMISTIC: мгновенный отклик ──────────────────────────
   btn.dataset.liked = String(!wasLiked);
-  btn.dataset.count = String(newCount);
   countEl.textContent = newCount;
 
-  // Анимация сердечка: pop on like, deflate on unlike
   const svg = btn.querySelector('svg');
-  if (svg) {
-    const newFill  = wasLiked ? 'none'    : '#ef4444';
-    const newColor = wasLiked ? 'currentColor' : '#ef4444';
-    svg.setAttribute('fill',   newFill);
-    svg.setAttribute('stroke', newColor);
-    // Micro-animation: scale pop
-    btn.style.transform = 'scale(1.18)';
-    setTimeout(()=>{ btn.style.transform = ''; }, 160);
-  }
+  const newFill  = wasLiked ? 'none'         : '#ef4444';
+  const newStroke= wasLiked ? 'currentColor' : '#ef4444';
+  if(svg){ svg.setAttribute('fill',newFill); svg.setAttribute('stroke',newStroke); }
 
-  if (wasLiked) {
+  if(wasLiked){
     btn.classList.remove('up-action-red');
     btn.title = 'Поставить лайк';
   } else {
     btn.classList.add('up-action-red');
     btn.title = 'Убрать лайк';
+    // Pop-анимация при лайке (как Instagram)
+    btn.style.transform = 'scale(1.2)';
+    setTimeout(()=>{ btn.style.transform = ''; }, 180);
   }
 
-  // ── Синхронизируем с Supabase ───────────────────────────────
+  // ── Суперbase запрос ────────────────────────────────────────
   try {
-    if (wasLiked) {
-      const { error } = await sb.from('likes')
-        .delete().eq('from_user_id', SB_USER.id).eq('to_user_id', userId);
-      if (error) throw error;
+    if(wasLiked){
+      const {error} = await sb.from('likes')
+        .delete().eq('from_user_id',SB_USER.id).eq('to_user_id',userId);
+      if(error) throw error;
     } else {
-      const { error } = await sb.from('likes')
-        .insert({ from_user_id: SB_USER.id, to_user_id: userId });
-      if (error) throw error;
+      const {error} = await sb.from('likes')
+        .insert({from_user_id:SB_USER.id, to_user_id:userId});
+      if(error) throw error;
     }
-  } catch (err) {
-    // ── ROLLBACK ────────────────────────────────────────────
+  } catch(err){
+    // ── ROLLBACK ─────────────────────────────────────────────
     btn.dataset.liked = String(wasLiked);
     countEl.textContent = prevCount;
-    if (svg) {
-      svg.setAttribute('fill',   wasLiked ? '#ef4444' : 'none');
-      svg.setAttribute('stroke', wasLiked ? '#ef4444' : 'currentColor');
-    }
+    const rollFill  = wasLiked ? '#ef4444' : 'none';
+    const rollStroke= wasLiked ? '#ef4444' : 'currentColor';
+    if(svg){ svg.setAttribute('fill',rollFill); svg.setAttribute('stroke',rollStroke); }
     wasLiked ? btn.classList.add('up-action-red') : btn.classList.remove('up-action-red');
-    showToast('Ошибка сети — повтори', '⚠️');
-    console.error('toggleLikeUser error:', err);
+    showToast('Ошибка — повтори','⚠️');
+    console.error('toggleLikeUser error:',err);
   }
 }
 
