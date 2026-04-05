@@ -12866,6 +12866,59 @@ html[data-theme="light"] .nav-icon-btn:hover {
 
 /* END HORIZONTAL HEADER LAYOUT */
 
+
+/* ── Profile modal: horizontal avatar + name header ── */
+#userProfileOv #upSidebarTop {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  width: 100% !important;
+  margin-bottom: 14px !important;
+  flex-shrink: 0 !important;
+}
+#userProfileOv .up-av-inline,
+#userProfileOv #upAv {
+  width: 72px !important;
+  height: 72px !important;
+  font-size: 36px !important;
+  border-radius: 16px !important;
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+  position: static !important;
+}
+#userProfileOv #upName {
+  font-size: 20px !important;
+  font-weight: 800 !important;
+  letter-spacing: -.03em !important;
+  text-align: left !important;
+  white-space: normal !important;
+  width: auto !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  animation: none !important;
+  word-break: break-word !important;
+}
+#userProfileOv #upMeta { display: none !important; }
+/* Sidebar: align to start instead of center */
+#userProfileOv .up-sidebar {
+  align-items: flex-start !important;
+  padding-top: 24px !important;
+}
+#userProfileOv .up-sidebar-divider {
+  width: 100% !important;
+  margin: 12px 0 !important;
+}
+#userProfileOv #upActions {
+  width: 100% !important;
+  align-items: stretch !important;
+}
+/* Achievements grid: 18 per row for profile modal */
+.up-ach-grid-profile {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+}
 </style>
   <link rel="manifest" id="pwaManifest">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23080808'/%3E%3Cpolygon points='58,10 38,52 52,52 42,90 62,46 46,46' fill='%23F5C842'/%3E%3C/svg%3E">
@@ -13263,12 +13316,12 @@ html[data-theme="light"] .nav-icon-btn:hover {
       <!-- LEFT: Identity -->
       <div class="up-sidebar">
 
-        <!-- ── АВАТАР — над ником, по центру ── -->
-        <div id="upAv" class="up-av-inline">🎯</div>
-
-        <!-- ── ИМЯ + ДАТА ── -->
-        <div class="up-name" id="upName">—</div>
-        <div class="up-meta" id="upMeta"></div>
+        <!-- ── АВАТАР + НИК горизонтально ── -->
+        <div id="upSidebarTop">
+          <div id="upAv" class="up-av-inline">🎯</div>
+          <div class="up-name" id="upName">—</div>
+        </div>
+        <div class="up-meta" id="upMeta" style="display:none"></div>
 
         <!-- Thin gold separator -->
         <div class="up-sidebar-divider"></div>
@@ -16626,17 +16679,19 @@ async function openUserProfile(userId, name, av, avUrl){
     </button>`;
 
   try {
-    const [uRes, ucRes, achRes, likeRes] = await Promise.all([
+    const [uRes, ucRes, achRes, likeRes, friendCountRes] = await Promise.all([
       sb.from('users').select('id,username,avatar,avatar_url,streak,total_sessions,created_at').eq('id',userId).limit(1),
       sb.from('user_categories').select('category_id,hours').eq('user_id',userId).order('hours',{ascending:false}),
       sb.from('user_achievements').select('achievement_id').eq('user_id',userId).eq('unlocked',true).limit(30),
-      sb.from('likes').select('id',{count:'exact',head:true}).eq('to_user_id',userId)
+      sb.from('likes').select('id',{count:'exact',head:true}).eq('to_user_id',userId),
+      sb.from('friend_requests').select('id',{count:'exact',head:true}).or(`from_user.eq.${userId},to_user.eq.${userId}`).eq('status','accepted')
     ]);
 
     const u         = uRes.data?.[0] ?? null;
     const uc        = ucRes.data ?? [];
     const achs      = achRes.data ?? [];
     const totalLikes= likeRes.count ?? 0;
+    const friendsCount = friendCountRes?.count ?? 0;
     const totalH    = parseFloat(uc.reduce((s,r)=>s+(r.hours||0),0).toFixed(1));
     const lvlInfo   = getLevelInfo(totalH);
     const lvlColor  = lvlInfo.color.includes('gradient') ? 'var(--gold)' : lvlInfo.color;
@@ -16667,12 +16722,7 @@ async function openUserProfile(userId, name, av, avUrl){
 
     // ── Name + meta ──
     nameEl.textContent = username;
-    const joinDate = new Date(u?.created_at||Date.now()).toLocaleDateString('ru',{month:'long',year:'numeric'});
-    metaEl.innerHTML = `
-      <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--t3)">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" fill="#ef444430"/></svg>
-        ${totalLikes}
-      </span>`;
+    metaEl.innerHTML = '';
 
     // ── Action buttons (ONE set, clean logic) ──
     const isOwnProfile = SB_USER && (SB_USER.id === userId || SB_USER.isDemoUser);
@@ -16706,10 +16756,19 @@ async function openUserProfile(userId, name, av, avUrl){
     try { const lr = await sb.from('likes').select('id').eq('from_user_id',SB_USER?.id).eq('to_user_id',userId).limit(1); isLiked = (lr.data||[]).length>0; } catch{}
 
     actEl.innerHTML = `
-      <button class="up-action-btn${isLiked?' up-action-red':''}" id="upLikeBtn" onclick="toggleLikeUser()" data-liked="${isLiked}">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="${isLiked?'#ef4444':'none'}" stroke="#ef4444" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-        <span id="upLikeCount">${likeCount}</span>
-      </button>
+      <div style="display:flex;gap:8px;width:100%;margin-bottom:8px">
+        <button class="up-action-btn${isLiked?' up-action-red':''}" id="upLikeBtn" onclick="toggleLikeUser()" data-liked="${isLiked}"
+          style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 8px;border-radius:14px;border:0.5px solid rgba(239,68,68,${isLiked?'.4':'.2'});background:rgba(239,68,68,${isLiked?'.12':'.06'})">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="${isLiked?'#ef4444':'none'}" stroke="#ef4444" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          <span style="font-family:'DM Mono',monospace;font-size:16px;font-weight:400;color:#ef4444;line-height:1" id="upLikeCount">${likeCount}</span>
+          <span style="font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(239,68,68,.6)">Лайков</span>
+        </button>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 8px;border-radius:14px;border:0.5px solid rgba(26,159,255,.2);background:rgba(26,159,255,.06)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1a9fff" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span style="font-family:'DM Mono',monospace;font-size:16px;font-weight:400;color:#1a9fff;line-height:1">${friendsCount}</span>
+          <span style="font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(26,159,255,.6)">Друзей</span>
+        </div>
+      </div>
       ${friendBtn}
       <button class="up-action-btn" onclick="openChatWithUser()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -16780,13 +16839,12 @@ async function openUserProfile(userId, name, av, avUrl){
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
         Достижения · ${unlockedDefs.length}
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px">
-        ${unlockedDefs.slice(0,16).map(def=>`
-          <div title="${def.name}" onclick="closeUserProfile();openAch('${def.id}')"
-            style="width:42px;height:42px;border-radius:12px;background:${def.color||'#555'}15;border:0.5px solid ${def.color||'#555'}35;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;transition:transform .22s cubic-bezier(.34,1.56,.64,1),box-shadow .2s"
+      <div class="up-ach-grid-profile" style="display:flex;flex-wrap:wrap;gap:6px">
+        ${unlockedDefs.map(def=>`
+          <div title="${def.name}: ${def.desc}" onclick="closeUserProfile();openAch('${def.id}')"
+            style="width:42px;height:42px;border-radius:12px;background:${def.color||'#555'}15;border:0.5px solid ${def.color||'#555'}35;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;transition:transform .22s cubic-bezier(.34,1.56,.64,1),box-shadow .2s;flex-shrink:0"
             onmouseover="this.style.transform='scale(1.18)';this.style.boxShadow='0 4px 16px ${def.color||'#555'}44'"
             onmouseout="this.style.transform='';this.style.boxShadow=''">${def.icon}</div>`).join('')}
-        ${unlockedDefs.length>16?`<div style="width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--t3)">+${unlockedDefs.length-16}</div>`:''}
       </div>`;
 
     bodyEl.innerHTML = kpiHTML + xpHTML + leagueHTML + achHTML;
