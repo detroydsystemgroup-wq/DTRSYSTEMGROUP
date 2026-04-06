@@ -25791,8 +25791,27 @@ window.socToggleFollowInModal = async function(userId, btn){
 'use strict';
 
 const CHAB_MODE_KEY = 'dtr_chab_mode';
-let _chabMode = localStorage.getItem(CHAB_MODE_KEY) || 'personal';
-let _chabSub  = null;
+const CHAB_CACHE_KEY = 'dtr_chab_cache_v1';
+let _chabMode  = localStorage.getItem(CHAB_MODE_KEY) || 'personal';
+let _chabSub   = null;
+let _chabCache = null;   // { rooms, memberships, perRoom: { [roomId]: {members, habits, logs} } }
+let _chabCacheTs = 0;    // timestamp of last full fetch
+let _chabRefreshing = false; // prevent concurrent refreshes
+
+/* ── Cache helpers ── */
+function _chabSaveCache(){
+  try{ localStorage.setItem(CHAB_CACHE_KEY, JSON.stringify({ts:_chabCacheTs, data:_chabCache})); }catch(e){}
+}
+function _chabLoadCache(){
+  try{
+    const raw = localStorage.getItem(CHAB_CACHE_KEY);
+    if(!raw) return null;
+    const {ts, data} = JSON.parse(raw);
+    // Invalidate if older than 5 minutes
+    if(Date.now()-ts > 5*60*1000) return null;
+    return {ts, data};
+  }catch(e){ return null; }
+}
 
 /* getSB — sb is const in main script scope, not on window */
 function getSB(){ try{ return sb; }catch(e){ return null; } }
@@ -25867,7 +25886,19 @@ async function renderCollabView(){
   }
   renderCollabView._retries = 0;
 
-  // ── Скелетон мгновенно ──
+  // ── 1. Показываем кеш мгновенно (если есть) ──
+  const saved = _chabLoadCache();
+  if(saved && saved.data){
+    _chabCache = saved.data;
+    _chabCacheTs = saved.ts;
+    root.insertAdjacentHTML('beforeend',`<div id="chabContent"></div>`);
+    await _renderFromCache();
+    // Фоновое обновление данных без перерисовки UI
+    _chabRefreshLogs();
+    return;
+  }
+
+  // ── 2. Первый загрузка — скелетон + полный фетч ──
   const skeletonCard = `<div style="background:linear-gradient(135deg,rgba(168,85,247,.05),rgba(139,92,246,.02));border:0.5px solid rgba(168,85,247,.15);border-radius:18px;padding:20px;margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
       <div class="skel" style="width:44px;height:44px;border-radius:12px"></div>
@@ -25879,22 +25910,215 @@ async function renderCollabView(){
   root.insertAdjacentHTML('beforeend',`<div id="chabContent">${skeletonCard}</div>`);
 
   try {
-    // ── Memberships и rooms параллельно ──
-    const [membershipsRes, allRoomsRes] = await Promise.all([
-      sb.from('collab_habit_members').select('room_id,role').eq('user_id', user.id),
-      // prefetch rooms where user is member (subquery via RPC not available — fetch after)
-      Promise.resolve(null)
-    ]);
-    const memberships = membershipsRes.data || [];
-    const roomIds = memberships.map(m=>m.room_id);
-
-    let rooms = [];
-    if(roomIds.length){
-      const {data} = await sb.from('collab_habit_rooms').select('*').in('id', roomIds);
-      rooms = data||[];
-    }
-    await renderChabContent(rooms, memberships);
+    await _chabFetchAll(user, sb);
+    await _renderFromCache();
   } catch(e){ console.error('CollabHabits:',e); await renderChabContent([],[]); }
+}
+
+/* ── Полный фетч всех данных → заполняет _chabCache ── */
+async function _chabFetchAll(user, sb){
+  if(!user) user = getUser();
+  if(!sb)   sb  = getSB();
+  const [membershipsRes] = await Promise.all([
+    sb.from('collab_habit_members').select('room_id,role').eq('user_id', user.id),
+  ]);
+  const memberships = membershipsRes.data || [];
+  const roomIds = memberships.map(m=>m.room_id);
+
+  let rooms = [];
+  if(roomIds.length){
+    const {data} = await sb.from('collab_habit_rooms').select('*').in('id', roomIds);
+    rooms = data||[];
+  }
+
+  _chabCache = { rooms, memberships, perRoom: {} };
+
+  const d30ago = new Date(); d30ago.setDate(d30ago.getDate()-30);
+  const d30str = d30ago.toISOString().slice(0,10);
+
+  await Promise.all(rooms.map(async room => {
+    try {
+      const [memsRes, habsRes] = await Promise.all([
+        sb.from('collab_habit_members').select('user_id,role').eq('room_id',room.id),
+        sb.from('collab_habits').select('*').eq('room_id',room.id).neq('active',false)
+      ]);
+      const rawMembers = memsRes.data||[];
+      const habits = habsRes.data||[];
+      const memberIds = rawMembers.map(m=>m.user_id);
+
+      const [profilesRes, logsRes] = await Promise.all([
+        memberIds.length ? sb.from('users').select('id,username,avatar,avatar_url').in('id',memberIds) : Promise.resolve({data:[]}),
+        habits.length && memberIds.length ? sb.from('collab_habit_logs').select('habit_id,user_id,date').eq('room_id',room.id).gte('date',d30str) : Promise.resolve({data:[]})
+      ]);
+
+      const profileMap = {};
+      (profilesRes.data||[]).forEach(p=>{ profileMap[p.id]=p; });
+      const members = rawMembers.map(m=>({
+        ...m, users: profileMap[m.user_id] || { username:'?', avatar:'👤', avatar_url:null }
+      }));
+      const logs = {};
+      (logsRes.data||[]).forEach(e=>{
+        if(!logs[e.user_id]) logs[e.user_id]={};
+        if(!logs[e.user_id][e.habit_id]) logs[e.user_id][e.habit_id]={};
+        logs[e.user_id][e.habit_id][e.date]=true;
+      });
+
+      _chabCache.perRoom[room.id] = { members, habits, logs };
+    } catch(e){ console.error('_chabFetchAll room:', room.id, e); _chabCache.perRoom[room.id] = {members:[],habits:[],logs:{}}; }
+  }));
+
+  _chabCacheTs = Date.now();
+  _chabSaveCache();
+}
+
+/* ── Только логи обновляем в фоне — без перерисовки карточек ── */
+async function _chabRefreshLogs(){
+  if(_chabRefreshing || !_chabCache) return;
+  _chabRefreshing = true;
+  try {
+    const sb = getSB(), user = getUser();
+    if(!sb || !user){ _chabRefreshing=false; return; }
+    const d30ago = new Date(); d30ago.setDate(d30ago.getDate()-30);
+    const d30str = d30ago.toISOString().slice(0,10);
+    const rooms = _chabCache.rooms || [];
+    await Promise.all(rooms.map(async room => {
+      try {
+        const rc = _chabCache.perRoom[room.id];
+        if(!rc) return;
+        const {data} = await sb.from('collab_habit_logs').select('habit_id,user_id,date').eq('room_id',room.id).gte('date',d30str);
+        const logs = {};
+        (data||[]).forEach(e=>{
+          if(!logs[e.user_id]) logs[e.user_id]={};
+          if(!logs[e.user_id][e.habit_id]) logs[e.user_id][e.habit_id]={};
+          logs[e.user_id][e.habit_id][e.date]=true;
+        });
+        rc.logs = logs;
+        // Патчим только ячейки в DOM — без перерисовки карточки
+        _patchRoomCells(room.id, logs, user.id);
+      } catch(e){}
+    }));
+    _chabCacheTs = Date.now();
+    _chabSaveCache();
+  } finally { _chabRefreshing = false; }
+}
+
+/* ── Хирургически обновляем ячейки и hero-статистику ── */
+function _patchRoomCells(roomId, logs, myId){
+  const rc = _chabCache && _chabCache.perRoom[roomId];
+  if(!rc) return;
+  const habits = rc.habits || [];
+  function ds(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  const today = ds(new Date());
+  const now = new Date();
+  const myLog = (logs[myId]||{});
+
+  // ── 1. Патчим ячейки ──
+  habits.forEach(h => {
+    const d7 = [];
+    { const d=new Date(),dow=d.getDay()||7; d.setDate(d.getDate()-dow+1); d.setHours(0,0,0,0); for(let i=0;i<7;i++){const x=new Date(d);x.setDate(x.getDate()+i);d7.push(x);} }
+    d7.forEach(d => {
+      const key = ds(d);
+      const future = d>now && key!==today;
+      if(future) return;
+      const cellEl = document.querySelector(`[data-chab-cell="${roomId}|${h.id}|${key}"]`);
+      if(!cellEl) return;
+      const done = !!((myLog[h.id]||{})[key]);
+      const wasDone = cellEl.classList.contains('done');
+      if(done === wasDone) return;
+      const color = h.color||'#a855f7';
+      if(done){
+        cellEl.classList.add('done');
+        cellEl.style.background=color; cellEl.style.borderColor=color;
+        cellEl.style.boxShadow=`0 3px 14px ${color}55`;
+        cellEl.innerHTML=`<span class="chab-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.95)" stroke-width="2.8" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></span>`;
+      } else {
+        cellEl.classList.remove('done');
+        cellEl.style.background=''; cellEl.style.borderColor=''; cellEl.style.boxShadow='';
+        cellEl.innerHTML=`<div style="width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.12)"></div>`;
+      }
+    });
+  });
+
+  // ── 2. Пересчитываем hero-статистику из обновлённого кеша ──
+  _patchHeroStats(roomId, logs, myId, habits);
+}
+
+/* ── Пересчёт и патч hero-элементов (% круг, заголовок, подзаголовок, прогресс-бар, KPI) ── */
+function _patchHeroStats(roomId, logs, myId, habits){
+  function ds(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  const today = ds(new Date());
+  const now = new Date();
+  const myLog = logs[myId]||{};
+
+  // Считаем выполненные СЕГОДНЯ
+  let myDoneToday = 0;
+  habits.forEach(h=>{ if((myLog[h.id]||{})[today]) myDoneToday++; });
+  const total = habits.length;
+  const myTodayPct = total ? Math.round(myDoneToday/total*100) : 0;
+
+  // Стрик — прошедшие дни недели
+  const d7start = new Date(); const dow=d7start.getDay()||7; d7start.setDate(d7start.getDate()-dow+1); d7start.setHours(0,0,0,0);
+  const weekStrs = Array.from({length:7},(_,i)=>{ const x=new Date(d7start); x.setDate(x.getDate()+i); return ds(x); });
+  const passedStrs = weekStrs.filter(d=>d<=today);
+  const possibleDays = Math.max(passedStrs.length,1);
+
+  let myGlobalStreak=0;
+  for(let i=passedStrs.length-1;i>=0;i--){
+    if(habits.some(h=>(myLog[h.id]||{})[passedStrs[i]])) myGlobalStreak++; else break;
+  }
+  const myPerfectDays = passedStrs.filter(d=>habits.length>0&&habits.every(h=>(myLog[h.id]||{})[d])).length;
+
+  const heroColor = myTodayPct===100?'#22C55E':myTodayPct>=70?'#F5C842':myTodayPct>=40?'#F97316':'#a855f7';
+  const heroMsg   = myTodayPct===100?'🏆 Идеальный день!':myTodayPct>=70?'💪 Отличный прогресс!':myTodayPct>=1?'⚡ Продолжай!':'🎯 Начни сейчас';
+
+  // Патчим DOM-элементы по ID
+  const $ = id => document.getElementById(id);
+
+  // Круг SVG
+  const arc = $(`chab-ring-arc-${roomId}`);
+  if(arc){
+    const r=30, circ=2*Math.PI*r, fill=circ*(myTodayPct/100);
+    arc.setAttribute('stroke-dasharray',`${fill.toFixed(2)} ${(circ-fill).toFixed(2)}`);
+    arc.setAttribute('stroke', heroColor);
+    arc.style.filter=`drop-shadow(0 0 7px ${heroColor}99)`;
+  }
+
+  // % число
+  const pctNum = $(`chab-pct-num-${roomId}`);
+  if(pctNum){ pctNum.textContent=`${myTodayPct}%`; pctNum.style.color=heroColor; }
+
+  // Заголовок и подзаголовок
+  const titleEl = $(`chab-hero-title-${roomId}`);
+  if(titleEl) titleEl.textContent=heroMsg;
+  const subEl = $(`chab-hero-sub-${roomId}`);
+  if(subEl) subEl.textContent=`${myDoneToday} из ${total} привычек выполнено`;
+
+  // Прогресс-бар
+  const pbar = $(`chab-pbar-fill-${roomId}`);
+  if(pbar){
+    pbar.style.width=`${myTodayPct}%`;
+    pbar.style.background=`linear-gradient(90deg,${heroColor}77,${heroColor})`;
+    pbar.style.boxShadow=`0 0 10px ${heroColor}55`;
+  }
+
+  // Hero background tint
+  const heroBar = $(`chab-hero-${roomId}`);
+  if(heroBar) heroBar.style.background=`linear-gradient(135deg,${heroColor}08 0%,transparent 60%)`;
+
+  // KPI: дисциплина
+  const kpiStreak = $(`chab-kpi-streak-${roomId}`);
+  if(kpiStreak) kpiStreak.textContent=myGlobalStreak>0?myGlobalStreak:'—';
+
+  // KPI: идеальных дней
+  const kpiPerfect = $(`chab-kpi-perfect-${roomId}`);
+  if(kpiPerfect) kpiPerfect.textContent=`${myPerfectDays}/${possibleDays}`;
+}
+
+/* ── Рендерим из кеша ── */
+async function _renderFromCache(){
+  const rooms = (_chabCache&&_chabCache.rooms)||[];
+  const memberships = (_chabCache&&_chabCache.memberships)||[];
+  await renderChabContent(rooms, memberships);
 }
 
 async function renderChabContent(rooms, memberships){
@@ -25931,51 +26155,24 @@ async function renderChabContent(rooms, memberships){
     </div>
   </div>`;
 
-  // ── Все карточки параллельно ──
+  // ── Строим карточки из кеша (синхронно!) ──
   const cards = await Promise.all(
     rooms.map(room => {
       const myRole = (memberships.find(m=>m.room_id===room.id)||{role:'member'}).role;
-      return buildRoomCard(room, myRole, user);
+      // Берём данные из кеша, не делаем новых запросов
+      const cached = (_chabCache && _chabCache.perRoom[room.id]) || {members:[],habits:[],logs:{}};
+      return buildRoomCard(room, myRole, user, cached.members, cached.habits, cached.logs);
     })
   );
   el.innerHTML = html + cards.join('');
   subscribeRealtime(rooms.map(r=>r.id));
 }
 
-async function buildRoomCard(room, myRole, user){
-  const sb = getSB();
-  let members=[],habits=[],logs={};
-  try {
-    // ── Все запросы параллельно ──
-    const d30ago = new Date(); d30ago.setDate(d30ago.getDate()-30);
-    const d30str = d30ago.toISOString().slice(0,10);
-
-    const [memsRes, habsRes] = await Promise.all([
-      sb.from('collab_habit_members').select('user_id,role').eq('room_id',room.id),
-      sb.from('collab_habits').select('*').eq('room_id',room.id).neq('active',false)
-    ]);
-
-    const rawMembers = memsRes.data||[];
-    habits = habsRes.data||[];
-    const memberIds = rawMembers.map(m=>m.user_id);
-
-    // Профили и логи — тоже параллельно
-    const [profilesRes, logsRes] = await Promise.all([
-      memberIds.length ? sb.from('users').select('id,username,avatar,avatar_url').in('id',memberIds) : Promise.resolve({data:[]}),
-      habits.length && memberIds.length ? sb.from('collab_habit_logs').select('habit_id,user_id,date').eq('room_id',room.id).gte('date',d30str) : Promise.resolve({data:[]})
-    ]);
-
-    const profileMap = {};
-    (profilesRes.data||[]).forEach(p=>{ profileMap[p.id]=p; });
-    members = rawMembers.map(m=>({
-      ...m, users: profileMap[m.user_id] || { username:'?', avatar:'👤', avatar_url:null }
-    }));
-    (logsRes.data||[]).forEach(e=>{
-      if(!logs[e.user_id]) logs[e.user_id]={};
-      if(!logs[e.user_id][e.habit_id]) logs[e.user_id][e.habit_id]={};
-      logs[e.user_id][e.habit_id][e.date]=true;
-    });
-  } catch(e){ console.error('buildRoomCard:', e); }
+async function buildRoomCard(room, myRole, user, members, habits, logs){
+  // Data comes from cache — no DB calls here
+  members = members || [];
+  habits  = habits  || [];
+  logs    = logs    || {};
 
   // ── Helpers ──────────────────────────────────────────────────
   // ВАЖНО: используем локальное время везде — чтобы совпадало с _todayStr() и данными в БД
@@ -26147,6 +26344,7 @@ async function buildRoomCard(room, myRole, user){
       const hoverStyle = !done && !future ? `--chab-hover-bg:${color}1a;--chab-hover-border:${color}55;` : '';
 
       return `<div class="${cls}"
+        data-chab-cell="${room.id}|${h.id}|${key}"
         style="${done?`background:${color};border-color:${color};box-shadow:0 3px 14px ${color}55`:todayStyle}"
         ${clickFn ? `onclick="${clickFn}"` : ''}
         ${!done&&!future?`onmouseover="this.style.background='${color}18';this.style.borderColor='${color}55'" onmouseout="this.style.background='';this.style.borderColor=''"`:''}>
@@ -26260,7 +26458,7 @@ async function buildRoomCard(room, myRole, user){
     </div>
 
     <!-- ── HERO v2 ── -->
-    <div class="chab-hero-bar" style="background:linear-gradient(135deg,${heroColor}08 0%,transparent 60%)">
+    <div class="chab-hero-bar" id="chab-hero-${room.id}" style="background:linear-gradient(135deg,${heroColor}08 0%,transparent 60%)">
 
       <!-- top strip: score pill + text -->
       <div class="chab-hero-top">
@@ -26271,26 +26469,26 @@ async function buildRoomCard(room, myRole, user){
             const r2=30,sz2=80,cx2=sz2/2,cy2=sz2/2;
             const circ2=2*Math.PI*r2;
             const fill2=circ2*(myTodayPct/100);
-            return `<svg width="${sz2}" height="${sz2}" viewBox="0 0 ${sz2} ${sz2}" style="transform:rotate(-90deg)">
+            return `<svg id="chab-ring-svg-${room.id}" width="${sz2}" height="${sz2}" viewBox="0 0 ${sz2} ${sz2}" style="transform:rotate(-90deg)">
               <circle cx="${cx2}" cy="${cy2}" r="${r2}" fill="none" stroke="rgba(168,85,247,.12)" stroke-width="5.5"/>
-              <circle cx="${cx2}" cy="${cy2}" r="${r2}" fill="none" stroke="${heroColor}" stroke-width="5.5"
+              <circle id="chab-ring-arc-${room.id}" cx="${cx2}" cy="${cy2}" r="${r2}" fill="none" stroke="${heroColor}" stroke-width="5.5"
                 stroke-dasharray="${fill2.toFixed(2)} ${(circ2-fill2).toFixed(2)}"
                 stroke-linecap="round"
                 style="filter:drop-shadow(0 0 7px ${heroColor}99);transition:stroke-dasharray 1.1s cubic-bezier(.4,0,.2,1)"/>
             </svg>`;
           })()}
           <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
-            <div class="chab-score-num" style="color:${heroColor}">${myTodayPct}%</div>
+            <div id="chab-pct-num-${room.id}" class="chab-score-num" style="color:${heroColor}">${myTodayPct}%</div>
             <div class="chab-score-lbl">Мой день</div>
           </div>
         </div>
 
         <!-- Right text -->
         <div class="chab-hero-main">
-          <div class="chab-hero-title">${heroMsg}</div>
-          <div class="chab-hero-sub">${myDoneToday} из ${habits.length} привычек выполнено</div>
+          <div id="chab-hero-title-${room.id}" class="chab-hero-title">${heroMsg}</div>
+          <div id="chab-hero-sub-${room.id}" class="chab-hero-sub">${myDoneToday} из ${habits.length} привычек выполнено</div>
           <div class="chab-hero-pbar">
-            <div style="height:100%;width:${myTodayPct}%;background:linear-gradient(90deg,${heroColor}77,${heroColor});border-radius:3px;transition:width 1.2s cubic-bezier(.4,0,.2,1);box-shadow:0 0 10px ${heroColor}55"></div>
+            <div id="chab-pbar-fill-${room.id}" style="height:100%;width:${myTodayPct}%;background:linear-gradient(90deg,${heroColor}77,${heroColor});border-radius:3px;transition:width 1.2s cubic-bezier(.4,0,.2,1);box-shadow:0 0 10px ${heroColor}55"></div>
           </div>
         </div>
 
@@ -26299,7 +26497,7 @@ async function buildRoomCard(room, myRole, user){
       <!-- bottom KPI grid -->
       <div class="chab-hero-kpis">
         <div class="chab-hero-kpi">
-          <div class="chab-hero-kpi-val" style="color:var(--orange)">${myGlobalStreak>0?myGlobalStreak:'—'}</div>
+          <div id="chab-kpi-streak-${room.id}" class="chab-hero-kpi-val" style="color:var(--orange)">${myGlobalStreak>0?myGlobalStreak:'—'}</div>
           <div style="display:flex;align-items:center;gap:3px">
             ${myGlobalStreak>0?'<span style="font-size:12px">🔥</span>':''}
             <div class="chab-hero-kpi-lbl">Дисциплина</div>
@@ -26310,7 +26508,7 @@ async function buildRoomCard(room, myRole, user){
           <div class="chab-hero-kpi-lbl">Привычек</div>
         </div>
         <div class="chab-hero-kpi">
-          <div class="chab-hero-kpi-val" style="color:#30d158">${myPerfectDays}/${possibleDays}</div>
+          <div id="chab-kpi-perfect-${room.id}" class="chab-hero-kpi-val" style="color:#30d158">${myPerfectDays}/${possibleDays}</div>
           <div class="chab-hero-kpi-lbl">Идеал. дней</div>
         </div>
       </div>
@@ -26346,34 +26544,75 @@ async function buildRoomCard(room, myRole, user){
 
 window.chabToggleCell = async function(roomId, habitId, date, cellEl){
   const sb=getSB(), user=getUser(); if(!sb||!user) return;
+
+  const isDone = cellEl.classList.contains('done');
+  const rc = _chabCache && _chabCache.perRoom[roomId];
+  const habit = rc && rc.habits ? rc.habits.find(h=>h.id===habitId) : null;
+  const color = (habit && habit.color) || '#a855f7';
+
+  // ── Оптимистичный апдейт ячейки ──
+  if(isDone){
+    cellEl.classList.remove('done');
+    cellEl.style.background=''; cellEl.style.borderColor=''; cellEl.style.boxShadow='';
+    cellEl.innerHTML=`<div style="width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.12)"></div>`;
+    cellEl.onmouseover = function(){ this.style.background=color+'18'; this.style.borderColor=color+'55'; };
+    cellEl.onmouseout  = function(){ this.style.background=''; this.style.borderColor=''; };
+  } else {
+    cellEl.classList.add('done');
+    cellEl.style.background=color; cellEl.style.borderColor=color; cellEl.style.boxShadow=`0 3px 14px ${color}55`;
+    cellEl.onmouseover = null; cellEl.onmouseout = null;
+    cellEl.innerHTML=`<span class="chab-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.95)" stroke-width="2.8" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></span>`;
+  }
+
+  // ── Обновляем in-memory кеш немедленно ──
+  if(rc && rc.logs){
+    if(!rc.logs[user.id]) rc.logs[user.id]={};
+    if(!rc.logs[user.id][habitId]) rc.logs[user.id][habitId]={};
+    if(isDone) delete rc.logs[user.id][habitId][date];
+    else rc.logs[user.id][habitId][date]=true;
+    _chabSaveCache();
+    // Мгновенно обновляем hero-статистику из нового кеша
+    _patchHeroStats(roomId, rc.logs, user.id, rc.habits||[]);
+  }
+
+  try{showToast(isDone?'Отменено':'✅ Выполнено!',isDone?'↩️':'🎯');}catch{}
+
+  // ── Запись в БД — фоново, без перезагрузки ──
   try {
-    const isDone = cellEl.classList.contains('done');
-    // Optimistic UI
-    if(isDone){
-      cellEl.classList.remove('done');
-      cellEl.style.background=''; cellEl.style.borderColor='';
-      cellEl.innerHTML=`<div style="width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.1)"></div>`;
-    } else {
-      cellEl.classList.add('done');
-      cellEl.style.background='rgba(168,85,247,.2)'; cellEl.style.borderColor='rgba(168,85,247,.5)';
-      cellEl.innerHTML=`<span class="chab-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>`;
-    }
     const {data:ex}=await sb.from('collab_habit_logs').select('id')
       .eq('room_id',roomId).eq('habit_id',habitId).eq('user_id',user.id).eq('date',date).limit(1);
     if(ex&&ex.length) await sb.from('collab_habit_logs').delete().eq('id',ex[0].id);
     else await sb.from('collab_habit_logs').insert({room_id:roomId,habit_id:habitId,user_id:user.id,date});
-    try{showToast(isDone?'Отменено':'✅ Выполнено!',isDone?'↩️':'🎯');}catch{}
-    setTimeout(()=>renderCollabView(), 1200);
-  } catch(e){ console.error('chabToggleCell:',e); }
+    // Успешно — больше ничего не делаем (UI уже обновлён оптимистично)
+  } catch(e){
+    console.error('chabToggleCell DB error:',e);
+    // ── Rollback: откат ячейки и кеша ──
+    if(!isDone){
+      cellEl.classList.remove('done');
+      cellEl.style.background=''; cellEl.style.borderColor=''; cellEl.style.boxShadow='';
+      cellEl.innerHTML=`<div style="width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.12)"></div>`;
+      if(rc&&rc.logs&&rc.logs[user.id]&&rc.logs[user.id][habitId]) delete rc.logs[user.id][habitId][date];
+    } else {
+      cellEl.classList.add('done');
+      cellEl.style.background=color; cellEl.style.borderColor=color; cellEl.style.boxShadow=`0 3px 14px ${color}55`;
+      cellEl.innerHTML=`<span class="chab-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.95)" stroke-width="2.8" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></span>`;
+      if(rc&&rc.logs){ if(!rc.logs[user.id]) rc.logs[user.id]={}; if(!rc.logs[user.id][habitId]) rc.logs[user.id][habitId]={}; rc.logs[user.id][habitId][date]=true; }
+    }
+    try{showToast('Ошибка сохранения','❌');}catch{}
+  }
 };
 
 window.chabToggle=async function(roomId,habitId,date){
+  // Legacy: find cell and delegate to chabToggleCell
+  const ds = date||_todayStr();
+  const cellEl = document.querySelector(`[data-chab-cell="${roomId}|${habitId}|${ds}"]`);
+  if(cellEl){ window.chabToggleCell(roomId,habitId,ds,cellEl); return; }
+  // Fallback if cell not found (shouldn't happen)
   const sb=getSB(),user=getUser(); if(!sb||!user)return;
   try {
-    const {data:ex}=await sb.from('collab_habit_logs').select('id').eq('room_id',roomId).eq('habit_id',habitId).eq('user_id',user.id).eq('date',date).limit(1).then(function(r){return {data:(r.data&&r.data.length?r.data[0]:null),error:r.error};});
+    const {data:ex}=await sb.from('collab_habit_logs').select('id').eq('room_id',roomId).eq('habit_id',habitId).eq('user_id',user.id).eq('date',ds).limit(1).then(function(r){return {data:(r.data&&r.data.length?r.data[0]:null),error:r.error};});
     if(ex) await sb.from('collab_habit_logs').delete().eq('id',ex.id);
-    else await sb.from('collab_habit_logs').insert({room_id:roomId,habit_id:habitId,user_id:user.id,date});
-    setTimeout(renderCollabView,400);
+    else await sb.from('collab_habit_logs').insert({room_id:roomId,habit_id:habitId,user_id:user.id,date:ds});
     try{window.showToast&&showToast(ex?'Отменено':'Выполнено!',ex?'↩️':'✅');}catch{}
   }catch(e){console.error(e);}
 };
@@ -26436,6 +26675,8 @@ window.chabDoCreate=async function(){
 
     hideChabModal();
     showToast('Трекер создан!','🤝');
+    _chabCache = null; // инвалидируем кеш — будет полный фетч
+    localStorage.removeItem(CHAB_CACHE_KEY);
     setTimeout(function(){
       renderCollabView();
       setTimeout(function(){ chabShowCode(code); }, 600);
@@ -26507,6 +26748,8 @@ window.chabDoJoin=async function(){
 
     hideChabModal();
     try{showToast('Вступил в «'+room.name+'»! 🎉','🤝');}catch{}
+    _chabCache = null;
+    localStorage.removeItem(CHAB_CACHE_KEY);
     setTimeout(renderCollabView, 400);
 
   } catch(e){
@@ -26639,6 +26882,8 @@ window.chabDoAddHabit=async function(roomId){
 
     hideChabModal();
     try{showToast('Привычка добавлена', window._chabHabIcon||'📚');}catch{}
+    _chabCache = null;
+    localStorage.removeItem(CHAB_CACHE_KEY);
     setTimeout(renderCollabView, 300);
   } catch(e){
     console.error('chabDoAddHabit error:', e);
@@ -26668,6 +26913,8 @@ window.chabDeleteHabit=async function(roomId, habitId){
     }
 
     try{showToast('Привычка удалена','🗑️');}catch{}
+    _chabCache = null;
+    localStorage.removeItem(CHAB_CACHE_KEY);
     setTimeout(renderCollabView, 300);
   } catch(e){
     console.error('chabDeleteHabit:', e);
@@ -26679,14 +26926,29 @@ window.chabDeleteHabit=async function(roomId, habitId){
 window.chabDeleteRoom=async function(roomId){
   if(!confirm('Удалить этот совместный трекер? Все данные будут потеряны.'))return;
   const sb=getSB(),user=getUser();
-  try { await sb.from('collab_habit_rooms').delete().eq('id',roomId).eq('owner_id',user.id); try{showToast('Трекер удалён','🗑️');}catch{} setTimeout(renderCollabView,300); }catch(e){console.error(e);}
+  try {
+    await sb.from('collab_habit_rooms').delete().eq('id',roomId).eq('owner_id',user.id);
+    try{showToast('Трекер удалён','🗑️');}catch{}
+    _chabCache = null;
+    localStorage.removeItem(CHAB_CACHE_KEY);
+    setTimeout(renderCollabView,300);
+  }catch(e){console.error(e);}
 };
 
 function subscribeRealtime(roomIds){
   if(!roomIds.length)return;
   const sb=getSB();if(!sb)return;
   if(_chabSub){try{sb.removeChannel(_chabSub);}catch{}}
-  _chabSub=sb.channel('collab_habits_rt').on('postgres_changes',{event:'*',schema:'public',table:'collab_habit_logs'},()=>{ if(_chabMode==='collab')renderCollabView(); }).subscribe();
+  // ── Дебаунс: не чаще 1 раза в 3 секунды ──
+  let _rtDebounce = null;
+  _chabSub=sb.channel('collab_habits_rt').on('postgres_changes',{event:'*',schema:'public',table:'collab_habit_logs'},()=>{
+    if(_chabMode!=='collab') return;
+    clearTimeout(_rtDebounce);
+    _rtDebounce = setTimeout(()=>{
+      // Только обновляем логи и патчим ячейки — не перерисовываем карточки
+      _chabRefreshLogs();
+    }, 1500);
+  }).subscribe();
 }
 
 function showChabModal(html){
