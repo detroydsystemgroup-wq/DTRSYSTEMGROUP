@@ -7731,6 +7731,46 @@ body {
   animation: livePulse 2.5s ease infinite;
   flex-shrink: 0;
 }
+/* Leave room button */
+.chab-btn-leave {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 14px; border-radius: 10px;
+  border: 0.5px solid rgba(239,68,68,.25);
+  background: rgba(239,68,68,.06);
+  color: var(--red);
+  font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: 'DM Sans', sans-serif;
+  transition: all .15s;
+}
+.chab-btn-leave:hover {
+  background: rgba(239,68,68,.14);
+  border-color: rgba(239,68,68,.45);
+  transform: translateY(-1px);
+}
+.chab-btn-leave:active { transform: translateY(0); }
+/* Kick member button (in leaderboard row) */
+.chab-kick-btn {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: transparent; border: none;
+  color: rgba(255,255,255,.18);
+  cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s;
+  padding: 0;
+}
+.chab-kick-btn:hover {
+  background: rgba(239,68,68,.12);
+  color: var(--red);
+}
+/* Owner tag in leaderboard */
+.chab-owner-tag {
+  font-size: 9px; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase;
+  color: var(--gold); background: rgba(245,200,66,.1);
+  border: 0.5px solid rgba(245,200,66,.25);
+  border-radius: 5px; padding: 1px 6px;
+  margin-left: 6px; vertical-align: middle;
+}
 @keyframes livePulse {
   0%,100% { box-shadow: 0 0 0 0 rgba(34,197,94,.4); }
   50%      { box-shadow: 0 0 0 5px rgba(34,197,94,.0); }
@@ -26414,20 +26454,28 @@ async function buildRoomCard(room, myRole, user, members, habits, logs){
   const lbRows = scores.map((s,i)=>{
     const u=s.users||{};
     const isMe=s.user_id===myId;
+    const isMemberOwner = (members.find(m=>m.user_id===s.user_id)||{}).role==='owner';
     const av=u.avatar_url?`<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`:`<span style="font-size:18px">${u.avatar||'👤'}</span>`;
     const streakTxt = s.streak > 0 ? `🔥 ${s.streak} дисциплина` : '— дисциплина';
     const doneTxt = `✓ ${s.todayDone}/${habits.length} сегодня`;
     const weekTxt = `${s.perfectDays} из ${possibleDays} идеальных дней`;
+    // Kick button: shown only to owner, only for non-owner non-me members
+    const kickBtn = (isOwner && !isMe && !isMemberOwner)
+      ? `<button class="chab-kick-btn" onclick="chabKickMember('${room.id}','${s.user_id}','${(u.username||'участника').replace(/'/g,"\\'")}');event.stopPropagation()" title="Исключить из трекера">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>
+        </button>`
+      : '';
     return `<div class="chab-lb-row${isMe?' me':''}">
       <div class="chab-lb-rank">${medals[i]||i+1}</div>
       <div class="chab-lb-av">${av}</div>
       <div class="chab-lb-info">
-        <div class="chab-lb-name">${u.username||'?'}${isMe?'<span class="chab-you-tag">ТЫ</span>':''}</div>
+        <div class="chab-lb-name">${u.username||'?'}${isMe?'<span class="chab-you-tag">ТЫ</span>':''}${isMemberOwner&&!isMe?'<span class="chab-owner-tag">Владелец</span>':''}</div>
         <div class="chab-lb-sub">${doneTxt} · ${streakTxt}</div>
         <div style="font-size:10px;color:var(--t3);margin-top:1px">${weekTxt}</div>
       </div>
       <div class="chab-lb-bar-wr"><div class="chab-lb-bar" style="width:${Math.round(s.pct/maxPct*100)}%"></div></div>
       <div class="chab-lb-score">${s.pct}%</div>
+      ${kickBtn}
     </div>`;
   }).join('');
 
@@ -26540,6 +26588,10 @@ async function buildRoomCard(room, myRole, user, members, habits, logs){
     <!-- ── ACTIONS ── -->
     <div class="chab-actions-row">
       ${isOwner?`<button class="chab-btn-purple" style="padding:7px 14px;font-size:12px" onclick="chabAddHabit('${room.id}')">+ Привычка</button>`:''}
+      ${!isOwner?`<button class="chab-btn-leave" onclick="chabLeaveRoom('${room.id}')">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Выйти из трекера
+      </button>`:''}
       <button class="chab-btn-outline" style="padding:7px 12px;font-size:11px;margin-left:auto" onclick="chabSetMode('personal')">← Мой трекер</button>
     </div>
 
@@ -26937,6 +26989,40 @@ window.chabDeleteRoom=async function(roomId){
     localStorage.removeItem(CHAB_CACHE_KEY);
     setTimeout(renderCollabView,300);
   }catch(e){console.error(e);}
+};
+
+window.chabLeaveRoom=async function(roomId){
+  if(!confirm('Выйти из этого трекера?\nТвои данные о выполнении привычек сохранятся у участников, но ты больше не будешь частью группы.'))return;
+  const sb=getSB(),user=getUser();
+  if(!sb||!user){try{showToast('Ошибка подключения','❌');}catch{}return;}
+  try{
+    const res=await sb.from('collab_habit_members').delete().eq('room_id',roomId).eq('user_id',user.id);
+    if(res.error) throw res.error;
+    try{showToast('Вышел из трекера','👋');}catch{}
+    _chabCache=null;
+    localStorage.removeItem(CHAB_CACHE_KEY);
+    setTimeout(renderCollabView,300);
+  }catch(e){
+    console.error('chabLeaveRoom:',e);
+    try{showToast('Ошибка: '+(e.message||'не удалось выйти'),'❌');}catch{}
+  }
+};
+
+window.chabKickMember=async function(roomId,userId,username){
+  if(!confirm('Исключить «'+username+'» из трекера?'))return;
+  const sb=getSB(),user=getUser();
+  if(!sb||!user){try{showToast('Ошибка подключения','❌');}catch{}return;}
+  try{
+    const res=await sb.from('collab_habit_members').delete().eq('room_id',roomId).eq('user_id',userId);
+    if(res.error) throw res.error;
+    try{showToast(username+' исключён','🚫');}catch{}
+    _chabCache=null;
+    localStorage.removeItem(CHAB_CACHE_KEY);
+    setTimeout(renderCollabView,300);
+  }catch(e){
+    console.error('chabKickMember:',e);
+    try{showToast('Ошибка: '+(e.message||'не удалось исключить'),'❌');}catch{}
+  }
 };
 
 function subscribeRealtime(roomIds){
