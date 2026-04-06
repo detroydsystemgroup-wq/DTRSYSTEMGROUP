@@ -7092,18 +7092,8 @@ body {
 }
 .hab-prog-fill{
   height:100%;border-radius:6px;
-  transition:width 1s cubic-bezier(.34,1.18,.64,1);
-  position:relative;overflow:hidden;
-}
-.hab-prog-fill::after{
-  content:'';
-  position:absolute;top:0;left:-100%;width:60%;height:100%;
-  background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);
-  animation:progShimmer 2.5s ease infinite;
-}
-@keyframes progShimmer{
-  0%{left:-100%}
-  60%,100%{left:200%}
+  transition:width 700ms cubic-bezier(.4,0,.2,1);
+  will-change:width;
 }
 .hab-prog-sub{
   font-size:10px;color:var(--t3);
@@ -22949,10 +22939,11 @@ function mkArc(pct,size=80){
   const color=pct===100?'#22C55E':pct>=70?'#F5C842':pct>=40?'#F97316':'#EF4444';
   return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="transform:rotate(-90deg)">
     <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="1"/>
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="1"
+    <circle id="hab-arc-fill" cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="1"
       stroke-dasharray="${fill.toFixed(2)} ${(circ-fill).toFixed(2)}"
       stroke-linecap="butt"
-      style="transition:stroke-dasharray 1.1s cubic-bezier(.4,0,.2,1)"/>
+      data-color-100="#22C55E" data-color-70="#F5C842" data-color-40="#F97316" data-color-0="#EF4444"
+      style="transition:stroke-dasharray 700ms cubic-bezier(.4,0,.2,1),stroke 400ms ease"/>
   </svg>`;
 }
 
@@ -23075,10 +23066,10 @@ function render(){
       <div class="hab-prog-wrap">
         <div class="hab-prog-head">
           <span class="hab-prog-lbl">Неделя</span>
-          <span class="hab-prog-pct" data-target="${weekPct}" style="color:${weekPct===100?color:weekPct>=50?color:'var(--t3)'}">0%</span>
+          <span class="hab-prog-pct" data-hid="${h.id}" data-target="${weekPct}" style="color:${weekPct===100?color:weekPct>=50?color:'var(--t3)'}">0%</span>
         </div>
         <div class="hab-prog-bar">
-          <div class="hab-prog-fill" style="width:${weekPct}%;background:${weekPct===100?`linear-gradient(90deg,${color}cc,${color})`:`linear-gradient(90deg,${color}66,${color}99)`};box-shadow:${weekPct>20?`0 0 10px ${color}44`:'none'}"></div>
+          <div class="hab-prog-fill" data-hid="${h.id}" data-width="${weekPct}" style="width:0%;background:${weekPct===100?`linear-gradient(90deg,${color}cc,${color})`:`${color}99`}"></div>
         </div>
         <div class="hab-prog-sub">
           <span>${wDone}/${wActive} дн.</span>
@@ -23132,23 +23123,23 @@ function render(){
         <div style="position:relative;flex-shrink:0">
           ${mkArc(todayPct,80)}
           <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
-            <div style="font-family:'DM Mono',monospace;font-size:17px;font-weight:400;line-height:1;color:${heroColor};letter-spacing:-.04em">${todayPct}%</div>
+            <div id="hab-hero-pct" style="font-family:'DM Mono',monospace;font-size:17px;font-weight:400;line-height:1;color:${heroColor};letter-spacing:-.04em">${todayPct}%</div>
             <div style="font-size:7.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)">Сегодня</div>
           </div>
         </div>
 
         <!-- Title block -->
         <div style="flex:1;min-width:0">
-          <div style="font-size:20px;font-weight:800;color:var(--t1);letter-spacing:-.04em;line-height:1.1;margin-bottom:5px">${
+          <div id="hab-hero-title" style="font-size:20px;font-weight:800;color:var(--t1);letter-spacing:-.04em;line-height:1.1;margin-bottom:5px">${
             todayPct===100?'🏆 Идеальный день!':
             todayPct>=70?'💪 Отличный прогресс':
             todayPct>=40?'⚡ Продолжай!':
             totalToday>0?'🎯 Начни сейчас':'Добавь привычки'
           }</div>
-          <div style="font-size:13px;color:var(--t2);letter-spacing:-.005em">${doneToday} из ${totalToday} привычек выполнено</div>
+          <div id="hab-hero-sub" style="font-size:13px;color:var(--t2);letter-spacing:-.005em">${doneToday} из ${totalToday} привычек выполнено</div>
 
           <!-- Horizontal progress — segmented DTR style -->
-          <div style="margin-top:13px">${(()=>{
+          <div id="hab-hero-segbar" style="margin-top:13px">${(()=>{
             const n=Math.max(1,Math.min(totalToday||1,12));
             return Array.from({length:n},(_,i)=>{
               const on=i<doneToday;
@@ -23265,7 +23256,7 @@ function render(){
 
   renderWeekRep();
 
-  // Авто-скрытие «Стрик под угрозой» через 30 секунд (не повторяется при ре-рендере)
+  // Авто-скрытие «Стрик под угрозой» через 30 секунд
   if(atRisk.length){
     if(!window._dismissedRiskIds) window._dismissedRiskIds = new Set();
     clearTimeout(window._riskTimer);
@@ -23276,6 +23267,12 @@ function render(){
       });
     }, 30000);
   }
+
+  // ── Анимируем ВСЕ бары и счётчики после каждого render() ──
+  // double-RAF гарантирует что DOM уже отрисован браузером
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{ _habAnimAll(); });
+  });
 }
 
 // ══ TOGGLE ═══════════════════════════════════════════════════
@@ -23291,34 +23288,102 @@ window._dismissAtRisk = function(hid){
 };
 
 window.habToggle=function(hid,key){
-  const l=lLoad();if(!l[hid])l[hid]={};
+  // ── 1. Обновляем localStorage ──
+  const l=lLoad();
+  if(!l[hid])l[hid]={};
   const wasDone=!!l[hid][key];
-  if(wasDone)delete l[hid][key];else l[hid][key]=1;
-  lSave(l);render();
-  // Анимируем прогресс-бары и счётчики после перерисовки
-  setTimeout(()=>{
-    animateBars('.hab-prog-fill', 0);
-    document.querySelectorAll('.hab-prog-pct[data-target]').forEach(el=>{
-      const target=parseInt(el.dataset.target)||0;
-      if(target===0){el.textContent='0%';return;}
-      let start=null;const dur=700;
-      const step=ts=>{
-        if(!start)start=ts;
-        const p=Math.min((ts-start)/dur,1);
-        const ease=1-Math.pow(1-p,3);
-        el.textContent=Math.round(ease*target)+'%';
-        if(p<1)requestAnimationFrame(step);
-      };
-      requestAnimationFrame(step);
-    });
-  }, 30);
-  if(!wasDone&&key===today()){
+  if(wasDone) delete l[hid][key]; else l[hid][key]=1;
+  lSave(l);
+
+  const now=new Date();
+  const td=today();
+  const isToday=(key===td);
+  const habits=hLoad();
+  const h=habits.find(x=>x.id===hid);
+  if(!h){ render(); return; } // fallback для безопасности
+  const color=h.color||'#F5C842';
+
+  // ── 2. Патчим ячейку ──
+  const cells=document.querySelectorAll(`[onclick*="habToggle('${hid}','${key}')"]`);
+  cells.forEach(cell=>{
+    const done=isDone(hid,key);
+    if(done){
+      cell.className='hab-cell cell-done'+(key===td?' cell-today':'');
+      cell.style.background=color; cell.style.borderColor=color;
+      cell.style.boxShadow=`0 3px 12px ${color}55`;
+      cell.innerHTML=`<div class="cell-check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.95)" stroke-width="2.8" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>`;
+    } else {
+      cell.className='hab-cell'+(key===td?' cell-today':'');
+      cell.style.background=''; cell.style.borderColor=''; cell.style.boxShadow='';
+      cell.innerHTML=`<div style="width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.09);box-shadow:0 0 0 2px rgba(255,255,255,.06)"></div>`;
+    }
+  });
+
+  // ── 3. Пересчитываем weekPct для ЭТОЙ привычки ──
+  const days=weekDates();
+  let wDone=0,wActive=0;
+  days.forEach(d=>{
+    const k=dk(d);const future=d>now&&k!==td;
+    if(isActive(h.freq,d)&&!future){ wActive++; if(isDone(hid,k)) wDone++; }
+  });
+  const weekPct=wActive?Math.round(wDone/wActive*100):0;
+
+  // Обновляем data-атрибуты
+  const fill=document.querySelector(`.hab-prog-fill[data-hid="${hid}"]`);
+  const pctEl=document.querySelector(`.hab-prog-pct[data-hid="${hid}"]`);
+  if(fill){
+    fill.dataset.width=weekPct;
+    fill.style.background=weekPct===100?`linear-gradient(90deg,${color}cc,${color})`:`${color}99`;
+  }
+  if(pctEl){
+    pctEl.dataset.target=weekPct;
+    pctEl.style.color=weekPct===100?color:weekPct>=50?color:'var(--t3)';
+  }
+
+  // ── 4. Анимируем бар и счётчик только этой привычки ──
+  _habAnimOne(hid);
+
+  // ── 5. Обновляем стрик под именем ──
+  const streakEl=document.querySelector(`.hab-row [onclick*="habDel('${hid}')"]`)
+    ?.closest('.hab-row')?.querySelector('.hab-row-sub');
+  if(streakEl){
+    const s=calcStreak(hid,h.freq);
+    streakEl.innerHTML=s>0
+      ?`<span style="color:var(--orange);font-weight:700;font-size:11px">🔥 ${s} дн.</span>`
+      :'<span style="color:var(--t3);font-size:11px">— дисциплина</span>';
+  }
+
+  // ── 6. Патчим hero-баннер ──
+  let doneToday=0,totalToday=0;
+  habits.forEach(x=>{if(isActive(x.freq,now)){totalToday++;if(isDone(x.id,td))doneToday++;}});
+  const todayPct=totalToday?Math.round(doneToday/totalToday*100):0;
+  const heroColor=todayPct===100?'#22C55E':todayPct>=70?'#F5C842':todayPct>=40?'#F97316':'#EF4444';
+
+  const arcEl=document.getElementById('hab-arc-fill');
+  if(arcEl){
+    const circ=2*Math.PI*34;
+    arcEl.setAttribute('stroke-dasharray',`${(circ*todayPct/100).toFixed(2)} ${(circ*(1-todayPct/100)).toFixed(2)}`);
+    arcEl.setAttribute('stroke',heroColor);
+  }
+  const heroPct=document.getElementById('hab-hero-pct');
+  if(heroPct){ heroPct.style.color=heroColor; heroPct.textContent=todayPct+'%'; }
+  const heroTitle=document.getElementById('hab-hero-title');
+  if(heroTitle) heroTitle.textContent=todayPct===100?'🏆 Идеальный день!':todayPct>=70?'💪 Отличный прогресс':todayPct>=40?'⚡ Продолжай!':totalToday>0?'🎯 Начни сейчас':'Добавь привычки';
+  const heroSub=document.getElementById('hab-hero-sub');
+  if(heroSub) heroSub.textContent=`${doneToday} из ${totalToday} привычек выполнено`;
+  const segBar=document.getElementById('hab-hero-segbar');
+  if(segBar){
+    const n=Math.max(1,Math.min(totalToday||1,12));
+    segBar.innerHTML=Array.from({length:n},(_,i)=>{
+      const on=i<doneToday;
+      return `<div style="display:inline-block;width:calc(${100/n}% - ${Math.ceil(3*(n-1)/n)}px);height:4px;border-radius:2px;background:${on?heroColor:'rgba(255,255,255,.07)'};margin-right:${i<n-1?'3px':'0'};${on?`transition:background-color .5s cubic-bezier(.4,0,.2,1) ${i*45}ms`:'transition:background-color .5s'}"></div>`;
+    }).join('');
+  }
+
+  // ── 7. Toast + конфетти ──
+  if(!wasDone&&isToday){
     try{window.showToast&&showToast('Выполнено!','✅');}catch{}
-    // Check perfect day
-    const habits=hLoad();const now=new Date();
-    let d=0,t=0;
-    habits.forEach(h=>{if(isActive(h.freq,now)){t++;if(isDone(h.id,today()))d++;}});
-    if(d===t&&t>0)try{window.triggerConfetti&&triggerConfetti();}catch{}
+    if(doneToday===totalToday&&totalToday>0) try{window.triggerConfetti&&triggerConfetti();}catch{}
   }
 };
 
@@ -23647,6 +23712,54 @@ function renderMonthRep(){
 // ══ HOOK showTab ═════════════════════════════════════════════
 // Export render so collab engine can call it
 window._habPersonalRender = render;
+
+/* ── Shared animation duration — bar и счётчик синхронизированы ── */
+const HAB_DUR = 700; // ms
+
+/* Анимирует прогресс-бар и счётчик для ОДНОЙ привычки (по hid) */
+function _habAnimOne(hid){
+  const fill = document.querySelector(`.hab-prog-fill[data-hid="${hid}"]`);
+  const pct  = document.querySelector(`.hab-prog-pct[data-hid="${hid}"]`);
+  _habRunFill(fill, 0);
+  _habRunCounter(pct, 0);
+}
+
+/* Анимирует ВСЕ прогресс-бары и счётчики (начальная загрузка) */
+function _habAnimAll(){
+  document.querySelectorAll('.hab-prog-fill[data-hid]').forEach((el,i)=>_habRunFill(el, i*40));
+  document.querySelectorAll('.hab-prog-pct[data-hid]').forEach((el,i)=>_habRunCounter(el, i*40));
+}
+
+function _habRunFill(el, delay){
+  if(!el) return;
+  const target = (parseInt(el.dataset.width)||0) + '%';
+  el.style.transition = 'none';
+  el.style.width = '0%';
+  void el.offsetWidth; // force reflow
+  setTimeout(()=>{
+    el.style.transition = `width ${HAB_DUR}ms cubic-bezier(.4,0,.2,1)`;
+    el.style.width = target;
+  }, delay);
+}
+
+function _habRunCounter(el, delay){
+  if(!el) return;
+  const target = parseInt(el.dataset.target)||0;
+  el.textContent = '0%';
+  if(target === 0) return;
+  setTimeout(()=>{
+    let start=null;
+    const step=ts=>{
+      if(!start) start=ts;
+      const p = Math.min((ts-start)/HAB_DUR, 1);
+      const ease = 1-Math.pow(1-p, 3);
+      el.textContent = Math.round(ease*target)+'%';
+      if(p<1) requestAnimationFrame(step);
+      else el.textContent = target+'%';
+    };
+    requestAnimationFrame(step);
+  }, delay);
+}
 
 const _st=window.showTab;
 window.showTab=function(t,btn){
