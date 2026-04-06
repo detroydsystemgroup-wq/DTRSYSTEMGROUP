@@ -10790,7 +10790,85 @@ html[data-theme="light"] .nav-icon-btn:hover {
 }
 .sound-track.active .sound-track-play { opacity: 1; }
 
-/* ── Кнопка напоминаний — активная рамка ── */
+/* ══ DASHBOARD SECTION HEADERS — Premium Gold System ══════════ */
+
+/* Override old [id^="sec_"] rules */
+[id^="sec_"] {
+  all: unset !important;
+  display: block !important;
+}
+
+.dsh {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin: 34px 0 18px;
+  position: relative;
+}
+
+/* Gold icon box */
+.dsh-icon {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  background: rgba(245,200,66,.1);
+  border: 0.5px solid rgba(245,200,66,.22);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  color: var(--gold);
+  box-shadow: 0 0 12px rgba(245,200,66,.08);
+}
+
+/* Title + subtitle stack */
+.dsh-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.dsh-title {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--gold);
+  line-height: 1;
+}
+.dsh-sub {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--t3);
+  letter-spacing: .02em;
+  line-height: 1;
+}
+
+/* Fading line to the right */
+.dsh-line {
+  flex: 1;
+  height: 0.5px;
+  background: linear-gradient(90deg,
+    rgba(245,200,66,.25) 0%,
+    rgba(245,200,66,.08) 40%,
+    transparent 100%);
+  border-radius: 1px;
+  min-width: 20px;
+}
+
+/* First section — less top margin */
+#sec_activity .dsh { margin-top: 20px; }
+
+/* Light theme */
+[data-theme="light"] .dsh-icon {
+  background: rgba(200,159,40,.12);
+  border-color: rgba(200,159,40,.28);
+}
+[data-theme="light"] .dsh-line {
+  background: linear-gradient(90deg,
+    rgba(200,159,40,.3) 0%,
+    rgba(200,159,40,.08) 40%,
+    transparent 100%);
+}
+
+/* ══ END SECTION HEADERS ═══════════════════════════════════════ */
 #notifSettingsBtn.notif-active {
   border-color: rgba(34,197,94,.55) !important;
   box-shadow: 0 0 0 1px rgba(34,197,94,.18), 0 0 12px rgba(34,197,94,.1) !important;
@@ -13534,6 +13612,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
           </div>
           <!-- ── end hero zone ── -->
 
+          <div id="sec_activity" style=""></div>
           <div class="kpi-row" id="kpiRow"></div>
 
           <div style="margin-bottom:8px">
@@ -13549,7 +13628,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
           <div class="insight-row" id="insightRow"></div>
           <div id="sec_records" style=""></div>
           <div class="rec-grid" id="recGrid"></div>
-          <div id="sec_forecast">Сравнительный анализ</div>
+          <div id="sec_forecast" style=""></div>
           <div class="cmp-row" id="forecastRow"></div>
 
           <div id="tab-heatmap-placeholder" style="display:none"></div>
@@ -15622,10 +15701,45 @@ function renderDash(){
     }
     dashTitleEl.innerHTML=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.6"><rect x="2" y="2" width="9" height="9" rx="2"/><rect x="13" y="2" width="9" height="9" rx="2"/><rect x="2" y="13" width="9" height="9" rx="2"/><rect x="13" y="13" width="9" height="9" rx="2"/></svg>${titleStr}`;
   }
-  const setSec=(id,lbl,svgIcon)=>{const el=document.getElementById(id);if(el)el.innerHTML=`<span style="display:inline-flex;align-items:center;color:var(--gold);opacity:.7">${svgIcon}</span>${lbl}`;};
-  setSec('sec_by_cat','ПО КАТЕГОРИЯМ',`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`);
-  setSec('sec_kpi','КЛЮЧЕВЫЕ ПОКАЗАТЕЛИ',`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`);
-  setSec('sec_records','ЛИЧНЫЕ РЕКОРДЫ',`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>`);
+  const setSec = (id, cfg) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = `
+      <div class="dsh">
+        <div class="dsh-icon">${cfg.icon}</div>
+        <div class="dsh-body">
+          <div class="dsh-title">${cfg.title}</div>
+          <div class="dsh-sub">${cfg.sub}</div>
+        </div>
+        <div class="dsh-line"></div>
+      </div>`;
+  };
+
+  setSec('sec_activity', {
+    icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
+    title: 'АКТИВНОСТЬ',
+    sub: isWeek ? 'Динамика за 7 дней' : 'Динамика за 30 дней'
+  });
+  setSec('sec_by_cat', {
+    icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`,
+    title: 'ПО НАПРАВЛЕНИЯМ',
+    sub: 'Сколько часов в каждой категории'
+  });
+  setSec('sec_kpi', {
+    icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>`,
+    title: 'АНАЛИТИКА',
+    sub: 'Средние значения и темп роста'
+  });
+  setSec('sec_records', {
+    icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>`,
+    title: 'ЛИЧНЫЕ РЕКОРДЫ',
+    sub: 'Твои лучшие результаты за всё время'
+  });
+  setSec('sec_forecast', {
+    icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><path d="M2 20h20"/></svg>`,
+    title: 'СРАВНЕНИЕ С ЛИГОЙ',
+    sub: 'Твой темп относительно других участников'
+  });
 
   // ── PREMIUM KPI ROW ──
   const kpiEl=document.getElementById('kpiRow');
