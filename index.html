@@ -7849,9 +7849,24 @@ body {
 }
 .chab-hero-sub { font-size: 13px; color: var(--t2); letter-spacing: -.005em; }
 .chab-hero-pbar {
-  margin-top: 10px;
-  height: 5px; background: rgba(255,255,255,.07);
-  border-radius: 3px; overflow: hidden;
+  margin-top: 12px;
+}
+/* DTR Segmented progress indicator — used in both trackers */
+.dtr-seg-bar {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  height: 4px;
+}
+.dtr-seg {
+  flex: 1;
+  height: 100%;
+  border-radius: 2px;
+  background: rgba(255,255,255,.07);
+  transition: background-color .5s cubic-bezier(.4,0,.2,1);
+}
+.dtr-seg.on {
+  background: var(--seg-c, var(--gold));
 }
 /* bottom strip: 3 KPI */
 .chab-hero-kpis {
@@ -23134,10 +23149,14 @@ function render(){
           }</div>
           <div style="font-size:13px;color:var(--t2);letter-spacing:-.005em">${doneToday} из ${totalToday} привычек выполнено</div>
 
-          <!-- Horizontal progress bar -->
-          <div style="margin-top:12px;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden">
-            <div style="height:100%;width:${todayPct}%;background:linear-gradient(90deg,${heroColor}88,${heroColor});border-radius:3px;transition:width 1.2s cubic-bezier(.4,0,.2,1);box-shadow:0 0 10px ${heroColor}55"></div>
-          </div>
+          <!-- Horizontal progress — segmented DTR style -->
+          <div style="margin-top:13px">${(()=>{
+            const n=Math.max(1,Math.min(totalToday||1,12));
+            return Array.from({length:n},(_,i)=>{
+              const on=i<doneToday;
+              return `<div style="display:inline-block;width:calc(${100/n}% - ${Math.ceil(3*(n-1)/n)}px);height:4px;border-radius:2px;background:${on?heroColor:'rgba(255,255,255,.07)'};margin-right:${i<n-1?'3px':'0'};${on?`transition:background-color .5s cubic-bezier(.4,0,.2,1) ${i*45}ms`:'transition:background-color .5s'}"></div>`;
+            }).join('');
+          })()}</div>
         </div>
 
       </div>
@@ -25863,6 +25882,21 @@ function getSB(){ try{ return sb; }catch(e){ return null; } }
 function getUser(){ try{ return typeof SB_USER !== "undefined" ? SB_USER : null; }catch(e){ return null; } }
 function mkCode(){ return Math.random().toString(36).slice(2,8).toUpperCase(); }
 
+/* ── Segmented progress bar ─────────────────────────────────────
+   done  = number of completed items
+   total = total items (= number of segments, capped at 12)
+   color = hex/rgb color for filled segments
+   id    = optional id attribute for the container (for patching)
+────────────────────────────────────────────────────────────────── */
+function mkSegBar(done, total, color, id){
+  const n = Math.max(1, Math.min(total||1, 12));
+  const segs = Array.from({length:n}, (_,i) => {
+    const on = i < done;
+    return `<div class="dtr-seg${on?' on':''}" style="${on?`--seg-c:${color};transition-delay:${i*45}ms`:''}"></div>`;
+  }).join('');
+  return `<div class="dtr-seg-bar"${id?` id="${id}"`:''}>${segs}</div>`;
+}
+
 window.chabSetMode = function(mode){
   _chabMode = mode;
   localStorage.setItem(CHAB_MODE_KEY, mode);
@@ -26137,12 +26171,15 @@ function _patchHeroStats(roomId, logs, myId, habits){
   const subEl = $(`chab-hero-sub-${roomId}`);
   if(subEl) subEl.textContent=`${myDoneToday} из ${total} привычек выполнено`;
 
-  // Прогресс-бар
-  const pbar = $(`chab-pbar-fill-${roomId}`);
-  if(pbar){
-    pbar.style.width=`${myTodayPct}%`;
-    pbar.style.background=`linear-gradient(90deg,${heroColor}77,${heroColor})`;
-    pbar.style.boxShadow=`0 0 10px ${heroColor}55`;
+  // Прогресс-бар (сегментный)
+  const segBar = $(`chab-segbar-${roomId}`);
+  if(segBar){
+    const rc2 = _chabCache && _chabCache.perRoom[roomId];
+    const hCount = rc2 ? (rc2.habits||[]).length : total;
+    segBar.innerHTML = Array.from({length:Math.max(1,Math.min(hCount,12))}, (_,i) => {
+      const on = i < myDoneToday;
+      return `<div class="dtr-seg${on?' on':''}" style="${on?`--seg-c:${heroColor};transition-delay:${i*45}ms`:''}"></div>`;
+    }).join('');
   }
 
   // Hero background tint
@@ -26544,7 +26581,7 @@ async function buildRoomCard(room, myRole, user, members, habits, logs){
           <div id="chab-hero-title-${room.id}" class="chab-hero-title">${heroMsg}</div>
           <div id="chab-hero-sub-${room.id}" class="chab-hero-sub">${myDoneToday} из ${habits.length} привычек выполнено</div>
           <div class="chab-hero-pbar">
-            <div id="chab-pbar-fill-${room.id}" style="height:100%;width:${myTodayPct}%;background:linear-gradient(90deg,${heroColor}77,${heroColor});border-radius:3px;transition:width 1.2s cubic-bezier(.4,0,.2,1);box-shadow:0 0 10px ${heroColor}55"></div>
+            ${mkSegBar(myDoneToday, habits.length, heroColor, `chab-segbar-${room.id}`)}
           </div>
         </div>
 
