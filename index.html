@@ -895,8 +895,9 @@ body { transition:background .28s,color .28s; }
 .stab:active { transform:scale(.96); }
 @media(min-width:601px){
   .stab { position:relative; overflow:hidden; }
-  .stab::after { content:''; position:absolute; bottom:0; left:50%; right:50%; height:2px; background:var(--gold); border-radius:2px 2px 0 0; transition:left .22s ease,right .22s ease; }
-  .stab.active::after { left:16px; right:16px; }
+/* stab active::after — replaced by dot indicator */
+  .stab::after { display: none !important; }
+  .stab.active::after { display: none !important; }
 }
 
 /* ── TAB CONTENT TRANSITIONS ── */
@@ -8583,41 +8584,55 @@ body {
 }
 
 /* ════════════════════════════════════════════════════
-   NAV TABS (stab) — Clean centered bottom indicator
+   NAV TABS (stab) — Premium active indicator
 ════════════════════════════════════════════════════ */
 .stab {
   position: relative;
   overflow: visible;
 }
-/* Tab indicator — proportional width, symmetric, crisp */
+
+/* Убираем полосу — заменяем на dot */
 .stab::after {
   content: '';
   position: absolute;
-  bottom: 0;
-  left: 15%;
-  right: 15%;
-  height: 2.5px;
-  background: linear-gradient(90deg, transparent, var(--gold) 20%, var(--gold) 80%, transparent);
-  border-radius: 2px 2px 0 0;
-  transform: scaleX(0);
-  transform-origin: center;
-  transition: transform .32s var(--ease-spring), opacity .22s ease;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%) scale(0);
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 6px rgba(245,200,66,.6);
   opacity: 0;
   pointer-events: none;
+  transition:
+    transform .28s cubic-bezier(.34,1.4,.64,1),
+    opacity .2s ease;
 }
 .stab.active::after {
-  transform: scaleX(1);
+  transform: translateX(-50%) scale(1);
   opacity: 1;
 }
-/* Icon spring on active */
+
+/* Icon wrap — active state: gold glow под иконкой */
 .stab .tab-icon-wrap {
-  transition: transform .28s var(--ease-spring), color .2s ease !important;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  transition:
+    transform .2s cubic-bezier(.25,.46,.45,.94),
+    background .18s ease,
+    border-color .18s ease,
+    box-shadow .18s ease !important;
+  position: relative;
 }
-.stab:hover .tab-icon-wrap { transform: scale(1.15) translateY(-1px); }
-.stab.active .tab-icon-wrap { transform: scale(1.05) translateY(-1px); }
+
+/* Ambient glow снизу иконки для active */
+.stab.active .tab-icon-wrap {
+  background: rgba(245,200,66,.12) !important;
+  border-color: rgba(245,200,66,.35) !important;
+  box-shadow:
+    0 0 16px rgba(245,200,66,.2),
+    0 6px 20px rgba(245,200,66,.12),
+    inset 0 1px 0 rgba(245,200,66,.1) !important;
+  transform: none !important;
+}
 
 /* ════════════════════════════════════════════════════
    MODAL — Spring entrance / exit
@@ -10790,7 +10805,139 @@ html[data-theme="light"] .nav-icon-btn:hover {
 }
 .sound-track.active .sound-track-play { opacity: 1; }
 
-/* ══ DASHBOARD SECTION HEADERS — Premium Gold System ══════════ */
+/* ══ LG MINI — ПРЕМИУМ КАРТОЧКА АРЕНЫ ══════════════════════════ */
+
+.lgm-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 8px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background .18s ease, transform .2s cubic-bezier(.34,1.4,.64,1);
+  position: relative;
+  overflow: hidden;
+}
+.lgm-row::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: 12px;
+  background: linear-gradient(90deg, rgba(var(--cat-c-rgb,255,255,255),.03), transparent 60%);
+  opacity: 0;
+  transition: opacity .2s;
+  pointer-events: none;
+}
+.lgm-row:hover {
+  background: rgba(255,255,255,.04);
+  transform: translateX(3px);
+}
+.lgm-row:hover::before { opacity: 1; }
+.lgm-row:active { transform: translateX(3px) scale(.98); }
+
+/* Top 3 rows get subtle left accent */
+.lgm-row.lgm-top {
+  background: rgba(255,255,255,.02);
+  border-left: 1.5px solid rgba(255,255,255,.06);
+}
+.lgm-row.lgm-top:hover { background: rgba(255,255,255,.05); }
+
+.lgm-cat-icon {
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.lgm-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.lgm-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t1);
+  letter-spacing: -.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lgm-hrs {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+/* Rank badge — pill */
+.lgm-rank-badge {
+  font-family: 'DM Mono', monospace;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 0.5px solid;
+  letter-spacing: -.02em;
+  flex-shrink: 0;
+  transition: box-shadow .3s ease, transform .2s cubic-bezier(.34,1.4,.64,1);
+}
+.lgm-row:hover .lgm-rank-badge {
+  transform: scale(1.06);
+}
+
+/* Divider between rows */
+.lgm-row + .lgm-row {
+  border-top: 0.5px solid rgba(255,255,255,.04);
+}
+
+/* ══ MACOS DOCK ZOOM — Tab bar ══════════════════════════════════ */
+
+.ph-tabs {
+  transform: translateZ(0);
+}
+
+/* Dock — только иконка масштабируется, не весь таб */
+.stab {
+  transform: none !important;
+  will-change: auto;
+}
+
+.tab-icon-wrap {
+  transition:
+    transform .2s cubic-bezier(.25,.46,.45,.94),
+    background .18s ease,
+    border-color .18s ease,
+    box-shadow .18s ease !important;
+  will-change: transform;
+  transform-origin: bottom center;
+}
+
+/* Только сам наведённый таб — без соседей */
+.stab.dock-active .tab-icon-wrap {
+  transform: translateY(-4px) scale(1.16) !important;
+  background: rgba(245,200,66,.09) !important;
+  border-color: rgba(245,200,66,.2) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,.25) !important;
+}
+/* Убираем эффект соседей */
+.stab.dock-near .tab-icon-wrap,
+.stab.dock-far .tab-icon-wrap {
+  transform: none !important;
+  background: unset !important;
+}
+
+/* Active tab не меняется от dock */
+.stab.active.dock-active .tab-icon-wrap {
+  background: rgba(245,200,66,.14) !important;
+  border-color: rgba(245,200,66,.4) !important;
+  box-shadow: 0 0 20px rgba(245,200,66,.25), 0 6px 16px rgba(0,0,0,.3) !important;
+}
+
+/* Подпись немного ярче у активного */
+.stab.dock-active span:not([id]) {
+  color: var(--t1) !important;
+  transition: color .12s ease;
+}
+
+/* ══ END ══════════════════════════════════════════════════════ */
 
 /* Override old [id^="sec_"] rules */
 [id^="sec_"] {
@@ -13955,8 +14102,8 @@ html[data-theme="light"] .nav-icon-btn:hover {
     </div>
 
     <div class="card">
-      <div class="ch"><span class="ct">Моя арена</span><span style="font-size:12px;color:var(--blue);cursor:pointer" onclick="showTab('leagues')">Все →</span></div>
-      <div class="cb" style="padding:10px" id="lgMini"></div>
+      <div class="ch"><span class="ct" style="display:inline-flex;align-items:center;gap:7px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.2" style="opacity:.8"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>МОЯ АРЕНА</span><span style="font-size:11px;color:var(--gold);opacity:.6;cursor:pointer;font-weight:600;letter-spacing:.02em" onclick="showTab('leagues')">Все →</span></div>
+      <div class="cb" style="padding:8px 10px 12px" id="lgMini"></div>
     </div>
 
     <div class="card">
@@ -14794,6 +14941,7 @@ function doDemo(){
   renderAll();
 initRipple();
 initKpiGlow();
+initDockZoom();
 restoreTimer();
 initPresence();
 initRealtimeMessages();
@@ -15058,7 +15206,7 @@ async function loadUser(userId){
   if(typeof renderHeroZone === 'function') renderHeroZone();
   renderAll();
   showTab('dash');
-  initRipple(); initKpiGlow();
+  initRipple(); initKpiGlow(); initDockZoom();
   restoreTimer();
   if(typeof window._dtrDashEntered !== 'undefined') window._dtrDashEntered = false;
   setTimeout(()=>{ if(typeof DTROrchestrate === 'function') DTROrchestrate(); }, 200);
@@ -16949,28 +17097,44 @@ async function renderLgMini(){
   const el=document.getElementById('lgMini');if(!el)return;
   try{
     const cats=activeCats();
-    if(!cats.length){el.innerHTML='';return;}
 
-    // Функция рендера мини-виджета из данных
+    // Динамический заголовок
+    const titleEl = el.closest('.card')?.querySelector('.ct');
+    if(titleEl){
+      const label = cats.length===1 ? 'ВАШ РАНГ' : 'ВАШИ РАНГИ';
+      titleEl.innerHTML=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.2" style="opacity:.8"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>${label}`;
+    }
+
+    if(!cats.length){el.innerHTML='<div style="padding:16px;text-align:center;font-size:12px;color:var(--t3)">Нет категорий</div>';return;}
+
+    const rankStyle=(r)=>{
+      if(r===1) return {color:'#FFD700',bg:'rgba(255,215,0,.1)',border:'rgba(255,215,0,.28)',glow:'rgba(255,215,0,.25)'};
+      if(r===2) return {color:'#C8C8D4',bg:'rgba(200,200,210,.08)',border:'rgba(200,200,210,.2)',glow:'rgba(200,200,210,.1)'};
+      if(r===3) return {color:'#CD9060',bg:'rgba(205,127,50,.09)',border:'rgba(205,127,50,.22)',glow:'rgba(205,127,50,.15)'};
+      return {color:'var(--t2)',bg:'rgba(255,255,255,.04)',border:'rgba(255,255,255,.1)',glow:'transparent'};
+    };
+
     const _draw=(results)=>{
-      el.innerHTML=cats.map((c,i)=>{
-        const rank=results[i].findIndex(p=>p.isMe)+1||'?';
-        return `<div style="display:flex;align-items:center;gap:10px;padding:7px 5px;border-radius:7px;cursor:pointer;transition:background .2s" onclick="showTab('leagues')" onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
-          ${catIconBox(c.id, c.color, 32)}
-          <div style="flex:1"><div style="font-size:12px;font-weight:600">${c.name}</div>
-            <div style="font-size:10px;color:var(--t3)">${c.hours.toFixed(1)} часов</div></div>
-          <div style="font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;color:${c.color}">#${rank}</div>
+      el.innerHTML = cats.map((c,i)=>{
+        const rank = results[i].findIndex(p=>p.isMe)+1||'?';
+        const rs = rankStyle(rank);
+        const isTop = rank<=3 && rank!=='?';
+        return `
+        <div class="lgm-row ${isTop?'lgm-top':''}" onclick="showTab('leagues')" style="--cat-c:${c.color}">
+          <div class="lgm-cat-icon">${catIconBox(c.id,c.color,34)}</div>
+          <div class="lgm-info">
+            <div class="lgm-name">${c.name}</div>
+            <div class="lgm-hrs"><span style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:-.02em;color:${c.color};opacity:.8">${c.hours.toFixed(1)}</span><span style="font-size:10px;color:var(--t3);margin-left:2px">ч</span></div>
+          </div>
+          <div class="lgm-rank-badge" style="color:${rs.color};background:${rs.bg};border-color:${rs.border};box-shadow:0 0 12px ${rs.glow}">
+            #${rank}
+          </div>
         </div>`;
       }).join('');
     };
 
-    // Если кеш есть — рисуем мгновенно
-    const hasCached = cats.every(c => lgCache[c.id]);
-    if(hasCached){
-      _draw(cats.map(c=>lgCache[c.id]||[]));
-    }
-
-    // Грузим/обновляем данные (из кеша или с сервера)
+    const hasCached=cats.every(c=>lgCache[c.id]);
+    if(hasCached){_draw(cats.map(c=>lgCache[c.id]||[]));}
     const results=await Promise.all(cats.map(c=>loadLeagueData(c.id)));
     _draw(results);
   }catch(e){console.error('renderLgMini:',e);el.innerHTML='';}
@@ -19829,6 +19993,30 @@ function initKpiGlow(){
       kpi.style.setProperty('--my',((e.clientY-r.top)/r.height*100)+'%');
     });
   });
+}
+
+/* ── macOS Dock Zoom for tab bar ─────────────────────────────── */
+function initDockZoom(){
+  const tabs = Array.from(document.querySelectorAll('.ph-tabs .stab'));
+  if(!tabs.length) return;
+
+  const CLASSES = ['dock-active','dock-near','dock-far'];
+
+  const clearAll = () => tabs.forEach(t => t.classList.remove(...CLASSES));
+
+  tabs.forEach((tab, idx) => {
+    tab.addEventListener('mouseenter', () => {
+      clearAll();
+      tabs.forEach((t, i) => {
+        const d = Math.abs(i - idx);
+        if(d === 0) t.classList.add('dock-active');
+        else if(d === 1) t.classList.add('dock-near');
+        else if(d === 2) t.classList.add('dock-far');
+      });
+    });
+  });
+
+  document.querySelector('.ph-tabs')?.addEventListener('mouseleave', clearAll);
 }
 
 // ── DTR Motion System — stagger helper ──────────────────────────
