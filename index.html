@@ -11005,14 +11005,6 @@ html[data-theme="light"] .nav-icon-btn:hover {
 .stab:hover span { color: var(--gold) !important; }
 
 /* ── FIX 4: Notification modal — elegant redesign ── */
-#notifSettingsOv > div {
-  background: linear-gradient(180deg, rgba(15,14,10,.98) 0%, rgba(11,11,9,.99) 100%) !important;
-  border: 0.5px solid rgba(245,200,66,.15) !important;
-  border-radius: 20px !important;
-  max-width: 400px !important;
-  box-shadow: 0 24px 60px rgba(0,0,0,.7), inset 0 1px 0 rgba(245,200,66,.07) !important;
-  overflow: hidden !important;
-}
 /* Notification header */
 #notifSettingsOv > div > div:first-child {
   background: transparent !important;
@@ -11552,20 +11544,6 @@ html[data-theme="light"] .nav-icon-btn:hover {
 /* ══════════════════════════════════════
    NOTIFICATION MODAL — Full redesign
    ══════════════════════════════════════ */
-#notifSettingsOv {
-  background: rgba(0,0,0,.85) !important;
-  backdrop-filter: blur(24px) !important;
-  -webkit-backdrop-filter: blur(24px) !important;
-}
-#notifModal {
-  background: linear-gradient(160deg,rgba(16,15,11,.99),rgba(10,10,8,.99)) !important;
-  border: 0.5px solid rgba(245,200,66,.11) !important;
-  border-radius: 26px !important;
-  box-shadow:
-    0 0 0 0.5px rgba(255,255,255,.04),
-    0 40px 100px rgba(0,0,0,.85),
-    inset 0 1px 0 rgba(245,200,66,.055) !important;
-}
 
 /* Drum column fade masks */
 #drumHour, #drumMinute {
@@ -12533,6 +12511,325 @@ html[data-theme="light"] .nav-icon-btn:hover {
                   letter-spacing: .01em !important; }
 /* Fix note not having bottom padding */
 #qNote          { margin: 10px 22px 20px !important; text-align: center !important; }
+
+/* ═══════════════════════════════════════════════════════════
+   НАПОМИНАНИЯ — v6 · Cinematic · Spacious · Symmetric
+═══════════════════════════════════════════════════════════ */
+
+@keyframes rmIn {
+  0%   { opacity:0; transform:scale(.92) translateY(28px); filter:blur(8px); }
+  55%  { opacity:1; transform:scale(1.005) translateY(-4px); filter:blur(0); }
+  100% { transform:scale(1) translateY(0); }
+}
+@keyframes rmAurora {
+  0%   { background-position:0% 50%; }
+  50%  { background-position:100% 50%; }
+  100% { background-position:0% 50%; }
+}
+@keyframes rmChipIn {
+  from { opacity:0; transform:scale(.85) translateY(6px); }
+  to   { opacity:1; transform:scale(1) translateY(0); }
+}
+@keyframes rmFlash {
+  0%,100% { opacity:1; }
+  50%      { opacity:.25; }
+}
+
+/* ── Overlay ── */
+#notifSettingsOv {
+  display:none; position:fixed; inset:0; z-index:9500;
+  background:rgba(0,0,0,.72);
+  backdrop-filter:blur(28px) saturate(150%);
+  -webkit-backdrop-filter:blur(28px) saturate(150%);
+  align-items:center; justify-content:center;
+  padding:24px; box-sizing:border-box;
+  overflow-y:auto;
+}
+
+/* ── Modal ── */
+#notifModal {
+  width:min(860px, calc(100vw - 48px)) !important;
+  max-width:860px !important;
+  background:linear-gradient(180deg,#0F0E0A 0%,#0A0A08 100%) !important;
+  border:0.5px solid rgba(245,200,66,.16) !important;
+  border-radius:28px !important;
+  overflow:hidden !important;
+  box-shadow:
+    0 0 0 0.5px rgba(255,255,255,.04),
+    0 40px 100px rgba(0,0,0,.9),
+    0 8px 32px rgba(0,0,0,.5),
+    inset 0 1px 0 rgba(245,200,66,.07) !important;
+  animation:rmIn .44s cubic-bezier(.34,1.08,.64,1) both !important;
+  max-height:none !important;
+}
+
+/* ── COVER — кинематичная шапка ── */
+.rm-cover {
+  height:110px;
+  background:#0A0905;
+  position:relative;
+  overflow:hidden;
+}
+.rm-cover-aurora {
+  position:absolute; inset:-20px;
+  background:linear-gradient(
+    -45deg,
+    rgba(245,200,66,.18) 0%,
+    rgba(168,85,247,.1) 28%,
+    rgba(26,159,255,.08) 52%,
+    rgba(245,200,66,.14) 78%,
+    rgba(168,85,247,.1) 100%
+  );
+  background-size:400% 400%;
+  animation:rmAurora 8s ease infinite;
+  filter:blur(18px);
+}
+.rm-cover-grid {
+  position:absolute; inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.028) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.028) 1px,transparent 1px);
+  background-size:36px 36px;
+  mask-image:linear-gradient(to bottom,rgba(0,0,0,.5),transparent);
+}
+.rm-cover-fade {
+  position:absolute; bottom:0; left:0; right:0; height:56px;
+  background:linear-gradient(to bottom,transparent,#0A0A08);
+}
+.rm-cover-title {
+  position:absolute; bottom:20px; left:28px;
+  display:flex; align-items:center; gap:10px;
+}
+.rm-bell-wrap {
+  width:38px; height:38px; border-radius:12px;
+  background:rgba(245,200,66,.1);
+  border:0.5px solid rgba(245,200,66,.22);
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+}
+.rm-h1 { font-size:20px; font-weight:700; color:var(--t1); letter-spacing:-.03em; }
+.rm-st { display:flex; align-items:center; gap:5px; font-size:10px; margin-top:2px; }
+.rm-dot { width:5px; height:5px; border-radius:50%; background:var(--green); box-shadow:0 0 6px var(--green); transition:all .3s; }
+.rm-close {
+  position:absolute; top:14px; right:14px;
+  width:30px; height:30px; border-radius:9px;
+  background:rgba(0,0,0,.4); border:0.5px solid rgba(255,255,255,.1);
+  color:rgba(255,255,255,.45); cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:all .15s; backdrop-filter:blur(8px);
+  z-index:2;
+}
+.rm-close:hover { background:rgba(255,255,255,.1); color:var(--t1); }
+
+/* ── BODY ── */
+.rm-body {
+  padding:32px 36px 28px;
+  display:flex;
+  flex-direction:column;
+  gap:20px;
+}
+
+/* ── ROW 1: ВРЕМЯ + ДНИ ── */
+.rm-row1 {
+  display:grid;
+  grid-template-columns:220px 1fr;
+  gap:16px;
+  align-items:stretch;
+  min-width:0;
+}
+
+/* Блок времени */
+.rm-time {
+  background:rgba(255,255,255,.025);
+  border:0.5px solid rgba(255,255,255,.06);
+  border-radius:18px;
+  padding:24px 0 20px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:16px;
+}
+.rm-time-lbl {
+  font-size:9px; font-weight:700; letter-spacing:.14em;
+  text-transform:uppercase; color:rgba(255,255,255,.2);
+}
+.rm-time-row {
+  display:flex; align-items:center; gap:4px;
+}
+.rm-time-col {
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+}
+.rm-num {
+  font-family:'DM Mono',monospace;
+  font-size:48px; font-weight:300;
+  color:var(--t1); letter-spacing:-.04em;
+  line-height:1; width:76px; text-align:center;
+  transition:opacity .12s;
+}
+.rm-num.flash { animation:rmFlash .18s ease; }
+.rm-colon {
+  font-family:'DM Mono',monospace; font-size:36px; font-weight:300;
+  color:rgba(255,255,255,.18); padding:0 2px;
+  margin-bottom:4px; line-height:1;
+}
+.rm-arr {
+  width:52px; height:30px; border-radius:9px;
+  background:rgba(255,255,255,.04);
+  border:0.5px solid rgba(255,255,255,.07);
+  color:rgba(255,255,255,.3); cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:all .16s cubic-bezier(.34,1.4,.64,1); padding:0;
+}
+.rm-arr:hover {
+  background:rgba(245,200,66,.1);
+  border-color:rgba(245,200,66,.28);
+  color:var(--gold); transform:scale(1.08);
+}
+.rm-arr:active { transform:scale(.92); }
+
+/* Блок дней */
+.rm-days {
+  background:rgba(255,255,255,.025);
+  border:0.5px solid rgba(255,255,255,.06);
+  border-radius:18px;
+  padding:24px 24px 22px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:20px;
+  min-width:0;
+  overflow:hidden;
+}
+.rm-days-lbl {
+  font-size:9px; font-weight:700; letter-spacing:.14em;
+  text-transform:uppercase; color:rgba(255,255,255,.2);
+}
+.rm-days-grid {
+  display:grid;
+  grid-template-columns:repeat(7,minmax(0,1fr));
+  gap:10px;
+  width:100%;
+  min-width:0;
+}
+.rm-day-btn {
+  height:58px; border-radius:13px;
+  border:0.5px solid rgba(255,255,255,.07);
+  background:rgba(255,255,255,.03);
+  color:rgba(255,255,255,.28);
+  font-family:'DM Sans',sans-serif;
+  font-size:12px; font-weight:700;
+  cursor:pointer; padding:0;
+  transition:all .18s cubic-bezier(.34,1.4,.64,1);
+}
+.rm-day-btn:hover {
+  background:rgba(255,255,255,.07);
+  color:rgba(255,255,255,.65);
+  transform:translateY(-2px);
+}
+.rm-day-btn.active {
+  background:rgba(245,200,66,.13);
+  border-color:rgba(245,200,66,.35);
+  color:var(--gold);
+  box-shadow:0 2px 10px rgba(245,200,66,.12);
+}
+
+/* ── ROW 2: ТЕКСТ ── */
+.rm-inp {
+  width:100%; box-sizing:border-box;
+  padding:14px 18px;
+  border-radius:14px;
+  background:rgba(255,255,255,.03);
+  border:0.5px solid rgba(255,255,255,.07);
+  color:var(--t1); font-size:13px;
+  font-family:'DM Sans',sans-serif;
+  outline:none; letter-spacing:-.005em;
+  transition:border-color .2s, background .2s;
+}
+.rm-inp:focus {
+  border-color:rgba(245,200,66,.3);
+  background:rgba(245,200,66,.02);
+}
+.rm-inp::placeholder { color:rgba(255,255,255,.2); }
+
+/* ── ROW 3: СПИСОК + КНОПКА ── */
+.rm-row3 {
+  display:flex;
+  align-items:center;
+  gap:14px;
+  min-height:52px;
+  background:rgba(255,255,255,.02);
+  border:0.5px solid rgba(255,255,255,.05);
+  border-radius:16px;
+  padding:12px 16px;
+}
+.rm-chips {
+  flex:1; display:flex; align-items:center;
+  gap:8px; overflow-x:auto; scrollbar-width:none;
+}
+.rm-chips::-webkit-scrollbar { display:none; }
+.rm-no-sched {
+  font-size:11.5px; color:rgba(255,255,255,.2);
+  font-weight:500; letter-spacing:.01em; white-space:nowrap;
+}
+.rm-chip {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:6px 8px 6px 11px;
+  background:rgba(255,255,255,.04);
+  border:0.5px solid rgba(255,255,255,.08);
+  border-radius:10px; flex-shrink:0;
+  animation:rmChipIn .2s ease both;
+  transition:background .15s;
+}
+.rm-chip.on { border-color:rgba(245,200,66,.2); }
+.rm-chip-t  { font-family:'DM Mono',monospace; font-size:13.5px; font-weight:400; color:var(--gold); letter-spacing:-.01em; }
+.rm-chip-d  { font-size:9.5px; color:rgba(255,255,255,.3); font-weight:600; white-space:nowrap; }
+.rm-chip-tgl { position:relative; width:26px; height:15px; cursor:pointer; flex-shrink:0; }
+.rm-chip-tgl input { opacity:0; width:0; height:0; position:absolute; }
+.rm-tgl-tr { position:absolute; inset:0; border-radius:8px; background:rgba(255,255,255,.1); transition:background .2s; }
+.rm-chip-tgl input:checked ~ .rm-tgl-tr { background:var(--green); }
+.rm-tgl-th { position:absolute; top:1.5px; left:1.5px; width:12px; height:12px; border-radius:50%; background:#fff; transition:transform .2s; }
+.rm-chip-tgl input:checked ~ .rm-tgl-th { transform:translateX(11px); }
+.rm-chip-del {
+  width:18px; height:18px; border-radius:5px;
+  background:transparent; border:none; padding:0;
+  color:rgba(255,255,255,.2); cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:color .15s; flex-shrink:0;
+}
+.rm-chip-del:hover { color:rgba(239,68,68,.8); }
+.rm-add-btn {
+  height:46px; padding:0 28px; flex-shrink:0;
+  border-radius:13px; border:none;
+  background:linear-gradient(135deg,var(--gold-d),var(--gold));
+  color:#0A0A0B; font-family:'DM Sans',sans-serif;
+  font-size:13.5px; font-weight:700; letter-spacing:.01em;
+  cursor:pointer;
+  box-shadow:0 4px 20px rgba(245,200,66,.25),inset 0 1px 0 rgba(255,255,255,.2);
+  transition:all .2s cubic-bezier(.34,1.4,.64,1);
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  white-space:nowrap;
+}
+.rm-add-btn:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(245,200,66,.38),inset 0 1px 0 rgba(255,255,255,.22); }
+.rm-add-btn:active { transform:scale(.97); }
+
+/* ── Hidden stubs ── */
+#notifPermBlock,#notifMelodyList,#notifScheduleList { display:none !important; }
+.nf-hd,.nf-hd-l,.nf-ttl,.nf-st,.nf-dot,.nf-x,
+.nfr-top,.nfr-time-block,.nfr-days-block,.nfr-bottom,
+.nf-grid,.nf-sep,.nf-col,.nf-lbl,
+.nft-col,.nft-num,.nft-colon,.nft-arrow,
+.nfr-drum-col,.nfr-drum-sc,.nfr-drum-strip,.nfr-drum-fade-t,.nfr-drum-fade-b,.nfr-sep-dot,
+.nfr-list,.nfr-empty-txt,.nfr-chip,.nfr-add,
+.nf-drum-wrap,.nf-drum-hl,.nf-drum-ft,.nf-drum-fb,.nf-drum-col,.nf-drum-sc,.nf-drum-div,
+.nf-list,.nf-empty,.nf-item,.nf-btn,.nf-inp { display:none !important; }
+
+/* Light theme */
+[data-theme="light"] #notifModal { background:linear-gradient(180deg,#FAFAF8,#F5F3EF) !important; }
+[data-theme="light"] .rm-cover { background:#F0EDE6 !important; }
+[data-theme="light"] .rm-cover-fade { background:linear-gradient(to bottom,transparent,#F5F3EF) !important; }
+[data-theme="light"] .rm-time, [data-theme="light"] .rm-days { border-color:rgba(0,0,0,.06) !important; background:rgba(0,0,0,.02) !important; }
+[data-theme="light"] .rm-inp { background:rgba(0,0,0,.02) !important; border-color:rgba(0,0,0,.07) !important; }
+
 </style>
   <link rel="manifest" id="pwaManifest">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23080808'/%3E%3Cpolygon points='58,10 38,52 52,52 42,90 62,46 46,46' fill='%23F5C842'/%3E%3C/svg%3E">
@@ -12798,7 +13095,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
       <div class="ph-acts">
         <button class="btn-ol" onclick="openPub()" style="display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 16px;font-size:13px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Профиль</button>
         <button class="btn-ol" onclick="showTab('manage')" style="display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 16px;font-size:13px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> Лиги</button>
-        <button id="notifSettingsBtn" class="btn-ol" onclick="openNotifSettings()" style="display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 16px;font-size:13px;position:relative"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Уведомления<span id="notifActiveDot" style="display:none;position:absolute;top:6px;right:8px;width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green)"></span></button>
+        <button id="notifSettingsBtn" class="btn-ol" onclick="openNotifSettings()" style="display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 16px;font-size:13px;position:relative"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Напоминания<span id="notifActiveDot" style="display:none;position:absolute;top:6px;right:8px;width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green)"></span></button>
         </div>
       </div>
     </div>
@@ -13551,87 +13848,102 @@ html[data-theme="light"] .nav-icon-btn:hover {
 
 
 <!-- ══ NOTIFICATION SETTINGS MODAL ══════════════════════════════ -->
-<div id="notifSettingsOv" style="display:none;position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.82);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeNotifSettings()">
-  <div id="notifModal" style="background:linear-gradient(160deg,rgba(16,15,11,.99),rgba(11,10,8,.99));border:0.5px solid rgba(245,200,66,.12);border-radius:24px;max-width:360px;width:100%;box-shadow:0 40px 100px rgba(0,0,0,.8),inset 0 1px 0 rgba(245,200,66,.06);max-height:88vh;overflow-y:auto;animation:appleScaleIn .28s cubic-bezier(.25,.46,.45,.94) both">
+<div id="notifSettingsOv" onclick="if(event.target===this)closeNotifSettings()">
+  <div id="notifModal">
 
-    <!-- Header -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 22px 16px;border-bottom:0.5px solid rgba(255,255,255,.05)">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div style="width:38px;height:38px;border-radius:12px;background:rgba(245,200,66,.08);border:0.5px solid rgba(245,200,66,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.6" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    <!-- JS stubs (hidden) -->
+    <div id="notifPermBlock" style="display:none"><div id="notifPermDefaultMsg"></div><div id="notifPermDeniedMsg"><div id="notifPermSteps"></div></div></div>
+    <div id="notifMelodyList" style="display:none"></div>
+    <select id="notifHour" style="display:none"><option value="09" selected>09</option></select>
+    <select id="notifMinute" style="display:none"><option value="00" selected>00</option></select>
+
+    <!-- COVER -->
+    <div class="rm-cover">
+      <div class="rm-cover-aurora"></div>
+      <div class="rm-cover-grid"></div>
+      <div class="rm-cover-fade"></div>
+      <div class="rm-cover-title">
+        <div class="rm-bell-wrap">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.8" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         </div>
         <div>
-          <div style="font-size:15px;font-weight:500;color:var(--t1);letter-spacing:-.015em">Уведомления</div>
-          <div style="font-size:10px;color:var(--t3);margin-top:1px;font-weight:400" id="notifPermStatus">Проверяем разрешения...</div>
+          <div class="rm-h1">Напоминания</div>
+          <div class="rm-st">
+            <span class="rm-dot" id="notifStatusDot"></span>
+            <span id="notifPermStatus" style="color:rgba(255,255,255,.35);font-size:10px">Проверяем...</span>
+          </div>
         </div>
       </div>
-      <button onclick="closeNotifSettings()" style="width:30px;height:30px;border-radius:9px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.07);color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s" onmouseover="this.style.background='rgba(255,255,255,.1)';this.style.color='var(--t1)'" onmouseout="this.style.background='rgba(255,255,255,.05)';this.style.color='var(--t3)'">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      <button class="rm-close" onclick="closeNotifSettings()">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
 
-    <!-- Permission block -->
-    <div id="notifPermBlock" style="padding:16px 22px;border-bottom:0.5px solid rgba(255,255,255,.05);display:none">
-      <div id="notifPermDefaultMsg" style="display:none">
-        <p style="font-size:12px;color:var(--t2);margin-bottom:12px;line-height:1.6;font-weight:400">Нажми кнопку — браузер запросит разрешение на уведомления</p>
-        <button onclick="requestNotifPerm()" style="width:100%;padding:13px;border-radius:13px;background:linear-gradient(135deg,var(--gold-d),var(--gold));color:#0A0A0B;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;border:none;cursor:pointer;letter-spacing:.02em;box-shadow:0 4px 16px rgba(245,200,66,.25)">Разрешить уведомления</button>
-      </div>
-      <div id="notifPermDeniedMsg" style="display:none">
-        <div style="background:rgba(239,68,68,.05);border:0.5px solid rgba(239,68,68,.18);border-radius:12px;padding:14px;margin-bottom:10px">
-          <div style="font-size:11px;font-weight:500;color:var(--red);margin-bottom:5px">Уведомления заблокированы</div>
-          <div id="notifPermSteps" style="font-size:11px;color:var(--t2);line-height:1.7;font-weight:400"></div>
-        </div>
-        <button onclick="notifOpenBrowserSettings()" style="width:100%;padding:11px;border-radius:12px;background:rgba(239,68,68,.06);border:0.5px solid rgba(239,68,68,.18);color:var(--red);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;letter-spacing:.02em">Открыть настройки браузера</button>
-      </div>
-    </div>
+    <!-- BODY -->
+    <div class="rm-body">
 
-    <!-- Form body -->
-    <div style="padding:22px">
+      <!-- ROW 1: ВРЕМЯ + ДНИ НЕДЕЛИ -->
+      <div class="rm-row1">
 
-      <!-- Time picker — drum roll, populated by JS -->
-      <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.25);margin-bottom:12px">Время</div>
-      <div style="display:flex;align-items:center;justify-content:center;margin-bottom:22px;background:rgba(255,255,255,.03);border:0.5px solid rgba(255,255,255,.08);border-radius:16px;overflow:hidden;position:relative;height:140px">
-        <div style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);height:44px;background:rgba(245,200,66,.055);border-top:0.5px solid rgba(245,200,66,.14);border-bottom:0.5px solid rgba(245,200,66,.14);pointer-events:none;z-index:1"></div>
-        <div style="flex:1;position:relative;overflow:hidden;height:140px">
-          <div id="drumHour" style="overflow-y:scroll;height:140px;scroll-snap-type:y mandatory;scrollbar-width:none;-ms-overflow-style:none" onscroll="syncDrum('hour',this)">
-            <div style="height:48px"></div>
-            <div style="height:48px"></div>
-            <!-- hours 00-23 injected by JS -->
-            <div style="height:48px"></div>
+        <!-- Время -->
+        <div class="rm-time">
+          <div class="rm-time-lbl">Время</div>
+          <div class="rm-time-row">
+            <!-- Часы -->
+            <div class="rm-time-col">
+              <button class="rm-arr" onclick="nftStep('hour',1)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="18 15 12 9 6 15"/></svg>
+              </button>
+              <div class="rm-num" id="nftHourDisp">09</div>
+              <button class="rm-arr" onclick="nftStep('hour',-1)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+            </div>
+            <div class="rm-colon">:</div>
+            <!-- Минуты -->
+            <div class="rm-time-col">
+              <button class="rm-arr" onclick="nftStep('min',1)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="18 15 12 9 6 15"/></svg>
+              </button>
+              <div class="rm-num" id="nftMinDisp">00</div>
+              <button class="rm-arr" onclick="nftStep('min',-1)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+            </div>
           </div>
         </div>
-        <div style="font-family:'DM Mono',monospace;font-size:20px;font-weight:300;color:rgba(255,255,255,.18);padding:0 4px;z-index:2;flex-shrink:0">:</div>
-        <div style="flex:1;position:relative;overflow:hidden;height:140px">
-          <div id="drumMinute" style="overflow-y:scroll;height:140px;scroll-snap-type:y mandatory;scrollbar-width:none;-ms-overflow-style:none" onscroll="syncDrum('minute',this)">
-            <div style="height:48px"></div>
-            <!-- minutes 00-55 injected by JS -->
-            <div style="height:48px"></div>
+
+        <!-- Дни недели -->
+        <div class="rm-days">
+          <div class="rm-days-lbl">Дни недели</div>
+          <div class="rm-days-grid" id="notifDayBtns"></div>
+          <div id="rmQuote" style="text-align:center;padding:4px 8px">
+            <div id="rmQuoteText" style="font-size:12px;font-weight:400;color:rgba(255,255,255,.32);line-height:1.6;letter-spacing:.005em;font-style:italic"></div>
+            <div id="rmQuoteAuthor" style="font-size:9.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.15);margin-top:5px"></div>
           </div>
         </div>
+
+      </div><!-- /.rm-row1 -->
+
+      <!-- ROW 2: ТЕКСТ НАПОМИНАНИЯ -->
+      <input type="text" id="notifText" class="rm-inp" maxlength="80" placeholder="Текст напоминания... 🚀">
+
+      <!-- ROW 3: СПИСОК + КНОПКА -->
+      <div class="rm-row3">
+        <div class="rm-chips" id="nfSchedList">
+          <span class="rm-no-sched">Нет напоминаний</span>
+        </div>
+        <button class="rm-add-btn" onclick="addNotifSchedule()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Добавить
+        </button>
       </div>
-      <select id="notifHour" style="display:none"><option value="09" selected>09</option></select>
-      <select id="notifMinute" style="display:none"><option value="00" selected>00</option></select>
 
-      <!-- Days -->
-      <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.25);margin-bottom:10px">Дни недели</div>
-      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:22px" id="notifDayBtns"></div>
+    </div><!-- /.rm-body -->
 
-      <!-- Signal / ringtone -->
-      <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.25);margin-bottom:10px">Сигнал</div>
-      <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:22px" id="notifMelodyList"></div>
-
-      <!-- Text -->
-      <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.25);margin-bottom:10px">Текст</div>
-      <input type="text" id="notifText" maxlength="80" placeholder="Время заниматься!" style="width:100%;padding:12px 16px;border-radius:13px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.08);color:var(--t1);font-size:13px;font-family:'DM Sans',sans-serif;font-weight:400;outline:none;box-sizing:border-box;transition:border-color .2s;margin-bottom:20px" onfocus="this.style.borderColor='rgba(245,200,66,.3)'" onblur="this.style.borderColor='rgba(255,255,255,.08)'">
-
-      <button onclick="addNotifSchedule()" style="width:100%;padding:14px;border-radius:14px;background:linear-gradient(135deg,var(--gold-d),var(--gold));color:#0A0A0B;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;border:none;cursor:pointer;letter-spacing:.02em;box-shadow:0 4px 18px rgba(245,200,66,.22);transition:transform .18s,box-shadow .18s" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 28px rgba(245,200,66,.35)'" onmouseout="this.style.transform='';this.style.boxShadow='0 4px 18px rgba(245,200,66,.22)'">+ Добавить уведомление</button>
-    </div>
-
-    <div id="notifScheduleList" style="padding:0 22px 22px"></div>
+    <div id="notifScheduleList" style="display:none"></div>
   </div>
 </div>
-
-
 
 <!-- ═══════════════════════════════════════════════════════════
      ТРЕККЕР ПРИВЫЧЕК — DTR Progress Club  (full engine)
@@ -20219,11 +20531,20 @@ function _playMelody(id) {
   };
 
   if (id === 'chime') {
-    o => void 0;
-    seq(1047, 0,    0.4, 0.3);
-    seq(1319, 0.15, 0.4, 0.25);
-    seq(1568, 0.3,  0.5, 0.2);
-    seq(2093, 0.5,  0.8, 0.15);
+    const play = (freq, start, dur, vol, type='sine') => {
+      const o = ctx.createOscillator(), eg = ctx.createGain();
+      o.type = type; o.connect(eg); eg.connect(g);
+      o.frequency.value = freq;
+      eg.gain.setValueAtTime(0, now+start);
+      eg.gain.linearRampToValueAtTime(vol, now+start+0.018);
+      eg.gain.exponentialRampToValueAtTime(0.001, now+start+dur);
+      o.start(now+start); o.stop(now+start+dur+0.05);
+    };
+    play(523.25,0,1.2,.28); play(659.25,.18,1.1,.22);
+    play(783.99,.36,1.0,.18); play(1046.5,.56,1.4,.14);
+    play(523.25,0,.8,.07,'triangle'); play(659.25,.18,.7,.05,'triangle');
+    play(130.81,0,.3,.06);
+    g.gain.setValueAtTime(.85,now); g.gain.exponentialRampToValueAtTime(.001,now+2.3);
   } else if (id === 'pulse') {
     [0, 0.25, 0.5].forEach(t => seq(880, t, 0.15, 0.35));
   } else if (id === 'gong') {
@@ -20245,6 +20566,67 @@ function _playMelody(id) {
 }
 
 // ── Open / close modal ─────────────────────────────────────────
+
+// ── Мотивационные цитаты для блока напоминаний ─────────────────────────
+const RM_QUOTES = [
+  { text: "Дисциплина — это мост между целями и достижениями.", author: "Джим Рон" },
+  { text: "Успех — это сумма небольших усилий, повторяемых день за днём.", author: "Роберт Коллиер" },
+  { text: "Не жди. Время никогда не будет подходящим.", author: "Наполеон Хилл" },
+  { text: "Каждый эксперт когда-то был новичком.", author: "Хелен Хейс" },
+  { text: "Сделай сегодня то, что другие не хотят. Завтра живи так, как другие не могут.", author: "Джаред Лето" },
+  { text: "Привычки — это компаунд-процент самосовершенствования.", author: "Джеймс Клир" },
+  { text: "Вы — среднее пяти людей, с которыми проводите больше всего времени.", author: "Джим Рон" },
+  { text: "Маленький прогресс каждый день складывается в большие результаты.", author: "" },
+  { text: "Тот, кто двигается вперёд, пусть медленно, опережает стоящего на месте.", author: "Конфуций" },
+  { text: "Час в день на обучение — 365 часов мастерства в год.", author: "" },
+  { text: "Мотивация запускает. Привычка продолжает.", author: "" },
+  { text: "Твоё будущее создаётся тем, что ты делаешь сегодня.", author: "Роберт Кийосаки" },
+  { text: "Не считай дни. Сделай так, чтобы дни считались.", author: "Мухаммад Али" },
+  { text: "Хочешь изменить жизнь — измени ежедневные ритуалы.", author: "" },
+  { text: "Терпение и настойчивость обладают магической силой перед которой отступают трудности.", author: "Джон Квинси Адамс" },
+];
+
+let _rmQuoteIdx = Math.floor(Math.random() * RM_QUOTES.length);
+
+function _showRmQuote() {
+  const q = RM_QUOTES[_rmQuoteIdx];
+  const txt = document.getElementById('rmQuoteText');
+  const auth = document.getElementById('rmQuoteAuthor');
+  if (!txt) return;
+  // Fade out
+  txt.style.opacity = '0';
+  if (auth) auth.style.opacity = '0';
+  setTimeout(() => {
+    txt.textContent = '"' + q.text + '"';
+    if (auth) auth.textContent = q.author ? '— ' + q.author : '';
+    txt.style.transition = 'opacity .5s ease';
+    if (auth) auth.style.transition = 'opacity .5s ease';
+    txt.style.opacity = '1';
+    if (auth) auth.style.opacity = '1';
+    // Следующая цитата
+    _rmQuoteIdx = (_rmQuoteIdx + 1) % RM_QUOTES.length;
+  }, 300);
+}
+
+// ── Time stepper ───────────────────────────────────────────────────────
+let _nftH = 9, _nftM = 0;
+
+function nftStep(type, dir) {
+  if (type === 'hour') {
+    _nftH = (_nftH + dir + 24) % 24;
+    const d = document.getElementById('nftHourDisp');
+    if (d) { d.classList.add('flash'); setTimeout(() => d.classList.remove('flash'), 130); d.textContent = String(_nftH).padStart(2,'0'); }
+    const s = document.getElementById('notifHour');
+    if (s) s.innerHTML = `<option value="${String(_nftH).padStart(2,'0')}" selected>${String(_nftH).padStart(2,'0')}</option>`;
+  } else {
+    _nftM = (_nftM + dir * 5 + 60) % 60;
+    const d = document.getElementById('nftMinDisp');
+    if (d) { d.classList.add('flash'); setTimeout(() => d.classList.remove('flash'), 130); d.textContent = String(_nftM).padStart(2,'0'); }
+    const s = document.getElementById('notifMinute');
+    if (s) s.innerHTML = `<option value="${String(_nftM).padStart(2,'0')}" selected>${String(_nftM).padStart(2,'0')}</option>`;
+  }
+}
+
 function openNotifSettings() {
   _loadNotifSchedules();
   const ov = document.getElementById('notifSettingsOv');
@@ -20253,11 +20635,18 @@ function openNotifSettings() {
   _renderNotifMelodies();
   _renderNotifScheduleList();
   _updateNotifPermUI();
-  // Init drum pickers
-  setTimeout(() => {
-    _initDrumPicker('drumHour', 9);
-    _initDrumPicker('drumMinute', 0, true); // minutes: 0→0min, 1→5min, etc.
-  }, 100);
+  // Инициализируем stepper
+  _nftH = 9; _nftM = 0;
+  // Показываем цитату
+  setTimeout(_showRmQuote, 80);
+  const hd = document.getElementById('nftHourDisp');
+  const md = document.getElementById('nftMinDisp');
+  if (hd) hd.textContent = '09';
+  if (md) md.textContent = '00';
+  const hs = document.getElementById('notifHour');
+  const ms = document.getElementById('notifMinute');
+  if (hs) hs.innerHTML = '<option value="09" selected>09</option>';
+  if (ms) ms.innerHTML = '<option value="00" selected>00</option>';
 }
 
 function closeNotifSettings() {
@@ -20386,32 +20775,22 @@ function notifOpenBrowserSettings() {
 }
 
 function _updateNotifPermUI() {
-  const status     = document.getElementById('notifPermStatus');
-  const block      = document.getElementById('notifPermBlock');
-  const defaultMsg = document.getElementById('notifPermDefaultMsg');
-  const deniedMsg  = document.getElementById('notifPermDeniedMsg');
-  const stepsEl    = document.getElementById('notifPermSteps');
-
+  const status = document.getElementById('notifPermStatus');
+  const dot    = document.getElementById('notifStatusDot');
   if (!('Notification' in window)) {
-    if (status) { status.textContent = 'Уведомления не поддерживаются браузером'; status.style.color = 'var(--red)'; }
-    if (block) block.style.display = 'none';
+    if (status) status.textContent = 'Не поддерживается';
     return;
   }
   const p = Notification.permission;
   if (p === 'granted') {
-    if (status) { status.textContent = '✓ Разрешено'; status.style.color = 'var(--green)'; }
-    if (block) block.style.display = 'none';
+    if (status) { status.textContent = 'Разрешено'; status.style.color = 'var(--green)'; }
+    if (dot) { dot.style.background='var(--green)'; dot.style.boxShadow='0 0 6px var(--green)'; }
   } else if (p === 'denied') {
-    if (status) { status.textContent = 'Заблокировано — разрешите в настройках браузера'; status.style.color = 'var(--red)'; }
-    if (block) { block.style.display = 'block'; }
-    if (defaultMsg) defaultMsg.style.display = 'none';
-    if (deniedMsg)  deniedMsg.style.display  = 'block';
-    if (stepsEl)    stepsEl.innerHTML = _getBrowserUnblockSteps();
+    if (status) { status.textContent = 'Заблокировано в браузере'; status.style.color = 'var(--red)'; }
+    if (dot) { dot.style.background='var(--red)'; dot.style.boxShadow='0 0 6px var(--red)'; }
   } else {
-    if (status) { status.textContent = 'Нужно разрешение для уведомлений'; status.style.color = 'var(--gold)'; }
-    if (block) { block.style.display = 'block'; }
-    if (defaultMsg) defaultMsg.style.display = 'block';
-    if (deniedMsg)  deniedMsg.style.display  = 'none';
+    if (status) { status.textContent = 'Нажми «Добавить»'; status.style.color = 'var(--gold)'; }
+    if (dot) { dot.style.background='var(--gold)'; dot.style.boxShadow='0 0 6px var(--gold)'; }
   }
 }
 
@@ -20419,7 +20798,7 @@ async function requestNotifPerm() {
   if (!('Notification' in window)) { showToast('Браузер не поддерживает уведомления', '⚠️'); return; }
   const result = await Notification.requestPermission();
   _updateNotifPermUI();
-  if (result === 'granted') showToast('Уведомления разрешены!', '🔔');
+  if (result === 'granted') showToast('Напоминания разрешены!', '🔔');
   else showToast('Уведомления заблокированы', '⚠️');
 }
 
@@ -20428,9 +20807,9 @@ function _renderNotifDayBtns() {
   const cont = document.getElementById('notifDayBtns');
   if (!cont) return;
   cont.innerHTML = NOTIF_DAYS_RU.map((d, i) => `
-    <button class="notif-day-btn${_notifSelDays.includes(i)?' active':''}" data-day="${i}" onclick="toggleNotifDay(this)">${d}</button>`
-  ).join('') + `
-    <button class="notif-day-btn" onclick="notifSelectAllDays()" style="padding:0 14px;color:var(--t3)">Все</button>`;
+    <button class="rm-day-btn${_notifSelDays.includes(i)?' active':''}" data-day="${i}" onclick="toggleNotifDay(this)">${d}</button>`
+  ).join('');
+
 }
 
 function toggleNotifDay(btn) {
@@ -20476,12 +20855,12 @@ function previewNotifMelody(id) {
 }
 
 // ── Add / delete schedules ─────────────────────────────────────
-function addNotifSchedule() {
+async function addNotifSchedule() {
   if (Notification.permission !== 'granted') {
-    requestNotifPerm().then(() => {
-      if (Notification.permission === 'granted') addNotifSchedule();
-    });
-    return;
+    if (!('Notification' in window)) { showToast('Браузер не поддерживает уведомления','⚠️'); return; }
+    const r = await Notification.requestPermission();
+    _updateNotifPermUI();
+    if (r !== 'granted') { showToast('Разреши уведомления в браузере','⚠️'); return; }
   }
   const h = document.getElementById('notifHour')?.value || '09';
   const m = document.getElementById('notifMinute')?.value || '00';
@@ -20503,7 +20882,7 @@ function addNotifSchedule() {
   _scheduleAllNotifs();
   _renderNotifScheduleList();
   _updateNotifActiveDot();
-  showToast('Уведомление добавлено!', '🔔');
+  showToast('Напоминание добавлено!', '🔔');
 }
 
 function deleteNotifSchedule(id) {
@@ -20520,33 +20899,25 @@ function toggleNotifSchedule(id) {
 }
 
 function _renderNotifScheduleList() {
-  const cont = document.getElementById('notifScheduleList');
+  const cont = document.getElementById('nfSchedList');
   if (!cont) return;
   if (_notifSchedules.length === 0) {
-    cont.innerHTML = '<div style="font-size:11px;color:var(--t3);text-align:center;padding:6px 0 12px">Нет настроенных уведомлений</div>';
+    cont.innerHTML = '<span class="rm-no-sched">Нет напоминаний</span>';
     return;
   }
-  const bellSVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`;
-  cont.innerHTML = `<div style="height:0.5px;background:rgba(255,255,255,.05);margin-bottom:16px"></div>
-    <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.25);margin-bottom:10px">Расписание</div>` +
-    _notifSchedules.map(n => {
-      const daysStr = n.days.length === 7 ? 'Каждый день' : n.days.map(d => NOTIF_DAYS_RU[d]).join(', ');
-      const mel = NOTIF_MELODIES.find(m => m.id === n.melody)?.name || n.melody;
-      return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:13px;background:rgba(255,255,255,.03);border:0.5px solid ${n.enabled?'rgba(245,200,66,.12)':'rgba(255,255,255,.06)'};margin-bottom:6px;transition:border-color .2s">
-        <div style="color:${n.enabled?'var(--gold)':'var(--t3)'};display:flex;align-items:center;justify-content:center;flex-shrink:0">${bellSVG}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:400;letter-spacing:-.02em;color:${n.enabled?'var(--t1)':'var(--t3)'};line-height:1">${n.time}</div>
-          <div style="font-size:10px;color:var(--t3);margin-top:3px;letter-spacing:.02em">${daysStr} · ${mel}</div>
-          <div style="font-size:10.5px;color:var(--t2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:400">${esc(n.text)}</div>
-        </div>
-        <label style="position:relative;width:36px;height:20px;cursor:pointer;flex-shrink:0">
-          <input type="checkbox" ${n.enabled?'checked':''} onchange="toggleNotifSchedule('${n.id}')" style="opacity:0;width:0;height:0;position:absolute">
-          <span style="position:absolute;inset:0;border-radius:10px;transition:.25s;background:${n.enabled?'var(--green)':'rgba(255,255,255,.08)'}"></span>
-          <span style="position:absolute;top:2px;left:${n.enabled?'18':'2'}px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.25s;box-shadow:0 1px 4px rgba(0,0,0,.3)"></span>
-        </label>
-        <button onclick="deleteNotifSchedule('${n.id}')" style="width:28px;height:28px;border-radius:8px;background:rgba(239,68,68,.07);border:0.5px solid rgba(239,68,68,.18);color:var(--red);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
+  cont.innerHTML = _notifSchedules.map(n => {
+    const daysStr = n.days.length === 7 ? 'Ежедневно' : n.days.map(d => NOTIF_DAYS_RU[d]).join(' ');
+    return `<div class="rm-chip ${n.enabled?'on':''}">
+      <div class="rm-chip-t">${n.time}</div>
+      <div class="rm-chip-d">${daysStr}</div>
+      <label class="rm-chip-tgl">
+        <input type="checkbox" ${n.enabled?'checked':''} onchange="toggleNotifSchedule('${n.id}')">
+        <span class="rm-tgl-tr"></span>
+        <span class="rm-tgl-th"></span>
+      </label>
+      <button class="rm-chip-del" onclick="deleteNotifSchedule('${n.id}')">
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
       </div>`;
     }).join('');
 }
