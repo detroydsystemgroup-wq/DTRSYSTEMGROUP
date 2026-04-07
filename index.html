@@ -24692,15 +24692,17 @@ function _lrnInjectCSS(){
 
 /* ── Collab sidebar action buttons ── */
 .cmat-sb-action-btn{
-  flex:1;
-  display:flex;align-items:center;justify-content:center;gap:6px;
-  padding:10px 8px;
+  display:block;
+  width:100%;
+  padding:10px 6px;
   border-radius:10px;
   font-size:12px;font-weight:700;
   cursor:pointer;font-family:'DM Sans',sans-serif;
   letter-spacing:.01em;
+  text-align:center;
   transition:all .18s cubic-bezier(.34,1.15,.64,1);
   border:0.5px solid;
+  white-space:nowrap;
 }
 .cmat-sb-create{
   background:rgba(168,85,247,.1);
@@ -25989,6 +25991,15 @@ async function fetchAll(){
   }
 }
 
+/* ── Check if tables exist ── */
+async function checkTablesExist(){
+  const sb2=getSB(); if(!sb2) return false;
+  try{
+    const {error}=await sb2.from('collab_mat_rooms').select('id').limit(1);
+    return !error;
+  }catch(e){ return false; }
+}
+
 /* ── Realtime subscription ── */
 function subscribeRT(roomIds){
   if(!roomIds.length) return;
@@ -26045,15 +26056,9 @@ window._cmatRenderSidebar=function(sb_el){
     </div>
 
     <!-- Actions -->
-    <div style="padding:8px 12px;display:flex;gap:6px">
-      <button class="cmat-sb-action-btn cmat-sb-create" onclick="window.cmatCreateRoom()">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Создать
-      </button>
-      <button class="cmat-sb-action-btn cmat-sb-join" onclick="window.cmatJoinRoom()">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></svg>
-        По коду
-      </button>
+    <div style="padding:8px 12px 6px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
+      <button class="cmat-sb-action-btn cmat-sb-create" onclick="window.cmatCreateRoom()">+ Создать</button>
+      <button class="cmat-sb-action-btn cmat-sb-join" onclick="window.cmatJoinRoom()">По коду</button>
     </div>
 
     <div class="lrn-sb-divider" style="margin-bottom:8px"></div>
@@ -26250,7 +26255,17 @@ async function init(){
 /* ── Create room ── */
 window.cmatCreateRoom=async function(){
   if(!window._lrnModal) return;
-  const icons=ICONS.map((e,i)=>`<button onclick="document.querySelectorAll('.cmat-icon-pick').forEach(b=>b.style.outline='');this.style.outline='2px solid #a855f7';window._cmatPickIcon='${e}'" class="cmat-icon-pick" style="width:40px;height:40px;border-radius:10px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);font-size:20px;cursor:pointer;outline:none;outline-offset:2px;transition:background .12s" onmouseover="this.style.background='rgba(168,85,247,.1)'" onmouseout="if(this.style.outline.indexOf('a855f7')===-1)this.style.background='rgba(255,255,255,.04)'">${e}</button>`).join('');
+
+  // ── Pre-check: tables exist? ──
+  const sb2=getSB(),user=getUser();
+  if(!sb2||!user){ try{showToast('Войди в аккаунт','❌');}catch{} return; }
+  const {error:chk}=await sb2.from('collab_mat_rooms').select('id').limit(1);
+  if(chk){
+    // Show SQL instructions
+    const sqlMsg=`Таблицы не созданы в Supabase.\n\nОткрой Supabase → SQL Editor → вставь SQL из документации DTR и нажми Run.\n\nОшибка: ${chk.message||chk.code}`;
+    alert(sqlMsg);
+    return;
+  }((e,i)=>`<button onclick="document.querySelectorAll('.cmat-icon-pick').forEach(b=>b.style.outline='');this.style.outline='2px solid #a855f7';window._cmatPickIcon='${e}'" class="cmat-icon-pick" style="width:40px;height:40px;border-radius:10px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);font-size:20px;cursor:pointer;outline:none;outline-offset:2px;transition:background .12s" onmouseover="this.style.background='rgba(168,85,247,.1)'" onmouseout="if(this.style.outline.indexOf('a855f7')===-1)this.style.background='rgba(255,255,255,.04)'">${e}</button>`).join('');
   window._cmatPickIcon='📚';
   window._lrnModal('Новая совместная база',[{id:'cn',placeholder:'Название базы знаний',type:'text'}],async v=>{
     const name=v.cn.trim(); if(!name) return;
