@@ -16086,19 +16086,7 @@ function renderDash(){
   // Tooltip HTML (positioned absolutely over chart)
   const tooltipId = 'dChart_tip';
 
-  let barsHTML = '';
-
-  // Grid lines
-  yTicks.forEach(v => {
-    const y = yPx(v).toFixed(1);
-    barsHTML += `<line x1="${padL}" y1="${y}" x2="${bW - padR}" y2="${y}"
-      stroke="rgba(255,255,255,.06)" stroke-width=".8" stroke-dasharray="3 4"/>
-      <text x="${(padL-5).toFixed(0)}" y="${(+y+3).toFixed(0)}" text-anchor="end"
-        font-size="9" fill="rgba(255,255,255,.3)" font-family="DM Mono,monospace">${v < 1 ? v.toFixed(1) : v.toFixed(v < 5 ? 1 : 0)}</text>`;
-  });
-
   // ── Human-readable hour formatter ──────────────────────────
-  // 0.50 → "30 мин"   1.00 → "1 ч"   1.75 → "1 ч 45 мин"
   function fmtH(h) {
     const totalMin = Math.round(h * 60);
     const hrs = Math.floor(totalMin / 60);
@@ -16108,30 +16096,90 @@ function renderDash(){
     return `${hrs} ч ${min} мин`;
   }
 
-  // Bars
+  // ── SVG DEFS: per-category gradients + glow filter ─────────
+  let gradDefs = '<defs>';
+  barCats.forEach(c => {
+    const gid = `bcg_${c.id}`;
+    gradDefs += `<linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="${c.color}" stop-opacity=".92"/>
+      <stop offset="72%"  stop-color="${c.color}" stop-opacity=".45"/>
+      <stop offset="100%" stop-color="${c.color}" stop-opacity=".08"/>
+    </linearGradient>`;
+  });
+  // Gold glow column for today
+  gradDefs += `<linearGradient id="bcg_today_col" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%"   stop-color="#F5C842" stop-opacity=".13"/>
+    <stop offset="100%" stop-color="#F5C842" stop-opacity="0"/>
+  </linearGradient>`;
+  // Soft glow filter for bars
+  gradDefs += `<filter id="bcf_glow" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+    <feComposite in="blur" in2="SourceGraphic" operator="over"/>
+  </filter>`;
+  gradDefs += '</defs>';
+
+  let barsHTML = gradDefs;
+
+  // ── Grid lines — ultra-subtle solid ────────────────────────
+  yTicks.forEach(v => {
+    const y = yPx(v).toFixed(1);
+    barsHTML += `<line x1="${padL}" y1="${y}" x2="${bW - padR}" y2="${y}"
+      stroke="rgba(255,255,255,.04)" stroke-width=".5"/>
+      <text x="${(padL - 6).toFixed(0)}" y="${(+y + 3.5).toFixed(0)}" text-anchor="end"
+        font-size="9" fill="rgba(255,255,255,.2)" font-family="DM Mono,monospace"
+        letter-spacing="-.02em">${v < 1 ? v.toFixed(1) : v.toFixed(v < 5 ? 1 : 0)}</text>`;
+  });
+
+  // ── Bars ───────────────────────────────────────────────────
   segments.forEach((segs, i) => {
     const x = xPx(i).toFixed(1);
     const totalVal = segs.reduce((a, s) => a + s.val, 0);
+    const isToday = isWeek && i === new Date().getDay() - 1;
     const tipData = barCats.map(c => {
       const v = data[c.id] ? data[c.id][i] : 0;
       return v > 0 ? `${c.name}: ${fmtH(v)}` : '';
     }).filter(Boolean).join('&#10;');
     const labelDay = labels[i] || '';
 
-    // Draw each segment
+    // Today: gold glow column background (drawn first, behind bars)
+    if (isToday) {
+      const colX = (+x - barGap * 0.5).toFixed(1);
+      const colW = (barW + barGap).toFixed(1);
+      barsHTML += `<rect x="${colX}" y="${padT}" width="${colW}" height="${plotH}"
+        fill="url(#bcg_today_col)" rx="6" pointer-events="none"/>`;
+    }
+
+    // Draw each stacked segment
+    let drawnTop = null;
     segs.forEach(seg => {
       if (seg.val <= 0) return;
       const y1 = yPx(seg.top).toFixed(1);
       const y2 = yPx(seg.bottom).toFixed(1);
-      const h = Math.max(2, +y2 - +y1);
-      const isTop = seg.top >= totalVal - 0.001;
-      const rx = isTop ? Math.min(4, barW / 2) : 0;
+      const h = Math.max(3, +y2 - +y1);
+      const rx = Math.min(5, barW / 2);
+      const gid = `bcg_${seg.cat}`;
+      drawnTop = { y1: +y1, h, color: seg.color };
+
+      // Ambient glow layer (blurred, behind)
       barsHTML += `<rect x="${x}" y="${y1}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}"
-        fill="${seg.color}" opacity="0.65" rx="${rx}" ry="${rx}"/>`;
+        fill="${seg.color}" opacity="0.18" rx="${rx}" ry="${rx}"
+        filter="url(#bcf_glow)" pointer-events="none"/>`;
+      // Main gradient bar
+      barsHTML += `<rect x="${x}" y="${y1}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}"
+        fill="url(#${gid})" rx="${rx}" ry="${rx}"/>`;
     });
 
-    // Subtle hover highlight column
-    // Hover overlay — only show tooltip when there is actual data
+    // Top shine streak on the tallest bar
+    if (drawnTop && barW > 6) {
+      const shineH = Math.min(3, drawnTop.h * 0.35);
+      const shineW = Math.max(2, barW * 0.45);
+      const shineX = (+x + (barW - shineW) / 2).toFixed(1);
+      barsHTML += `<rect x="${shineX}" y="${(drawnTop.y1 + 2).toFixed(1)}"
+        width="${shineW.toFixed(1)}" height="${shineH.toFixed(1)}"
+        fill="white" opacity="0.22" rx="1.5" pointer-events="none"/>`;
+    }
+
+    // Hover overlay (transparent, captures mouse events)
     const hoverHandlers = totalVal > 0
       ? `onmouseenter="showDashTip(event,\`${tipData}\`,\`${fmtH(totalVal)}\`,\`${labelDay}\`)" onmouseleave="hideDashTip()" onclick="showDashTip(event,\`${tipData}\`,\`${fmtH(totalVal)}\`,\`${labelDay}\`)"`
       : `onmouseleave="hideDashTip()"`;
@@ -16139,28 +16187,31 @@ function renderDash(){
       fill="transparent" rx="3" style="cursor:${totalVal > 0 ? 'pointer' : 'default'}"
       ${hoverHandlers}/>`;
 
-
-    // Highlight current day/bucket
-    const isToday = isWeek && i === new Date().getDay() - 1;
+    // Today: gold tick line at baseline
     if (isToday) {
-      barsHTML += `<rect x="${(+x - 2).toFixed(1)}" y="${padT}" width="${(barW + 4).toFixed(1)}" height="${plotH}"
-        fill="rgba(255,255,255,.04)" rx="3" stroke="rgba(255,255,255,.08)" stroke-width=".8" pointer-events="none"/>`;
+      const tickX1 = (+x).toFixed(1);
+      const tickX2 = (+x + barW).toFixed(1);
+      const tickY = (padT + plotH + 5).toFixed(1);
+      barsHTML += `<line x1="${tickX1}" y1="${tickY}" x2="${tickX2}" y2="${tickY}"
+        stroke="#F5C842" stroke-width="2.5" stroke-linecap="round"
+        opacity=".8" pointer-events="none"/>`;
     }
   });
 
-  // X-axis labels
+  // ── X-axis labels ──────────────────────────────────────────
   Array.from({length: buckets}, (_, i) => {
     if (i % showEvery !== 0) return;
     const x = (xPx(i) + barW / 2).toFixed(1);
     const isToday = isWeek && i === new Date().getDay() - 1;
-    barsHTML += `<text x="${x}" y="${(svgH - 6).toFixed(0)}" text-anchor="middle"
-      font-size="10" fill="${isToday ? 'rgba(245,200,66,.9)' : 'rgba(255,255,255,.4)'}"
-      font-family="DM Sans,sans-serif" font-weight="${isToday ? 600 : 400}">${labels[i]}</text>`;
+    barsHTML += `<text x="${x}" y="${(svgH - 5).toFixed(0)}" text-anchor="middle"
+      font-size="10" fill="${isToday ? '#F5C842' : 'rgba(255,255,255,.3)'}"
+      font-family="DM Sans,sans-serif"
+      font-weight="${isToday ? 700 : 400}">${labels[i]}</text>`;
   });
 
-  // X axis baseline
+  // ── X axis baseline — hair-thin ────────────────────────────
   barsHTML += `<line x1="${padL}" y1="${(padT + plotH).toFixed(1)}" x2="${bW - padR}" y2="${(padT + plotH).toFixed(1)}"
-    stroke="rgba(255,255,255,.1)" stroke-width="1"/>`;
+    stroke="rgba(255,255,255,.08)" stroke-width=".5"/>`;
 
   const svgEl = `<div style="position:relative">
     <svg width="${bW}" height="${svgH}" xmlns="http://www.w3.org/2000/svg"
@@ -16168,9 +16219,14 @@ function renderDash(){
       ${barsHTML}
     </svg>
     <div id="${tooltipId}" style="display:none;position:absolute;pointer-events:none;z-index:99;
-      background:rgba(15,15,18,.95);border:0.5px solid rgba(255,255,255,.15);border-radius:10px;
-      padding:10px 13px;box-shadow:0 8px 32px rgba(0,0,0,.6);min-width:130px;max-width:200px;
-      font-family:'DM Sans',sans-serif;transition:opacity .1s"></div>
+      background:rgba(9,9,11,.97);
+      border:0.5px solid rgba(245,200,66,.28);
+      border-radius:12px;
+      padding:10px 14px;
+      box-shadow:0 12px 40px rgba(0,0,0,.75),0 0 0 1px rgba(245,200,66,.06);
+      min-width:130px;max-width:210px;
+      font-family:'DM Sans',sans-serif;
+      transition:opacity .12s ease"></div>
   </div>`;
 
   barEl.style.display = 'block';
@@ -16185,18 +16241,20 @@ function renderDash(){
       if (!tip) return;
       const rows = lines ? lines.split('\n').filter(Boolean) : [];
       tip.innerHTML = `
-        ${label ? `<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">${label}</div>` : ''}
+        ${label ? `<div style="font-size:10px;font-weight:700;color:rgba(245,200,66,.6);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:5px">
+          <span style="display:inline-block;width:12px;height:1.5px;background:rgba(245,200,66,.4);border-radius:1px"></span>${label}
+        </div>` : ''}
         ${rows.map(r => {
           const [name, val] = r.split(': ');
-          return `<div style="display:flex;justify-content:space-between;gap:16px;font-size:12px;padding:2px 0">
-            <span style="color:rgba(255,255,255,.65)">${name}</span>
-            <span style="font-family:'DM Mono',monospace;color:var(--t1);font-weight:500">${val}</span>
+          return `<div style="display:flex;justify-content:space-between;align-items:center;gap:16px;font-size:12px;padding:3px 0">
+            <span style="color:rgba(255,255,255,.55);font-weight:500">${name}</span>
+            <span style="font-family:'DM Mono',monospace;color:var(--t1);font-weight:500;letter-spacing:-.02em">${val}</span>
           </div>`;
         }).join('')}
-        ${total ? `<div style="border-top:0.5px solid rgba(255,255,255,.1);margin-top:6px;padding-top:6px;
-          display:flex;justify-content:space-between;gap:16px;font-size:12px">
-          <span style="color:rgba(255,255,255,.5)">Итого</span>
-          <span style="font-family:'DM Mono',monospace;color:var(--gold);font-weight:600">${total}</span>
+        ${total ? `<div style="border-top:0.5px solid rgba(245,200,66,.12);margin-top:7px;padding-top:7px;
+          display:flex;justify-content:space-between;align-items:baseline;gap:16px;font-size:12px">
+          <span style="color:rgba(255,255,255,.35);font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:600">Итого</span>
+          <span style="font-family:'DM Mono',monospace;color:#F5C842;font-weight:500;font-size:15px;letter-spacing:-.03em">${total}</span>
         </div>` : ''}
       `;
       tip.style.display = 'block';
