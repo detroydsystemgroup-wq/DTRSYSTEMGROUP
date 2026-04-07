@@ -29942,13 +29942,7 @@ function closeSettings(){
 /* ══ REPORT MODAL ENGINE v2 — DTR Progress Club ════════════════ */
 
 const _RPT_QUOTES = [
-  { text: 'Дисциплина — мать победы.', author: '— А.В. Суворов' },
-  { text: 'Путь в тысячу ли начинается с первого шага.', author: '— Лао-цзы' },
-  { text: 'Великие дела совершаются не силой, а упорством.', author: '— С. Джонсон' },
-  { text: 'Не откладывай на завтра то, что можешь сделать сегодня.', author: '— Б. Франклин' },
-  { text: 'Каждый день — новый шанс стать лучше вчерашнего себя.', author: '— DTR Progress Club' },
-  { text: 'Маленькие шаги, сделанные каждый день, складываются в большие расстояния.', author: '— DTR Progress Club' },
-  { text: 'Талант — это дисциплина плюс время.', author: '— DTR Progress Club' },
+  { text: 'Истина далеко за гранью нашего примитивного понимания.', author: '— Алиев Нур Ислам Эркинович' },
 ];
 
 /* ── Preload html2canvas after page load ── */
@@ -30183,18 +30177,30 @@ async function _rptBuild(){
       +'<div style="display:grid;grid-template-columns:repeat('+cols+',1fr);gap:7px">'
       +rankRows.slice(0,3).map(function(r){
         var rk=r.rank;
-        var rColor=rk===1?'#FFD700':rk===2?'#C0C0C0':rk===3?'#CD7F32':r.cat.color;
-        /* Rank badge: top3 = medal SVG, others = #N number */
-        var medalPaths=['M12 2l2.09 6.26L21 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
-                        'M12 2l2.09 6.26L21 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
-                        'M12 2l2.09 6.26L21 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z'];
-        var rkBadge=rk<=3
-          ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="'+rColor+'" stroke="none" style="filter:drop-shadow(0 0 4px '+rColor+'66)"><path d="'+medalPaths[rk-1]+'"/><text x="12" y="13" text-anchor="middle" font-size="7" font-weight="700" fill="#0C0B09" font-family=\'DM Sans\',sans-serif>'+rk+'</text></svg>'
-          : '<span style="font-family:\'DM Mono\',monospace;font-size:'+(rk<100?'18':'14')+'px;font-weight:400;color:'+rColor+'">#'+rk+'</span>';
-        return '<div style="padding:12px 10px 10px;background:rgba(255,255,255,.025);border:0.5px solid rgba(255,255,255,.07);border-radius:11px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:5px">'
-          +'<div style="line-height:1">'+rkBadge+'</div>'
-          +'<div style="font-size:10px;font-weight:700;letter-spacing:.02em;color:rgba(255,255,255,.7);line-height:1.2;margin-top:1px">'+_rptEsc(r.cat.name)+'</div>'
-          +(r.hrs>0?'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:'+r.cat.color+'">'+r.hrs+'ч</div>':'')
+        var rColor=rk===1?'#FFD700':rk===2?'#C8C8D4':rk===3?'#CD9060':r.cat.color;
+        /* Trophy SVG icon */
+        var trophySVG='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="'+rColor
+          +'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+          +'<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>'
+          +'<path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>'
+          +'<path d="M4 22h16"/>'
+          +'<path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>'
+          +'<path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>'
+          +'<path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/>'
+          +'</svg>';
+        return '<div style="padding:11px 8px 10px;background:rgba(255,255,255,.025);border:0.5px solid '
+          +(rk<=3?rColor+'30':'rgba(255,255,255,.07)')
+          +';border-radius:11px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px">'
+          +'<div>'+trophySVG+'</div>'
+          /* Rank number — large and unmissable */
+          +'<div style="font-family:\'DM Mono\',monospace;font-size:26px;font-weight:500;color:'
+            +rColor+';line-height:1;letter-spacing:-.04em">'
+            +(rk<=9?'  ':'')+'#'+rk
+          +'</div>'
+          /* Category name */
+          +'<div style="font-size:9.5px;font-weight:700;color:rgba(255,255,255,.65);letter-spacing:.01em;line-height:1.2">'+_rptEsc(r.cat.name)+'</div>'
+          /* Hours */
+          +(r.hrs>0?'<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:'+r.cat.color+';margin-top:1px">'+r.hrs+'ч</div>':'')
         +'</div>';
       }).join('')
       +'</div>';
@@ -30251,44 +30257,43 @@ async function _rptBuild(){
 
 async function _rptCapture(scale){
   await _rptLoadH2C();
-  var original=document.getElementById('reportCard');
-  var w=original.offsetWidth||380;
 
-  /* Clone the card to <body> (offscreen) so modal overlay/backdrop-filter
-     don't interfere with html2canvas rendering */
-  var clone=original.cloneNode(true);
-  clone.removeAttribute('id');
-  clone.style.cssText=[
-    'position:fixed','top:-9999px','left:-9999px',
-    'width:'+w+'px','z-index:-9999',
-    'background:#0C0B09',
-    'border-radius:20px',
-    'padding:24px 26px 20px',
-    'box-sizing:border-box',
-    'pointer-events:none',
-    'opacity:1','visibility:visible'
-  ].join(';');
-  document.body.appendChild(clone);
+  var ov   = document.getElementById('reportOv');
+  var card = document.getElementById('reportCard');
+
+  /* ── Temporarily disable backdrop-filter on overlay (html2canvas doesn't support it) ── */
+  var prevBF  = ov ? ov.style.backdropFilter       : '';
+  var prevWBF = ov ? ov.style.webkitBackdropFilter  : '';
+  if(ov){ ov.style.backdropFilter='none'; ov.style.webkitBackdropFilter='none'; }
+
+  /* ── Hide grid-line background (background-size repeating gradients → 0x0 canvas error) ── */
+  var gridEl = card.querySelector('.rpt-bg-gridlines');
+  var prevGridDisplay = gridEl ? gridEl.style.display : '';
+  if(gridEl) gridEl.style.display='none';
+
+  /* ── Hide glow blobs too (radial gradients on position:absolute can cause issues) ── */
+  var glowEls = card.querySelectorAll('.rpt-bg-glow-tr,.rpt-bg-glow-bl,.rpt-bg-fade');
+  glowEls.forEach(function(el){ el.setAttribute('data-prev-vis', el.style.visibility||''); el.style.visibility='hidden'; });
 
   try{
-    var canvas=await window.html2canvas(clone,{
-      scale:scale||3,
-      backgroundColor:'#0C0B09',
-      useCORS:true,
-      allowTaint:true,
-      logging:false,
-      imageTimeout:15000,
-      foreignObjectRendering:false,
-      removeContainer:true,
-      ignoreElements:function(el){
-        /* Skip iframes, scripts and analytics tags that cause CORS noise */
-        var tag=el.tagName?el.tagName.toUpperCase():'';
-        return tag==='IFRAME'||tag==='NOSCRIPT'||(tag==='DIV'&&el.id==='notifScheduleList');
+    return await window.html2canvas(card,{
+      scale            : scale||3,
+      backgroundColor  : '#0C0B09',
+      useCORS          : true,
+      allowTaint       : true,
+      logging          : false,
+      imageTimeout     : 15000,
+      foreignObjectRendering: false,
+      ignoreElements   : function(el){
+        var tag=(el.tagName||'').toUpperCase();
+        return tag==='IFRAME'||tag==='NOSCRIPT';
       }
     });
-    return canvas;
   }finally{
-    if(clone.parentNode) clone.parentNode.removeChild(clone);
+    /* ── Restore everything ── */
+    if(ov){ ov.style.backdropFilter=prevBF; ov.style.webkitBackdropFilter=prevWBF; }
+    if(gridEl) gridEl.style.display=prevGridDisplay;
+    glowEls.forEach(function(el){ el.style.visibility=el.getAttribute('data-prev-vis')||''; el.removeAttribute('data-prev-vis'); });
   }
 }
 
