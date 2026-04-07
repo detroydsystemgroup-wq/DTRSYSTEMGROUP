@@ -13768,6 +13768,13 @@ html[data-theme="light"] .nav-icon-btn:hover {
                 <div id="lgDropItems"></div>
               </div>
             </div>
+            <!-- ── REPORT BUTTON ── -->
+            <div style="display:inline-flex;align-items:center;background:rgba(245,200,66,.07);border-radius:11px;padding:3px;border:0.5px solid rgba(245,200,66,.2);transition:border-color .25s,box-shadow .25s" onmouseover="this.style.borderColor='rgba(245,200,66,.45)';this.style.boxShadow='0 0 12px rgba(245,200,66,.12)'" onmouseout="this.style.borderColor='rgba(245,200,66,.2)';this.style.boxShadow=''">
+              <button onclick="openReportModal()" id="reportBtn" style="display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:8px;border:none;background:transparent;color:#F5C842;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;letter-spacing:.01em;transition:color .18s">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                Получить отчёт
+              </button>
+            </div>
           </div>
         </div>
         <div class="cb">
@@ -29589,6 +29596,657 @@ function closeSettings(){
     modal.classList.remove('settings-modal-out');
   }, 280);
 }
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════
+     REPORT MODAL — DTR Progress Club
+     Фирменный отчёт за период · Скачать JPEG · Поделиться
+══════════════════════════════════════════════════════════════ -->
+
+<style>
+/* ── Report overlay ── */
+#reportOv {
+  display: none;
+  position: fixed; inset: 0; z-index: 9750;
+  background: rgba(0,0,0,.82);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  align-items: center; justify-content: center;
+  padding: 20px; box-sizing: border-box;
+  overflow-y: auto;
+}
+#reportOv.rpt-ov-in { animation: rptOvIn .22s ease both; }
+@keyframes rptOvIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── Modal wrapper ── */
+#reportModalWrap {
+  width: 100%; max-width: 440px;
+  display: flex; flex-direction: column; gap: 14px;
+  position: relative;
+}
+#reportModalWrap.rpt-modal-in { animation: rptModalIn .3s cubic-bezier(.34,1.18,.64,1) both; }
+#reportModalWrap.rpt-modal-out { animation: rptModalOut .22s ease both; }
+@keyframes rptModalIn  { from { opacity:0; transform:scale(.92) translateY(18px); } to { opacity:1; transform:scale(1) translateY(0); } }
+@keyframes rptModalOut { from { opacity:1; transform:scale(1); } to { opacity:0; transform:scale(.94) translateY(12px); } }
+
+/* ── Modal top bar ── */
+.rpt-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2px;
+}
+.rpt-topbar-title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase;
+  color: rgba(255,255,255,.35);
+}
+.rpt-close-btn {
+  width: 30px; height: 30px; border-radius: 9px;
+  background: rgba(255,255,255,.06);
+  border: 0.5px solid rgba(255,255,255,.1);
+  color: rgba(255,255,255,.4); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s;
+}
+.rpt-close-btn:hover { background: rgba(255,255,255,.12); color: var(--t1); }
+
+/* ── The actual report card (screenshot target) ── */
+#reportCard {
+  position: relative;
+  background: #0C0B09;
+  border: 0.5px solid rgba(245,200,66,.22);
+  border-radius: 20px;
+  padding: 24px 26px 20px;
+  overflow: hidden;
+  box-shadow: 0 0 0 0.5px rgba(255,255,255,.04), 0 32px 80px rgba(0,0,0,.8), inset 0 1px 0 rgba(245,200,66,.06);
+}
+
+/* ── Action bar ── */
+.rpt-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+.rpt-act-btn {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 12px 10px;
+  border-radius: 12px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px; font-weight: 700;
+  cursor: pointer; border: none;
+  letter-spacing: .02em;
+  transition: transform .16s cubic-bezier(.34,1.56,.64,1), box-shadow .18s, opacity .15s;
+  white-space: nowrap;
+}
+.rpt-act-btn:hover { transform: translateY(-2px); }
+.rpt-act-btn:active { transform: scale(.95); }
+.rpt-act-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+/* Primary — download */
+.rpt-act-dl {
+  background: var(--gold);
+  color: #0A0A0B;
+  box-shadow: 0 4px 18px rgba(245,200,66,.2);
+}
+.rpt-act-dl:hover { box-shadow: 0 6px 28px rgba(245,200,66,.4); }
+
+/* Telegram */
+.rpt-act-tg {
+  background: rgba(34,155,255,.12);
+  border: 0.5px solid rgba(34,155,255,.3);
+  color: #29b6f6;
+}
+.rpt-act-tg:hover { background: rgba(34,155,255,.2); box-shadow: 0 4px 16px rgba(34,155,255,.2); }
+
+/* Instagram */
+.rpt-act-ig {
+  background: rgba(225,48,108,.1);
+  border: 0.5px solid rgba(225,48,108,.28);
+  color: #e1306c;
+}
+.rpt-act-ig:hover { background: rgba(225,48,108,.18); box-shadow: 0 4px 16px rgba(225,48,108,.2); }
+
+/* ── Hint text ── */
+.rpt-hint {
+  text-align: center;
+  font-size: 10px; color: rgba(255,255,255,.2);
+  letter-spacing: .03em;
+  margin-top: -4px;
+}
+
+/* ── Report card internals ── */
+.rpt-header-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.rpt-brand-wrap { display: flex; align-items: center; gap: 10px; }
+.rpt-brand-icon {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: rgba(245,200,66,.1);
+  border: 0.5px solid rgba(245,200,66,.28);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.rpt-brand-name {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px; font-weight: 800;
+  letter-spacing: .1em; color: #F5C842;
+  text-transform: uppercase; line-height: 1.2;
+}
+.rpt-brand-tag {
+  font-size: 8px; color: rgba(255,255,255,.25);
+  letter-spacing: .08em; margin-top: 1px;
+}
+.rpt-badge {
+  font-size: 7px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: rgba(245,200,66,.5);
+  padding: 3px 9px; border: 0.5px solid rgba(245,200,66,.15);
+  border-radius: 5px;
+}
+.rpt-divider {
+  height: 0.5px;
+  background: linear-gradient(90deg, transparent, rgba(245,200,66,.35) 25%, rgba(245,200,66,.35) 75%, transparent);
+  margin-bottom: 16px;
+}
+.rpt-divider-soft {
+  height: 0.5px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.09) 25%, rgba(255,255,255,.09) 75%, transparent);
+  margin: 14px 0;
+}
+.rpt-period-lbl {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 24px; letter-spacing: .06em;
+  color: #F2F0E8; line-height: 1;
+  margin-bottom: 3px;
+}
+.rpt-period-range {
+  font-size: 10px; color: rgba(255,255,255,.38);
+  letter-spacing: .04em; margin-bottom: 16px;
+}
+.rpt-user-block {
+  display: flex; align-items: center; gap: 13px;
+  margin-bottom: 18px; padding: 13px 15px;
+  background: rgba(255,255,255,.025);
+  border: 0.5px solid rgba(255,255,255,.07);
+  border-radius: 13px;
+}
+.rpt-user-av {
+  width: 48px; height: 48px; border-radius: 13px;
+  background: linear-gradient(135deg,#1A1809,#2A2410);
+  border: 1.5px solid rgba(245,200,66,.28);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; flex-shrink: 0;
+  box-shadow: 0 4px 16px rgba(0,0,0,.4), inset 0 1px 0 rgba(245,200,66,.08);
+}
+.rpt-user-name {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px; font-weight: 800;
+  letter-spacing: -.02em; color: #F2F0E8;
+  line-height: 1.1; margin-bottom: 5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 220px;
+}
+.rpt-user-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.rpt-lvl-pill {
+  font-size: 9px; font-weight: 700; letter-spacing: .04em;
+  padding: 2px 8px; border-radius: 5px;
+  background: rgba(245,200,66,.08);
+  border: 0.5px solid rgba(245,200,66,.18);
+}
+.rpt-streak-pill { font-size: 9px; font-weight: 700; color: #F97316; }
+
+.rpt-kpi-grid {
+  display: grid; grid-template-columns: repeat(3,1fr);
+  gap: 7px; margin-bottom: 16px;
+}
+.rpt-kpi-cell {
+  padding: 10px 8px;
+  background: rgba(255,255,255,.02);
+  border: 0.5px solid rgba(255,255,255,.055);
+  border-radius: 11px; text-align: center;
+}
+.rpt-kpi-val {
+  font-family: 'DM Mono', monospace;
+  font-size: 20px; font-weight: 400;
+  letter-spacing: -.025em; line-height: 1;
+  margin-bottom: 4px;
+}
+.rpt-kpi-lbl {
+  font-size: 7.5px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase;
+  color: rgba(255,255,255,.25);
+}
+
+.rpt-cats-hdr {
+  font-size: 7.5px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: rgba(255,255,255,.22); margin-bottom: 9px;
+}
+.rpt-cat-row {
+  display: flex; align-items: center; gap: 9px; margin-bottom: 6px;
+}
+.rpt-cat-icon { font-size: 13px; flex-shrink: 0; width: 18px; text-align: center; }
+.rpt-cat-info { flex: 1; min-width: 0; }
+.rpt-cat-name-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 3px;
+}
+.rpt-cat-name { font-size: 9.5px; font-weight: 600; color: rgba(255,255,255,.55); }
+.rpt-cat-hrs { font-family: 'DM Mono', monospace; font-size: 9.5px; font-weight: 500; }
+.rpt-cat-bar-wr { height: 3px; background: rgba(255,255,255,.05); border-radius: 2px; overflow: hidden; }
+.rpt-cat-bar { height: 100%; border-radius: 2px; }
+
+.rpt-quote {
+  padding: 0 2px; margin-top: 2px;
+}
+.rpt-quote-text {
+  font-size: 10px; font-style: italic;
+  color: rgba(255,255,255,.38); line-height: 1.65; margin-bottom: 4px;
+}
+.rpt-quote-author {
+  font-size: 8px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase;
+  color: rgba(255,255,255,.18);
+}
+.rpt-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 14px;
+}
+.rpt-footer-time { font-size: 8px; color: rgba(255,255,255,.2); letter-spacing: .03em; }
+.rpt-footer-brand { font-size: 8px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(245,200,66,.4); }
+
+/* ── Decorative grid in card bg ── */
+.rpt-bg-grid {
+  position: absolute; inset: 0; border-radius: 20px;
+  overflow: hidden; pointer-events: none;
+}
+.rpt-bg-glow-tr {
+  position: absolute; top: -50px; right: -50px;
+  width: 200px; height: 200px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(245,200,66,.055), transparent 65%);
+}
+.rpt-bg-glow-bl {
+  position: absolute; bottom: -40px; left: -40px;
+  width: 160px; height: 160px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(168,85,247,.04), transparent 65%);
+}
+.rpt-bg-gridlines {
+  position: absolute; inset: 0;
+  background-image: linear-gradient(rgba(245,200,66,.018) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(245,200,66,.018) 1px, transparent 1px);
+  background-size: 38px 38px;
+}
+.rpt-bg-fade {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 80% 60% at 50% 100%, rgba(0,0,0,.5), transparent 80%);
+}
+
+/* ── Mobile responsive ── */
+@media (max-width: 480px) {
+  #reportCard { padding: 20px 20px 18px; }
+  .rpt-period-lbl { font-size: 21px; }
+  .rpt-kpi-val { font-size: 18px; }
+  .rpt-actions { grid-template-columns: 1fr; }
+  .rpt-act-btn { padding: 14px 16px; font-size: 13px; }
+}
+</style>
+
+<!-- ── REPORT OVERLAY ── -->
+<div id="reportOv" onclick="if(event.target===this)closeReportModal()">
+  <div id="reportModalWrap">
+
+    <!-- Top bar -->
+    <div class="rpt-topbar">
+      <div class="rpt-topbar-title">Отчёт за период</div>
+      <button class="rpt-close-btn" onclick="closeReportModal()">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- ══ THE REPORT CARD (screenshot target) ══ -->
+    <div id="reportCard">
+      <!-- BG decorative layer -->
+      <div class="rpt-bg-grid">
+        <div class="rpt-bg-gridlines"></div>
+        <div class="rpt-bg-glow-tr"></div>
+        <div class="rpt-bg-glow-bl"></div>
+        <div class="rpt-bg-fade"></div>
+      </div>
+      <!-- Content is injected by JS -->
+      <div id="reportCardContent" style="position:relative;z-index:1"></div>
+    </div>
+
+    <!-- ══ ACTION BUTTONS ══ -->
+    <div class="rpt-actions">
+      <button class="rpt-act-btn rpt-act-dl" id="reportDlBtn" onclick="downloadReport()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Скачать JPEG
+      </button>
+      <button class="rpt-act-btn rpt-act-tg" id="reportShare_telegram" onclick="shareReport('telegram')">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/></svg>
+        Telegram
+      </button>
+      <button class="rpt-act-btn rpt-act-ig" id="reportShare_instagram" onclick="shareReport('instagram')">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+        Instagram
+      </button>
+    </div>
+
+    <!-- Hint -->
+    <div class="rpt-hint">На мобильном: нажми «Поделиться» → выбери приложение в системном меню</div>
+
+  </div>
+</div>
+
+<script>
+/* ══ REPORT MODAL ENGINE — DTR Progress Club ════════════════════ */
+
+const _RPT_QUOTES = [
+  { text: 'Дисциплина — мать победы.', author: '— А.В. Суворов' },
+  { text: 'Путь в тысячу ли начинается с первого шага.', author: '— Лао-цзы' },
+  { text: 'Великие дела совершаются не силой, а упорством.', author: '— С. Джонсон' },
+  { text: 'Не откладывай на завтра то, что можешь сделать сегодня.', author: '— Б. Франклин' },
+  { text: 'Каждый день — новый шанс стать лучше вчерашнего себя.', author: '— DTR Progress Club' },
+  { text: 'Маленькие шаги, сделанные каждый день, складываются в большие расстояния.', author: '— DTR Progress Club' },
+  { text: 'Талант — это дисциплина плюс время.', author: '— DTR Progress Club' },
+];
+
+function openReportModal() {
+  const ov = document.getElementById('reportOv');
+  if (!ov) return;
+  _rptBuild();
+  ov.style.display = 'flex';
+  requestAnimationFrame(function() {
+    ov.classList.add('rpt-ov-in');
+    var wrap = document.getElementById('reportModalWrap');
+    if (wrap) { wrap.classList.remove('rpt-modal-out'); wrap.classList.add('rpt-modal-in'); }
+  });
+}
+
+function closeReportModal() {
+  var ov = document.getElementById('reportOv');
+  var wrap = document.getElementById('reportModalWrap');
+  if (!ov || !wrap) return;
+  ov.classList.remove('rpt-ov-in');
+  wrap.classList.remove('rpt-modal-in');
+  wrap.classList.add('rpt-modal-out');
+  setTimeout(function() {
+    ov.style.display = 'none';
+    wrap.classList.remove('rpt-modal-out');
+  }, 250);
+}
+
+function _rptEsc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function _rptBuild() {
+  var content = document.getElementById('reportCardContent');
+  if (!content) return;
+
+  /* ── Period data ── */
+  var isWeek = (typeof dashPeriod !== 'undefined') ? dashPeriod === 'week' : true;
+  var now = Date.now();
+
+  /* Call app's getDashData if available */
+  var periodHrs = 0, activeDays = 0, bestDay = 0, avgPerDay = 0;
+  try {
+    var dd = getDashData();
+    var cats = activeCats();
+    var statsIds = cats.length ? cats.map(function(c){return c.id;}) : ALL_CATS.map(function(c){return c.id;});
+    var totals = Array(dd.buckets).fill(0);
+    statsIds.forEach(function(id){ if(dd.data[id]) dd.data[id].forEach(function(v,i){ totals[i]+=v; }); });
+    periodHrs = parseFloat(statsIds.reduce(function(a,id){ return a+(dd.data[id]?dd.data[id].reduce(function(x,v){return x+v;},0):0); },0).toFixed(1));
+    activeDays = totals.filter(function(v){return v>0;}).length;
+    bestDay = parseFloat(Math.max.apply(Math, totals.concat([0])).toFixed(1));
+    avgPerDay = parseFloat((periodHrs / dd.buckets).toFixed(1));
+  } catch(e) { console.warn('rpt getDashData:', e); }
+
+  /* ── Date range label ── */
+  var periodLabel = '', dateRangeLabel = '';
+  try {
+    if (isWeek) {
+      var ws = new Date(getWeekStart());
+      var we = new Date(getWeekStart() + 6 * 86400000);
+      var fmt = function(d){ return d.toLocaleDateString('ru',{day:'numeric',month:'short'}).replace(' г.',''); };
+      periodLabel = 'ОТЧЁТ ЗА НЕДЕЛЮ';
+      dateRangeLabel = fmt(ws) + ' — ' + fmt(we);
+    } else {
+      var d30 = new Date(now - 29 * 86400000);
+      var fmtM = function(d){ return d.toLocaleDateString('ru',{day:'numeric',month:'short'}).replace(' г.',''); };
+      periodLabel = 'ОТЧЁТ ЗА МЕСЯЦ';
+      dateRangeLabel = fmtM(d30) + ' — ' + fmtM(new Date());
+    }
+  } catch(e) { periodLabel = isWeek ? 'ОТЧЁТ ЗА НЕДЕЛЮ' : 'ОТЧЁТ ЗА МЕСЯЦ'; dateRangeLabel = ''; }
+
+  /* ── User level ── */
+  var lvlName = 'Новичок', lvlNum = 1, lvlColor = '#F5C842';
+  try {
+    var totalH = P.sessions.reduce(function(a,s){return a+s.dur/3600;},0);
+    var info = getLevelInfo(totalH);
+    lvlNum = info.lvl; lvlName = info.name;
+    lvlColor = (info.color && !info.color.includes('gradient')) ? info.color : '#F5C842';
+  } catch(e) {}
+
+  /* ── User info ── */
+  var userName = ''; var userAv = '⭐'; var userStreak = 0;
+  try { userName = P.name || ''; userAv = P.avatar || '⭐'; userStreak = P.streak || 0; } catch(e) {}
+
+  /* ── Category breakdown ── */
+  var catRows = [];
+  try {
+    var dd2 = getDashData();
+    var activeCatList = activeCats();
+    activeCatList.forEach(function(cat) {
+      var hrs = parseFloat((dd2.data[cat.id]||[]).reduce(function(a,v){return a+v;},0).toFixed(1));
+      if (hrs > 0) catRows.push({ cat: cat, hrs: hrs, pct: periodHrs>0?Math.round(hrs/periodHrs*100):0 });
+    });
+    catRows.sort(function(a,b){return b.hrs-a.hrs;});
+  } catch(e) {}
+
+  /* ── Quote ── */
+  var q = _RPT_QUOTES[Math.floor(Math.random() * _RPT_QUOTES.length)];
+
+  /* ── Generation time ── */
+  var genTime = new Date().toLocaleString('ru',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}).replace(' г.','');
+
+  /* ── Delta indicator (vs prev period) ── */
+  var deltaHTML = '';
+  try {
+    var prevStart = isWeek ? (getWeekStart()-7*86400000) : (now-60*86400000);
+    var prevEnd   = isWeek ? getWeekStart() : (now-30*86400000);
+    var prevHrs = P.sessions.filter(function(s){
+      var t=sessTs(s); return t>=prevStart&&t<prevEnd;
+    }).reduce(function(a,s){return a+s.dur/3600;},0);
+    var delta = prevHrs>0 ? ((periodHrs-prevHrs)/prevHrs*100) : (periodHrs>0?100:0);
+    var dAbs = Math.abs(delta).toFixed(0);
+    var dColor = delta>=0 ? '#4ADE80' : '#f85149';
+    var dArrow = delta>=0 ? '↑' : '↓';
+    deltaHTML = '<span style="font-size:9px;font-weight:700;color:'+dColor+';margin-left:6px">'+dArrow+' '+dAbs+'% vs прошлый</span>';
+  } catch(e) {}
+
+  /* ══ BUILD HTML ══ */
+  var catHTML = '';
+  if (catRows.length > 0) {
+    catHTML = '<div class="rpt-divider-soft"></div>'
+      + '<div class="rpt-cats-hdr">Направления</div>'
+      + catRows.slice(0,5).map(function(r){
+        return '<div class="rpt-cat-row">'
+          + '<div class="rpt-cat-icon">'+_rptEsc(r.cat.icon||'◈')+'</div>'
+          + '<div class="rpt-cat-info">'
+            + '<div class="rpt-cat-name-row">'
+              + '<span class="rpt-cat-name">'+_rptEsc(r.cat.name)+'</span>'
+              + '<span class="rpt-cat-hrs" style="color:'+r.cat.color+'">'+r.hrs+'ч</span>'
+            + '</div>'
+            + '<div class="rpt-cat-bar-wr"><div class="rpt-cat-bar" style="width:'+r.pct+'%;background:'+r.cat.color+';box-shadow:0 0 6px '+r.cat.color+'88"></div></div>'
+          + '</div>'
+        + '</div>';
+      }).join('');
+  }
+
+  content.innerHTML =
+    /* ── HEADER ── */
+    '<div class="rpt-header-row">'
+      + '<div class="rpt-brand-wrap">'
+        + '<div class="rpt-brand-icon">'
+          + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F5C842" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>'
+        + '</div>'
+        + '<div><div class="rpt-brand-name">DTR Progress Club</div><div class="rpt-brand-tag">TRACK · COMPETE · EVOLVE</div></div>'
+      + '</div>'
+      + '<div class="rpt-badge">PREMIUM REPORT</div>'
+    + '</div>'
+
+    /* ── GOLD DIVIDER ── */
+    + '<div class="rpt-divider"></div>'
+
+    /* ── PERIOD ── */
+    + '<div class="rpt-period-lbl">'+periodLabel+'</div>'
+    + '<div class="rpt-period-range">'+dateRangeLabel+deltaHTML+'</div>'
+
+    /* ── USER BLOCK ── */
+    + '<div class="rpt-user-block">'
+      + '<div class="rpt-user-av">'+_rptEsc(userAv)+'</div>'
+      + '<div style="flex:1;min-width:0">'
+        + '<div class="rpt-user-name">'+_rptEsc(userName)+'</div>'
+        + '<div class="rpt-user-meta">'
+          + '<div class="rpt-lvl-pill" style="color:'+lvlColor+';border-color:'+lvlColor+'33">Ур. '+lvlNum+' · '+_rptEsc(lvlName)+'</div>'
+          + (userStreak>0 ? '<div class="rpt-streak-pill">🔥 '+userStreak+' дн.</div>' : '')
+        + '</div>'
+      + '</div>'
+    + '</div>'
+
+    /* ── KPI GRID ── */
+    + '<div class="rpt-kpi-grid">'
+      + '<div class="rpt-kpi-cell">'
+        + '<div class="rpt-kpi-val" style="color:#F5C842">'+periodHrs.toFixed(1)+'<span style="font-size:12px">ч</span></div>'
+        + '<div class="rpt-kpi-lbl">Часов</div>'
+      + '</div>'
+      + '<div class="rpt-kpi-cell">'
+        + '<div class="rpt-kpi-val" style="color:#4ADE80">'+activeDays+'<span style="font-size:12px"> дн</span></div>'
+        + '<div class="rpt-kpi-lbl">Активных</div>'
+      + '</div>'
+      + '<div class="rpt-kpi-cell">'
+        + '<div class="rpt-kpi-val" style="color:#1a9fff">'+avgPerDay+'<span style="font-size:12px">ч</span></div>'
+        + '<div class="rpt-kpi-lbl">В день</div>'
+      + '</div>'
+    + '</div>'
+
+    /* ── CAT BREAKDOWN ── */
+    + catHTML
+
+    /* ── SOFT DIVIDER ── */
+    + '<div class="rpt-divider-soft"></div>'
+
+    /* ── QUOTE ── */
+    + '<div class="rpt-quote">'
+      + '<div class="rpt-quote-text">«'+_rptEsc(q.text)+'»</div>'
+      + '<div class="rpt-quote-author">'+_rptEsc(q.author)+'</div>'
+    + '</div>'
+
+    /* ── FOOTER ── */
+    + '<div class="rpt-footer">'
+      + '<div class="rpt-footer-time">'+genTime+'</div>'
+      + '<div class="rpt-footer-brand">dtrsystem.club</div>'
+    + '</div>';
+}
+
+/* ── Load html2canvas on demand ── */
+function _rptLoadH2C() {
+  return new Promise(function(resolve, reject) {
+    if (window.html2canvas) { resolve(); return; }
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+/* ── Capture card to canvas ── */
+async function _rptCapture(scale) {
+  await _rptLoadH2C();
+  var card = document.getElementById('reportCard');
+  return await window.html2canvas(card, {
+    scale: scale || 3,
+    backgroundColor: '#0C0B09',
+    useCORS: true,
+    allowTaint: true,
+    logging: false,
+    imageTimeout: 8000,
+  });
+}
+
+/* ── DOWNLOAD AS JPEG ── */
+async function downloadReport() {
+  var btn = document.getElementById('reportDlBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Генерация...'; }
+  try {
+    var canvas = await _rptCapture(3);
+    var dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+    var period = (typeof dashPeriod !== 'undefined' && dashPeriod === 'month') ? 'месяц' : 'неделя';
+    var dateStr = new Date().toLocaleDateString('ru').replace(/\./g,'-');
+    var a = document.createElement('a');
+    a.href = dataUrl; a.download = 'DTR_Отчёт_'+period+'_'+dateStr+'.jpg';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    if (typeof showToast === 'function') showToast('Отчёт сохранён на устройство ✅', '📄');
+  } catch(e) {
+    console.error('DTR Report download:', e);
+    if (typeof showToast === 'function') showToast('Ошибка генерации', '⚠️');
+  }
+  if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Скачать JPEG'; }
+}
+
+/* ── SHARE (Web Share API → Telegram / Instagram) ── */
+async function shareReport(platform) {
+  var btnId = 'reportShare_' + platform;
+  var btn = document.getElementById(btnId);
+  if (btn) { btn.disabled = true; btn.style.opacity = '.55'; }
+
+  try {
+    var canvas = await _rptCapture(2);
+
+    var period = (typeof dashPeriod !== 'undefined' && dashPeriod === 'month') ? 'месяц' : 'неделя';
+    var shareText = 'Мой прогресс за ' + period + ' — DTR Progress Club 🏆\nhttps://dtrsystemgroup.vercel.app';
+
+    /* Convert canvas to Blob */
+    var blob = await new Promise(function(res){ canvas.toBlob(res, 'image/jpeg', 0.92); });
+    var file = new File([blob], 'DTR_report.jpg', { type: 'image/jpeg' });
+
+    /* Try native Web Share API (works on mobile for both Telegram & Instagram) */
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'DTR Progress Club — Отчёт', text: shareText });
+      if (typeof showToast === 'function') showToast('Поделился успешно!', '🚀');
+    } else if (platform === 'telegram') {
+      /* Fallback for Telegram: download image + open share link */
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a'); a.href = url; a.download = 'DTR_report.jpg';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){
+        window.open('https://t.me/share/url?url=' + encodeURIComponent('https://dtrsystemgroup.vercel.app') + '&text=' + encodeURIComponent(shareText), '_blank');
+      }, 600);
+      if (typeof showToast === 'function') showToast('Сохранено! Открываю Telegram…', '✈️');
+    } else if (platform === 'instagram') {
+      /* Fallback for Instagram: download + hint */
+      var url2 = URL.createObjectURL(blob);
+      var a2 = document.createElement('a'); a2.href = url2; a2.download = 'DTR_report.jpg';
+      document.body.appendChild(a2); a2.click(); document.body.removeChild(a2);
+      if (typeof showToast === 'function') showToast('Фото сохранено — опубликуй в Stories! 📸', '📱');
+    }
+  } catch(e) {
+    if (e.name !== 'AbortError') {
+      console.error('DTR Share:', e);
+      if (typeof showToast === 'function') showToast('Ошибка публикации', '⚠️');
+    }
+  }
+
+  if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+}
+
+/* ── Close on Escape ── */
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    var ov = document.getElementById('reportOv');
+    if (ov && ov.style.display === 'flex') closeReportModal();
+  }
+});
 </script>
 
 </body>
