@@ -16156,31 +16156,28 @@ function renderDash(){
     return `${hrs} ч ${min} мин`;
   }
 
-  // ── SVG DEFS: per-category gradients + glow filter ─────────
+  // ── SVG DEFS ────────────────────────────────────────────────
   let gradDefs = '<defs>';
-  barCats.forEach(c => {
-    const gid = `bcg_${c.id}`;
-    gradDefs += `<linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%"   stop-color="${c.color}" stop-opacity=".92"/>
-      <stop offset="72%"  stop-color="${c.color}" stop-opacity=".45"/>
-      <stop offset="100%" stop-color="${c.color}" stop-opacity=".08"/>
-    </linearGradient>`;
-  });
-  // Gold glow column for today
+  // Gold today-column background gradient
   gradDefs += `<linearGradient id="bcg_today_col" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0%"   stop-color="#F5C842" stop-opacity=".13"/>
+    <stop offset="0%"   stop-color="#F5C842" stop-opacity=".1"/>
     <stop offset="100%" stop-color="#F5C842" stop-opacity="0"/>
   </linearGradient>`;
-  // Soft glow filter for bars
-  gradDefs += `<filter id="bcf_glow" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB">
-    <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
-    <feComposite in="blur" in2="SourceGraphic" operator="over"/>
+  // Column-top shine wash (applied once per column over all segments)
+  gradDefs += `<linearGradient id="bcg_shine" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%"   stop-color="white" stop-opacity=".2"/>
+    <stop offset="100%" stop-color="white" stop-opacity="0"/>
+  </linearGradient>`;
+  // Soft glow filter — single per column
+  gradDefs += `<filter id="bcf_glow" x="-80%" y="-50%" width="260%" height="200%" color-interpolation-filters="sRGB">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/>
+    <feComposite in="b" in2="SourceGraphic" operator="over"/>
   </filter>`;
   gradDefs += '</defs>';
 
   let barsHTML = gradDefs;
 
-  // ── Grid lines — ultra-subtle solid ────────────────────────
+  // ── Grid lines — ultra-subtle ───────────────────────────────
   yTicks.forEach(v => {
     const y = yPx(v).toFixed(1);
     barsHTML += `<line x1="${padL}" y1="${y}" x2="${bW - padR}" y2="${y}"
@@ -16191,77 +16188,122 @@ function renderDash(){
   });
 
   // ── Bars ───────────────────────────────────────────────────
+  const cornerR = Math.min(5, barW / 2);
+
   segments.forEach((segs, i) => {
-    const x = xPx(i).toFixed(1);
+    const x     = xPx(i).toFixed(1);
+    const xNum  = +x;
+    const bWNum = barW;
     const totalVal = segs.reduce((a, s) => a + s.val, 0);
-    const isToday = isWeek && i === new Date().getDay() - 1;
-    const tipData = barCats.map(c => {
+    const isToday  = isWeek && i === new Date().getDay() - 1;
+    const tipData  = barCats.map(c => {
       const v = data[c.id] ? data[c.id][i] : 0;
       return v > 0 ? `${c.name}: ${fmtH(v)}` : '';
     }).filter(Boolean).join('&#10;');
     const labelDay = labels[i] || '';
 
-    // Today: gold glow column background (drawn first, behind bars)
+    // ── Today: gold glow column
     if (isToday) {
-      const colX = (+x - barGap * 0.5).toFixed(1);
-      const colW = (barW + barGap).toFixed(1);
-      barsHTML += `<rect x="${colX}" y="${padT}" width="${colW}" height="${plotH}"
+      barsHTML += `<rect x="${(xNum - barGap * .5).toFixed(1)}" y="${padT}"
+        width="${(bWNum + barGap).toFixed(1)}" height="${plotH}"
         fill="url(#bcg_today_col)" rx="6" pointer-events="none"/>`;
     }
 
-    // Draw each stacked segment
-    let drawnTop = null;
-    segs.forEach(seg => {
-      if (seg.val <= 0) return;
-      const y1 = yPx(seg.top).toFixed(1);
-      const y2 = yPx(seg.bottom).toFixed(1);
-      const h = Math.max(3, +y2 - +y1);
-      const rx = Math.min(5, barW / 2);
-      const gid = `bcg_${seg.cat}`;
-      drawnTop = { y1: +y1, h, color: seg.color };
+    // ── Only draw if there's data
+    const activeSegs = segs.filter(s => s.val > 0);
+    const nActive    = activeSegs.length;
 
-      // Ambient glow layer (blurred, behind)
-      barsHTML += `<rect x="${x}" y="${y1}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}"
-        fill="${seg.color}" opacity="0.18" rx="${rx}" ry="${rx}"
+    if (nActive > 0) {
+      // Find dominant category for the column glow
+      const dominant = activeSegs.reduce((a, b) => b.val > a.val ? b : a);
+      const colTopY  = yPx(totalVal);
+      const colBotY  = padT + plotH;   // baseline pixel
+      const colH     = colBotY - colTopY;
+
+      // ONE ambient glow per column — no per-segment glow
+      barsHTML += `<rect x="${x}" y="${colTopY.toFixed(1)}"
+        width="${bWNum.toFixed(1)}" height="${colH.toFixed(1)}"
+        fill="${dominant.color}" opacity=".14" rx="${cornerR}"
         filter="url(#bcf_glow)" pointer-events="none"/>`;
-      // Main gradient bar
-      barsHTML += `<rect x="${x}" y="${y1}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}"
-        fill="url(#${gid})" rx="${rx}" ry="${rx}"/>`;
-    });
 
-    // Top shine streak on the tallest bar
-    if (drawnTop && barW > 6) {
-      const shineH = Math.min(3, drawnTop.h * 0.35);
-      const shineW = Math.max(2, barW * 0.45);
-      const shineX = (+x + (barW - shineW) / 2).toFixed(1);
-      barsHTML += `<rect x="${shineX}" y="${(drawnTop.y1 + 2).toFixed(1)}"
-        width="${shineW.toFixed(1)}" height="${shineH.toFixed(1)}"
-        fill="white" opacity="0.22" rx="1.5" pointer-events="none"/>`;
+      // ── Draw each segment — clean flush stack
+      activeSegs.forEach((seg, si) => {
+        const isTop = si === nActive - 1;
+        const y1    = yPx(seg.top);
+        const y2    = yPx(seg.bottom);
+        const h     = Math.max(2, y2 - y1);
+
+        if (nActive === 1) {
+          // Single segment: rounded top, square bottom
+          barsHTML += `<rect x="${x}" y="${y1.toFixed(1)}"
+            width="${bWNum.toFixed(1)}" height="${h.toFixed(1)}"
+            fill="${seg.color}" opacity=".84" rx="${cornerR}"/>`;
+          // Cover bottom corners to make bottom square
+          if (h > cornerR * 2) {
+            barsHTML += `<rect x="${x}" y="${(y1 + h - cornerR).toFixed(1)}"
+              width="${bWNum.toFixed(1)}" height="${(cornerR + 1).toFixed(1)}"
+              fill="${seg.color}" opacity=".84" rx="0"/>`;
+          }
+        } else if (isTop) {
+          // Top segment: rounded top only
+          barsHTML += `<rect x="${x}" y="${y1.toFixed(1)}"
+            width="${bWNum.toFixed(1)}" height="${h.toFixed(1)}"
+            fill="${seg.color}" opacity=".84" rx="${cornerR}"/>`;
+          // Cover bottom half of top segment to flush with segment below
+          if (h > cornerR) {
+            barsHTML += `<rect x="${x}" y="${(y1 + h - cornerR).toFixed(1)}"
+              width="${bWNum.toFixed(1)}" height="${(cornerR + 1).toFixed(1)}"
+              fill="${seg.color}" opacity=".84" rx="0"/>`;
+          }
+        } else {
+          // Middle and bottom segments: no rounding at all — flush connection
+          barsHTML += `<rect x="${x}" y="${y1.toFixed(1)}"
+            width="${bWNum.toFixed(1)}" height="${h.toFixed(1)}"
+            fill="${seg.color}" opacity=".84" rx="0"/>`;
+        }
+
+        // Thin 1px separator line between segments (barely visible, helps layering read)
+        if (!isTop) {
+          barsHTML += `<line x1="${x}" y1="${y1.toFixed(1)}" x2="${(xNum + bWNum).toFixed(1)}" y2="${y1.toFixed(1)}"
+            stroke="rgba(0,0,0,.35)" stroke-width="1" pointer-events="none"/>`;
+        }
+      });
+
+      // ── ONE shine overlay for the whole column top
+      const shineH = Math.min(colH * .38, 18);
+      barsHTML += `<rect x="${x}" y="${colTopY.toFixed(1)}"
+        width="${bWNum.toFixed(1)}" height="${shineH.toFixed(1)}"
+        fill="url(#bcg_shine)" rx="${cornerR}" pointer-events="none"/>`;
+
+      // Thin gloss pill inside the top
+      if (bWNum > 8) {
+        const pillW = bWNum * 0.44;
+        const pillX = xNum + (bWNum - pillW) / 2;
+        barsHTML += `<rect x="${pillX.toFixed(1)}" y="${(colTopY + 4).toFixed(1)}"
+          width="${pillW.toFixed(1)}" height="2"
+          fill="white" opacity="0.28" rx="1" pointer-events="none"/>`;
+      }
     }
 
-    // Hover overlay (transparent, captures mouse events)
+    // ── Hover overlay
     const hoverHandlers = totalVal > 0
       ? `onmouseenter="showDashTip(event,\`${tipData}\`,\`${fmtH(totalVal)}\`,\`${labelDay}\`)" onmouseleave="hideDashTip()" onclick="showDashTip(event,\`${tipData}\`,\`${fmtH(totalVal)}\`,\`${labelDay}\`)"`
       : `onmouseleave="hideDashTip()"`;
-    barsHTML += `<rect x="${x}" y="${padT}" width="${barW.toFixed(1)}" height="${plotH}"
+    barsHTML += `<rect x="${x}" y="${padT}" width="${bWNum.toFixed(1)}" height="${plotH}"
       fill="transparent" rx="3" style="cursor:${totalVal > 0 ? 'pointer' : 'default'}"
       ${hoverHandlers}/>`;
 
-    // Today: gold tick line at baseline
+    // ── Today: gold tick at baseline
     if (isToday) {
-      const tickX1 = (+x).toFixed(1);
-      const tickX2 = (+x + barW).toFixed(1);
-      const tickY = (padT + plotH + 5).toFixed(1);
-      barsHTML += `<line x1="${tickX1}" y1="${tickY}" x2="${tickX2}" y2="${tickY}"
-        stroke="#F5C842" stroke-width="2.5" stroke-linecap="round"
-        opacity=".8" pointer-events="none"/>`;
+      barsHTML += `<line x1="${x}" y1="${(padT + plotH + 5).toFixed(1)}" x2="${(xNum + bWNum).toFixed(1)}" y2="${(padT + plotH + 5).toFixed(1)}"
+        stroke="#F5C842" stroke-width="2.5" stroke-linecap="round" opacity=".8" pointer-events="none"/>`;
     }
   });
 
   // ── X-axis labels ──────────────────────────────────────────
   Array.from({length: buckets}, (_, i) => {
     if (i % showEvery !== 0) return;
-    const x = (xPx(i) + barW / 2).toFixed(1);
+    const x       = (xPx(i) + barW / 2).toFixed(1);
     const isToday = isWeek && i === new Date().getDay() - 1;
     barsHTML += `<text x="${x}" y="${(svgH - 5).toFixed(0)}" text-anchor="middle"
       font-size="10" fill="${isToday ? '#F5C842' : 'rgba(255,255,255,.3)'}"
