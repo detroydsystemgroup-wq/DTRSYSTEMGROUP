@@ -10616,7 +10616,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
   position: sticky;
   top: 0;
   z-index: 2;
-  background: var(--panel);
+  background: transparent;
 }
 .sess-group-hd-lbl {
   font-size: 10px;
@@ -13942,7 +13942,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
         <button class="sfb active" onclick="setSessionFilter('today',this)">Сегодня</button>
         <button class="sfb" onclick="setSessionFilter('yesterday',this)">Вчера</button>
         <button class="sfb" onclick="setSessionFilter('week',this)">Эта неделя</button>
-        <button class="sfb" onclick="setSessionFilter('all',this)">Все</button>
+        <button class="sfb" onclick="setSessionFilter('month',this)">Месяц</button>
       </div>
       <div class="card">
         <div class="ch">
@@ -16543,7 +16543,7 @@ function setSessionFilter(filter, btn) {
   document.querySelectorAll('.sfb').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   // Update title
-  const titles = { today:'Сегодня', yesterday:'Вчера', week:'Эта неделя', all:'Все сессии' };
+  const titles = { today:'Сегодня', yesterday:'Вчера', week:'Эта неделя', month:'Месяц' };
   const titleEl = document.getElementById('sessFilterTitle');
   if (titleEl) titleEl.textContent = titles[filter] || 'Сессии';
   renderSessions(true);
@@ -16585,7 +16585,8 @@ function renderSessions(all=false){
     if(_sessFilter === 'today')     return dMs === todayMs;
     if(_sessFilter === 'yesterday') return dMs === todayMs - 86400000;
     if(_sessFilter === 'week')      return t >= weekStart;
-    return true; // 'all'
+    if(_sessFilter === 'month')     return t >= todayMs - 30 * 86400000;
+    return t >= todayMs - 30 * 86400000; // fallback = month
   }
 
   const list = P.sessions.filter(sessInFilter);
@@ -16593,7 +16594,7 @@ function renderSessions(all=false){
   if(cnt) cnt.textContent = list.length + ' сессий';
 
   if(!list.length){
-    const labels = {today:'сегодня',yesterday:'вчера',week:'на этой неделе',all:''};
+    const labels = {today:'сегодня',yesterday:'вчера',week:'на этой неделе',month:'за последние 30 дней'};
     el.innerHTML=`<div style="padding:40px 20px;text-align:center;color:var(--t3)"><div style="font-size:32px;margin-bottom:12px">📭</div><div style="font-size:14px;font-weight:600;color:var(--t2);margin-bottom:4px">Нет сессий ${labels[_sessFilter]||''}</div><div style="font-size:12px">Начни первую сессию чтобы увидеть историю</div></div>`;
     return;
   }
