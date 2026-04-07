@@ -29840,13 +29840,13 @@ function closeSettings(){
   padding: 0 2px; margin-top: 2px;
 }
 .rpt-quote-text {
-  font-size: 10px; font-style: italic;
-  color: rgba(255,255,255,.38); line-height: 1.65; margin-bottom: 4px;
+  font-size: 13px; font-style: italic;
+  color: rgba(255,255,255,.45); line-height: 1.65; margin-bottom: 6px;
 }
 .rpt-quote-author {
-  font-size: 8px; font-weight: 700;
+  font-size: 10px; font-weight: 700;
   letter-spacing: .06em; text-transform: uppercase;
-  color: rgba(255,255,255,.18);
+  color: rgba(255,255,255,.22);
 }
 .rpt-footer {
   display: flex; align-items: center; justify-content: space-between;
@@ -30178,8 +30178,8 @@ async function _rptBuild(){
       +rankRows.slice(0,3).map(function(r){
         var rk=r.rank;
         var rColor=rk===1?'#FFD700':rk===2?'#C8C8D4':rk===3?'#CD9060':r.cat.color;
-        /* Trophy SVG icon */
-        var trophySVG='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="'+rColor
+        /* Trophy SVG icon — 20px */
+        var trophySVG='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="'+rColor
           +'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
           +'<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>'
           +'<path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>'
@@ -30188,17 +30188,15 @@ async function _rptBuild(){
           +'<path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>'
           +'<path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/>'
           +'</svg>';
-        return '<div style="padding:11px 8px 10px;background:rgba(255,255,255,.025);border:0.5px solid '
+        return '<div style="padding:12px 8px 10px;background:rgba(255,255,255,.025);border:0.5px solid '
           +(rk<=3?rColor+'30':'rgba(255,255,255,.07)')
-          +';border-radius:11px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px">'
+          +';border-radius:11px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:5px">'
           +'<div>'+trophySVG+'</div>'
-          /* Rank number — large and unmissable */
-          +'<div style="font-family:\'DM Mono\',monospace;font-size:26px;font-weight:500;color:'
-            +rColor+';line-height:1;letter-spacing:-.04em">'
-            +(rk<=9?'  ':'')+'#'+rk
-          +'</div>'
-          /* Category name */
-          +'<div style="font-size:9.5px;font-weight:700;color:rgba(255,255,255,.65);letter-spacing:.01em;line-height:1.2">'+_rptEsc(r.cat.name)+'</div>'
+          /* Rank number — large, NO # prefix */
+          +'<div style="font-family:\'DM Mono\',monospace;font-size:28px;font-weight:500;color:'
+            +rColor+';line-height:1;letter-spacing:-.04em">'+rk+'</div>'
+          /* Category name UPPERCASE */
+          +'<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.7);letter-spacing:.05em;text-transform:uppercase;line-height:1.2">'+_rptEsc(r.cat.name.toUpperCase())+'</div>'
           /* Hours */
           +(r.hrs>0?'<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:'+r.cat.color+';margin-top:1px">'+r.hrs+'ч</div>':'')
         +'</div>';
@@ -30257,44 +30255,76 @@ async function _rptBuild(){
 
 async function _rptCapture(scale){
   await _rptLoadH2C();
-
-  var ov   = document.getElementById('reportOv');
   var card = document.getElementById('reportCard');
+  var rect = card.getBoundingClientRect();
+  var W = rect.width  > 0 ? rect.width  : 420;
+  var H = rect.height > 0 ? rect.height : 700;
 
-  /* ── Temporarily disable backdrop-filter on overlay (html2canvas doesn't support it) ── */
-  var prevBF  = ov ? ov.style.backdropFilter       : '';
-  var prevWBF = ov ? ov.style.webkitBackdropFilter  : '';
-  if(ov){ ov.style.backdropFilter='none'; ov.style.webkitBackdropFilter='none'; }
+  return await window.html2canvas(card, {
+    scale            : scale || 3,
+    backgroundColor  : '#0C0B09',
+    useCORS          : true,
+    allowTaint       : true,
+    logging          : false,
+    imageTimeout     : 15000,
+    foreignObjectRendering: false,
+    width            : W,
+    height           : H,
+    ignoreElements   : function(el){
+      var t=(el.tagName||'').toUpperCase();
+      return t==='IFRAME'||t==='NOSCRIPT';
+    },
+    onclone: function(cloneDoc){
+      /* ─────────────────────────────────────────────────────────────
+         THE ROOT CAUSE: html2canvas clones the ENTIRE document, then
+         computes styles for ALL elements (even outside #reportCard).
+         Elements like .xp-fill, .ph-cover use background-size:200%
+         and have 0 dimensions in the clone → 0×0 pattern canvas →
+         createPattern crash.  We kill all of them here.
+      ───────────────────────────────────────────────────────────── */
+      var fix = cloneDoc.createElement('style');
+      fix.textContent = [
+        /* Kill every animated / percentage background-size gradient */
+        '.xp-fill,.ph-cover,.cbd-bar,.lr-bar,.ci-bar,.ach2-prog-fill,',
+        '.cmp-bar-fill,.sc-day,.dailyProgressBar,.rpt-divider,',
+        '.rpt-divider-soft,[class*="fill"],[class*="bar"]{',
+        '  background-image:none!important;animation:none!important;}',
 
-  /* ── Hide grid-line background (background-size repeating gradients → 0x0 canvas error) ── */
-  var gridEl = card.querySelector('.rpt-bg-gridlines');
-  var prevGridDisplay = gridEl ? gridEl.style.display : '';
-  if(gridEl) gridEl.style.display='none';
+        /* Stop ALL gradFlow / gradFlowX animations */
+        '*{animation-play-state:paused!important;}',
+        '@keyframes gradFlow{0%,100%{background-position:0 0}}',
+        '@keyframes gradFlowX{0%,100%{background-position:0 0}}',
 
-  /* ── Hide glow blobs too (radial gradients on position:absolute can cause issues) ── */
-  var glowEls = card.querySelectorAll('.rpt-bg-glow-tr,.rpt-bg-glow-bl,.rpt-bg-fade');
-  glowEls.forEach(function(el){ el.setAttribute('data-prev-vis', el.style.visibility||''); el.style.visibility='hidden'; });
+        /* Backdrop-filter breaks rendering in clone */
+        '*{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}',
 
-  try{
-    return await window.html2canvas(card,{
-      scale            : scale||3,
-      backgroundColor  : '#0C0B09',
-      useCORS          : true,
-      allowTaint       : true,
-      logging          : false,
-      imageTimeout     : 15000,
-      foreignObjectRendering: false,
-      ignoreElements   : function(el){
-        var tag=(el.tagName||'').toUpperCase();
-        return tag==='IFRAME'||tag==='NOSCRIPT';
+        /* ── Report card decorative bg elements ── */
+        '.rpt-bg-gridlines{display:none!important;}',
+        '.rpt-bg-glow-tr,.rpt-bg-glow-bl,.rpt-bg-fade{background:none!important;}',
+
+        /* ── Restore solid backgrounds that should be visible ── */
+        '#reportCard{background:#0C0B09!important;}',
+        '.rpt-user-block{background:rgba(255,255,255,.025)!important;}',
+        '.rpt-kpi-cell{background:rgba(255,255,255,.02)!important;}',
+
+        /* ── Restore dividers as solid lines ── */
+        '.rpt-divider{background:rgba(245,200,66,.4)!important;height:0.5px!important;}',
+        '.rpt-divider-soft{background:rgba(255,255,255,.09)!important;height:0.5px!important;}',
+
+        /* ── Restore cat bars (inline style="background:#color" is fine) ── */
+        '.rpt-cat-bar-wr{background:rgba(255,255,255,.05)!important;}',
+      ].join('');
+      cloneDoc.head.appendChild(fix);
+
+      /* Give reportCard explicit pixel dimensions so it's never 0×0 */
+      var cc = cloneDoc.getElementById('reportCard');
+      if(cc){
+        cc.style.width    = W + 'px';
+        cc.style.minHeight= H + 'px';
+        cc.style.overflow = 'visible';
       }
-    });
-  }finally{
-    /* ── Restore everything ── */
-    if(ov){ ov.style.backdropFilter=prevBF; ov.style.webkitBackdropFilter=prevWBF; }
-    if(gridEl) gridEl.style.display=prevGridDisplay;
-    glowEls.forEach(function(el){ el.style.visibility=el.getAttribute('data-prev-vis')||''; el.removeAttribute('data-prev-vis'); });
-  }
+    }
+  });
 }
 
 async function downloadReport(){
