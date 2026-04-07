@@ -29825,7 +29825,7 @@ function closeSettings(){
 .rpt-cat-row {
   display: flex; align-items: center; gap: 9px; margin-bottom: 6px;
 }
-.rpt-cat-icon { font-size: 13px; flex-shrink: 0; width: 18px; text-align: center; }
+.rpt-cat-icon { display:flex; align-items:center; justify-content:center; flex-shrink:0; width:20px; }
 .rpt-cat-info { flex: 1; min-width: 0; }
 .rpt-cat-name-row {
   display: flex; align-items: center; justify-content: space-between;
@@ -29920,7 +29920,7 @@ function closeSettings(){
     <div class="rpt-actions">
       <button class="rpt-act-btn rpt-act-dl" id="reportDlBtn" onclick="downloadReport()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Скачать JPEG
+        Скачать
       </button>
       <button class="rpt-act-btn rpt-act-tg" id="reportShare_telegram" onclick="shareReport('telegram')">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/></svg>
@@ -30142,12 +30142,29 @@ async function _rptBuild(){
   var genTime=new Date().toLocaleString('ru',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}).replace(' г.','');
 
   /* ── Sections ── */
+
+  /* SVG icon map for categories (replaces emoji) */
+  var _catSVGs={
+    read:     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
+    lang:     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
+    code:     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
+    trading:  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>',
+    cooking:  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
+    intellect:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>',
+    project:  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>',
+    study:    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>',
+  };
+  var _defSVG='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/></svg>';
+
   var catHTML='';
   if(catRows.length>0){
     catHTML='<div class="rpt-divider-soft"></div><div class="rpt-cats-hdr">Направления</div>'
       +catRows.slice(0,5).map(function(r){
+        var svg=_catSVGs[r.cat.id]||_defSVG;
+        /* Inject category color into stroke */
+        svg=svg.replace(/stroke="currentColor"/g,'stroke="'+r.cat.color+'"');
         return '<div class="rpt-cat-row">'
-          +'<div class="rpt-cat-icon">'+r.cat.icon+'</div>'
+          +'<div class="rpt-cat-icon" style="color:'+r.cat.color+'">'+svg+'</div>'
           +'<div class="rpt-cat-info">'
             +'<div class="rpt-cat-name-row">'
               +'<span class="rpt-cat-name">'+_rptEsc(r.cat.name)+'</span>'
@@ -30167,13 +30184,17 @@ async function _rptBuild(){
       +rankRows.slice(0,3).map(function(r){
         var rk=r.rank;
         var rColor=rk===1?'#FFD700':rk===2?'#C0C0C0':rk===3?'#CD7F32':r.cat.color;
-        var rkDisp=rk<=3?['🥇','🥈','🥉'][rk-1]
-          :'<span style="font-family:\'DM Mono\',monospace;font-size:'+(rk<100?'17':'14')+'px;font-weight:400;color:'+rColor+'">#'+rk+'</span>';
-        return '<div style="padding:10px 8px;background:rgba(255,255,255,.025);border:0.5px solid rgba(255,255,255,.07);border-radius:11px;text-align:center">'
-          +'<div style="font-size:11px;margin-bottom:3px">'+r.cat.icon+'</div>'
-          +'<div style="font-size:20px;line-height:1;margin-bottom:3px">'+rkDisp+'</div>'
-          +'<div style="font-size:7px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.25)">'+_rptEsc(r.cat.name)+'</div>'
-          +(r.hrs>0?'<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:'+r.cat.color+';margin-top:3px">'+r.hrs+'ч</div>':'')
+        /* Rank badge: top3 = medal SVG, others = #N number */
+        var medalPaths=['M12 2l2.09 6.26L21 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+                        'M12 2l2.09 6.26L21 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+                        'M12 2l2.09 6.26L21 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z'];
+        var rkBadge=rk<=3
+          ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="'+rColor+'" stroke="none" style="filter:drop-shadow(0 0 4px '+rColor+'66)"><path d="'+medalPaths[rk-1]+'"/><text x="12" y="13" text-anchor="middle" font-size="7" font-weight="700" fill="#0C0B09" font-family=\'DM Sans\',sans-serif>'+rk+'</text></svg>'
+          : '<span style="font-family:\'DM Mono\',monospace;font-size:'+(rk<100?'18':'14')+'px;font-weight:400;color:'+rColor+'">#'+rk+'</span>';
+        return '<div style="padding:12px 10px 10px;background:rgba(255,255,255,.025);border:0.5px solid rgba(255,255,255,.07);border-radius:11px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:5px">'
+          +'<div style="line-height:1">'+rkBadge+'</div>'
+          +'<div style="font-size:10px;font-weight:700;letter-spacing:.02em;color:rgba(255,255,255,.7);line-height:1.2;margin-top:1px">'+_rptEsc(r.cat.name)+'</div>'
+          +(r.hrs>0?'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:'+r.cat.color+'">'+r.hrs+'ч</div>':'')
         +'</div>';
       }).join('')
       +'</div>';
@@ -30230,21 +30251,45 @@ async function _rptBuild(){
 
 async function _rptCapture(scale){
   await _rptLoadH2C();
-  var card=document.getElementById('reportCard');
-  return await window.html2canvas(card,{
-    scale:scale||3,
-    backgroundColor:'#0C0B09',
-    useCORS:true,
-    allowTaint:true,
-    logging:false,
-    imageTimeout:15000,
-    onclone:function(cloneDoc){
-      var link=cloneDoc.createElement('link');
-      link.rel='stylesheet';
-      link.href='https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,600;9..40,700;9..40,800&display=swap';
-      cloneDoc.head.appendChild(link);
-    }
-  });
+  var original=document.getElementById('reportCard');
+  var w=original.offsetWidth||380;
+
+  /* Clone the card to <body> (offscreen) so modal overlay/backdrop-filter
+     don't interfere with html2canvas rendering */
+  var clone=original.cloneNode(true);
+  clone.removeAttribute('id');
+  clone.style.cssText=[
+    'position:fixed','top:-9999px','left:-9999px',
+    'width:'+w+'px','z-index:-9999',
+    'background:#0C0B09',
+    'border-radius:20px',
+    'padding:24px 26px 20px',
+    'box-sizing:border-box',
+    'pointer-events:none',
+    'opacity:1','visibility:visible'
+  ].join(';');
+  document.body.appendChild(clone);
+
+  try{
+    var canvas=await window.html2canvas(clone,{
+      scale:scale||3,
+      backgroundColor:'#0C0B09',
+      useCORS:true,
+      allowTaint:true,
+      logging:false,
+      imageTimeout:15000,
+      foreignObjectRendering:false,
+      removeContainer:true,
+      ignoreElements:function(el){
+        /* Skip iframes, scripts and analytics tags that cause CORS noise */
+        var tag=el.tagName?el.tagName.toUpperCase():'';
+        return tag==='IFRAME'||tag==='NOSCRIPT'||(tag==='DIV'&&el.id==='notifScheduleList');
+      }
+    });
+    return canvas;
+  }finally{
+    if(clone.parentNode) clone.parentNode.removeChild(clone);
+  }
 }
 
 async function downloadReport(){
