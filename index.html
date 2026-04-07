@@ -24620,14 +24620,14 @@ function _lrnInjectCSS(){
 .lrn-mode-bar{
   display:flex;
   gap:8px;
-  margin:20px 40px 20px 0;
+  margin:20px 40px 20px 12px;
   padding:4px;
   background:rgba(255,255,255,.04);
   border:0.5px solid rgba(255,255,255,.07);
   border-radius:14px;
 }
 @media(max-width:900px){
-  .lrn-mode-bar{ margin:16px 24px 16px 0; }
+  .lrn-mode-bar{ margin:16px 24px 16px 8px; }
 }
 .lrn-mode-btn{
   flex:1;
@@ -25962,7 +25962,16 @@ async function fetchAll(){
     if(roomIds.length){
       const {data,error:re}=await sb2.from('collab_mat_rooms').select('*').in('id',roomIds);
       if(re) console.warn('collab_mat_rooms fetch:',re.message);
-      rooms=data||[];
+      rooms=(data||[]).map(r=>{
+        // Merge localStorage categories fallback
+        const lsMat=JSON.parse(localStorage.getItem(`dtr_cmat_cats_${r.id}_material`)||'[]');
+        const lsTool=JSON.parse(localStorage.getItem(`dtr_cmat_cats_${r.id}_tool`)||'[]');
+        return {
+          ...r,
+          mat_categories:[...new Set([...(r.mat_categories||[]),...lsMat])],
+          tool_categories:[...new Set([...(r.tool_categories||[]),...lsTool])],
+        };
+      });
     }
     _cache={rooms,memberships,perRoom:{}};
     await Promise.all(rooms.map(async room=>{
@@ -26024,6 +26033,7 @@ function subscribeRT(roomIds){
 window._cmatRenderSidebar=function(sb_el){
   const user=getUser();
   const svgX=`<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+  const svgP=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
 
   if(!user||user.isDemoUser){
     sb_el.innerHTML=`<div style="padding:24px 16px;text-align:center"><div style="font-size:32px;opacity:.4">&#128274;</div><div style="font-size:13px;font-weight:600;color:var(--t2);margin:10px 0 6px">Войди в аккаунт</div><div style="font-size:11.5px;color:var(--t3);line-height:1.6">Для совместной базы нужен аккаунт DTR</div></div>`;
@@ -26035,13 +26045,19 @@ window._cmatRenderSidebar=function(sb_el){
   const activeRoom=rooms.find(r=>r.id===_activeRoom);
   const rc=activeRoom&&_cache&&_cache.perRoom[activeRoom.id];
   const items=(rc&&rc.items)||[];
-  const matCats=[...new Set(items.filter(i=>i.type!=='tool').map(i=>i.cat||'Общее'))];
-  const toolCats=[...new Set(items.filter(i=>i.type==='tool').map(i=>i.cat||'Общее'))];
+
+  // Merge stored categories + item-derived categories
+  const storedMatCats=(activeRoom&&activeRoom.mat_categories)||[];
+  const storedToolCats=(activeRoom&&activeRoom.tool_categories)||[];
+  const itemMatCats=[...new Set(items.filter(i=>i.type!=='tool').map(i=>i.cat||'Общее'))];
+  const itemToolCats=[...new Set(items.filter(i=>i.type==='tool').map(i=>i.cat||'Общее'))];
+  const matCats=[...new Set([...storedMatCats,...itemMatCats])];
+  const toolCats=[...new Set([...storedToolCats,...itemToolCats])];
   const matCount=items.filter(i=>i.type!=='tool').length;
   const toolCount=items.filter(i=>i.type==='tool').length;
   const totalItems=Object.values((_cache&&_cache.perRoom)||{}).reduce((a,r)=>a+(r.items||[]).length,0);
-
   const catKey=(s)=>s.replace(/[^a-zA-Z\u0400-\u04FF0-9]/g,'_');
+  const isOwner=activeRoom&&(memberships.find(m=>m.room_id===activeRoom.id)||{}).role==='owner';
 
   sb_el.innerHTML=`
     <div class="lrn-sb-summary" style="margin:12px 12px 8px;border-color:rgba(168,85,247,.2);background:rgba(168,85,247,.05)">
@@ -26066,13 +26082,13 @@ window._cmatRenderSidebar=function(sb_el){
       ${rooms.length===0
         ?`<div style="padding:10px 8px;font-size:11.5px;color:var(--t3);line-height:1.6">Создай базу или войди по коду</div>`
         :rooms.map(r=>{
-          const isOwner=(memberships.find(m=>m.room_id===r.id)||{}).role==='owner';
+          const isO=(memberships.find(m=>m.room_id===r.id)||{}).role==='owner';
           const cnt=(_cache&&_cache.perRoom[r.id]?.items||[]).length;
           return `<div class="cmat-room-row${_activeRoom===r.id?' active':''}" onclick="window._cmatSelectRoom('${r.id}')">
-            <div class="cmat-room-icon">${r.icon||'\u{1F4DA}'}</div>
-            <div class="cmat-room-info"><div class="cmat-room-name">${r.name}</div><div style="font-size:10px;color:var(--t3)">${isOwner?'Владелец':'Участник'}</div></div>
+            <div class="cmat-room-icon">${r.icon||'&#128218;'}</div>
+            <div class="cmat-room-info"><div class="cmat-room-name">${r.name}</div><div style="font-size:10px;color:var(--t3)">${isO?'Владелец':'Участник'}</div></div>
             <span class="cmat-room-cnt">${cnt}</span>
-            <button class="cmat-room-del" onclick="event.stopPropagation();${isOwner?`window.cmatDeleteRoom('${r.id}')`:`window.cmatLeaveRoom('${r.id}')`}" style="${isOwner?'':'color:rgba(239,68,68,.5)'}">${svgX}</button>
+            <button class="cmat-room-del" onclick="event.stopPropagation();${isO?`window.cmatDeleteRoom('${r.id}')`:`window.cmatLeaveRoom('${r.id}')`}" style="${isO?'':'color:rgba(239,68,68,.5)'}">${svgX}</button>
           </div>`;
         }).join('')}
     </div>
@@ -26086,12 +26102,13 @@ window._cmatRenderSidebar=function(sb_el){
         <span class="lrn-sb-sec-cnt">${matCount}</span>
       </div>
       <div style="padding:0 4px">
-        ${matCats.length===0?`<div style="font-size:11px;color:var(--t3);padding:2px 4px 6px">Нет материалов</div>`:matCats.map(c=>`
+        ${matCats.map(c=>`
           <div class="lrn-sb-cat" onclick="document.getElementById('cmat-cat-mat-${catKey(c)}')?.scrollIntoView({behavior:'smooth',block:'start'})">
             <div class="lrn-sb-cat-icon" style="background:rgba(245,200,66,.12);border:0.5px solid rgba(245,200,66,.25)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
             <span class="lrn-sb-cat-name">${c}</span>
             <span class="lrn-sb-cat-cnt">${items.filter(i=>i.type!=='tool'&&(i.cat||'Общее')===c).length}</span>
           </div>`).join('')}
+        <button class="lrn-sb-addbtn" onclick="window.cmatAddCategory('${activeRoom.id}','material')">${svgP} Новая категория</button>
       </div>
     </div>
     <div class="lrn-sb-divider"></div>
@@ -26102,16 +26119,62 @@ window._cmatRenderSidebar=function(sb_el){
         <span class="lrn-sb-sec-cnt">${toolCount}</span>
       </div>
       <div style="padding:0 4px">
-        ${toolCats.length===0?`<div style="font-size:11px;color:var(--t3);padding:2px 4px 6px">Нет инструментов</div>`:toolCats.map(c=>`
+        ${toolCats.map(c=>`
           <div class="lrn-sb-cat" onclick="document.getElementById('cmat-cat-tool-${catKey(c)}')?.scrollIntoView({behavior:'smooth',block:'start'})">
             <div class="lrn-sb-cat-icon" style="background:rgba(6,182,212,.12);border:0.5px solid rgba(6,182,212,.25)"><div style="width:8px;height:8px;border-radius:50%;background:#06B6D4"></div></div>
             <span class="lrn-sb-cat-name">${c}</span>
             <span class="lrn-sb-cat-cnt">${items.filter(i=>i.type==='tool'&&(i.cat||'Общее')===c).length}</span>
           </div>`).join('')}
+        <button class="lrn-sb-addbtn" style="color:#06B6D4;border-color:rgba(6,182,212,.2)" onclick="window.cmatAddCategory('${activeRoom.id}','tool')">${svgP} Новая категория</button>
       </div>
     </div>
     `:''}`;
 };
+
+/* ── Add category to room ── */
+window.cmatAddCategory=async function(roomId, type){
+  if(!window._lrnModal) return;
+  window._lrnModal(type==='tool'?'Новая категория инструментов':'Новая категория материалов',
+    [{id:'cn',placeholder:type==='tool'?'Аналитика, Дизайн, SMM...':'Статьи, Видео, Книги...',type:'text'}],
+    async v=>{
+      const name=v.cn.trim(); if(!name) return;
+      const sb2=getSB(); if(!sb2) return;
+      const room=(_cache&&_cache.rooms||[]).find(r=>r.id===roomId);
+      if(!room) return;
+
+      const field=type==='tool'?'tool_categories':'mat_categories';
+      const current=(room[field])||[];
+      if(current.includes(name)){ try{showToast('Категория уже существует','⚠️');}catch{} return; }
+      const updated=[...current,name];
+
+      try{
+        // Try to update in DB (requires ALTER TABLE SQL to be run)
+        await sb2.from('collab_mat_rooms').update({[field]:updated}).eq('id',roomId);
+        // Update cache
+        if(_cache&&_cache.rooms){
+          const r=_cache.rooms.find(r=>r.id===roomId);
+          if(r) r[field]=updated;
+          saveCache();
+        }
+        try{showToast('Категория создана: '+name,'✅');}catch{}
+      }catch(e){
+        // Fallback: store in localStorage if column doesn't exist yet
+        const lsKey=`dtr_cmat_cats_${roomId}_${type}`;
+        const lsCats=JSON.parse(localStorage.getItem(lsKey)||'[]');
+        if(!lsCats.includes(name)) lsCats.push(name);
+        localStorage.setItem(lsKey,JSON.stringify(lsCats));
+        if(_cache&&_cache.rooms){
+          const r=_cache.rooms.find(r=>r.id===roomId);
+          if(r) r[field]=[...new Set([...(r[field]||[]),...lsCats])];
+        }
+        try{showToast('Категория создана: '+name,'✅');}catch{}
+      }
+      window._lrnRenderSidebar&&window._lrnRenderSidebar();
+      window._cmatRenderMain&&window._cmatRenderMain();
+    }
+  );
+};
+
 
 
 /* ── Main area ── */
