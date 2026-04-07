@@ -25512,6 +25512,33 @@ function _lrnRenderSidebar(){
   </div>`;
 
   if(sbView==='materials'){
+    const pinnedCatIds=window._pinsGet?window._pinsGet('mat_cats'):[];
+    const sortedLrnCats=[..._lrn.categories].sort((a,b)=>{
+      const ap=pinnedCatIds.includes(a.id)?0:1, bp=pinnedCatIds.includes(b.id)?0:1;
+      return ap-bp;
+    });
+    const hasPinned=pinnedCatIds.length>0&&_lrn.categories.some(c=>pinnedCatIds.includes(c.id));
+    let catRowsHtml='';
+    sortedLrnCats.forEach((c,idx)=>{
+      const cnt=(c.links||[]).length;
+      const isPinned=pinnedCatIds.includes(c.id);
+      if(hasPinned&&idx===pinnedCatIds.filter(id=>_lrn.categories.find(cc=>cc.id===id)).length&&idx>0){
+        catRowsHtml+=`<div class="sb-pinned-sep"></div>`;
+      }
+      catRowsHtml+=`<div class="lrn-sb-cat${isPinned?' is-pinned':''}" style="--cat-c:${c.color}"
+        onclick="window._scrollToSection('lrn-s-${c.id}')">
+        <div class="lrn-sb-cat-icon" style="background:${c.color}18;border:0.5px solid ${c.color}35">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="${c.color}" stroke-width="2" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </div>
+        <span class="lrn-sb-cat-name">${c.name}</span>
+        <button class="pin-btn${isPinned?' pinned':''}" title="${isPinned?'Открепить':'Закрепить'}"
+          onclick="event.stopPropagation();window._pinToggle('mat_cats','${c.id}')">
+          ${window._svgPin?window._svgPin(isPinned):'📌'}
+        </button>
+        <span class="lrn-sb-cat-cnt">${cnt}</span>
+      </div>`;
+    });
+
     const totalLinks=_lrn.categories.reduce((a,c)=>a+(c.links||[]).length,0);
     const totalAuth=_auth.authors.length;
 
@@ -25550,17 +25577,7 @@ function _lrnRenderSidebar(){
       <div class="lrn-sb-ttl">Категории</div>
       ${_lrn.categories.length===0
         ?`<div style="font-size:11px;color:var(--t3);padding:0 4px 4px">Категории появятся здесь</div>`
-        :_lrn.categories.map(c=>{
-          const cnt=(c.links||[]).length;
-          return `<div class="lrn-sb-cat" style="--cat-c:${c.color}"
-            onclick="document.getElementById('lrn-s-${c.id}')?.scrollIntoView({behavior:'smooth',block:'start'})">
-            <div class="lrn-sb-cat-icon" style="background:${c.color}18;border:0.5px solid ${c.color}30">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="${c.color}" stroke-width="2" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-            </div>
-            <span class="lrn-sb-cat-name">${c.name}</span>
-            <span class="lrn-sb-cat-cnt">${cnt}</span>
-          </div>`;
-        }).join('')}
+        :catRowsHtml}
       <button class="lrn-sb-addbtn" onclick="lrnAddCat()">${svgPlus} Новая категория</button>
     </div>`;
 
@@ -25603,7 +25620,97 @@ function _lrnRenderMain(){
     return;
   }
 
-  // ── Materials view ──
+  // ── Materials view — build HTML without deeply nested template literals ──
+  const _pinIds = window._pinsGet ? window._pinsGet('mat_links') : [];
+  const _svgP = window._svgPin;
+
+  // Helper to build a single link card (string concat, no nested templates)
+  function _mkLinkCard(link, catId, isPinned) {
+    var isYT=_lrnIsYT(link.url), thumb=isYT?_lrnYTThumb(link.url):null;
+    var domain=_lrnDomain(link.url), favicon=_lrnFavicon(link.url);
+    var pinSvg=_svgP?_svgP(isPinned):'📌';
+    var thumbHtml=thumb
+      ? '<img src="'+thumb+'" alt="" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'
+      : '';
+    var icoStyle=thumb?'display:none':'display:flex';
+    var playHtml=isYT
+      ? '<div class="lrn-thumb-play"><div class="lrn-thumb-play-btn">'+svgPlay+'</div></div>'
+      : '';
+    var h='<div class="lrn-card" style="position:relative" onclick="lrnOpenLink(\''+link.id+'\',\''+catId+'\')">'
+      +'<div class="lrn-thumb">'
+        +thumbHtml
+        +'<div class="lrn-thumb-ico" style="'+icoStyle+'">'+(isYT?svgPlay:svgLink)+'</div>'
+        +playHtml
+        +'<div class="lrn-yt-badge">'+domain+'</div>'
+        +'<button class="pin-btn-card'+(isPinned?' pinned':'')+'" title="'+(isPinned?'Открепить':'Закрепить')+'" onclick="event.stopPropagation();window._pinToggle(\'mat_links\',\''+link.id+'\')">'
+          +pinSvg
+        +'</button>'
+      +'</div>'
+      +'<div class="lrn-card-body">'
+        +'<div class="lrn-card-ttl">'+link.name+'</div>'
+        +'<div class="lrn-card-meta"><img src="'+favicon+'" alt="" onerror="this.style.display=\'none\'" loading="lazy"><span>'+domain+'</span></div>'
+        +(catId?'<div class="lrn-card-acts">'
+          +'<button class="lrn-card-act" onclick="event.stopPropagation();lrnEditLink(\''+catId+'\',\''+link.id+'\')">'+svgEdit+' Изменить</button>'
+          +'<button class="lrn-card-act del" onclick="event.stopPropagation();lrnDeleteLink(\''+catId+'\',\''+link.id+'\')">'+svgTrash+'</button>'
+        +'</div>':'')
+      +'</div>'
+    +'</div>';
+    return h;
+  }
+
+  // Build pinned section
+  var _pinnedHtml='';
+  if(_pinIds.length>0){
+    var _pLinks=[];
+    _lrn.categories.forEach(function(cat){
+      (cat.links||[]).forEach(function(link){
+        if(_pinIds.includes(link.id)) _pLinks.push({link:link,catId:cat.id});
+      });
+    });
+    if(_pLinks.length>0){
+      _pinnedHtml='<div class="pins-sec-hdr">Закреплённые</div><div style="padding:0 24px 16px"><div class="lrn-row">';
+      _pLinks.forEach(function(x){ _pinnedHtml+=_mkLinkCard(x.link,x.catId,true); });
+      _pinnedHtml+='</div></div>';
+    }
+  }
+
+  // Build categories
+  var _catsHtml='';
+  _lrn.categories.forEach(function(cat){
+    var cnt=(cat.links||[]).length;
+    var cntStr=cnt===1?'материал':cnt<=4?'материала':'материалов';
+    _catsHtml+='<div class="lrn-sec" id="lrn-s-'+cat.id+'" style="--sec-c:'+cat.color+'">'
+      +'<div class="lrn-sec-hdr">'
+        +'<div class="lrn-sec-icon" style="background:'+cat.color+'18;border:0.5px solid '+cat.color+'35">'
+          +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="'+cat.color+'" stroke-width="1.8" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>'
+        +'</div>'
+        +'<div class="lrn-sec-info">'
+          +'<div class="lrn-sec-name">'+cat.name+'</div>'
+          +'<div class="lrn-sec-sub">'+cnt+' '+cntStr+'</div>'
+        +'</div>'
+        +'<div class="lrn-sec-cnt">'+cnt+'</div>'
+        +'<div class="lrn-sec-acts">'
+          +'<button class="lrn-sec-btn" onclick="lrnRenameCat(\''+cat.id+'\')">'+svgEdit+'</button>'
+          +'<button class="lrn-sec-btn del" onclick="lrnDeleteCat(\''+cat.id+'\')">'+svgTrash+'</button>'
+        +'</div>'
+      +'</div>'
+      +'<div class="lrn-row-wrap"><div class="lrn-row">';
+    (cat.links||[]).forEach(function(link){
+      _catsHtml+=_mkLinkCard(link,cat.id,_pinIds.includes(link.id));
+    });
+    _catsHtml+='<button class="lrn-add-card" onclick="lrnAddLink(\''+cat.id+'\')">'
+      +'<div class="lrn-add-card-icon">'+svgPlus+'</div><span>Добавить</span>'
+    +'</button>'
+    +'</div></div></div>';
+  });
+
+  var _emptyHtml='<div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:48px 24px;text-align:center">'
+    +'<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="1.5" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>'
+    +'<div style="font-size:16px;font-weight:700;color:var(--t1)">Создай первую категорию</div>'
+    +'<div style="font-size:13px;color:var(--t2);line-height:1.6">Например: <b style="color:var(--t1)">Маркетинг</b>, <b style="color:var(--t1)">Дизайн</b>, <b style="color:var(--t1)">Программирование</b></div>'
+    +'<button class="lrn-new-cat-btn" onclick="lrnAddCat()">'+svgPlus+' Создать категорию</button>'
+  +'</div>';
+
   main.innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px 16px;border-bottom:0.5px solid rgba(255,255,255,.04);flex-shrink:0">
       <div style="display:flex;align-items:center;gap:10px">
@@ -25616,62 +25723,116 @@ function _lrnRenderMain(){
         </div>
       </div>
       <button class="lrn-new-cat-btn" onclick="lrnAddCat()">${svgPlus} Категория</button>
-    </div>
-
-    ${_lrn.categories.length===0?`
-      <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:48px 24px;text-align:center">
-        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="1.5" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-        <div style="font-size:16px;font-weight:700;color:var(--t1)">Создай первую категорию</div>
-        <div style="font-size:13px;color:var(--t2);line-height:1.6">Например: <b style="color:var(--t1)">Маркетинг</b>, <b style="color:var(--t1)">Дизайн</b>, <b style="color:var(--t1)">Программирование</b></div>
-        <button class="lrn-new-cat-btn" onclick="lrnAddCat()">${svgPlus} Создать категорию</button>
-      </div>`
-    :_lrn.categories.map(cat=>{
-      const cnt=(cat.links||[]).length;
-      return `<div class="lrn-sec" id="lrn-s-${cat.id}" style="--sec-c:${cat.color}">
-        <div class="lrn-sec-hdr">
-          <div class="lrn-sec-icon" style="background:${cat.color}18;border:0.5px solid ${cat.color}35">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${cat.color}" stroke-width="1.8" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-          </div>
-          <div class="lrn-sec-info">
-            <div class="lrn-sec-name">${cat.name}</div>
-            <div class="lrn-sec-sub">${cnt} ${cnt===1?'материал':cnt<=4?'материала':'материалов'}</div>
-          </div>
-          <div class="lrn-sec-cnt">${cnt}</div>
-          <div class="lrn-sec-acts">
-            <button class="lrn-sec-btn" onclick="lrnRenameCat('${cat.id}')">${svgEdit}</button>
-            <button class="lrn-sec-btn del" onclick="lrnDeleteCat('${cat.id}')">${svgTrash}</button>
-          </div>
-        </div>
-        <div class="lrn-row-wrap"><div class="lrn-row">
-          ${(cat.links||[]).map(link=>{
-            const isYT=_lrnIsYT(link.url), thumb=isYT?_lrnYTThumb(link.url):null;
-            const domain=_lrnDomain(link.url), favicon=_lrnFavicon(link.url);
-            return `<div class="lrn-card" onclick="lrnOpenLink('${link.id}','${cat.id}')">
-              <div class="lrn-thumb">
-                ${thumb?`<img src="${thumb}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`:``}
-                <div class="lrn-thumb-ico" style="${thumb?'display:none':'display:flex'}">${isYT?svgPlay:svgLink}</div>
-                ${isYT?`<div class="lrn-thumb-play"><div class="lrn-thumb-play-btn">${svgPlay}</div></div>`:''}
-                <div class="lrn-yt-badge">${domain}</div>
-              </div>
-              <div class="lrn-card-body">
-                <div class="lrn-card-ttl">${link.name}</div>
-                <div class="lrn-card-meta"><img src="${favicon}" alt="" onerror="this.style.display='none'" loading="lazy"><span>${domain}</span></div>
-                <div class="lrn-card-acts">
-                  <button class="lrn-card-act" onclick="event.stopPropagation();lrnEditLink('${cat.id}','${link.id}')">${svgEdit} Изменить</button>
-                  <button class="lrn-card-act del" onclick="event.stopPropagation();lrnDeleteLink('${cat.id}','${link.id}')">${svgTrash}</button>
-                </div>
-              </div>
-            </div>`;
-          }).join('')}
-          <button class="lrn-add-card" onclick="lrnAddLink('${cat.id}')">
-            <div class="lrn-add-card-icon">${svgPlus}</div><span>Добавить</span>
-          </button>
-        </div></div>
-      </div>`;
-    }).join('')}`;
+    </div>`
+    + (_lrn.categories.length===0 ? _emptyHtml : _pinnedHtml + _catsHtml);
 }
 
 // ── Size cards: handled by CSS grid (repeat(4,1fr)) — no JS needed ──
+// ══ PINS ENGINE ══════════════════════════════════════════════
+(function PinsEngine(){
+  const KEY='dtr_pins_v2';
+  const svgPin=(filled)=>`<svg width="11" height="11" viewBox="0 0 24 24" fill="${filled?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>`;
+
+  function _load(){ try{return JSON.parse(localStorage.getItem(KEY)||'{}');}catch(e){return{};} }
+  function _save(p){ localStorage.setItem(KEY,JSON.stringify(p)); }
+  function _toggle(arr,v){ const i=arr.indexOf(v); if(i>=0)arr.splice(i,1); else arr.push(v); return arr; }
+
+  window._pinsGet=function(type,roomId){
+    const p=_load();
+    if(type==='mat_cats') return p.mat_cats||[];
+    if(type==='mat_links') return p.mat_links||[];
+    if(type==='svc_cats') return p.svc_cats||[];
+    if(type==='cmat_cats') return ((p.cmat||{})[roomId]||{}).cats||[];
+    if(type==='cmat_items') return ((p.cmat||{})[roomId]||{}).items||[];
+    return [];
+  };
+  window._pinIs=function(type,id,roomId){
+    return window._pinsGet(type,roomId).includes(id);
+  };
+  window._pinToggle=function(type,id,roomId){
+    const p=_load();
+    if(type==='mat_cats'){ p.mat_cats=_toggle(p.mat_cats||[],id); }
+    else if(type==='mat_links'){ p.mat_links=_toggle(p.mat_links||[],id); }
+    else if(type==='svc_cats'){ p.svc_cats=_toggle(p.svc_cats||[],id); }
+    else if(type==='cmat_cats'){
+      if(!p.cmat)p.cmat={};
+      if(!p.cmat[roomId])p.cmat[roomId]={cats:[],items:[]};
+      p.cmat[roomId].cats=_toggle(p.cmat[roomId].cats||[],id);
+    } else if(type==='cmat_items'){
+      if(!p.cmat)p.cmat={};
+      if(!p.cmat[roomId])p.cmat[roomId]={cats:[],items:[]};
+      p.cmat[roomId].items=_toggle(p.cmat[roomId].items||[],id);
+    }
+    _save(p);
+    window._lrnRenderSidebar&&window._lrnRenderSidebar();
+    window._lrnRenderMain&&window._lrnRenderMain();
+  };
+  window._svgPin=svgPin;
+
+  // Inject CSS once
+  if(!document.getElementById('_pinsCSS')){
+    const s=document.createElement('style');
+    s.id='_pinsCSS';
+    s.textContent=`
+      .pin-btn{
+        opacity:0;width:22px;height:22px;border-radius:6px;
+        border:none;background:transparent;
+        color:var(--t3);cursor:pointer;
+        display:flex;align-items:center;justify-content:center;
+        transition:all .14s;flex-shrink:0;padding:0;
+      }
+      .pin-btn:hover{background:rgba(245,200,66,.12);color:var(--gold);}
+      .pin-btn.pinned{opacity:1!important;color:var(--gold);}
+      .lrn-sb-cat:hover .pin-btn,
+      .lrn-auth-row:hover .pin-btn,
+      .svc-sb-cat:hover .pin-btn,
+      .cmat-room-row:hover .pin-btn{ opacity:1; }
+      .lrn-card:hover .pin-btn-card,
+      .svc-tile:hover .pin-btn-card{ opacity:1; }
+      .pin-btn-card{
+        position:absolute;top:6px;right:6px;
+        width:24px;height:24px;border-radius:7px;
+        border:none;background:rgba(9,9,11,.75);
+        color:rgba(255,255,255,.4);cursor:pointer;
+        display:flex;align-items:center;justify-content:center;
+        transition:all .15s;opacity:0;
+        backdrop-filter:blur(6px);z-index:5;padding:0;
+      }
+      .pin-btn-card:hover,.pin-btn-card.pinned{background:rgba(9,9,11,.92);color:var(--gold);}
+      .pin-btn-card.pinned{opacity:1!important;}
+      /* Pinned section header */
+      .pins-sec-hdr{
+        display:flex;align-items:center;gap:8px;
+        padding:14px 24px 8px;
+        font-size:9px;font-weight:800;
+        letter-spacing:.12em;text-transform:uppercase;
+        color:rgba(245,200,66,.55);
+        flex-shrink:0;
+        border-bottom:0.5px solid rgba(245,200,66,.08);
+        margin-bottom:4px;
+      }
+      .pins-sec-hdr::before{
+        content:'';display:inline-block;
+        width:12px;height:1.5px;
+        background:var(--gold);border-radius:1px;opacity:.45;
+      }
+      /* Pinned sidebar category indicator */
+      .lrn-sb-cat.is-pinned{
+        background:rgba(245,200,66,.04);
+        border-color:rgba(245,200,66,.1);
+      }
+      .lrn-sb-cat.is-pinned .lrn-sb-cat-name{color:var(--t1);}
+      /* Pinned section in sidebar */
+      .sb-pinned-sep{
+        height:0.5px;
+        background:rgba(245,200,66,.1);
+        margin:6px 10px 4px;
+      }
+    `;
+    document.head.appendChild(s);
+  }
+})();
+
 function _lrnSizeCards(){ /* no-op: CSS grid handles layout */ }
 
 
@@ -25954,12 +26115,14 @@ window._svcRenderSidebar = function(sb_el){
   const cats = _svc.categories;
   const totalSvc = cats.reduce((a,c)=>a+(c.services||[]).length,0);
   const svgPlus = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+  const pinnedSvcCatIds=window._pinsGet?window._pinsGet('svc_cats'):[];
+  const sortedCats=[...cats].sort((a,b)=>(pinnedSvcCatIds.includes(a.id)?0:1)-(pinnedSvcCatIds.includes(b.id)?0:1));
 
   sb_el.insertAdjacentHTML('beforeend',`
     <div style="padding:14px 12px 4px">
-      <div class="lrn-sb-summary" style="margin:0 0 4px">
+      <div class="lrn-sb-summary" style="margin:0 0 4px;border-color:rgba(6,182,212,.15);background:rgba(6,182,212,.04)">
         <div class="lrn-sb-summary-row">
-          <span class="lrn-sb-summary-title">Мои сервисы</span>
+          <span class="lrn-sb-summary-title" style="color:#06B6D4">Мои сервисы</span>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#06B6D4" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="3" width="7" height="7" rx="1"/><rect x="15" y="3" width="7" height="7" rx="1"/><rect x="15" y="14" width="7" height="7" rx="1"/><rect x="2" y="14" width="7" height="7" rx="1"/></svg>
         </div>
         <div class="lrn-sb-summary-stats">
@@ -25977,15 +26140,21 @@ window._svcRenderSidebar = function(sb_el){
             <span class="svc-sb-cat-name">Все</span>
             <span class="svc-sb-cat-cnt">${totalSvc}</span>
           </div>
-          ${cats.map(c=>`
-            <div class="svc-sb-cat${window._svcCatFilter===c.id?' active':''}" onclick="window._svcFilterCat('${c.id}')">
+          ${sortedCats.map(c=>{
+            const isPinned=pinnedSvcCatIds.includes(c.id);
+            return `<div class="svc-sb-cat${window._svcCatFilter===c.id?' active':''}${isPinned?' is-pinned':''}" onclick="window._svcFilterCat('${c.id}')">
               <div class="svc-sb-cat-dot" style="background:${c.color}"></div>
               <span class="svc-sb-cat-name">${c.name}</span>
               <span class="svc-sb-cat-cnt">${(c.services||[]).length}</span>
+              <button class="pin-btn${isPinned?' pinned':''}" title="${isPinned?'Открепить':'Закрепить'}"
+                onclick="event.stopPropagation();window._pinToggle('svc_cats','${c.id}')">
+                ${window._svgPin?window._svgPin(isPinned):'📌'}
+              </button>
               <button class="svc-sb-cat-del" onclick="event.stopPropagation();window.svcDeleteCat('${c.id}')">
                 <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
-            </div>`).join('')}`}
+            </div>`;
+          }).join('')}`}
       <button class="lrn-sb-addbtn" style="color:#06B6D4;border-color:rgba(6,182,212,.2)" onclick="window.svcAddCat()">
         ${svgPlus} Новая категория
       </button>
@@ -26040,20 +26209,22 @@ window._svcRenderMain = function(){
             const dom = (()=>{ try{ return new URL(svc.url).hostname.replace('www.',''); }catch{ return ''; } })();
             const favUrl = `https://www.google.com/s2/favicons?domain=${dom}&sz=128`;
             return `
-            <a class="svc-tile" href="${svc.url}" target="_blank" rel="noopener">
-              <div class="svc-tile-ico" style="width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);overflow:hidden;flex-shrink:0">
-                <img
-                  src="${favUrl}"
-                  alt="${svc.name}"
-                  width="36"
-                  height="36"
-                  style="width:36px;height:36px;object-fit:contain;display:block"
-                  onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('beforeend','<span style=\\'font-size:24px;line-height:1\\'>🔗</span>')"
-                >
-              </div>
-              <span class="svc-tile-name">${svc.name}</span>
-              <button class="svc-tile-del" onclick="event.preventDefault();event.stopPropagation();window.svcDeleteService('${cat.id}','${svc.id}')">${svgX}</button>
-            </a>`;
+            <div style="position:relative">
+              <a class="svc-tile" href="${svc.url}" target="_blank" rel="noopener">
+                <div class="svc-tile-ico" style="width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);overflow:hidden;flex-shrink:0">
+                  <img
+                    src="${favUrl}"
+                    alt="${svc.name}"
+                    width="36"
+                    height="36"
+                    style="width:36px;height:36px;object-fit:contain;display:block"
+                    onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('beforeend','<span style=\\'font-size:24px;line-height:1\\'>🔗</span>')"
+                  >
+                </div>
+                <span class="svc-tile-name">${svc.name}</span>
+                <button class="svc-tile-del" onclick="event.preventDefault();event.stopPropagation();window.svcDeleteService('${cat.id}','${svc.id}')">${svgX}</button>
+              </a>
+            </div>`;
           }).join('')}
           <button class="svc-add-tile" onclick="window.svcAddService('${cat.id}')">
             <div class="svc-add-tile-ico">${svgPlus}</div>
@@ -26064,7 +26235,17 @@ window._svcRenderMain = function(){
     }).join('')}`;
 };
 
-window._svcFilterCat = function(id){ window._svcCatFilter=id; localStorage.setItem("dtr_learn_sb_view","tools"); window._lrnRenderSidebar&&window._lrnRenderSidebar(); window._lrnRenderMain&&window._lrnRenderMain(); };
+window._scrollToSection = function(id, extraOffset) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  // Nav bar height + padding above section
+  const navEl = document.querySelector('.nav');
+  const NAV_H = (navEl ? navEl.offsetHeight : 58) + (extraOffset || 20);
+  const rect = el.getBoundingClientRect();
+  const top = rect.top + window.pageYOffset - NAV_H;
+  window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+};
+window._svcFilterCat = function(id){ window._svcCatFilter=id; localStorage.setItem("dtr_learn_sb_view","tools"); window._lrnRenderSidebar&&window._lrnRenderSidebar(); window._lrnRenderMain&&window._lrnRenderMain(); if(id) setTimeout(()=>window._scrollToSection('svc-s-'+id), 80); };
 window.svcAddCat = function(){
   if(!window._lrnModal) return;
   window._lrnModal('Новая категория сервисов',[{id:'cn',placeholder:'Аналитика, Дизайн, SMM...',type:'text'}],v=>{
@@ -26277,23 +26458,35 @@ window._cmatRenderSidebar=function(sb_el){
     </div>`;
   }).join('');
 
-  const catRows=curCats.map((c,i)=>{
-    const col=CMAT_COLORS[(sbView==='tool'?toolCats:matCats).indexOf(c)%CMAT_COLORS.length];
-    const cnt=items.filter(x=>(sbView==='tool'?(x.type==='tool'):(x.type!=='tool'))&&(x.cat||'Общее')===c).length;
-    const rid=activeRoom?activeRoom.id:'';
-    return `<div class="lrn-sb-cat" style="--cat-c:${col}">
-      <div class="lrn-sb-cat-icon" style="background:${col}18;border:0.5px solid ${col}35">
-        <div style="width:8px;height:8px;border-radius:50%;background:${col}"></div>
-      </div>
-      <span class="lrn-sb-cat-name" onclick="document.getElementById('cmat-cat-${cmatCatKey(c)}-${sbView}')?.scrollIntoView({behavior:'smooth',block:'start'})" style="cursor:pointer;flex:1">${c}</span>
-      <span class="lrn-sb-cat-cnt">${cnt}</span>
-      <button style="opacity:0;width:18px;height:18px;border-radius:5px;background:transparent;border:none;color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .14s;flex-shrink:0;font-size:9px;padding:0"
-        class="lrn-sb-cat-edit-btn"
-        onclick="event.stopPropagation();window.cmatCatMenu('${rid}','${c.replace(/'/g,"\\'")}','${sbView}')"
-        onmouseover="this.style.opacity='1';this.style.background='rgba(255,255,255,.08)';this.style.color='var(--t1)'"
-        onmouseout="this.style.opacity='0';this.style.background='transparent';this.style.color='var(--t3)'">···</button>
-    </div>`;
-  }).join('');
+  const pinnedCmatCatIds=window._pinsGet?window._pinsGet('cmat_cats',_activeRoom||''):[];
+  const catRows=(()=>{
+    const sorted=[...curCats].sort((a,b)=>{
+      const ap=pinnedCmatCatIds.includes(a)?0:1, bp=pinnedCmatCatIds.includes(b)?0:1;
+      return ap-bp;
+    });
+    return sorted.map((c,idx)=>{
+      const col=CMAT_COLORS[(sbView==='tool'?toolCats:matCats).indexOf(c)%CMAT_COLORS.length];
+      const cnt=items.filter(x=>(sbView==='tool'?(x.type==='tool'):(x.type!=='tool'))&&(x.cat||'Общее')===c).length;
+      const rid=activeRoom?activeRoom.id:'';
+      const isPinned=pinnedCmatCatIds.includes(c);
+      return `<div class="lrn-sb-cat${isPinned?' is-pinned':''}" style="--cat-c:${col}">
+        <div class="lrn-sb-cat-icon" style="background:${col}18;border:0.5px solid ${col}35">
+          <div style="width:8px;height:8px;border-radius:50%;background:${col}"></div>
+        </div>
+        <span class="lrn-sb-cat-name" onclick="window._scrollToSection('cmat-cat-${cmatCatKey(c)}-${sbView}')" style="cursor:pointer;flex:1">${c}</span>
+        <span class="lrn-sb-cat-cnt">${cnt}</span>
+        <button class="pin-btn${isPinned?' pinned':''}" title="${isPinned?'Открепить':'Закрепить'}"
+          onclick="event.stopPropagation();window._pinToggle('cmat_cats','${c.replace(/'/g,"\\'")}','${rid}')">
+          ${window._svgPin?window._svgPin(isPinned):'📌'}
+        </button>
+        <button style="opacity:0;width:18px;height:18px;border-radius:5px;background:transparent;border:none;color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .14s;flex-shrink:0;font-size:9px;padding:0"
+          class="lrn-sb-cat-edit-btn"
+          onclick="event.stopPropagation();window.cmatCatMenu('${rid}','${c.replace(/'/g,"\\'")}','${sbView}')"
+          onmouseover="this.style.opacity='1';this.style.background='rgba(255,255,255,.08)';this.style.color='var(--t1)'"
+          onmouseout="this.style.opacity='0';this.style.background='transparent';this.style.color='var(--t3)'">···</button>
+      </div>`;
+    }).join('');
+  })();
 
   sb_el.innerHTML=`
     <div class="lrn-sb-summary" style="margin:12px 10px 6px;border-color:rgba(168,85,247,.2);background:rgba(168,85,247,.04)">
@@ -26542,12 +26735,17 @@ window._cmatRenderMain=function(){
     const d=domF(item.url),f=favF(item.url);
     const canDel=isOwner||(item.user_id===user.id);
     const date=item.added_at?new Date(item.added_at).toLocaleDateString('ru',{day:'numeric',month:'short'}):'';
-    return `<div class="lrn-card" onclick="window.open('${item.url}','_blank','noopener')" style="cursor:pointer">
+    const isPinned=window._pinIs?window._pinIs('cmat_items',item.id,room.id):false;
+    return `<div class="lrn-card" style="position:relative" onclick="window.open('${item.url}','_blank','noopener')" style="cursor:pointer">
       <div class="lrn-thumb">
         ${thumb?`<img src="${thumb}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`:``}
         <div class="lrn-thumb-ico" style="${thumb?'display:none':'display:flex'}">${isYT?svgPlay:svgLink}</div>
         ${isYT?`<div class="lrn-thumb-play"><div class="lrn-thumb-play-btn">${svgPlay}</div></div>`:''}
         <div class="lrn-yt-badge">${d}</div>
+        <button class="pin-btn-card${isPinned?' pinned':''}" title="${isPinned?'Открепить':'Закрепить'}"
+          onclick="event.stopPropagation();window._pinToggle('cmat_items','${item.id}','${room.id}')">
+          ${window._svgPin?window._svgPin(isPinned):'📌'}
+        </button>
         ${canDel?`<button class="cmat-card-del" onclick="event.stopPropagation();window.cmatDeleteItem('${room.id}','${item.id}')">${svgX}</button>`:''}
       </div>
       <div class="lrn-card-body">
@@ -26567,6 +26765,7 @@ window._cmatRenderMain=function(){
   const toolTile=(item)=>{
     const d=(()=>{try{return new URL(item.url).hostname.replace('www.','');}catch{return '';}})();
     const canDel=isOwner||(item.user_id===user.id);
+    const isPinned=window._pinIs?window._pinIs('cmat_items',item.id,room.id):false;
     return `<div style="position:relative">
       <a class="svc-tile" href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none">
         <div style="width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);overflow:hidden;flex-shrink:0">
@@ -26576,12 +26775,36 @@ window._cmatRenderMain=function(){
         <div style="margin-top:3px">${authorChip(item.user_id)}</div>
         ${canDel?`<button class="svc-tile-del" onclick="event.preventDefault();event.stopPropagation();window.cmatDeleteItem('${room.id}','${item.id}')">${svgX}</button>`:''}
       </a>
+      <button class="pin-btn-card${isPinned?' pinned':''}" title="${isPinned?'Открепить':'Закрепить'}"
+        style="position:absolute;top:6px;left:6px"
+        onclick="window._pinToggle('cmat_items','${item.id}','${room.id}')">
+        ${window._svgPin?window._svgPin(isPinned):'📌'}
+      </button>
       ${canDel?`<button onclick="window.cmatEditItem('${room.id}','${item.id}')" style="position:absolute;bottom:4px;right:4px;width:22px;height:22px;border-radius:6px;background:rgba(255,255,255,.06);border:none;color:var(--t3);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:9px" class="cmat-tile-edit-btn">${svgEdit}</button>`:''}
     </div>`;
   };
 
+  // Pinned items section at top
+  const pinnedItemIds=window._pinsGet?window._pinsGet('cmat_items',room.id):[];
+  const pinnedItems=filteredItems.filter(i=>pinnedItemIds.includes(i.id));
+  const pinnedSection=pinnedItems.length===0?'':`
+    <div class="pins-sec-hdr">Закреплённые</div>
+    <div style="padding:0 24px 16px">
+      ${isTool
+        ?`<div class="svc-grid">${pinnedItems.map(toolTile).join('')}</div>`
+        :`<div class="lrn-row-wrap"><div class="lrn-row">${pinnedItems.map(i=>matCard(i,'var(--gold)')).join('')}</div></div>`
+      }
+    </div>`;
+
+  // Sort categories — pinned first
+  const pinnedCatNamesMain=window._pinsGet?window._pinsGet('cmat_cats',room.id):[];
+  const sortedCats=[...cats].sort((a,b)=>{
+    const ap=pinnedCatNamesMain.includes(a)?0:1, bp=pinnedCatNamesMain.includes(b)?0:1;
+    return ap-bp;
+  });
+
   // Sections grouped by category
-  const sections=cats.map((cat,ci)=>{
+  const sections=sortedCats.map((cat,ci)=>{
     const col=CMAT_COLORS[ci%CMAT_COLORS.length];
     const catItems=filteredItems.filter(i=>(i.cat||'Общее')===cat);
     if(isTool){
@@ -26655,7 +26878,7 @@ window._cmatRenderMain=function(){
       <div style="font-size:15px;font-weight:700;color:var(--t2)">Нет ${isTool?'инструментов':'материалов'}</div>
       <div style="font-size:13px;color:var(--t3)">Создай категорию в сайдбаре или добавь первый элемент</div>
       ${addBtn}
-    </div>`:sections}`;
+    </div>`:pinnedSection+sections}`;
 };
 
 window._cmatSelectRoom=function(id){
