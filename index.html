@@ -25695,7 +25695,7 @@ function _lrnModal(title,fields,onOk){
   ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
   ov.innerHTML=`<div class="lrn-modal"><div class="lrn-modal-ttl">${title}</div>${fields.map(f=>`<input id="lrn-f-${f.id}" class="lrn-field" type="${f.type||'text'}" placeholder="${f.placeholder}" value="${f.value||''}" autocomplete="off">`).join('')}<div class="lrn-modal-acts"><button class="lrn-cancel" onclick="document.getElementById('lrn-ov').remove()">Отмена</button><button class="lrn-ok" id="lrn-ok">Сохранить</button></div></div>`;
   document.body.appendChild(ov);
-  setTimeout(()=>document.getElementById(`lrn-f-${fields[0].id}`)?.focus(),80);
+  if(fields.length) setTimeout(()=>document.getElementById(`lrn-f-${fields[0].id}`)?.focus(),80);
   document.getElementById('lrn-ok').onclick=()=>{ const vals={}; fields.forEach(f=>vals[f.id]=document.getElementById(`lrn-f-${f.id}`)?.value||''); onOk(vals); ov.remove(); };
   ov.addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('lrn-ok')?.click(); if(e.key==='Escape') ov.remove(); });
 }
@@ -26023,25 +26023,27 @@ function subscribeRT(roomIds){
 /* ── Sidebar ── */
 window._cmatRenderSidebar=function(sb_el){
   const user=getUser();
-  const svgPlus=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
   const svgX=`<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-  const svgKey=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></svg>`;
 
   if(!user||user.isDemoUser){
-    sb_el.innerHTML=`<div style="padding:24px 16px;text-align:center">
-      <div style="font-size:32px;margin-bottom:12px;opacity:.4">🔐</div>
-      <div style="font-size:13px;font-weight:600;color:var(--t2);margin-bottom:6px">Войди в аккаунт</div>
-      <div style="font-size:11.5px;color:var(--t3);line-height:1.6">Для совместной базы знаний нужен аккаунт DTR</div>
-    </div>`;
+    sb_el.innerHTML=`<div style="padding:24px 16px;text-align:center"><div style="font-size:32px;opacity:.4">&#128274;</div><div style="font-size:13px;font-weight:600;color:var(--t2);margin:10px 0 6px">Войди в аккаунт</div><div style="font-size:11.5px;color:var(--t3);line-height:1.6">Для совместной базы нужен аккаунт DTR</div></div>`;
     return;
   }
 
   const rooms=(_cache&&_cache.rooms)||[];
   const memberships=(_cache&&_cache.memberships)||[];
+  const activeRoom=rooms.find(r=>r.id===_activeRoom);
+  const rc=activeRoom&&_cache&&_cache.perRoom[activeRoom.id];
+  const items=(rc&&rc.items)||[];
+  const matCats=[...new Set(items.filter(i=>i.type!=='tool').map(i=>i.cat||'Общее'))];
+  const toolCats=[...new Set(items.filter(i=>i.type==='tool').map(i=>i.cat||'Общее'))];
+  const matCount=items.filter(i=>i.type!=='tool').length;
+  const toolCount=items.filter(i=>i.type==='tool').length;
   const totalItems=Object.values((_cache&&_cache.perRoom)||{}).reduce((a,r)=>a+(r.items||[]).length,0);
 
+  const catKey=(s)=>s.replace(/[^a-zA-Z\u0400-\u04FF0-9]/g,'_');
+
   sb_el.innerHTML=`
-    <!-- Summary -->
     <div class="lrn-sb-summary" style="margin:12px 12px 8px;border-color:rgba(168,85,247,.2);background:rgba(168,85,247,.05)">
       <div class="lrn-sb-summary-row">
         <span class="lrn-sb-summary-title" style="color:#c084fc">Совместная база</span>
@@ -26053,104 +26055,150 @@ window._cmatRenderSidebar=function(sb_el){
       </div>
     </div>
 
-    <!-- Actions -->
     <div style="padding:0 12px 6px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
       <button class="cmat-sb-action-btn cmat-sb-create" onclick="window.cmatCreateRoom()">+ Создать</button>
       <button class="cmat-sb-action-btn cmat-sb-join" onclick="window.cmatJoinRoom()">По коду</button>
     </div>
 
-    <div class="lrn-sb-divider" style="margin-bottom:8px"></div>
+    <div class="lrn-sb-divider"></div>
 
-    <!-- Room list -->
-    <div style="padding:0 8px">
+    <div style="padding:4px 8px 0">
       ${rooms.length===0
-        ?`<div style="padding:12px 8px;font-size:11.5px;color:var(--t3);line-height:1.6">Создай базу или войди по коду приглашения</div>`
+        ?`<div style="padding:10px 8px;font-size:11.5px;color:var(--t3);line-height:1.6">Создай базу или войди по коду</div>`
         :rooms.map(r=>{
           const isOwner=(memberships.find(m=>m.room_id===r.id)||{}).role==='owner';
           const cnt=(_cache&&_cache.perRoom[r.id]?.items||[]).length;
           return `<div class="cmat-room-row${_activeRoom===r.id?' active':''}" onclick="window._cmatSelectRoom('${r.id}')">
-            <div class="cmat-room-icon">${r.icon||'📚'}</div>
-            <div class="cmat-room-info">
-              <div class="cmat-room-name">${r.name}</div>
-              <div style="font-size:10px;color:var(--t3)">${isOwner?'Владелец':'Участник'}</div>
-            </div>
+            <div class="cmat-room-icon">${r.icon||'\u{1F4DA}'}</div>
+            <div class="cmat-room-info"><div class="cmat-room-name">${r.name}</div><div style="font-size:10px;color:var(--t3)">${isOwner?'Владелец':'Участник'}</div></div>
             <span class="cmat-room-cnt">${cnt}</span>
-            <button class="cmat-room-del" title="${isOwner?'Удалить':'Выйти'}"
-              onclick="event.stopPropagation();${isOwner?`window.cmatDeleteRoom('${r.id}')`:`window.cmatLeaveRoom('${r.id}')`}"
-              style="${isOwner?'':'color:rgba(239,68,68,.5)'}">${svgX}
-            </button>
+            <button class="cmat-room-del" onclick="event.stopPropagation();${isOwner?`window.cmatDeleteRoom('${r.id}')`:`window.cmatLeaveRoom('${r.id}')`}" style="${isOwner?'':'color:rgba(239,68,68,.5)'}">${svgX}</button>
           </div>`;
         }).join('')}
-    </div>`;
+    </div>
+
+    ${activeRoom?`
+    <div class="lrn-sb-divider" style="margin-top:8px"></div>
+    <div class="lrn-sb-section">
+      <div class="lrn-sb-sec-hdr" onclick="document.getElementById('cmat-sec-materials')?.scrollIntoView({behavior:'smooth',block:'start'})">
+        <div class="lrn-sb-sec-ico mat"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+        <span class="lrn-sb-sec-name">Материалы</span>
+        <span class="lrn-sb-sec-cnt">${matCount}</span>
+      </div>
+      <div style="padding:0 4px">
+        ${matCats.length===0?`<div style="font-size:11px;color:var(--t3);padding:2px 4px 6px">Нет материалов</div>`:matCats.map(c=>`
+          <div class="lrn-sb-cat" onclick="document.getElementById('cmat-cat-mat-${catKey(c)}')?.scrollIntoView({behavior:'smooth',block:'start'})">
+            <div class="lrn-sb-cat-icon" style="background:rgba(245,200,66,.12);border:0.5px solid rgba(245,200,66,.25)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+            <span class="lrn-sb-cat-name">${c}</span>
+            <span class="lrn-sb-cat-cnt">${items.filter(i=>i.type!=='tool'&&(i.cat||'Общее')===c).length}</span>
+          </div>`).join('')}
+      </div>
+    </div>
+    <div class="lrn-sb-divider"></div>
+    <div class="lrn-sb-section">
+      <div class="lrn-sb-sec-hdr" onclick="document.getElementById('cmat-sec-tools')?.scrollIntoView({behavior:'smooth',block:'start'})">
+        <div class="lrn-sb-sec-ico tools"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="7" height="7" rx="1"/><rect x="15" y="3" width="7" height="7" rx="1"/><rect x="15" y="14" width="7" height="7" rx="1"/><rect x="2" y="14" width="7" height="7" rx="1"/></svg></div>
+        <span class="lrn-sb-sec-name">Инструменты</span>
+        <span class="lrn-sb-sec-cnt">${toolCount}</span>
+      </div>
+      <div style="padding:0 4px">
+        ${toolCats.length===0?`<div style="font-size:11px;color:var(--t3);padding:2px 4px 6px">Нет инструментов</div>`:toolCats.map(c=>`
+          <div class="lrn-sb-cat" onclick="document.getElementById('cmat-cat-tool-${catKey(c)}')?.scrollIntoView({behavior:'smooth',block:'start'})">
+            <div class="lrn-sb-cat-icon" style="background:rgba(6,182,212,.12);border:0.5px solid rgba(6,182,212,.25)"><div style="width:8px;height:8px;border-radius:50%;background:#06B6D4"></div></div>
+            <span class="lrn-sb-cat-name">${c}</span>
+            <span class="lrn-sb-cat-cnt">${items.filter(i=>i.type==='tool'&&(i.cat||'Общее')===c).length}</span>
+          </div>`).join('')}
+      </div>
+    </div>
+    `:''}`;
 };
+
 
 /* ── Main area ── */
 window._cmatRenderMain=function(){
   const main=document.getElementById('lrn-main');
   if(!main) return;
   const user=getUser();
+
   if(!user||user.isDemoUser){
-    main.innerHTML=`<div class="cmat-empty"><div class="cmat-empty-icon">🔐</div><div class="cmat-empty-ttl">Войди в аккаунт</div><div class="cmat-empty-sub">Для совместной базы знаний нужен аккаунт DTR</div></div>`;
+    main.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:50vh;gap:10px;text-align:center;padding:40px"><div style="font-size:48px">&#128274;</div><div style="font-size:18px;font-weight:700;color:var(--t1)">Войди в аккаунт</div></div>`;
     return;
   }
+
   const rooms=(_cache&&_cache.rooms)||[];
+
   if(rooms.length===0){
-    main.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:20px;text-align:center;padding:40px">
-      <div style="font-size:56px;line-height:1">🤝</div>
+    main.innerHTML=`
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:20px;text-align:center;padding:40px">
+      <div style="font-size:56px">&#129309;</div>
       <div><div style="font-size:20px;font-weight:800;color:var(--t1);letter-spacing:-.03em;margin-bottom:8px">Совместная база знаний</div>
-      <div style="font-size:14px;color:var(--t2);line-height:1.6;max-width:320px">Создай базу и пригласи команду — делитесь материалами, видео, инструментами в одном месте</div></div>
+      <div style="font-size:14px;color:var(--t2);line-height:1.6;max-width:320px">Создай базу и пригласи команду</div></div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
-        <button onclick="window.cmatCreateRoom()" style="display:flex;align-items:center;gap:8px;padding:12px 22px;border-radius:12px;border:none;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;box-shadow:0 4px 18px rgba(168,85,247,.4)" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Создать свою базу
-        </button>
-        <button onclick="window.cmatJoinRoom()" style="display:flex;align-items:center;gap:8px;padding:12px 22px;border-radius:12px;border:0.5px solid rgba(168,85,247,.3);background:rgba(168,85,247,.08);color:#c084fc;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif" onmouseover="this.style.background='rgba(168,85,247,.16)'" onmouseout="this.style.background='rgba(168,85,247,.08)'">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></svg> Войти по коду
-        </button>
-      </div></div>`;
+        <button onclick="window.cmatCreateRoom()" style="padding:12px 22px;border-radius:12px;border:none;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;box-shadow:0 4px 18px rgba(168,85,247,.4)" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">+ Создать свою базу</button>
+        <button onclick="window.cmatJoinRoom()" style="padding:12px 22px;border-radius:12px;border:0.5px solid rgba(168,85,247,.3);background:rgba(168,85,247,.08);color:#c084fc;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif" onmouseover="this.style.background='rgba(168,85,247,.16)'" onmouseout="this.style.background='rgba(168,85,247,.08)'">Войти по коду</button>
+      </div>
+    </div>`;
     return;
   }
+
   if(!_activeRoom||!rooms.find(r=>r.id===_activeRoom)) _activeRoom=rooms[0].id;
   const room=rooms.find(r=>r.id===_activeRoom);
   if(!room) return;
+
   const rc=(_cache&&_cache.perRoom[room.id])||{members:[],items:[]};
   const memberships=(_cache&&_cache.memberships)||[];
   const myRole=(memberships.find(m=>m.room_id===room.id)||{}).role;
   const isOwner=myRole==='owner';
   const items=rc.items||[];
   const members=rc.members||[];
+
   const matItems=items.filter(i=>i.type!=='tool');
   const toolItems=items.filter(i=>i.type==='tool');
 
+  // Group by category
+  const groupBy=(arr)=>{
+    const map={};
+    arr.forEach(i=>{ const k=i.cat||'Общее'; if(!map[k])map[k]=[]; map[k].push(i); });
+    return map;
+  };
+  const matGroups=groupBy(matItems);
+  const toolGroups=groupBy(toolItems);
+  const catKey=(s)=>s.replace(/[^a-zA-Z\u0400-\u04FF0-9]/g,'_');
+
+  // Author chip
   const authorChip=(userId)=>{
     const mm=members.find(x=>x.user_id===userId)||{};
-    const u=mm.users||{username:'?',avatar:'👤'};
-    const avH=u.avatar_url?`<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:4px">`:`<span style="font-size:9px">${u.avatar||'👤'}</span>`;
+    const u=mm.users||{username:'?',avatar:'\u{1F464}'};
+    const avH=u.avatar_url?`<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:4px">`:`<span style="font-size:9px">${u.avatar||'?'}</span>`;
     return `<div style="display:flex;align-items:center;gap:4px;flex-shrink:0"><div style="width:16px;height:16px;border-radius:4px;background:rgba(168,85,247,.15);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${avH}</div><span style="font-size:10px;color:var(--t3)">${u.username||'?'}</span></div>`;
   };
 
+  // Member stack
   const memStack=members.slice(0,6).map((mm,i)=>{
     const u=mm.users||{};
-    const av=u.avatar_url?`<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:7px">`:`<span style="font-size:12px">${u.avatar||'👤'}</span>`;
-    return `<div title="${u.username||'?'}${mm.role==='owner'?' (владелец)':''}" style="width:28px;height:28px;border-radius:8px;background:rgba(168,85,247,.15);border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;margin-left:${i===0?0:-8}px;z-index:${10-i};position:relative;cursor:pointer;transition:transform .15s" onmouseover="this.style.transform='scale(1.15) translateY(-2px)'" onmouseout="this.style.transform=''">${av}</div>`;
+    const av=u.avatar_url?`<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:7px">`:`<span style="font-size:12px">${u.avatar||'?'}</span>`;
+    return `<div title="${u.username||'?'}${mm.role==='owner'?' (владелец)':''}" style="width:28px;height:28px;border-radius:8px;background:rgba(168,85,247,.15);border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;margin-left:${i===0?0:-8}px;z-index:${10-i};position:relative;transition:transform .15s" onmouseover="this.style.transform='scale(1.15) translateY(-2px)'" onmouseout="this.style.transform=''">${av}</div>`;
   }).join('')+(members.length>6?`<div style="width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,.07);border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--t2);margin-left:-8px">+${members.length-6}</div>`:'');
 
   const svgP=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
-  const svgX=`<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
   const svgShare=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>`;
   const svgPeople=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
   const svgLogout=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>`;
   const svgTrash=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>`;
   const svgPlay=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#07070B" stroke-width="2.5" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3" fill="#07070B"/></svg>`;
   const svgLink=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
+  const svgX=`<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+  const svgE=`<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+  const svgD=`<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>`;
 
   const isYTf=(url)=>/youtube\.com|youtu\.be/.test(url||'');
   const ytTh=(url)=>{const m=(url||'').match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);return m?`https://img.youtube.com/vi/${m[1]}/mqdefault.jpg`:null;};
-  const dom=(url)=>{try{return new URL(url).hostname.replace('www.','');}catch{return url;}};
-  const fav=(url)=>{try{return `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=32`;}catch{return '';}};
+  const domF=(url)=>{try{return new URL(url).hostname.replace('www.','');}catch{return url;}};
+  const favF=(url)=>{try{return `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=32`;}catch{return '';}};
 
   const matCard=(item)=>{
-    const isYT=isYTf(item.url), thumb=isYT?ytTh(item.url):null;
-    const d=dom(item.url), f=fav(item.url);
+    const isYT=isYTf(item.url),thumb=isYT?ytTh(item.url):null;
+    const d=domF(item.url),f=favF(item.url);
     const canDel=isOwner||(item.user_id===user.id);
     const date=item.added_at?new Date(item.added_at).toLocaleDateString('ru',{day:'numeric',month:'short'}):'';
     return `<div class="lrn-card" onclick="window.open('${item.url}','_blank','noopener')" style="cursor:pointer">
@@ -26173,11 +26221,10 @@ window._cmatRenderMain=function(){
 
   const toolTile=(item)=>{
     const d=(()=>{try{return new URL(item.url).hostname.replace('www.','');}catch{return '';}})();
-    const f=`https://www.google.com/s2/favicons?domain=${d}&sz=128`;
     const canDel=isOwner||(item.user_id===user.id);
     return `<a class="svc-tile" href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none">
       <div style="width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);overflow:hidden;flex-shrink:0">
-        <img src="${f}" alt="${item.title}" width="36" height="36" style="width:36px;height:36px;object-fit:contain;display:block" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('beforeend','<span style=\\'font-size:24px;line-height:1\\'>🔗</span>')">
+        <img src="https://www.google.com/s2/favicons?domain=${d}&sz=128" alt="${item.title}" width="36" height="36" style="width:36px;height:36px;object-fit:contain;display:block" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('beforeend','<span style=\'font-size:24px;line-height:1\'>&#128279;</span>')">
       </div>
       <span class="svc-tile-name">${item.title}</span>
       <div style="margin-top:3px">${authorChip(item.user_id)}</div>
@@ -26185,9 +26232,37 @@ window._cmatRenderMain=function(){
     </a>`;
   };
 
+  // Build categories sections for materials
+  const matSections=Object.entries(matGroups).map(([cat,catItems])=>`
+    <div class="lrn-sec" id="cmat-cat-mat-${catKey(cat)}" style="--sec-c:var(--gold)">
+      <div class="lrn-sec-hdr">
+        <div class="lrn-sec-icon" style="background:rgba(245,200,66,.1);border:0.5px solid rgba(245,200,66,.25)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.8" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </div>
+        <div class="lrn-sec-info"><div class="lrn-sec-name">${cat}</div><div class="lrn-sec-sub">${catItems.length} ${catItems.length===1?'материал':catItems.length<=4?'материала':'материалов'}</div></div>
+        <div class="lrn-sec-cnt">${catItems.length}</div>
+      </div>
+      <div class="lrn-row-wrap"><div class="lrn-row">${catItems.map(matCard).join('')}
+        <button class="lrn-add-card" onclick="window.cmatAddItem('${room.id}','material','${cat}')"><div class="lrn-add-card-icon">${svgP}</div><span>Добавить</span></button>
+      </div></div>
+    </div>`).join('');
+
+  // Build categories sections for tools
+  const toolSections=Object.entries(toolGroups).map(([cat,catItems])=>`
+    <div id="cmat-cat-tool-${catKey(cat)}" style="margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;padding:0 24px 12px">
+        <div style="width:8px;height:8px;border-radius:50%;background:#06B6D4;flex-shrink:0"></div>
+        <span style="font-size:13px;font-weight:700;color:var(--t1)">${cat}</span>
+        <span style="font-size:11px;color:var(--t3);font-family:'DM Mono',monospace">${catItems.length}</span>
+      </div>
+      <div class="svc-grid" style="padding:0 24px 16px">${catItems.map(toolTile).join('')}
+        <button class="svc-add-tile" onclick="window.cmatAddItem('${room.id}','tool','${cat}')"><div class="svc-add-tile-ico">${svgP}</div>Добавить</button>
+      </div>
+    </div>`).join('');
+
   main.innerHTML=`
     <div class="cmat-room-hdr">
-      <div class="cmat-room-hdr-icon">${room.icon||'📚'}</div>
+      <div class="cmat-room-hdr-icon">${room.icon||'&#128218;'}</div>
       <div class="cmat-room-hdr-info">
         <div class="cmat-room-hdr-name">${room.name}</div>
         <div class="cmat-room-hdr-sub">${items.length} материалов · ${members.length} участников</div>
@@ -26199,31 +26274,29 @@ window._cmatRenderMain=function(){
         ${isOwner?`<button class="cmat-hdr-btn danger" onclick="window.cmatDeleteRoom('${room.id}')">${svgTrash}</button>`:`<button class="cmat-hdr-btn leave" onclick="window.cmatLeaveRoom('${room.id}')">${svgLogout} Выйти</button>`}
       </div>
     </div>
-    <div id="cmat-sec-materials" style="border-bottom:0.5px solid rgba(255,255,255,.04)">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 24px 14px">
+
+    <!-- Materials -->
+    <div id="cmat-sec-materials">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 24px 14px;border-bottom:0.5px solid rgba(255,255,255,.04)">
         <div style="display:flex;align-items:center;gap:10px">
           <div style="width:30px;height:30px;border-radius:8px;background:rgba(245,200,66,.1);border:0.5px solid rgba(245,200,66,.2);display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.8" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
-          <div style="font-size:15px;font-weight:700;color:var(--t1);letter-spacing:-.02em">Материалы <span style="font-size:11px;font-weight:400;color:var(--t3);font-family:'DM Mono',monospace">${matItems.length}</span></div>
+          <div style="font-size:15px;font-weight:700;color:var(--t1)">Материалы <span style="font-size:11px;font-weight:400;color:var(--t3);font-family:'DM Mono',monospace">${matItems.length}</span></div>
         </div>
         <button class="cmat-hdr-btn add" onclick="window.cmatAddItem('${room.id}','material')">${svgP} Добавить</button>
       </div>
-      ${matItems.length===0?`<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px">Нет материалов. Добавьте первый!</div>`:
-      `<div class="lrn-row-wrap"><div class="lrn-row" style="padding:0 24px 20px">${matItems.map(matCard).join('')}
-        <button class="lrn-add-card" onclick="window.cmatAddItem('${room.id}','material')"><div class="lrn-add-card-icon">${svgP}</div><span>Добавить</span></button>
-      </div></div>`}
+      ${matItems.length===0?`<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px">Нет материалов. Добавь первый!</div>`:matSections}
     </div>
-    <div id="cmat-sec-tools">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 24px 14px">
+
+    <!-- Tools -->
+    <div id="cmat-sec-tools" style="border-top:0.5px solid rgba(255,255,255,.05)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 24px 14px;border-bottom:0.5px solid rgba(255,255,255,.04)">
         <div style="display:flex;align-items:center;gap:10px">
           <div style="width:30px;height:30px;border-radius:8px;background:rgba(6,182,212,.1);border:0.5px solid rgba(6,182,212,.2);display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#06B6D4" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="3" width="7" height="7" rx="1"/><rect x="15" y="3" width="7" height="7" rx="1"/><rect x="15" y="14" width="7" height="7" rx="1"/><rect x="2" y="14" width="7" height="7" rx="1"/></svg></div>
-          <div style="font-size:15px;font-weight:700;color:var(--t1);letter-spacing:-.02em">Инструменты <span style="font-size:11px;font-weight:400;color:var(--t3);font-family:'DM Mono',monospace">${toolItems.length}</span></div>
+          <div style="font-size:15px;font-weight:700;color:var(--t1)">Инструменты <span style="font-size:11px;font-weight:400;color:var(--t3);font-family:'DM Mono',monospace">${toolItems.length}</span></div>
         </div>
         <button class="cmat-hdr-btn invite" style="border-color:rgba(6,182,212,.3);background:rgba(6,182,212,.08);color:#06B6D4" onclick="window.cmatAddItem('${room.id}','tool')">${svgP} Добавить</button>
       </div>
-      ${toolItems.length===0?`<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px">Нет инструментов. Добавьте первый!</div>`:
-      `<div class="svc-grid" style="padding:0 24px 24px">${toolItems.map(toolTile).join('')}
-        <button class="svc-add-tile" style="border-color:rgba(168,85,247,.2)" onclick="window.cmatAddItem('${room.id}','tool')"><div class="svc-add-tile-ico">${svgP}</div>Добавить</button>
-      </div>`}
+      ${toolItems.length===0?`<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px">Нет инструментов. Добавь первый!</div>`:toolSections}
     </div>`;
 };
 
@@ -26421,21 +26494,21 @@ window.cmatDeleteRoom=async function(roomId){
 };
 
 /* ── Add item ── */
-window.cmatAddItem=function(roomId, itemType){
-  itemType = itemType||'material';
-  const isTool = itemType==='tool';
+window.cmatAddItem=function(roomId, itemType, defaultCat){
+  itemType=itemType||'material';
+  const isTool=itemType==='tool';
   if(!window._lrnModal) return;
   window._lrnModal(isTool?'Добавить инструмент':'Добавить материал',[
     {id:'url',placeholder:'https://...',type:'url'},
     {id:'title',placeholder:'Название (необязательно)',type:'text'},
-    ...(!isTool?[{id:'cat',placeholder:'Категория: Статьи, Видео, Книги...',type:'text'}]:[]),
+    {id:'cat',placeholder:isTool?'Категория: Аналитика, Дизайн...':'Категория: Статьи, Видео...',type:'text',value:defaultCat||''},
   ],async v=>{
     let url=v.url.trim(); if(!url) return;
     if(!url.startsWith('http')) url='https://'+url;
     const sb2=getSB(),user=getUser(); if(!sb2||!user) return;
     const autoName=(()=>{try{const d=new URL(url).hostname.replace('www.','');return d.split('.')[0].charAt(0).toUpperCase()+d.split('.')[0].slice(1);}catch{return url;}})();
     const title=v.title.trim()||autoName;
-    const cat=(!isTool&&v.cat)?v.cat.trim()||'Общее':'';
+    const cat=v.cat.trim()||'Общее';
     try{
       await sb2.from('collab_mat_items').insert({room_id:roomId,user_id:user.id,title,url,cat,type:itemType,added_at:new Date().toISOString()});
       if(_cache&&_cache.perRoom[roomId]){
@@ -26443,11 +26516,13 @@ window.cmatAddItem=function(roomId, itemType){
         saveCache();
       }
       try{showToast(isTool?'Инструмент добавлен!':'Материал добавлен!','📌');}catch{}
-      window._cmatRenderMain();
-      setTimeout(async()=>{ await fetchAll(); window._cmatRenderMain(); },1000);
+      window._lrnRenderSidebar&&window._lrnRenderSidebar();
+      window._cmatRenderMain&&window._cmatRenderMain();
+      setTimeout(async()=>{ await fetchAll(); window._lrnRenderSidebar&&window._lrnRenderSidebar(); window._cmatRenderMain&&window._cmatRenderMain(); },1000);
     }catch(e){ console.error(e); try{showToast('Ошибка: '+(e.message||e),'❌');}catch{} }
   });
 };
+
 
 /* ── Delete item ── */
 window.cmatDeleteItem=async function(roomId,itemId){
