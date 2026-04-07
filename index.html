@@ -25668,9 +25668,24 @@ function _lrnRenderMain(){
       });
     });
     if(_pLinks.length>0){
-      _pinnedHtml='<div class="pins-sec-hdr">Закреплённые</div><div style="padding:0 24px 16px"><div class="lrn-row">';
+      var _pinCnt=_pLinks.length;
+      var _pinCntStr=_pinCnt===1?'материал':_pinCnt<=4?'материала':'материалов';
+      _pinnedHtml=''
+        +'<div class="pins-block">'
+          +'<div class="pins-block-hdr">'
+            +'<div class="pins-block-icon">'
+              +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+                +'<line x1="12" y1="17" x2="12" y2="22"/>'
+                +'<path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>'
+              +'</svg>'
+            +'</div>'
+            +'<div class="pins-block-ttl">Закреплённые</div>'
+            +'<div class="pins-block-cnt">'+_pinCnt+' '+_pinCntStr+'</div>'
+          +'</div>'
+          +'<div class="pins-block-body">'
+            +'<div class="lrn-row">';
       _pLinks.forEach(function(x){ _pinnedHtml+=_mkLinkCard(x.link,x.catId,true); });
-      _pinnedHtml+='</div></div>';
+      _pinnedHtml+='</div></div></div>';
     }
   }
 
@@ -25800,21 +25815,87 @@ function _lrnRenderMain(){
       }
       .pin-btn-card:hover,.pin-btn-card.pinned{background:rgba(9,9,11,.92);color:var(--gold);}
       .pin-btn-card.pinned{opacity:1!important;}
-      /* Pinned section header */
-      .pins-sec-hdr{
-        display:flex;align-items:center;gap:8px;
-        padding:14px 24px 8px;
-        font-size:9px;font-weight:800;
-        letter-spacing:.12em;text-transform:uppercase;
-        color:rgba(245,200,66,.55);
-        flex-shrink:0;
-        border-bottom:0.5px solid rgba(245,200,66,.08);
-        margin-bottom:4px;
+      /* ── PINNED BLOCK — Premium Gold Section ── */
+      .pins-block{
+        margin-bottom:20px;
+        border-radius:18px;
+        border:0.5px solid rgba(245,200,66,.22);
+        background:linear-gradient(145deg,rgba(245,200,66,.055) 0%,rgba(245,200,66,.018) 50%,rgba(17,17,19,.0) 100%);
+        box-shadow:0 0 0 0.5px rgba(245,200,66,.08),
+                   inset 0 1px 0 rgba(245,200,66,.1),
+                   0 8px 32px rgba(0,0,0,.25);
+        position:relative;
+        overflow:hidden;
       }
-      .pins-sec-hdr::before{
-        content:'';display:inline-block;
-        width:12px;height:1.5px;
-        background:var(--gold);border-radius:1px;opacity:.45;
+      /* Top glow sweep */
+      .pins-block::before{
+        content:'';
+        position:absolute;
+        top:0;left:0;right:0;
+        height:1px;
+        background:linear-gradient(90deg,transparent 0%,rgba(245,200,66,.45) 30%,rgba(253,230,138,.6) 50%,rgba(245,200,66,.45) 70%,transparent 100%);
+        pointer-events:none;
+      }
+      /* Ambient glow blob top-right */
+      .pins-block::after{
+        content:'';
+        position:absolute;
+        top:-40px;right:-40px;
+        width:180px;height:180px;
+        background:radial-gradient(circle,rgba(245,200,66,.08) 0%,transparent 70%);
+        pointer-events:none;
+      }
+      .pins-block-hdr{
+        display:flex;
+        align-items:center;
+        gap:11px;
+        padding:14px 20px 13px;
+        border-bottom:0.5px solid rgba(245,200,66,.09);
+        position:relative;
+        z-index:1;
+      }
+      .pins-block-icon{
+        width:32px;height:32px;
+        border-radius:9px;
+        background:rgba(245,200,66,.12);
+        border:0.5px solid rgba(245,200,66,.28);
+        display:flex;align-items:center;justify-content:center;
+        flex-shrink:0;
+        box-shadow:0 0 12px rgba(245,200,66,.1);
+      }
+      .pins-block-ttl{
+        font-size:11px;
+        font-weight:800;
+        letter-spacing:.10em;
+        text-transform:uppercase;
+        color:var(--gold);
+        flex:1;
+      }
+      .pins-block-cnt{
+        font-family:'DM Mono',monospace;
+        font-size:10px;
+        font-weight:500;
+        color:rgba(245,200,66,.55);
+        background:rgba(245,200,66,.07);
+        border:0.5px solid rgba(245,200,66,.15);
+        border-radius:6px;
+        padding:2px 8px;
+        letter-spacing:.04em;
+      }
+      .pins-block-body{
+        padding:14px 16px 16px;
+        position:relative;
+        z-index:1;
+      }
+      /* Cards inside pinned block get subtle gold accent */
+      .pins-block .lrn-card{
+        border-color:rgba(245,200,66,.10);
+        background:linear-gradient(160deg,rgba(245,200,66,.04) 0%,var(--card) 55%);
+      }
+      .pins-block .lrn-card:hover{
+        border-color:rgba(245,200,66,.28);
+        box-shadow:0 12px 36px rgba(0,0,0,.5),
+                   0 0 0 0.5px rgba(245,200,66,.15);
       }
       /* Pinned sidebar category indicator */
       .lrn-sb-cat.is-pinned{
