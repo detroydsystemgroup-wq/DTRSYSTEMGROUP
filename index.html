@@ -26042,21 +26042,19 @@ window._cmatRenderSidebar=function(sb_el){
 
   sb_el.innerHTML=`
     <!-- Summary -->
-    <div style="padding:16px 12px 8px">
-      <div class="lrn-sb-summary" style="border-color:rgba(168,85,247,.2);background:rgba(168,85,247,.05)">
-        <div class="lrn-sb-summary-row">
-          <span class="lrn-sb-summary-title" style="color:#c084fc">Совместная база</span>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="1.8" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </div>
-        <div class="lrn-sb-summary-stats">
-          <div class="lrn-sb-stat"><div class="lrn-sb-stat-val">${totalItems}</div><div class="lrn-sb-stat-lbl">Материалов</div></div>
-          <div class="lrn-sb-stat"><div class="lrn-sb-stat-val">${rooms.length}</div><div class="lrn-sb-stat-lbl">Баз</div></div>
-        </div>
+    <div class="lrn-sb-summary" style="margin:12px 12px 8px;border-color:rgba(168,85,247,.2);background:rgba(168,85,247,.05)">
+      <div class="lrn-sb-summary-row">
+        <span class="lrn-sb-summary-title" style="color:#c084fc">Совместная база</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="1.8" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+      <div class="lrn-sb-summary-stats">
+        <div class="lrn-sb-stat"><div class="lrn-sb-stat-val">${totalItems}</div><div class="lrn-sb-stat-lbl">Материалов</div></div>
+        <div class="lrn-sb-stat"><div class="lrn-sb-stat-val">${rooms.length}</div><div class="lrn-sb-stat-lbl">Баз</div></div>
       </div>
     </div>
 
     <!-- Actions -->
-    <div style="padding:8px 12px 6px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
+    <div style="padding:0 12px 6px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
       <button class="cmat-sb-action-btn cmat-sb-create" onclick="window.cmatCreateRoom()">+ Создать</button>
       <button class="cmat-sb-action-btn cmat-sb-join" onclick="window.cmatJoinRoom()">По коду</button>
     </div>
@@ -26257,63 +26255,49 @@ window.cmatCreateRoom=async function(){
   if(!window._lrnModal) return;
 
   // ── Pre-check: tables exist? ──
-  const sb2=getSB(),user=getUser();
-  if(!sb2||!user){ try{showToast('Войди в аккаунт','❌');}catch{} return; }
-  const {error:chk}=await sb2.from('collab_mat_rooms').select('id').limit(1);
+  const sb2chk=getSB(),userChk=getUser();
+  if(!sb2chk||!userChk){ try{showToast('Войди в аккаунт','❌');}catch{} return; }
+  const {error:chk}=await sb2chk.from('collab_mat_rooms').select('id').limit(1);
   if(chk){
-    // Show SQL instructions
-    const sqlMsg=`Таблицы не созданы в Supabase.\n\nОткрой Supabase → SQL Editor → вставь SQL из документации DTR и нажми Run.\n\nОшибка: ${chk.message||chk.code}`;
-    alert(sqlMsg);
+    alert('Таблицы не созданы в Supabase.\n\nОткрой Supabase → SQL Editor → запусти SQL для collab_mat_rooms.\n\nОшибка: '+(chk.message||chk.code));
     return;
-  }((e,i)=>`<button onclick="document.querySelectorAll('.cmat-icon-pick').forEach(b=>b.style.outline='');this.style.outline='2px solid #a855f7';window._cmatPickIcon='${e}'" class="cmat-icon-pick" style="width:40px;height:40px;border-radius:10px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);font-size:20px;cursor:pointer;outline:none;outline-offset:2px;transition:background .12s" onmouseover="this.style.background='rgba(168,85,247,.1)'" onmouseout="if(this.style.outline.indexOf('a855f7')===-1)this.style.background='rgba(255,255,255,.04)'">${e}</button>`).join('');
+  }
+
+  const icons=ICONS.map((e,i)=>`<button onclick="document.querySelectorAll('.cmat-icon-pick').forEach(b=>b.style.outline='');this.style.outline='2px solid #a855f7';window._cmatPickIcon='${e}'" class="cmat-icon-pick" style="width:40px;height:40px;border-radius:10px;border:0.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);font-size:20px;cursor:pointer;outline:none;outline-offset:2px;transition:background .12s" onmouseover="this.style.background='rgba(168,85,247,.1)'" onmouseout="if(this.style.outline.indexOf('a855f7')===-1)this.style.background='rgba(255,255,255,.04)'">${e}</button>`).join('');
   window._cmatPickIcon='📚';
   window._lrnModal('Новая совместная база',[{id:'cn',placeholder:'Название базы знаний',type:'text'}],async v=>{
     const name=v.cn.trim(); if(!name) return;
-    const sb2=getSB(),user=getUser(); if(!sb2||!user){
-      try{showToast('Войди в аккаунт','❌');}catch{} return;
-    }
+    const sb2=getSB(),user=getUser(); if(!sb2||!user) return;
     try{
       const code=mkCode();
       const icon=window._cmatPickIcon||'📚';
 
-      // ── Step 1: Insert room ──
+      // Step 1: Insert room
       const {error:e1}=await sb2.from('collab_mat_rooms')
         .insert({name, icon, owner_id:user.id, invite_code:code});
-      if(e1){
-        console.error('Room insert error:', e1);
-        try{showToast('Ошибка создания: '+(e1.message||e1.code||'таблица не найдена'),'❌');}catch{}
-        return;
-      }
+      if(e1){ console.error('Room insert error:', e1); try{showToast('Ошибка: '+(e1.message||e1.code),'❌');}catch{} return; }
 
-      // ── Step 2: Fetch the new room by invite_code ──
+      // Step 2: Fetch created room
       const {data:room, error:e2}=await sb2.from('collab_mat_rooms')
-        .select('id,name,icon,invite_code')
-        .eq('invite_code',code)
-        .single();
-      if(e2||!room){
-        console.error('Room fetch error:', e2);
-        try{showToast('База создана, но не удалось получить ID','⚠️');}catch{}
-        return;
-      }
+        .select('id,name,icon,invite_code').eq('invite_code',code).single();
+      if(e2||!room){ console.error('Room fetch error:', e2); try{showToast('База создана, но ошибка загрузки','⚠️');}catch{} return; }
 
-      // ── Step 3: Add owner as member ──
+      // Step 3: Add owner as member
       const {error:e3}=await sb2.from('collab_mat_members')
         .insert({room_id:room.id, user_id:user.id, role:'owner'});
       if(e3) console.warn('Member insert warning:', e3);
 
       try{showToast('База «'+name+'» создана!','📚');}catch{}
       _cache=null; localStorage.removeItem(CMAT_CACHE_KEY);
-      await fetchAll();
-      _activeRoom=room.id;
+      await fetchAll(); _activeRoom=room.id;
       window._lrnRenderSidebar&&window._lrnRenderSidebar();
       window._cmatRenderMain&&window._cmatRenderMain();
       setTimeout(()=>window.cmatShowCode&&window.cmatShowCode(code),500);
     }catch(e){
-      console.error('cmatCreateRoom unexpected:', e);
-      try{showToast('Ошибка: '+(e.message||'неизвестная ошибка'),'❌');}catch{}
+      console.error('cmatCreateRoom:', e);
+      try{showToast('Ошибка: '+(e.message||'неизвестная'),'❌');}catch{}
     }
   });
-  // Inject emoji picker
   setTimeout(()=>{
     const modal=document.querySelector('.lrn-modal');
     if(!modal) return;
