@@ -4984,17 +4984,17 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
 .nav-text-btn:hover { color: rgba(255,255,255,.88); background: rgba(255,255,255,.06); }
 .nav-text-btn:active { transform: scale(.95); }
 
-/* Online badge — same height as text-btn */
+/* Online badge — rectangular with soft corners */
 .nav-online {
   display: inline-flex !important; align-items: center; gap: 6px;
-  height: 28px; padding: 0 10px;
+  height: 32px; padding: 0 12px;
   background: rgba(34,197,94,.07) !important;
   border: 0.5px solid rgba(34,197,94,.16) !important;
-  border-radius: 20px !important;
+  border-radius: 8px !important;
   font-size: 12px !important; font-weight: 600 !important;
   color: var(--green-l) !important;
   white-space: nowrap;
-  margin: 0 4px;
+  margin: 0 2px;
 }
 .online-dot {
   width: 6px !important; height: 6px !important;
@@ -9482,6 +9482,96 @@ html[data-theme="light"] .settings-close:hover { background:rgba(0,0,0,.08); }
   transition: color .4s, background .4s, border-color .4s;
 }
 
+/* Settings section divider */
+.settings-section {
+  border-top: 0.5px solid rgba(255,255,255,.05);
+  padding-top: 18px;
+  margin-top: 18px;
+}
+.settings-section:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+
+/* Hotkeys grid */
+.settings-hotkeys-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+.shk-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(255,255,255,.025);
+  border: 0.5px solid rgba(255,255,255,.05);
+  border-radius: 10px;
+  transition: background .14s;
+}
+.shk-row:hover { background: rgba(255,255,255,.045); }
+.shk-keys {
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.shk-keys kbd {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px; font-weight: 600;
+  color: var(--t1);
+  background: var(--card);
+  border: 0.5px solid rgba(255,255,255,.12);
+  border-bottom: 1.5px solid rgba(255,255,255,.08);
+  border-radius: 5px;
+  padding: 2px 7px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.35);
+  display: inline-block;
+}
+[data-theme="light"] .shk-keys kbd {
+  color: #2a2a2a;
+  background: #fff;
+  border-color: rgba(0,0,0,.12);
+  border-bottom-color: rgba(0,0,0,.2);
+}
+.shk-keys span { font-size: 10px; color: var(--t3); }
+.shk-desc {
+  font-size: 12px; font-weight: 500;
+  color: var(--t2); letter-spacing: -.01em;
+}
+
+/* Logout button in settings */
+.settings-logout-btn {
+  width: 100%;
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px;
+  margin-top: 10px;
+  border-radius: 12px;
+  border: 0.5px solid rgba(239,68,68,.2);
+  background: rgba(239,68,68,.06);
+  color: #ef4444;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  transition: background .16s, border-color .16s, transform .14s;
+  text-align: left;
+}
+.settings-logout-btn:hover {
+  background: rgba(239,68,68,.12);
+  border-color: rgba(239,68,68,.4);
+  transform: translateY(-1px);
+}
+.settings-logout-btn:active { transform: scale(.98); }
+.settings-logout-kbd {
+  margin-left: auto;
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 10px; color: rgba(239,68,68,.5);
+}
+.settings-logout-kbd kbd {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  color: rgba(239,68,68,.6);
+  background: rgba(239,68,68,.08);
+  border: 0.5px solid rgba(239,68,68,.15);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
 /* ── Outer border/glow on the whole toggle ── */
 .tt-wrap {
   border: 1.5px solid rgba(100,120,220,.25);
@@ -13576,14 +13666,10 @@ html[data-theme="light"] .nav-icon-btn:hover {
       Поиск
     </button>
 
-    <button class="nav-text-btn" onclick="showTab('leagues')">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-      Арена
-    </button>
-
     <div class="nav-online" id="globalOnline">
       <span class="online-dot"></span>
       <span id="onlineCnt">—</span>
+      <span style="font-size:11px;font-weight:500;opacity:.7">онлайн</span>
     </div>
 
     <div class="nav-sep"></div>
@@ -13594,14 +13680,9 @@ html[data-theme="light"] .nav-icon-btn:hover {
     </div>
 
     <!-- Logout -->
-    <button class="nav-icon-btn" onclick="doLogout()" title="Выйти">
+    <button class="nav-icon-btn" onclick="doLogout()" title="Выйти (Shift+Q)">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
     </button>
-    <!-- Settings -->
-    <button class="nav-icon-btn" id="settingsBtn" onclick="openSettings()" title="Настройки">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-    </button>
-
 
   </div>
 </nav>
@@ -13649,6 +13730,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
         <button class="btn-ol" onclick="openPub()" style="display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 16px;font-size:13px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Профиль</button>
         <button class="btn-ol" onclick="showTab('manage')" style="display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 16px;font-size:13px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> Лиги</button>
         <button id="notifSettingsBtn" class="btn-ol" onclick="openNotifSettings()" style="display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 16px;font-size:13px;position:relative"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Напоминания<span id="notifActiveDot" style="display:none"></span></button>
+        <button class="btn-ol" id="settingsBtn" onclick="openSettings()" title="Настройки (,)" style="display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 16px;font-size:13px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Настройки</button>
         </div>
       </div>
     </div>
@@ -30052,6 +30134,30 @@ window.renderCollabView=renderCollabView;
           </span>
         </div>
       </div>
+
+      <!-- Hotkeys section -->
+      <div class="settings-section">
+        <div class="settings-section-label">Горячие клавиши</div>
+        <div class="settings-hotkeys-grid">
+          <div class="shk-row"><div class="shk-keys"><kbd>,</kbd></div><div class="shk-desc">Настройки</div></div>
+          <div class="shk-row"><div class="shk-keys"><kbd>Shift</kbd><span>+</span><kbd>Q</kbd></div><div class="shk-desc">Выйти из аккаунта</div></div>
+          <div class="shk-row"><div class="shk-keys"><kbd>Shift</kbd><span>+</span><kbd>T</kbd></div><div class="shk-desc">Сменить тему</div></div>
+          <div class="shk-row"><div class="shk-keys"><kbd>Ctrl</kbd><span>+</span><kbd>K</kbd></div><div class="shk-desc">Поиск / Команды</div></div>
+          <div class="shk-row"><div class="shk-keys"><kbd>Shift</kbd><span>+</span><kbd>S</kbd></div><div class="shk-desc">Старт / Стоп таймер</div></div>
+          <div class="shk-row"><div class="shk-keys"><kbd>Esc</kbd></div><div class="shk-desc">Закрыть окно</div></div>
+        </div>
+      </div>
+
+      <!-- Account section -->
+      <div class="settings-section" style="padding-bottom:0;border-bottom:none">
+        <div class="settings-section-label">Аккаунт</div>
+        <button class="settings-logout-btn" onclick="closeSettings();doLogout()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Выйти из аккаунта
+          <span class="settings-logout-kbd"><kbd>Shift</kbd>+<kbd>Q</kbd></span>
+        </button>
+      </div>
+
     </div>
   </div>
 </div>
@@ -30108,6 +30214,54 @@ function openSettings(){
   var cur = document.documentElement.getAttribute('data-theme') || 'dark';
   _syncToggleUI(cur);
 }
+
+// ── Global keyboard shortcuts ──────────────────────────────
+document.addEventListener('keydown', function(e) {
+  // Don't fire when typing in inputs
+  var tag = (e.target.tagName||'').toLowerCase();
+  var isInput = tag==='input'||tag==='textarea'||tag==='select'||e.target.isContentEditable;
+
+  // Ctrl+K — search / command palette (allow even in input for consistency)
+  if((e.ctrlKey||e.metaKey) && e.key==='k'){
+    e.preventDefault();
+    if(typeof openCmdPalette==='function') openCmdPalette();
+    return;
+  }
+
+  if(isInput) return; // rest only fire outside inputs
+
+  // , — open settings
+  if(e.key===',' && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey){
+    var ov = document.getElementById('settingsOv');
+    if(ov && ov.style.display==='flex'){ closeSettings(); }
+    else { if(typeof openSettings==='function') openSettings(); }
+    return;
+  }
+
+  // Shift+T — toggle theme
+  if(e.shiftKey && e.key==='T'){
+    if(typeof toggleTheme==='function') toggleTheme();
+    return;
+  }
+
+  // Shift+Q — logout
+  if(e.shiftKey && e.key==='Q'){
+    if(typeof doLogout==='function') doLogout();
+    return;
+  }
+
+  // Shift+S — start/stop timer
+  if(e.shiftKey && e.key==='S'){
+    if(typeof toggleQuick==='function') toggleQuick();
+    return;
+  }
+
+  // Esc — close any open overlay
+  if(e.key==='Escape'){
+    var sOv = document.getElementById('settingsOv');
+    if(sOv && sOv.style.display==='flex'){ closeSettings(); return; }
+  }
+});
 
 function closeSettings(){
   var ov = document.getElementById('settingsOv');
