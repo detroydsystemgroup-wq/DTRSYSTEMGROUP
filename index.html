@@ -29939,7 +29939,7 @@ function closeSettings(){
 </div>
 
 <script>
-/* ══ REPORT MODAL ENGINE — DTR Progress Club ════════════════════ */
+/* ══ REPORT MODAL ENGINE v2 — DTR Progress Club ════════════════ */
 
 const _RPT_QUOTES = [
   { text: 'Дисциплина — мать победы.', author: '— А.В. Суворов' },
@@ -29951,300 +29951,365 @@ const _RPT_QUOTES = [
   { text: 'Талант — это дисциплина плюс время.', author: '— DTR Progress Club' },
 ];
 
-function openReportModal() {
-  const ov = document.getElementById('reportOv');
-  if (!ov) return;
-  _rptBuild();
-  ov.style.display = 'flex';
-  requestAnimationFrame(function() {
-    ov.classList.add('rpt-ov-in');
-    var wrap = document.getElementById('reportModalWrap');
-    if (wrap) { wrap.classList.remove('rpt-modal-out'); wrap.classList.add('rpt-modal-in'); }
+/* ── Preload html2canvas after page load ── */
+(function(){
+  window.addEventListener('load',function(){
+    setTimeout(function(){
+      if(!window.html2canvas){
+        var s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+        document.head.appendChild(s);
+      }
+    },2500);
   });
-}
+})();
 
-function closeReportModal() {
-  var ov = document.getElementById('reportOv');
-  var wrap = document.getElementById('reportModalWrap');
-  if (!ov || !wrap) return;
-  ov.classList.remove('rpt-ov-in');
-  wrap.classList.remove('rpt-modal-in');
-  wrap.classList.add('rpt-modal-out');
-  setTimeout(function() {
-    ov.style.display = 'none';
-    wrap.classList.remove('rpt-modal-out');
-  }, 250);
-}
-
-function _rptEsc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-function _rptBuild() {
-  var content = document.getElementById('reportCardContent');
-  if (!content) return;
-
-  /* ── Period data ── */
-  var isWeek = (typeof dashPeriod !== 'undefined') ? dashPeriod === 'week' : true;
-  var now = Date.now();
-
-  /* Call app's getDashData if available */
-  var periodHrs = 0, activeDays = 0, bestDay = 0, avgPerDay = 0;
-  try {
-    var dd = getDashData();
-    var cats = activeCats();
-    var statsIds = cats.length ? cats.map(function(c){return c.id;}) : ALL_CATS.map(function(c){return c.id;});
-    var totals = Array(dd.buckets).fill(0);
-    statsIds.forEach(function(id){ if(dd.data[id]) dd.data[id].forEach(function(v,i){ totals[i]+=v; }); });
-    periodHrs = parseFloat(statsIds.reduce(function(a,id){ return a+(dd.data[id]?dd.data[id].reduce(function(x,v){return x+v;},0):0); },0).toFixed(1));
-    activeDays = totals.filter(function(v){return v>0;}).length;
-    bestDay = parseFloat(Math.max.apply(Math, totals.concat([0])).toFixed(1));
-    avgPerDay = parseFloat((periodHrs / dd.buckets).toFixed(1));
-  } catch(e) { console.warn('rpt getDashData:', e); }
-
-  /* ── Date range label ── */
-  var periodLabel = '', dateRangeLabel = '';
-  try {
-    if (isWeek) {
-      var ws = new Date(getWeekStart());
-      var we = new Date(getWeekStart() + 6 * 86400000);
-      var fmt = function(d){ return d.toLocaleDateString('ru',{day:'numeric',month:'short'}).replace(' г.',''); };
-      periodLabel = 'ОТЧЁТ ЗА НЕДЕЛЮ';
-      dateRangeLabel = fmt(ws) + ' — ' + fmt(we);
-    } else {
-      var d30 = new Date(now - 29 * 86400000);
-      var fmtM = function(d){ return d.toLocaleDateString('ru',{day:'numeric',month:'short'}).replace(' г.',''); };
-      periodLabel = 'ОТЧЁТ ЗА МЕСЯЦ';
-      dateRangeLabel = fmtM(d30) + ' — ' + fmtM(new Date());
-    }
-  } catch(e) { periodLabel = isWeek ? 'ОТЧЁТ ЗА НЕДЕЛЮ' : 'ОТЧЁТ ЗА МЕСЯЦ'; dateRangeLabel = ''; }
-
-  /* ── User level ── */
-  var lvlName = 'Новичок', lvlNum = 1, lvlColor = '#F5C842';
-  try {
-    var totalH = P.sessions.reduce(function(a,s){return a+s.dur/3600;},0);
-    var info = getLevelInfo(totalH);
-    lvlNum = info.lvl; lvlName = info.name;
-    lvlColor = (info.color && !info.color.includes('gradient')) ? info.color : '#F5C842';
-  } catch(e) {}
-
-  /* ── User info ── */
-  var userName = ''; var userAv = '⭐'; var userStreak = 0;
-  try { userName = P.name || ''; userAv = P.avatar || '⭐'; userStreak = P.streak || 0; } catch(e) {}
-
-  /* ── Category breakdown ── */
-  var catRows = [];
-  try {
-    var dd2 = getDashData();
-    var activeCatList = activeCats();
-    activeCatList.forEach(function(cat) {
-      var hrs = parseFloat((dd2.data[cat.id]||[]).reduce(function(a,v){return a+v;},0).toFixed(1));
-      if (hrs > 0) catRows.push({ cat: cat, hrs: hrs, pct: periodHrs>0?Math.round(hrs/periodHrs*100):0 });
-    });
-    catRows.sort(function(a,b){return b.hrs-a.hrs;});
-  } catch(e) {}
-
-  /* ── Quote ── */
-  var q = _RPT_QUOTES[Math.floor(Math.random() * _RPT_QUOTES.length)];
-
-  /* ── Generation time ── */
-  var genTime = new Date().toLocaleString('ru',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}).replace(' г.','');
-
-  /* ── Delta indicator (vs prev period) ── */
-  var deltaHTML = '';
-  try {
-    var prevStart = isWeek ? (getWeekStart()-7*86400000) : (now-60*86400000);
-    var prevEnd   = isWeek ? getWeekStart() : (now-30*86400000);
-    var prevHrs = P.sessions.filter(function(s){
-      var t=sessTs(s); return t>=prevStart&&t<prevEnd;
-    }).reduce(function(a,s){return a+s.dur/3600;},0);
-    var delta = prevHrs>0 ? ((periodHrs-prevHrs)/prevHrs*100) : (periodHrs>0?100:0);
-    var dAbs = Math.abs(delta).toFixed(0);
-    var dColor = delta>=0 ? '#4ADE80' : '#f85149';
-    var dArrow = delta>=0 ? '↑' : '↓';
-    deltaHTML = '<span style="font-size:9px;font-weight:700;color:'+dColor+';margin-left:6px">'+dArrow+' '+dAbs+'% vs прошлый</span>';
-  } catch(e) {}
-
-  /* ══ BUILD HTML ══ */
-  var catHTML = '';
-  if (catRows.length > 0) {
-    catHTML = '<div class="rpt-divider-soft"></div>'
-      + '<div class="rpt-cats-hdr">Направления</div>'
-      + catRows.slice(0,5).map(function(r){
-        return '<div class="rpt-cat-row">'
-          + '<div class="rpt-cat-icon">'+_rptEsc(r.cat.icon||'◈')+'</div>'
-          + '<div class="rpt-cat-info">'
-            + '<div class="rpt-cat-name-row">'
-              + '<span class="rpt-cat-name">'+_rptEsc(r.cat.name)+'</span>'
-              + '<span class="rpt-cat-hrs" style="color:'+r.cat.color+'">'+r.hrs+'ч</span>'
-            + '</div>'
-            + '<div class="rpt-cat-bar-wr"><div class="rpt-cat-bar" style="width:'+r.pct+'%;background:'+r.cat.color+';box-shadow:0 0 6px '+r.cat.color+'88"></div></div>'
-          + '</div>'
-        + '</div>';
-      }).join('');
-  }
-
-  content.innerHTML =
-    /* ── HEADER ── */
-    '<div class="rpt-header-row">'
-      + '<div class="rpt-brand-wrap">'
-        + '<div class="rpt-brand-icon">'
-          + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F5C842" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>'
-        + '</div>'
-        + '<div><div class="rpt-brand-name">DTR Progress Club</div><div class="rpt-brand-tag">TRACK · COMPETE · EVOLVE</div></div>'
-      + '</div>'
-      + '<div class="rpt-badge">PREMIUM REPORT</div>'
-    + '</div>'
-
-    /* ── GOLD DIVIDER ── */
-    + '<div class="rpt-divider"></div>'
-
-    /* ── PERIOD ── */
-    + '<div class="rpt-period-lbl">'+periodLabel+'</div>'
-    + '<div class="rpt-period-range">'+dateRangeLabel+deltaHTML+'</div>'
-
-    /* ── USER BLOCK ── */
-    + '<div class="rpt-user-block">'
-      + '<div class="rpt-user-av">'+_rptEsc(userAv)+'</div>'
-      + '<div style="flex:1;min-width:0">'
-        + '<div class="rpt-user-name">'+_rptEsc(userName)+'</div>'
-        + '<div class="rpt-user-meta">'
-          + '<div class="rpt-lvl-pill" style="color:'+lvlColor+';border-color:'+lvlColor+'33">Ур. '+lvlNum+' · '+_rptEsc(lvlName)+'</div>'
-          + (userStreak>0 ? '<div class="rpt-streak-pill">🔥 '+userStreak+' дн.</div>' : '')
-        + '</div>'
-      + '</div>'
-    + '</div>'
-
-    /* ── KPI GRID ── */
-    + '<div class="rpt-kpi-grid">'
-      + '<div class="rpt-kpi-cell">'
-        + '<div class="rpt-kpi-val" style="color:#F5C842">'+periodHrs.toFixed(1)+'<span style="font-size:12px">ч</span></div>'
-        + '<div class="rpt-kpi-lbl">Часов</div>'
-      + '</div>'
-      + '<div class="rpt-kpi-cell">'
-        + '<div class="rpt-kpi-val" style="color:#4ADE80">'+activeDays+'<span style="font-size:12px"> дн</span></div>'
-        + '<div class="rpt-kpi-lbl">Активных</div>'
-      + '</div>'
-      + '<div class="rpt-kpi-cell">'
-        + '<div class="rpt-kpi-val" style="color:#1a9fff">'+avgPerDay+'<span style="font-size:12px">ч</span></div>'
-        + '<div class="rpt-kpi-lbl">В день</div>'
-      + '</div>'
-    + '</div>'
-
-    /* ── CAT BREAKDOWN ── */
-    + catHTML
-
-    /* ── SOFT DIVIDER ── */
-    + '<div class="rpt-divider-soft"></div>'
-
-    /* ── QUOTE ── */
-    + '<div class="rpt-quote">'
-      + '<div class="rpt-quote-text">«'+_rptEsc(q.text)+'»</div>'
-      + '<div class="rpt-quote-author">'+_rptEsc(q.author)+'</div>'
-    + '</div>'
-
-    /* ── FOOTER ── */
-    + '<div class="rpt-footer">'
-      + '<div class="rpt-footer-time">'+genTime+'</div>'
-      + '<div class="rpt-footer-brand">dtrsystem.club</div>'
-    + '</div>';
-}
-
-/* ── Load html2canvas on demand ── */
-function _rptLoadH2C() {
-  return new Promise(function(resolve, reject) {
-    if (window.html2canvas) { resolve(); return; }
-    var s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-    s.onload = resolve;
-    s.onerror = reject;
+function _rptLoadH2C(){
+  return new Promise(function(resolve,reject){
+    if(window.html2canvas){resolve();return;}
+    var s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    s.onload=resolve; s.onerror=reject;
     document.head.appendChild(s);
   });
 }
 
-/* ── Capture card to canvas ── */
-async function _rptCapture(scale) {
+async function openReportModal(){
+  var ov=document.getElementById('reportOv');
+  if(!ov) return;
+  var content=document.getElementById('reportCardContent');
+  if(content){
+    content.innerHTML='<div style="padding:36px 0;text-align:center">'
+      +'<div style="width:36px;height:36px;border-radius:50%;border:2px solid rgba(245,200,66,.15);border-top-color:#F5C842;animation:spin 0.9s linear infinite;margin:0 auto 12px"></div>'
+      +'<div style="font-size:11px;color:rgba(255,255,255,.28);letter-spacing:.06em">Загружаем данные...</div>'
+      +'</div>';
+  }
+  ov.style.display='flex';
+  requestAnimationFrame(function(){
+    ov.classList.add('rpt-ov-in');
+    var wrap=document.getElementById('reportModalWrap');
+    if(wrap){wrap.classList.remove('rpt-modal-out');wrap.classList.add('rpt-modal-in');}
+  });
+  _rptLoadH2C().catch(function(){});
+  await _rptBuild();
+}
+
+function closeReportModal(){
+  var ov=document.getElementById('reportOv');
+  var wrap=document.getElementById('reportModalWrap');
+  if(!ov||!wrap) return;
+  ov.classList.remove('rpt-ov-in');
+  wrap.classList.remove('rpt-modal-in');
+  wrap.classList.add('rpt-modal-out');
+  setTimeout(function(){ov.style.display='none';wrap.classList.remove('rpt-modal-out');},250);
+}
+
+function _rptEsc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+async function _rptAvatarBase64(url){
+  if(!url) return null;
+  if(url.startsWith('data:')) return url;
+  try{
+    var resp=await fetch(url,{mode:'cors',cache:'force-cache'});
+    var blob=await resp.blob();
+    return await new Promise(function(res){var r=new FileReader();r.onloadend=function(){res(r.result);};r.readAsDataURL(blob);});
+  }catch(e){return null;}
+}
+
+function _rptKpiCell(numStr,unitStr,lbl,color){
+  return '<div class="rpt-kpi-cell">'
+    +'<div class="rpt-kpi-val" style="color:'+color+'">'
+      +numStr
+      +(unitStr?'<span style="font-size:11px;font-weight:400;opacity:.72;margin-left:1px">'+unitStr+'</span>':'')
+    +'</div>'
+    +'<div class="rpt-kpi-lbl">'+lbl+'</div>'
+  +'</div>';
+}
+
+async function _rptBuild(){
+  var content=document.getElementById('reportCardContent');
+  if(!content) return;
+
+  var isWeek=(typeof dashPeriod!=='undefined')?dashPeriod==='week':true;
+  var now=Date.now();
+
+  /* 1. Period stats */
+  var periodHrs=0,activeDays=0,avgPerDay=0,totalAllTime=0;
+  var dd=null,statsIds=[],totals=[];
+  try{
+    dd=getDashData();
+    var cats=activeCats();
+    statsIds=cats.length?cats.map(function(c){return c.id;}):ALL_CATS.map(function(c){return c.id;});
+    totals=Array(dd.buckets).fill(0);
+    statsIds.forEach(function(id){if(dd.data[id])dd.data[id].forEach(function(v,i){totals[i]+=v;});});
+    periodHrs=parseFloat(statsIds.reduce(function(a,id){return a+(dd.data[id]?dd.data[id].reduce(function(x,v){return x+v;},0):0);},0).toFixed(1));
+    activeDays=totals.filter(function(v){return v>0;}).length;
+    avgPerDay=activeDays>0?parseFloat((periodHrs/activeDays).toFixed(1)):0;
+    totalAllTime=parseFloat(P.sessions.reduce(function(a,s){return a+s.dur/3600;},0).toFixed(1));
+  }catch(e){console.warn('rpt stats:',e);}
+
+  /* 2. Date range */
+  var periodLabel=isWeek?'ОТЧЁТ ЗА НЕДЕЛЮ':'ОТЧЁТ ЗА МЕСЯЦ';
+  var dateRangeLabel='';
+  try{
+    var fmtFull=function(d){return d.toLocaleDateString('ru',{day:'numeric',month:'long'}).replace(' г.','');};
+    if(isWeek){
+      var ws=new Date(getWeekStart()),we=new Date(getWeekStart()+6*86400000);
+      dateRangeLabel=fmtFull(ws)+' — '+fmtFull(we)+', '+ws.getFullYear();
+    }else{
+      var d30=new Date(now-29*86400000);
+      dateRangeLabel=fmtFull(d30)+' — '+fmtFull(new Date())+', '+new Date().getFullYear();
+    }
+  }catch(e){}
+
+  /* 3. Delta vs prev period */
+  var deltaHTML='';
+  try{
+    var prevStart=isWeek?(getWeekStart()-7*86400000):(now-60*86400000);
+    var prevEnd=isWeek?getWeekStart():(now-30*86400000);
+    var prevHrs=P.sessions.filter(function(s){var t=sessTs(s);return t>=prevStart&&t<prevEnd;}).reduce(function(a,s){return a+s.dur/3600;},0);
+    var delta=prevHrs>0?((periodHrs-prevHrs)/prevHrs*100):(periodHrs>0?100:0);
+    var dColor=delta>=0?'#4ADE80':'#f85149';
+    deltaHTML=' <span style="font-size:9px;font-weight:700;color:'+dColor+'">'+(delta>=0?'↑':'↓')+Math.abs(delta).toFixed(0)+'% к прошлому</span>';
+  }catch(e){}
+
+  /* 4. Level */
+  var lvlName='Новичок',lvlNum=1,lvlColor='#F5C842';
+  try{
+    var lvlInfo=getLevelInfo(totalAllTime);
+    lvlNum=lvlInfo.lvl; lvlName=lvlInfo.name;
+    lvlColor=(lvlInfo.color&&!lvlInfo.color.includes('gradient'))?lvlInfo.color:'#F5C842';
+  }catch(e){}
+
+  /* 5. User identity */
+  var userName='Игрок',userEmoji='⭐',userStreak=0,userAvatarUrl=null;
+  try{userName=P.name||'Игрок';userEmoji=P.avatar||'⭐';userStreak=P.streak||0;userAvatarUrl=P.avatarUrl||null;}catch(e){}
+
+  /* 6. Avatar → base64 */
+  var avatarB64=null;
+  if(userAvatarUrl) avatarB64=await _rptAvatarBase64(userAvatarUrl);
+  var avatarInnerHTML=avatarB64
+    ?'<img src="'+avatarB64+'" style="width:100%;height:100%;border-radius:12px;object-fit:cover" crossorigin="anonymous">'
+    :'<span style="font-size:24px;line-height:1">'+userEmoji+'</span>';
+
+  /* 7. Category breakdown */
+  var catRows=[];
+  try{
+    activeCats().forEach(function(cat){
+      var hrs=dd?parseFloat((dd.data[cat.id]||[]).reduce(function(a,v){return a+v;},0).toFixed(1)):0;
+      if(hrs>0) catRows.push({cat:cat,hrs:hrs,pct:periodHrs>0?Math.round(hrs/periodHrs*100):0});
+    });
+    catRows.sort(function(a,b){return b.hrs-a.hrs;});
+  }catch(e){}
+
+  /* 8. League ranks (async, prefers cache) */
+  var rankRows=[];
+  try{
+    var acl=activeCats();
+    if(acl.length>0){
+      var rankResults=await Promise.all(acl.map(function(c){
+        if(typeof lgCache!=='undefined'&&lgCache[c.id]&&lgCache[c.id].length) return Promise.resolve(lgCache[c.id]);
+        if(typeof loadLeagueData==='function') return loadLeagueData(c.id);
+        return Promise.resolve([]);
+      }));
+      acl.forEach(function(cat,i){
+        var players=rankResults[i]||[];
+        var myIdx=players.findIndex(function(p){return p.isMe;});
+        if(myIdx>=0){
+          var cr=catRows.find(function(r){return r.cat.id===cat.id;});
+          rankRows.push({cat:cat,rank:myIdx+1,total:players.length,hrs:cr?cr.hrs:0});
+        }
+      });
+    }
+  }catch(e){console.warn('rpt ranks:',e);}
+
+  /* 9. Best session */
+  var bestSessHrs=0,bestSessDate='',bestSessCat='';
+  try{
+    var pStart=isWeek?getWeekStart():(now-30*86400000);
+    var pSess=P.sessions.filter(function(s){var t=sessTs(s);return t>=pStart&&t<=now;});
+    if(pSess.length>0){
+      var best=pSess.reduce(function(a,b){return a.dur>b.dur?a:b;});
+      bestSessHrs=parseFloat((best.dur/3600).toFixed(1));
+      bestSessDate=new Date(sessTs(best)).toLocaleDateString('ru',{day:'numeric',month:'short'}).replace(' г.','');
+      var bc=ALL_CATS.find(function(c){return c.id===best.cat;});
+      bestSessCat=bc?bc.name:'';
+    }
+  }catch(e){}
+
+  /* 10. Quote & timestamp */
+  var q=_RPT_QUOTES[Math.floor(Math.random()*_RPT_QUOTES.length)];
+  var genTime=new Date().toLocaleString('ru',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}).replace(' г.','');
+
+  /* ── Sections ── */
+  var catHTML='';
+  if(catRows.length>0){
+    catHTML='<div class="rpt-divider-soft"></div><div class="rpt-cats-hdr">Направления</div>'
+      +catRows.slice(0,5).map(function(r){
+        return '<div class="rpt-cat-row">'
+          +'<div class="rpt-cat-icon">'+r.cat.icon+'</div>'
+          +'<div class="rpt-cat-info">'
+            +'<div class="rpt-cat-name-row">'
+              +'<span class="rpt-cat-name">'+_rptEsc(r.cat.name)+'</span>'
+              +'<span class="rpt-cat-hrs" style="color:'+r.cat.color+'">'+r.hrs+'ч</span>'
+            +'</div>'
+            +'<div class="rpt-cat-bar-wr"><div class="rpt-cat-bar" style="width:'+r.pct+'%;background:'+r.cat.color+';box-shadow:0 0 5px '+r.cat.color+'88"></div></div>'
+          +'</div>'
+        +'</div>';
+      }).join('');
+  }
+
+  var rankHTML='';
+  if(rankRows.length>0){
+    var cols=Math.min(rankRows.length,3);
+    rankHTML='<div class="rpt-divider-soft"></div><div class="rpt-cats-hdr">Позиция в лигах</div>'
+      +'<div style="display:grid;grid-template-columns:repeat('+cols+',1fr);gap:7px">'
+      +rankRows.slice(0,3).map(function(r){
+        var rk=r.rank;
+        var rColor=rk===1?'#FFD700':rk===2?'#C0C0C0':rk===3?'#CD7F32':r.cat.color;
+        var rkDisp=rk<=3?['🥇','🥈','🥉'][rk-1]
+          :'<span style="font-family:\'DM Mono\',monospace;font-size:'+(rk<100?'17':'14')+'px;font-weight:400;color:'+rColor+'">#'+rk+'</span>';
+        return '<div style="padding:10px 8px;background:rgba(255,255,255,.025);border:0.5px solid rgba(255,255,255,.07);border-radius:11px;text-align:center">'
+          +'<div style="font-size:11px;margin-bottom:3px">'+r.cat.icon+'</div>'
+          +'<div style="font-size:20px;line-height:1;margin-bottom:3px">'+rkDisp+'</div>'
+          +'<div style="font-size:7px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.25)">'+_rptEsc(r.cat.name)+'</div>'
+          +(r.hrs>0?'<div style="font-family:\'DM Mono\',monospace;font-size:9px;color:'+r.cat.color+';margin-top:3px">'+r.hrs+'ч</div>':'')
+        +'</div>';
+      }).join('')
+      +'</div>';
+  }
+
+  var bestHTML='';
+  if(bestSessHrs>0){
+    bestHTML='<div class="rpt-divider-soft"></div>'
+      +'<div style="display:flex;align-items:center;justify-content:space-between">'
+        +'<div>'
+          +'<div class="rpt-cats-hdr" style="margin-bottom:2px">Лучшая сессия</div>'
+          +'<div style="font-size:9px;color:rgba(255,255,255,.28)">'+_rptEsc(bestSessDate)+(bestSessCat?' · '+_rptEsc(bestSessCat):'')+'</div>'
+        +'</div>'
+        +'<div style="font-family:\'DM Mono\',monospace;font-size:22px;font-weight:400;color:#F5C842;letter-spacing:-.02em">'
+          +bestSessHrs+'<span style="font-size:11px;opacity:.7">ч</span>'
+        +'</div>'
+      +'</div>';
+  }
+
+  /* ── Inject ── */
+  content.innerHTML=
+    '<div class="rpt-header-row">'
+      +'<div class="rpt-brand-wrap">'
+        +'<div class="rpt-brand-icon">'
+          +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F5C842" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>'
+        +'</div>'
+        +'<div><div class="rpt-brand-name">DTR Progress Club</div><div class="rpt-brand-tag">TRACK · COMPETE · EVOLVE</div></div>'
+      +'</div>'
+    +'</div>'
+    +'<div class="rpt-divider"></div>'
+    +'<div class="rpt-period-lbl">'+periodLabel+'</div>'
+    +'<div class="rpt-period-range">'+_rptEsc(dateRangeLabel)+deltaHTML+'</div>'
+    +'<div class="rpt-user-block">'
+      +'<div class="rpt-user-av">'+avatarInnerHTML+'</div>'
+      +'<div style="flex:1;min-width:0">'
+        +'<div class="rpt-user-name">'+_rptEsc(userName)+'</div>'
+        +'<div class="rpt-user-meta">'
+          +'<div class="rpt-lvl-pill" style="color:'+lvlColor+';border-color:'+lvlColor+'30">Ур.'+lvlNum+' · '+_rptEsc(lvlName)+'</div>'
+          +(userStreak>0?'<div class="rpt-streak-pill">🔥 '+userStreak+' дн.</div>':'')
+        +'</div>'
+        +'<div style="font-size:9px;color:rgba(255,255,255,.22);margin-top:5px;font-family:\'DM Mono\',monospace;letter-spacing:-.01em">'+totalAllTime.toFixed(1)+' ч за всё время</div>'
+      +'</div>'
+    +'</div>'
+    +'<div class="rpt-kpi-grid">'
+      +_rptKpiCell(periodHrs.toFixed(1),'ч',isWeek?'За неделю':'За месяц','#F5C842')
+      +_rptKpiCell(String(activeDays),' дн','Активных дней','#4ADE80')
+      +_rptKpiCell(String(avgPerDay),'ч','В среднем/день','#1a9fff')
+    +'</div>'
+    +catHTML+rankHTML+bestHTML
+    +'<div class="rpt-divider-soft"></div>'
+    +'<div class="rpt-quote"><div class="rpt-quote-text">«'+_rptEsc(q.text)+'»</div><div class="rpt-quote-author">'+_rptEsc(q.author)+'</div></div>'
+    +'<div class="rpt-footer"><div class="rpt-footer-time">'+_rptEsc(genTime)+'</div><div class="rpt-footer-brand">dtrsystem.club</div></div>';
+}
+
+async function _rptCapture(scale){
   await _rptLoadH2C();
-  var card = document.getElementById('reportCard');
-  return await window.html2canvas(card, {
-    scale: scale || 3,
-    backgroundColor: '#0C0B09',
-    useCORS: true,
-    allowTaint: true,
-    logging: false,
-    imageTimeout: 8000,
+  var card=document.getElementById('reportCard');
+  return await window.html2canvas(card,{
+    scale:scale||3,
+    backgroundColor:'#0C0B09',
+    useCORS:true,
+    allowTaint:true,
+    logging:false,
+    imageTimeout:15000,
+    onclone:function(cloneDoc){
+      var link=cloneDoc.createElement('link');
+      link.rel='stylesheet';
+      link.href='https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,600;9..40,700;9..40,800&display=swap';
+      cloneDoc.head.appendChild(link);
+    }
   });
 }
 
-/* ── DOWNLOAD AS JPEG ── */
-async function downloadReport() {
-  var btn = document.getElementById('reportDlBtn');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Генерация...'; }
-  try {
-    var canvas = await _rptCapture(3);
-    var dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-    var period = (typeof dashPeriod !== 'undefined' && dashPeriod === 'month') ? 'месяц' : 'неделя';
-    var dateStr = new Date().toLocaleDateString('ru').replace(/\./g,'-');
-    var a = document.createElement('a');
-    a.href = dataUrl; a.download = 'DTR_Отчёт_'+period+'_'+dateStr+'.jpg';
+async function downloadReport(){
+  var btn=document.getElementById('reportDlBtn');
+  var orig=btn?btn.innerHTML:'';
+  if(btn){btn.disabled=true;btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="animation:spin 0.9s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Сохранение...';}
+  try{
+    var canvas=await _rptCapture(3);
+    var dataUrl=canvas.toDataURL('image/jpeg',0.96);
+    var period=(typeof dashPeriod!=='undefined'&&dashPeriod==='month')?'месяц':'неделя';
+    var dateStr=new Date().toLocaleDateString('ru').replace(/\./g,'-');
+    var a=document.createElement('a');
+    a.href=dataUrl; a.download='DTR_Отчёт_'+period+'_'+dateStr+'.jpg';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    if (typeof showToast === 'function') showToast('Отчёт сохранён на устройство ✅', '📄');
-  } catch(e) {
-    console.error('DTR Report download:', e);
-    if (typeof showToast === 'function') showToast('Ошибка генерации', '⚠️');
+    if(typeof showToast==='function') showToast('Отчёт сохранён на устройство','✅');
+  }catch(e){
+    console.error('DTR download:',e);
+    if(typeof showToast==='function') showToast('Ошибка генерации. Попробуй ещё раз.','⚠️');
   }
-  if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Скачать JPEG'; }
+  if(btn){btn.disabled=false;btn.innerHTML=orig;}
 }
 
-/* ── SHARE (Web Share API → Telegram / Instagram) ── */
-async function shareReport(platform) {
-  var btnId = 'reportShare_' + platform;
-  var btn = document.getElementById(btnId);
-  if (btn) { btn.disabled = true; btn.style.opacity = '.55'; }
+async function shareReport(platform){
+  var btn=document.getElementById('reportShare_'+platform);
+  var orig=btn?btn.innerHTML:'';
+  if(btn){btn.disabled=true;btn.style.opacity='.5';}
+  try{
+    var canvas=await _rptCapture(2);
+    var period=(typeof dashPeriod!=='undefined'&&dashPeriod==='month')?'месяц':'неделю';
+    var shareTxt='Мой прогресс за '+period+' в DTR Progress Club 🏆\nhttps://dtrsystemgroup.vercel.app';
+    var blob=await new Promise(function(res){canvas.toBlob(res,'image/jpeg',0.93);});
+    var file=new File([blob],'DTR_report.jpg',{type:'image/jpeg'});
 
-  try {
-    var canvas = await _rptCapture(2);
-
-    var period = (typeof dashPeriod !== 'undefined' && dashPeriod === 'month') ? 'месяц' : 'неделя';
-    var shareText = 'Мой прогресс за ' + period + ' — DTR Progress Club 🏆\nhttps://dtrsystemgroup.vercel.app';
-
-    /* Convert canvas to Blob */
-    var blob = await new Promise(function(res){ canvas.toBlob(res, 'image/jpeg', 0.92); });
-    var file = new File([blob], 'DTR_report.jpg', { type: 'image/jpeg' });
-
-    /* Try native Web Share API (works on mobile for both Telegram & Instagram) */
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: 'DTR Progress Club — Отчёт', text: shareText });
-      if (typeof showToast === 'function') showToast('Поделился успешно!', '🚀');
-    } else if (platform === 'telegram') {
-      /* Fallback for Telegram: download image + open share link */
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a'); a.href = url; a.download = 'DTR_report.jpg';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      await navigator.share({files:[file],title:'DTR Progress Club — Мой отчёт',text:shareTxt});
+      if(typeof showToast==='function') showToast('Поделился!','🚀');
+    }else if(platform==='telegram'){
+      var bUrl=URL.createObjectURL(blob);
+      var a=document.createElement('a');a.href=bUrl;a.download='DTR_report.jpg';
+      document.body.appendChild(a);a.click();document.body.removeChild(a);
+      URL.revokeObjectURL(bUrl);
       setTimeout(function(){
-        window.open('https://t.me/share/url?url=' + encodeURIComponent('https://dtrsystemgroup.vercel.app') + '&text=' + encodeURIComponent(shareText), '_blank');
-      }, 600);
-      if (typeof showToast === 'function') showToast('Сохранено! Открываю Telegram…', '✈️');
-    } else if (platform === 'instagram') {
-      /* Fallback for Instagram: download + hint */
-      var url2 = URL.createObjectURL(blob);
-      var a2 = document.createElement('a'); a2.href = url2; a2.download = 'DTR_report.jpg';
-      document.body.appendChild(a2); a2.click(); document.body.removeChild(a2);
-      if (typeof showToast === 'function') showToast('Фото сохранено — опубликуй в Stories! 📸', '📱');
+        window.open('https://t.me/share/url?url='+encodeURIComponent('https://dtrsystemgroup.vercel.app')+'&text='+encodeURIComponent(shareTxt),'_blank');
+      },700);
+      if(typeof showToast==='function') showToast('Фото сохранено. Открываю Telegram…','✈️');
+    }else{
+      var bUrl2=URL.createObjectURL(blob);
+      var a2=document.createElement('a');a2.href=bUrl2;a2.download='DTR_report.jpg';
+      document.body.appendChild(a2);a2.click();document.body.removeChild(a2);
+      URL.revokeObjectURL(bUrl2);
+      if(typeof showToast==='function') showToast('Фото сохранено — загрузи в Instagram Stories! 📸','📱');
     }
-  } catch(e) {
-    if (e.name !== 'AbortError') {
-      console.error('DTR Share:', e);
-      if (typeof showToast === 'function') showToast('Ошибка публикации', '⚠️');
+  }catch(e){
+    if(e.name!=='AbortError'){
+      console.error('DTR share:',e);
+      if(typeof showToast==='function') showToast('Ошибка публикации','⚠️');
     }
   }
-
-  if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+  if(btn){btn.disabled=false;btn.style.opacity='';btn.innerHTML=orig;}
 }
 
-/* ── Close on Escape ── */
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
-    var ov = document.getElementById('reportOv');
-    if (ov && ov.style.display === 'flex') closeReportModal();
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'){
+    var ov=document.getElementById('reportOv');
+    if(ov&&ov.style.display==='flex') closeReportModal();
   }
 });
 </script>
