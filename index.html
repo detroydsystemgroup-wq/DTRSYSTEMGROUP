@@ -25565,37 +25565,13 @@ function _lrnRenderSidebar(){
     </div>`;
 
   } else {
-    // Tools view
-    let svcCats=[];
-    try{ const r=localStorage.getItem('dtr_svc_v1'); svcCats=(r?JSON.parse(r):{categories:[]}).categories||[]; }catch(e){}
-    const totalSvc=svcCats.reduce((a,c)=>a+(c.services||[]).length,0);
-
-    sb_el.innerHTML=subSw+`
-    <div class="lrn-sb-summary" style="margin:4px 12px 4px;border-color:rgba(6,182,212,.18);background:rgba(6,182,212,.05)">
-      <div class="lrn-sb-summary-row">
-        <span class="lrn-sb-summary-title" style="color:#06B6D4">Мои сервисы</span>
-      </div>
-      <div class="lrn-sb-summary-stats">
-        <div class="lrn-sb-stat"><div class="lrn-sb-stat-val">${totalSvc}</div><div class="lrn-sb-stat-lbl">Сервисов</div></div>
-        <div class="lrn-sb-stat"><div class="lrn-sb-stat-val">${svcCats.length}</div><div class="lrn-sb-stat-lbl">Категорий</div></div>
-      </div>
-    </div>
-    <div class="lrn-sb-section">
-      <div class="lrn-sb-ttl">Категории</div>
-      ${svcCats.length===0
-        ?`<div style="font-size:11px;color:var(--t3);padding:0 4px 4px;line-height:1.5">Создай категорию — «Аналитика», «Дизайн», «SMM»</div>`
-        :svcCats.map(c=>{
-          const cnt=(c.services||[]).length;
-          return `<div class="lrn-sb-cat" onclick="document.getElementById('svc-s-${c.id}')?.scrollIntoView({behavior:'smooth',block:'start'})">
-            <div class="lrn-sb-cat-icon" style="background:${c.color}18;border:0.5px solid ${c.color}30">
-              <div style="width:8px;height:8px;border-radius:50%;background:${c.color}"></div>
-            </div>
-            <span class="lrn-sb-cat-name">${c.name}</span>
-            <span class="lrn-sb-cat-cnt">${cnt}</span>
-          </div>`;
-        }).join('')}
-      <button class="lrn-sb-addbtn" style="color:#06B6D4;border-color:rgba(6,182,212,.2)" onclick="window.svcAddCat?window.svcAddCat():null">${svgPlus} Новая категория</button>
-    </div>`;
+    // Tools view — delegate fully to ServicesPanel engine
+    sb_el.innerHTML = subSw;
+    if(typeof window._svcRenderSidebar === 'function'){
+      window._svcRenderSidebar(sb_el);
+    } else {
+      sb_el.insertAdjacentHTML('beforeend',`<div style="padding:16px 12px;font-size:12px;color:var(--t3)">Загрузка...</div>`);
+    }
   }
 }
 
@@ -25618,57 +25594,12 @@ function _lrnRenderMain(){
   const svgX=`<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 
   if(sbView==='tools'){
-    // ── Tools / Services view ──
-    let svcCats=[];
-    try{ const r=localStorage.getItem('dtr_svc_v1'); svcCats=(r?JSON.parse(r):{categories:[]}).categories||[]; }catch(e){}
-
-    main.innerHTML=`
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px 16px;border-bottom:0.5px solid rgba(255,255,255,.04);flex-shrink:0">
-        <div style="display:flex;align-items:center;gap:10px">
-          <div style="width:32px;height:32px;border-radius:9px;background:rgba(6,182,212,.1);border:0.5px solid rgba(6,182,212,.2);display:flex;align-items:center;justify-content:center">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#06B6D4" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="3" width="7" height="7" rx="1"/><rect x="15" y="3" width="7" height="7" rx="1"/><rect x="15" y="14" width="7" height="7" rx="1"/><rect x="2" y="14" width="7" height="7" rx="1"/></svg>
-          </div>
-          <div>
-            <div class="lrn-page-ttl">Сервисы и инструменты</div>
-            <div style="font-size:11px;color:var(--t3);margin-top:1px">Быстрый доступ к рабочим инструментам</div>
-          </div>
-        </div>
-        <button class="lrn-new-cat-btn" style="color:#06B6D4;border-color:rgba(6,182,212,.25);background:rgba(6,182,212,.07)" onclick="window.svcAddCat?window.svcAddCat():null">${svgPlus} Категория</button>
-      </div>
-      ${svcCats.length===0||svcCats.every(c=>!(c.services||[]).length)?`
-        <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:48px 24px;text-align:center">
-          <span style="font-size:44px;opacity:.3">🧰</span>
-          <div style="font-size:16px;font-weight:700;color:var(--t1)">Добавь свои инструменты</div>
-          <div style="font-size:13px;color:var(--t2);line-height:1.6;max-width:280px">Аналитика, дизайн, SMM и другие сервисы с быстрым доступом</div>
-          <button class="lrn-new-cat-btn" style="color:#06B6D4;border-color:rgba(6,182,212,.25);background:rgba(6,182,212,.07);margin-top:4px" onclick="window.svcAddCat?window.svcAddCat():null">${svgPlus} Создать категорию</button>
-        </div>`
-      :svcCats.filter(c=>(c.services||[]).length).map(cat=>{
-        const svcs=cat.services||[];
-        return `<div class="svc-section" id="svc-s-${cat.id}">
-          <div class="svc-section-hdr">
-            <div class="svc-section-name"><div class="svc-section-dot" style="background:${cat.color}"></div>${cat.name}<span style="font-size:11px;font-weight:400;color:var(--t3);font-family:'DM Mono',monospace">${svcs.length}</span></div>
-            <div class="svc-section-acts">
-              <button class="svc-section-btn" onclick="window.svcRenameCat('${cat.id}')">${svgEdit}</button>
-              <button class="svc-section-btn del" onclick="window.svcDeleteCat('${cat.id}')">${svgTrash}</button>
-            </div>
-          </div>
-          <div class="svc-grid">
-            ${svcs.map(svc=>{
-              const dom=(()=>{try{return new URL(svc.url).hostname.replace('www.','');}catch{return '';}})();
-              return `<a class="svc-tile" href="${svc.url}" target="_blank" rel="noopener">
-                <div style="width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);overflow:hidden;flex-shrink:0">
-                  <img src="https://www.google.com/s2/favicons?domain=${dom}&sz=128" alt="${svc.name}" width="36" height="36" style="width:36px;height:36px;object-fit:contain;display:block" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('beforeend','<span style=\\'font-size:24px;line-height:1\\'>🔗</span>')">
-                </div>
-                <span class="svc-tile-name">${svc.name}</span>
-                <button class="svc-tile-del" onclick="event.preventDefault();event.stopPropagation();window.svcDeleteService('${cat.id}','${svc.id}')">${svgX}</button>
-              </a>`;
-            }).join('')}
-            <button class="svc-add-tile" onclick="window.svcAddService('${cat.id}')">
-              <div class="svc-add-tile-ico">${svgPlus}</div>Добавить
-            </button>
-          </div>
-        </div>`;
-      }).join('')}`;
+    // ── Delegate fully to the ServicesPanel engine ──
+    if(typeof window._svcRenderMain === 'function'){
+      window._svcRenderMain();
+    } else {
+      main.innerHTML=`<div style="padding:40px 24px;text-align:center;color:var(--t3)">Загрузка...</div>`;
+    }
     return;
   }
 
