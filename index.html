@@ -13714,6 +13714,11 @@ html[data-theme="light"] .nav-icon-btn:hover {
         Поиск функций
       </button>
       <div class="nav-pill-group-sep"></div>
+      <button class="nav-search-pill" onclick="openUserSearchModal()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Найти игрока
+      </button>
+      <div class="nav-pill-group-sep"></div>
       <div class="nav-online" id="globalOnline">
         <span class="online-dot"></span>
         <span id="onlineCnt">—</span>
@@ -30108,6 +30113,278 @@ window.renderCollabView=renderCollabView;
 
 })();
 
+</script>
+
+<!-- ══ USER SEARCH MODAL ══════════════════════════════════════ -->
+<div id="userSearchOv" onclick="if(event.target===this)closeUserSearchModal()" style="display:none;position:fixed;inset:0;z-index:9900;background:rgba(0,0,0,.72);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);align-items:flex-start;justify-content:center;padding:80px 20px 20px">
+  <div class="usr-search-modal" id="userSearchModal">
+    <!-- Header -->
+    <div class="usr-search-hdr">
+      <div class="usr-search-hdr-icon">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.8" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </div>
+      <div>
+        <div class="usr-search-title">Найти игрока</div>
+        <div class="usr-search-sub">Поиск по никнейму</div>
+      </div>
+      <button class="usr-search-close" onclick="closeUserSearchModal()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <!-- Input -->
+    <div class="usr-search-input-wrap">
+      <svg class="usr-search-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="usrSearchInput" class="usr-search-input" type="text"
+        placeholder="Введи никнейм..."
+        oninput="usrSearchDebounce(this.value)"
+        onkeydown="if(event.key==='Escape')closeUserSearchModal()"
+        autocomplete="off" spellcheck="false">
+      <button class="usr-search-clear" id="usrSearchClear" onclick="usrSearchClearInput()" style="display:none">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <!-- Results -->
+    <div id="usrSearchResults" class="usr-search-results">
+      <div class="usr-search-empty">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="1.2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <div>Начни вводить никнейм</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.usr-search-modal {
+  width: 100%; max-width: 480px;
+  background: var(--panel);
+  border: 0.5px solid rgba(245,200,66,.18);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0,0,0,.7), inset 0 1px 0 rgba(245,200,66,.08);
+  animation: usrSearchIn .28s cubic-bezier(.34,1.1,.64,1) both;
+  position: relative;
+}
+.usr-search-modal::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(245,200,66,.4), transparent);
+  pointer-events: none;
+}
+@keyframes usrSearchIn {
+  from { opacity:0; transform: translateY(-16px) scale(.97); }
+  to   { opacity:1; transform: translateY(0) scale(1); }
+}
+.usr-search-hdr {
+  display: flex; align-items: center; gap: 12px;
+  padding: 18px 20px 16px;
+  border-bottom: 0.5px solid rgba(255,255,255,.05);
+}
+.usr-search-hdr-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: rgba(245,200,66,.1);
+  border: 0.5px solid rgba(245,200,66,.22);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.usr-search-title {
+  font-size: 15px; font-weight: 700; color: var(--t1); letter-spacing: -.02em;
+}
+.usr-search-sub { font-size: 11px; color: var(--t3); margin-top: 1px; }
+.usr-search-close {
+  margin-left: auto;
+  width: 28px; height: 28px; border-radius: 8px;
+  background: rgba(255,255,255,.05); border: 0.5px solid rgba(255,255,255,.08);
+  color: var(--t3); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .14s, color .14s;
+  flex-shrink: 0;
+}
+.usr-search-close:hover { background: rgba(255,255,255,.1); color: var(--t1); }
+
+.usr-search-input-wrap {
+  position: relative;
+  padding: 14px 16px;
+  border-bottom: 0.5px solid rgba(255,255,255,.05);
+  display: flex; align-items: center; gap: 10px;
+}
+.usr-search-ico { color: var(--t3); flex-shrink: 0; }
+.usr-search-input {
+  flex: 1;
+  background: transparent; border: none; outline: none;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px; font-weight: 500;
+  color: var(--t1); letter-spacing: -.01em;
+}
+.usr-search-input::placeholder { color: var(--t3); }
+.usr-search-clear {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(255,255,255,.08); border: none;
+  color: var(--t3); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .14s, color .14s; flex-shrink: 0;
+}
+.usr-search-clear:hover { background: rgba(255,255,255,.14); color: var(--t1); }
+
+.usr-search-results {
+  max-height: 360px; overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.06) transparent;
+}
+.usr-search-results::-webkit-scrollbar { width: 4px; }
+.usr-search-results::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); border-radius: 2px; }
+
+.usr-search-empty {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px; padding: 40px 20px;
+  color: var(--t3); font-size: 13px; text-align: center;
+}
+
+.usr-search-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 0.5px solid rgba(255,255,255,.04);
+  cursor: pointer;
+  transition: background .14s;
+}
+.usr-search-row:last-child { border-bottom: none; }
+.usr-search-row:hover { background: rgba(255,255,255,.04); }
+.usr-search-row-av {
+  width: 40px; height: 40px; border-radius: 11px;
+  background: rgba(245,200,66,.08);
+  border: 0.5px solid rgba(245,200,66,.14);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0; overflow: hidden;
+}
+.usr-search-row-av img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
+.usr-search-row-info { flex: 1; min-width: 0; }
+.usr-search-row-name {
+  font-size: 14px; font-weight: 700;
+  color: var(--t1); letter-spacing: -.01em;
+}
+.usr-search-row-meta { font-size: 11px; color: var(--t3); margin-top: 2px; }
+.usr-search-row-action { flex-shrink: 0; }
+.usr-search-open-btn {
+  height: 30px; padding: 0 12px;
+  border-radius: 8px;
+  background: rgba(245,200,66,.1);
+  border: 0.5px solid rgba(245,200,66,.25);
+  color: var(--gold);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px; font-weight: 700;
+  cursor: pointer;
+  transition: background .14s, border-color .14s;
+}
+.usr-search-open-btn:hover { background: rgba(245,200,66,.18); border-color: rgba(245,200,66,.4); }
+.usr-search-loader {
+  padding: 20px; text-align: center;
+  color: var(--t3); font-size: 13px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.usr-search-spinner {
+  width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,.1);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+</style>
+
+<script>
+(function(){
+  var _usrTimer = null;
+
+  window.openUserSearchModal = function(){
+    var ov = document.getElementById('userSearchOv');
+    ov.style.display = 'flex';
+    setTimeout(function(){ document.getElementById('usrSearchInput').focus(); }, 80);
+  };
+
+  window.closeUserSearchModal = function(){
+    var ov = document.getElementById('userSearchOv');
+    ov.style.display = 'none';
+    usrSearchClearInput();
+  };
+
+  window.usrSearchClearInput = function(){
+    var inp = document.getElementById('usrSearchInput');
+    if(inp) inp.value = '';
+    document.getElementById('usrSearchClear').style.display = 'none';
+    document.getElementById('usrSearchResults').innerHTML =
+      '<div class="usr-search-empty"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="1.2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><div>Начни вводить никнейм</div></div>';
+  };
+
+  window.usrSearchDebounce = function(val){
+    document.getElementById('usrSearchClear').style.display = val ? 'flex' : 'none';
+    clearTimeout(_usrTimer);
+    var res = document.getElementById('usrSearchResults');
+    if(!val.trim()){
+      res.innerHTML = '<div class="usr-search-empty"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="1.2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><div>Начни вводить никнейм</div></div>';
+      return;
+    }
+    res.innerHTML = '<div class="usr-search-loader"><div class="usr-search-spinner"></div>Ищем...</div>';
+    _usrTimer = setTimeout(function(){ _usrDoSearch(val.trim()); }, 320);
+  };
+
+  async function _usrDoSearch(query){
+    var res = document.getElementById('usrSearchResults');
+    if(!res) return;
+    try {
+      var sb2 = window.sb;
+      var me = window.SB_USER;
+      if(!sb2){ res.innerHTML='<div class="usr-search-empty">Необходима авторизация</div>'; return; }
+
+      var r = await sb2.from('users')
+        .select('id,username,avatar,avatar_url,total_hours,streak')
+        .ilike('username', '%' + query + '%')
+        .limit(10);
+
+      var users = r.data || [];
+      // Filter self out if logged in
+      if(me && me.id) users = users.filter(function(u){ return u.id !== me.id; });
+
+      if(!users.length){
+        res.innerHTML = '<div class="usr-search-empty"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="1.2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><div>Никого не найдено по «'+ query +'»</div></div>';
+        return;
+      }
+
+      res.innerHTML = users.map(function(u){
+        var avHtml = u.avatar_url
+          ? '<img src="' + u.avatar_url + '" onerror="this.style.display=\'none\'">'
+          : (u.avatar || '🎯');
+        var meta = [];
+        if(u.total_hours) meta.push(Math.round(u.total_hours) + ' ч');
+        if(u.streak) meta.push('🔥 ' + u.streak);
+        return '<div class="usr-search-row" onclick="usrSearchOpenProfile(\'' + u.id + '\',\'' + (u.username||'').replace(/'/g,"\\'") + '\',\'' + (u.avatar||'🎯') + '\',\'' + (u.avatar_url||'') + '\')">'
+          + '<div class="usr-search-row-av">' + avHtml + '</div>'
+          + '<div class="usr-search-row-info">'
+            + '<div class="usr-search-row-name">' + (u.username || 'Игрок') + '</div>'
+            + (meta.length ? '<div class="usr-search-row-meta">' + meta.join(' · ') + '</div>' : '')
+          + '</div>'
+          + '<div class="usr-search-row-action"><button class="usr-search-open-btn" onclick="event.stopPropagation();usrSearchOpenProfile(\'' + u.id + '\',\'' + (u.username||'').replace(/'/g,"\\'") + '\',\'' + (u.avatar||'🎯') + '\',\'' + (u.avatar_url||'') + '\')">Открыть →</button></div>'
+        + '</div>';
+      }).join('');
+    } catch(e) {
+      res.innerHTML = '<div class="usr-search-empty">Ошибка поиска</div>';
+      console.error('usrSearch:', e);
+    }
+  }
+
+  window.usrSearchOpenProfile = function(id, name, av, avUrl){
+    closeUserSearchModal();
+    if(typeof openUserProfile === 'function'){
+      openUserProfile(id, name, av, avUrl);
+    }
+  };
+
+  // Hotkey: Ctrl+U — open user search
+  document.addEventListener('keydown', function(e){
+    if((e.ctrlKey||e.metaKey) && e.key === 'u'){
+      e.preventDefault();
+      var ov = document.getElementById('userSearchOv');
+      if(ov && ov.style.display === 'flex'){ closeUserSearchModal(); }
+      else { openUserSearchModal(); }
+    }
+  });
+})();
 </script>
 
 <!-- ══ SETTINGS MODAL ════════════════════════════════════════ -->
