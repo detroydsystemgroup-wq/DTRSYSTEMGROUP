@@ -14216,17 +14216,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
     </div>
 
     <div id="tab-manage" class="tc">
-      <div class="card">
-        <div class="ch"><span class="ct" style="display:inline-flex;align-items:center;gap:7px">
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.6"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-  Арена
-</span></div>
-        <div class="cb">
-          <div class="mg-grid" id="manageGrid"></div>
-        </div>
-      </div>
-
-
+      <div class="mg-grid" id="manageGrid" style="display:grid"></div>
     </div>
 
     <div id="tab-messages" class="tc">
@@ -16908,118 +16898,184 @@ function renderSessions(all=false){
 function renderManageGrid(){
   const el = document.getElementById('manageGrid'); if(!el) return;
   if(!P || !P.activeCatIds){ el.innerHTML = ''; return; }
-  const isMobile = window.innerWidth <= 600;
 
-  { // always refresh styles
-    const s = document.createElement('style');
-    s.id = '_mgAnimCSS';
+  // Inject CSS once
+  if(!document.getElementById('_mgEpicCSS')){
+    const s = document.createElement('style'); s.id = '_mgEpicCSS';
     s.textContent = `
-      .mg-card-new {
-        opacity: 1 !important;
-        -webkit-font-smoothing: antialiased;
-      }
-      .mg-card-new:hover {
-        transform: translateY(-3px) !important;
-        transition: transform .2s cubic-bezier(.34,1.56,.64,1) !important;
-      }
-      .mg-check-anim { }
-      .mg-stat-chip  { }
+@keyframes mgCardIn{from{opacity:0;transform:translateY(18px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes mgActivePulse{0%{box-shadow:var(--mg-glow)}50%{box-shadow:var(--mg-glow-hi)}100%{box-shadow:var(--mg-glow)}}
+@keyframes mgCheckIn{0%{transform:scale(0) rotate(-45deg);opacity:0}60%{transform:scale(1.2) rotate(4deg)}80%{transform:scale(.92)}100%{transform:scale(1) rotate(0);opacity:1}}
+@keyframes mgRipple{0%{transform:scale(0);opacity:.35}100%{transform:scale(4);opacity:0}}
+@keyframes mgIconFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes mgToplineFlow{0%{background-position:0% 0}100%{background-position:200% 0}}
+@keyframes mgGlowPulse{0%,100%{opacity:.6}50%{opacity:1}}
+
+.mg-league-card{
+  position:relative;overflow:hidden;
+  border-radius:20px;cursor:pointer;
+  transition:transform .22s cubic-bezier(.34,1.56,.64,1),
+             box-shadow .22s ease,
+             border-color .22s ease;
+  animation:mgCardIn .38s cubic-bezier(.34,1.2,.64,1) both;
+  -webkit-font-smoothing:antialiased;
+  user-select:none;
+}
+.mg-league-card:hover{transform:translateY(-4px) scale(1.015)!important}
+.mg-league-card:active{transform:scale(.97)!important;transition-duration:.1s!important}
+.mg-league-card.active-league{
+  --mg-glow:0 4px 24px rgba(0,0,0,.4),0 0 0 1.5px var(--mg-c,rgba(255,255,255,.2));
+  --mg-glow-hi:0 8px 32px rgba(0,0,0,.5),0 0 0 2px var(--mg-c,rgba(255,255,255,.3)),0 0 28px var(--mg-c,rgba(255,255,255,.15));
+  box-shadow:var(--mg-glow);
+  animation:mgActivePulse 3s ease-in-out infinite;
+}
+.mg-league-card:not(.active-league):hover{
+  box-shadow:0 8px 28px rgba(0,0,0,.4);
+}
+
+/* Ripple */
+.mg-ripple{
+  position:absolute;border-radius:50%;
+  background:currentColor;opacity:0;
+  pointer-events:none;transform:scale(0);
+  animation:mgRipple .55s ease-out forwards;
+}
+
+/* Top accent line — animated on active */
+.mg-topline{
+  position:absolute;top:0;left:0;right:0;height:1.5px;
+  opacity:0;transition:opacity .3s;
+}
+.mg-league-card.active-league .mg-topline{
+  opacity:1;
+  background-size:200% 100%;
+  animation:mgToplineFlow 2s linear infinite;
+}
+
+/* Icon pulse on active */
+.mg-league-card.active-league .mg-icon-wrap{
+  animation:mgIconFloat 2.8s ease-in-out infinite;
+}
+
+/* Check badge */
+.mg-check-badge{
+  animation:mgCheckIn .4s cubic-bezier(.34,1.56,.64,1) both;
+}
+
+/* Stat pill */
+.mg-stat-pill{
+  display:flex;align-items:center;gap:6px;
+  padding:9px 13px;border-radius:12px;flex:1;
+  transition:background .2s;
+}
+
+/* Active count badge top */
+.mg-active-count{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 12px;border-radius:20px;
+  font-family:var(--font-body);font-size:11px;font-weight:600;
+  background:rgba(74,222,128,.1);border:0.5px solid rgba(74,222,128,.2);
+  color:var(--green-l);margin-bottom:20px;
+}
     `;
     document.head.appendChild(s);
   }
 
-  el.style.gridTemplateColumns = isMobile ? '1fr' : 'repeat(2,1fr)';
-  el.style.gap = isMobile ? '10px' : '12px';
+  const activeCnt = P.activeCatIds.length;
 
-  el.innerHTML = ALL_CATS.map((c, i) => {
+  // Header
+  const headerHTML = `
+    <div style="margin-bottom:24px">
+      <div style="font-family:var(--font-display);font-size:22px;font-weight:700;letter-spacing:-.025em;color:var(--t1);margin-bottom:6px">
+        Выбери лиги
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="font-family:var(--font-body);font-size:13px;color:var(--t3);line-height:1.5;max-width:340px">
+          Соревнуйся с людьми с теми же целями. Войди в лигу — и начни отсчёт.
+        </div>
+        <div class="mg-active-count">
+          <span style="width:6px;height:6px;border-radius:50%;background:var(--green-l);box-shadow:0 0 6px rgba(74,222,128,.6)"></span>
+          ${activeCnt} активн${activeCnt===1?'ая':activeCnt>=2&&activeCnt<=4?'ые':'ых'}
+        </div>
+      </div>
+    </div>`;
+
+  el.style.gridTemplateColumns = window.innerWidth <= 600 ? '1fr' : 'repeat(2,1fr)';
+  el.style.gap = '14px';
+
+  const cardsHTML = ALL_CATS.map((c, i) => {
     const on  = P.activeCatIds.includes(c.id);
     const hrs = P.categories.find(x => x.id === c.id)?.hours || 0;
     const mc  = c.members || 0;
     const col = c.color;
     const iconKey = {read:'read',lang:'lang',code:'code',trading:'trading',cooking:'cooking',intellect:'intellect',project:'project',study:'study'}[c.id];
-    const delay = i * 50;
-    const hrsLabel = hrs > 0 ? (hrs >= 100 ? Math.round(hrs) : hrs.toFixed(1)) + ' ч' : '—';
+    const delay = i * 55;
+    const hrsLabel = hrs > 0 ? (hrs >= 100 ? Math.round(hrs) : hrs.toFixed(1)) : null;
 
-    // ── Stat chips — only shown when active, clearly separated ──────
+    // Color-derived values
+    const colRgb = col.startsWith('#') ? `${parseInt(col.slice(1,3),16)},${parseInt(col.slice(3,5),16)},${parseInt(col.slice(5,7),16)}` : '255,255,255';
+
     const statsHTML = on ? `
-      <div style="display:flex;gap:7px;margin-top:12px;padding-top:11px;
-        border-top:0.5px solid ${col}22">
-        <!-- My hours chip -->
-        <div class="mg-stat-chip" style="
-          display:flex;align-items:center;gap:6px;
-          flex:1;padding:8px 11px;border-radius:10px;
-          background:${col}12;border:0.5px solid ${col}28;
-          animation-delay:${delay+120}ms">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${col}" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 7 12 12 15 14"/></svg>
+      <div style="display:flex;gap:8px;margin-top:14px;padding-top:14px;border-top:0.5px solid ${col}1a">
+        <div class="mg-stat-pill" style="background:${col}12;border:0.5px solid ${col}25">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${col}" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 7 12 12 15 14"/></svg>
           <div>
-            <div style="font-family:var(--font-mono);font-size:17px;font-weight:400;
-              color:${col};line-height:1;letter-spacing:-.02em">${hrsLabel}</div>
-            <div style="font-size:10px;font-weight:500;letter-spacing:.03em;text-transform:uppercase;
-              color:${col};opacity:.8;margin-top:2px">моих часов</div>
+            <div style="font-family:var(--font-clock);font-size:19px;font-weight:400;color:${col};letter-spacing:.04em;line-height:1">${hrsLabel || '—'}</div>
+            <div style="font-family:var(--font-body);font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${col};opacity:.7;margin-top:2px">моих часов</div>
           </div>
         </div>
-        <!-- League members chip -->
-        <div class="mg-stat-chip" style="
-          display:flex;align-items:center;gap:6px;
-          flex:1;padding:8px 11px;border-radius:10px;
-          background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.08);
-          animation-delay:${delay+160}ms">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <div class="mg-stat-pill" style="background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.08)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green-l)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <div>
-            <div style="font-family:var(--font-mono);font-size:17px;font-weight:400;
-              color:#4ADE80;line-height:1;letter-spacing:-.02em">${mc > 0 ? mc : '—'}</div>
-            <div style="font-size:10px;font-weight:500;letter-spacing:.03em;text-transform:uppercase;
-              color:rgba(74,222,128,.6);margin-top:2px">участников</div>
+            <div style="font-family:var(--font-clock);font-size:19px;font-weight:400;color:var(--green-l);letter-spacing:.04em;line-height:1">${mc > 0 ? mc : '—'}</div>
+            <div style="font-family:var(--font-body);font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:rgba(74,222,128,.6);margin-top:2px">участников</div>
           </div>
         </div>
       </div>` : mc > 0 ? `
-      <div style="margin-top:8px;font-size:11px;color:var(--t3);display:flex;align-items:center;gap:4px">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-        ${mc} участников
+      <div style="margin-top:12px;display:flex;align-items:center;gap:6px">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        <span style="font-family:var(--font-body);font-size:12px;color:var(--t3)">${mc} участник${mc===1?'':mc<=4?'а':'ов'} ждут</span>
       </div>` : `
-      <div style="margin-top:8px;font-size:11px;color:var(--t2);opacity:.5">Войди первым в лигу</div>`;
+      <div style="margin-top:12px;display:flex;align-items:center;gap:6px">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4a2 2 0 0 1 1.95-2.18h3a2 2 0 0 1 2 1.72c.13 1 .39 1.98.76 2.9a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.18 6.18l1.78-1.87a2 2 0 0 1 2.11-.45c.92.37 1.9.63 2.9.76A2 2 0 0 1 22 16.92z"/></svg>
+        <span style="font-family:var(--font-body);font-size:12px;color:var(--t3)">Войди первым в лигу</span>
+      </div>`;
 
-    return `<div class="mg-card-new"
-      onclick="toggleCatEpic('${c.id}')"
+    return `<div class="mg-league-card ${on ? 'active-league' : ''}"
+      onclick="_mgToggle(event,'${c.id}')"
       style="
-        position:relative;overflow:hidden;
-        border-radius:16px;
-        padding:18px;
-        cursor:pointer;
-        background:${on ? `var(--panel)` : 'var(--panel)'};
-        border:${on ? `1.5px solid ${col}45` : '0.5px solid var(--border)'};
-        box-shadow:${on ? `0 2px 12px rgba(0,0,0,.4),inset 0 1px 0 ${col}18` : '0 1px 3px rgba(0,0,0,.3)'};
-        opacity:1;
-        -webkit-font-smoothing:antialiased;
-        transition:border-color .2s,box-shadow .2s">
+        padding:20px;
+        background:${on ? `var(--panel)` : 'var(--card)'};
+        border:${on ? `1.5px solid ${col}50` : '0.5px solid var(--border)'};
+        --mg-c:${col}50;
+        animation-delay:${delay}ms">
 
-      ${on ? `<div style="position:absolute;inset:0;
-        background:linear-gradient(135deg,${col}0e 0%,transparent 55%);
-        pointer-events:none"></div>` : ''}
+      <!-- Animated top accent line -->
+      <div class="mg-topline" style="background:linear-gradient(90deg,transparent,${col}99,${col},${col}99,transparent);background-size:200% 100%"></div>
 
-      ${on ? `<div style="position:absolute;top:0;left:0;right:0;height:2px;
-        background:linear-gradient(90deg,transparent,${col}99 40%,${col} 50%,${col}99 60%,transparent);
-        border-radius:16px 16px 0 0"></div>` : ''}
+      <!-- Background gradient overlay -->
+      ${on ? `<div style="position:absolute;inset:0;background:linear-gradient(135deg,${col}0d 0%,transparent 60%);pointer-events:none;border-radius:20px"></div>` : ''}
 
-      <!-- Top row: icon + name + state -->
-      <div style="display:flex;align-items:center;gap:14px">
+      <!-- Main row -->
+      <div style="display:flex;align-items:flex-start;gap:16px;position:relative">
 
-        <div style="
-          width:48px;height:48px;border-radius:14px;flex-shrink:0;
+        <!-- Icon — large, no box -->
+        <div class="mg-icon-wrap" style="
+          width:52px;height:52px;flex-shrink:0;
           display:flex;align-items:center;justify-content:center;
-          color:${col};
-          background:${on ? `${col}18` : 'rgba(255,255,255,.04)'};
-          border:0.5px solid ${on ? col+'30' : 'rgba(255,255,255,.07)'};
-          transition:background .2s">
-          ${(ICONS[iconKey]||'').replace('width="20" height="20"','width="22" height="22"')}
+          color:${on ? col : 'rgba(255,255,255,.3)'};
+          transition:color .2s">
+          ${(ICONS[iconKey]||'').replace(/width="\d+" height="\d+"/,'width="28" height="28"')}
         </div>
 
-        <div style="flex:1;min-width:0">
-          <div style="font-size:15px;font-weight:600;letter-spacing:-.015em;
-            color:${on ? col : 'var(--t1)'};line-height:1.2;margin-bottom:3px;-webkit-font-smoothing:antialiased">
+        <!-- Text -->
+        <div style="flex:1;min-width:0;padding-top:2px">
+          <div style="font-family:var(--font-display);font-size:16px;font-weight:700;letter-spacing:-.02em;
+            color:${on ? col : 'var(--t1)'};line-height:1.2;margin-bottom:4px;
+            transition:color .2s">
             ${c.name}
           </div>
-          <div style="font-size:11px;color:var(--t2);opacity:.6;
+          <div style="font-family:var(--font-body);font-size:12px;color:var(--t3);line-height:1.4;
             white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
             ${c.desc || 'Направление развития'}
           </div>
@@ -17027,31 +17083,48 @@ function renderManageGrid(){
 
         <!-- State badge -->
         ${on
-          ? `<div class="mg-check-anim" style="
-              display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">
-              <div style="width:26px;height:26px;border-radius:50%;
-                background:${col};display:flex;align-items:center;justify-content:center">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#09090B" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+          ? `<div class="mg-check-badge" style="display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0;margin-top:2px">
+              <div style="width:28px;height:28px;border-radius:50%;background:${col};
+                display:flex;align-items:center;justify-content:center;
+                box-shadow:0 0 14px ${col}70">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#09090B" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
               </div>
-              <span style="font-size:9px;font-weight:600;letter-spacing:.03em;
-                text-transform:uppercase;color:${col}">активна</span>
+              <span style="font-family:var(--font-body);font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:${col}">активна</span>
             </div>`
-          : `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">
-              <div style="width:26px;height:26px;border-radius:50%;
-                border:1.5px solid var(--border);
-                display:flex;align-items:center;justify-content:center">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          : `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0;margin-top:2px">
+              <div style="width:28px;height:28px;border-radius:50%;
+                border:1.5px solid rgba(255,255,255,.1);
+                display:flex;align-items:center;justify-content:center;
+                transition:border-color .2s,background .2s">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               </div>
-              <span style="font-size:9px;font-weight:500;letter-spacing:.03em;
-                text-transform:uppercase;color:var(--t3)">войти</span>
+              <span style="font-family:var(--font-body);font-size:8px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)">войти</span>
             </div>`}
       </div>
 
-      <!-- Stats — separate section, clearly readable -->
-      ${statsHTML}
+      <!-- Stats -->
+      <div style="position:relative">${statsHTML}</div>
     </div>`;
   }).join('');
+
+  el.innerHTML = headerHTML + cardsHTML;
 }
+
+// Ripple helper + toggle wrapper
+function _mgToggle(e, catId){
+  // Ripple effect
+  const card = e.currentTarget;
+  const r = document.createElement('div');
+  const rect = card.getBoundingClientRect();
+  const size = Math.max(rect.width, rect.height) * 1.2;
+  r.className = 'mg-ripple';
+  r.style.cssText = `width:${size}px;height:${size}px;left:${e.clientX-rect.left-size/2}px;top:${e.clientY-rect.top-size/2}px;color:${P.activeCatIds.includes(catId) ? 'rgba(255,255,255,.06)' : 'rgba(255,255,255,.08)'}`;
+  card.appendChild(r);
+  setTimeout(() => r.remove(), 600);
+  toggleCatEpic(catId);
+}
+
+
 
 
 // ══ ACHIEVEMENTS ════════════════════════════════════════════
@@ -17387,88 +17460,78 @@ function _buildArenaHTML(cats, results){
   const modeLbl = arenaModeLabel(arenaMode);
   const totalPlayers = new Set(results.flat().map(p=>p.userId||p.name)).size;
 
-  // ── Inject arena CSS once ─────────────────────────────────────
+  // ── CSS once ──────────────────────────────────────────────────
   if(!document.getElementById('_arenaEpicCSS')){
     const s=document.createElement('style');s.id='_arenaEpicCSS';
     s.textContent=`
-@keyframes arenaCardIn{from{opacity:0;transform:translateY(22px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
-@keyframes arenaRowIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
-@keyframes arenaPodiumIn{0%{opacity:0;transform:translateY(8px) scale(.88)}55%{transform:translateY(-4px) scale(1.04)}80%{transform:translateY(2px) scale(.99)}100%{opacity:1;transform:translateY(0) scale(1)}}
-@keyframes arenaMedalFloat{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-5px) rotate(2deg)}}
-@keyframes arenaBarIn{from{width:0}to{}}
-@keyframes arenaGlowPulse{0%,100%{opacity:.7;transform:scale(1)}50%{opacity:1;transform:scale(1.25)}}
-@keyframes arenaLiveDot{0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,.5)}60%{box-shadow:0 0 0 5px rgba(74,222,128,.0)}}
+@keyframes arenaCardIn{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes arenaRowIn{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}
+@keyframes arenaPodiumIn{0%{opacity:0;transform:scale(.82)}60%{transform:scale(1.04)}80%{transform:scale(.98)}100%{opacity:1;transform:scale(1)}}
+@keyframes arenaMedalFloat{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-6px) rotate(3deg)}}
+@keyframes arenaBarIn{from{width:0!important}to{}}
+@keyframes arenaLiveDot{0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,.6)}60%{box-shadow:0 0 0 6px transparent}}
 @keyframes arenaShimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-@keyframes arenaCrownSpin{0%{transform:rotate(-8deg) scale(1)}50%{transform:rotate(4deg) scale(1.08)}100%{transform:rotate(-8deg) scale(1)}}
 @keyframes arenaTopGlow{0%,100%{box-shadow:var(--glow-base)}50%{box-shadow:var(--glow-pulse)}}
+@keyframes arenaToplineFlow{0%{background-position:0% 0}100%{background-position:200% 0}}
 
-.arena-card{animation:arenaCardIn .4s cubic-bezier(.34,1.2,.64,1) both}
-.arena-row{animation:arenaRowIn .3s ease both}
-.arena-medal{animation:arenaMedalFloat 2.8s ease-in-out infinite}
-.arena-bar{animation:arenaBarIn .8s cubic-bezier(.4,0,.2,1) both}
-.arena-podium-av{animation:arenaPodiumIn .5s cubic-bezier(.34,1.2,.64,1) both}
-
-/* Row hover */
-.arena-row{transition:background .14s,padding-left .14s!important}
-.arena-row:not([data-isme]):hover{background:rgba(255,255,255,.03)!important;padding-left:24px!important}
-.arena-row[data-isme]:hover{filter:brightness(1.06)}
-
-/* Card hover */
-.arena-card:hover{transform:translateY(-3px)!important;transition:transform .22s cubic-bezier(.34,1.56,.64,1),box-shadow .22s!important}
-.arena-card:hover .arena-card-top-line{opacity:1!important}
-
-/* Rank 1 crown */
-.arena-rank1-crown{animation:arenaCrownSpin 3s ease-in-out infinite;display:inline-block}
-
-/* Top-3 avatar glow pulse */
-.arena-top1-av{
-  --glow-base:0 0 0 2px rgba(255,214,10,.2),0 0 20px rgba(255,214,10,.25);
-  --glow-pulse:0 0 0 3px rgba(255,214,10,.35),0 0 32px rgba(255,214,10,.5);
-  box-shadow:var(--glow-base);animation:arenaTopGlow 2.4s ease-in-out infinite
-}
-.arena-top2-av{
-  --glow-base:0 0 0 2px rgba(200,200,212,.15),0 0 16px rgba(200,200,212,.2);
-  --glow-pulse:0 0 0 3px rgba(200,200,212,.28),0 0 24px rgba(200,200,212,.35);
-  box-shadow:var(--glow-base);animation:arenaTopGlow 3s ease-in-out infinite
-}
-.arena-top3-av{
-  --glow-base:0 0 0 2px rgba(232,147,90,.15),0 0 14px rgba(232,147,90,.18);
-  --glow-pulse:0 0 0 3px rgba(232,147,90,.28),0 0 20px rgba(232,147,90,.3);
-  box-shadow:var(--glow-base);animation:arenaTopGlow 3.5s ease-in-out infinite
-}
-
-/* Shimmer on #1 name */
-.arena-rank1-name{
-  background:linear-gradient(90deg,#FFD60A,#FFF5A0,#FFD60A);
-  background-size:200% 100%;
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-  animation:arenaShimmer 3s ease-in-out infinite
-}
-
-/* Rank number */
-.arena-rank-num{font-family:var(--font-mono);font-size:12px;font-weight:400;color:rgba(255,255,255,.2);width:26px;text-align:center;flex-shrink:0}
+.arena-card{animation:arenaCardIn .38s cubic-bezier(.34,1.2,.64,1) both;position:relative;overflow:hidden}
+.arena-row{animation:arenaRowIn .28s ease both;transition:background .14s,transform .14s!important}
+.arena-row:not([data-isme]):hover{background:rgba(255,255,255,.035)!important;transform:translateX(3px)!important}
+.arena-row[data-isme]:hover{filter:brightness(1.07)!important}
+.arena-bar{animation:arenaBarIn .85s cubic-bezier(.4,0,.2,1) both}
+.arena-podium-av{animation:arenaPodiumIn .45s cubic-bezier(.34,1.2,.64,1) both}
+.arena-medal-wrap{animation:arenaMedalFloat 3s ease-in-out infinite}
+.arena-card:hover{transform:translateY(-4px)!important;transition:transform .22s cubic-bezier(.34,1.56,.64,1),box-shadow .22s!important}
+.arena-rank1-name{background:linear-gradient(90deg,#FFD60A,#FFF9A0,#FFD60A);background-size:200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:arenaShimmer 2.8s ease infinite}
+.arena-top1-av{--glow-base:0 0 0 2.5px rgba(255,214,10,.3),0 0 22px rgba(255,214,10,.3);--glow-pulse:0 0 0 3px rgba(255,214,10,.5),0 0 36px rgba(255,214,10,.55);box-shadow:var(--glow-base);animation:arenaTopGlow 2.2s ease-in-out infinite}
+.arena-top2-av{--glow-base:0 0 0 2px rgba(200,200,212,.2),0 0 16px rgba(200,200,212,.22);--glow-pulse:0 0 0 3px rgba(200,200,212,.35),0 0 26px rgba(200,200,212,.38);box-shadow:var(--glow-base);animation:arenaTopGlow 2.8s ease-in-out infinite}
+.arena-top3-av{--glow-base:0 0 0 2px rgba(232,147,90,.18),0 0 14px rgba(232,147,90,.2);--glow-pulse:0 0 0 3px rgba(232,147,90,.32),0 0 22px rgba(232,147,90,.35);box-shadow:var(--glow-base);animation:arenaTopGlow 3.2s ease-in-out infinite}
+.arena-card-topline{position:absolute;top:0;left:0;right:0;height:1.5px;background-size:200% 100%;animation:arenaToplineFlow 2.5s linear infinite;opacity:.8}
+.arena-rank-num{font-family:var(--font-mono);font-size:11px;color:rgba(255,255,255,.18);width:22px;text-align:center;flex-shrink:0}
     `;
     document.head.appendChild(s);
   }
 
-  // ── Header ─────────────────────────────────────────────────────
+  // ── SVG rank badges (replacing emoji medals) ─────────────────
+  const rankBadgeSVG = (rank, size=20) => {
+    if(rank===1) return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none">
+      <polygon points="12,2 15.5,8.5 23,9.5 17.5,14.8 19,22 12,18.3 5,22 6.5,14.8 1,9.5 8.5,8.5" fill="#FFD60A" stroke="#C8940A" stroke-width=".8"/>
+      <text x="12" y="15.5" text-anchor="middle" font-size="7" font-weight="700" fill="#5A3800" font-family="sans-serif">1</text>
+    </svg>`;
+    if(rank===2) return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none">
+      <polygon points="12,2 15.5,8.5 23,9.5 17.5,14.8 19,22 12,18.3 5,22 6.5,14.8 1,9.5 8.5,8.5" fill="#C8C8D4" stroke="#8A8A96" stroke-width=".8"/>
+      <text x="12" y="15.5" text-anchor="middle" font-size="7" font-weight="700" fill="#2A2A32" font-family="sans-serif">2</text>
+    </svg>`;
+    if(rank===3) return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none">
+      <polygon points="12,2 15.5,8.5 23,9.5 17.5,14.8 19,22 12,18.3 5,22 6.5,14.8 1,9.5 8.5,8.5" fill="#E8935A" stroke="#A85020" stroke-width=".8"/>
+      <text x="12" y="15.5" text-anchor="middle" font-size="7" font-weight="700" fill="#3A1400" font-family="sans-serif">3</text>
+    </svg>`;
+    return `<span style="font-family:var(--font-mono);font-size:11px;color:rgba(255,255,255,.22)">${rank}</span>`;
+  };
+
+  // ── Adaptive grid columns based on cat count ──────────────────
+  const cols = cats.length === 1 ? '1fr'
+             : cats.length === 2 ? 'repeat(2,1fr)'
+             : cats.length === 3 ? 'repeat(3,1fr)'
+             : 'repeat(auto-fill,minmax(300px,1fr))';
+
+  // ── Header ────────────────────────────────────────────────────
   const arenaHeader = `
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px">
     <div style="display:flex;align-items:center;gap:10px">
-      <div style="display:flex;align-items:center;gap:5px">
-        <span style="width:7px;height:7px;border-radius:50%;background:#4ADE80;animation:arenaLiveDot 1.8s ease-in-out infinite"></span>
-        <span style="font-family:var(--font-body);font-size:12px;font-weight:600;color:var(--green-l)">${totalPlayers} онлайн</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="width:7px;height:7px;border-radius:50%;background:#4ADE80;animation:arenaLiveDot 1.8s ease-in-out infinite;flex-shrink:0"></span>
+        <span style="font-family:var(--font-body);font-size:12px;font-weight:600;color:var(--green-l)">${totalPlayers} участников</span>
       </div>
       <span style="width:1px;height:12px;background:rgba(255,255,255,.08)"></span>
       <span style="font-family:var(--font-body);font-size:12px;color:var(--t3)">${cats.length} лиг</span>
     </div>
     <div style="font-family:var(--font-display);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
       color:var(--gold);background:rgba(245,200,66,.08);border:0.5px solid rgba(245,200,66,.2);
-      padding:5px 14px;border-radius:20px;
-      box-shadow:0 0 12px rgba(245,200,66,.1)">${modeLbl}</div>
+      padding:5px 14px;border-radius:20px">${modeLbl}</div>
   </div>`;
 
-  // ── League cards ───────────────────────────────────────────────
+  // ── League cards ──────────────────────────────────────────────
   const leagueCards = cats.map((cat, ci) => {
     const rawPlayers = results[ci] || [];
     const sorted = [...rawPlayers].sort((a,b)=>getArenaValue(b,arenaMode)-getArenaValue(a,arenaMode));
@@ -17477,213 +17540,211 @@ function _buildArenaHTML(cats, results){
     const maxVal = Math.max(...top10.map(p=>getArenaValue(p,arenaMode)), 0.1);
     const myRank = myIdx >= 0 ? myIdx + 1 : null;
     const catKey = {read:'read',lang:'lang',code:'code',trading:'trading',cooking:'cooking',intellect:'intellect',project:'project',study:'study'}[cat.id];
-    const cardDelay = ci * 80;
+    const cardDelay = ci * 75;
 
-    const podiumColors = [
-      { txt:'#FFD60A', glow:'rgba(255,214,10,.55)',  ring:'rgba(255,214,10,.08)',  border:'rgba(255,214,10,.28)', avCls:'arena-top1-av' },
-      { txt:'#C8C8D4', glow:'rgba(200,200,212,.45)', ring:'rgba(200,200,212,.06)', border:'rgba(200,200,212,.22)', avCls:'arena-top2-av' },
-      { txt:'#E8935A', glow:'rgba(232,147,90,.45)',  ring:'rgba(232,147,90,.06)',  border:'rgba(232,147,90,.22)', avCls:'arena-top3-av' },
+    const P3 = [
+      { txt:'#FFD60A', glow:'rgba(255,214,10,.6)',  ring:'rgba(255,214,10,.07)',  border:'rgba(255,214,10,.3)',  avCls:'arena-top1-av', bg:'rgba(255,214,10,.04)' },
+      { txt:'#C8C8D4', glow:'rgba(200,200,212,.5)', ring:'rgba(200,200,212,.05)', border:'rgba(200,200,212,.2)', avCls:'arena-top2-av', bg:'rgba(200,200,212,.03)' },
+      { txt:'#E8935A', glow:'rgba(232,147,90,.5)',  ring:'rgba(232,147,90,.06)',  border:'rgba(232,147,90,.22)', avCls:'arena-top3-av', bg:'rgba(232,147,90,.04)' },
     ];
 
-    const rows = top10.length === 0
-      ? `<div style="padding:52px 24px;text-align:center">
-          <div style="font-size:40px;margin-bottom:12px;opacity:.35;filter:grayscale(.5)">⚔️</div>
-          <div style="font-family:var(--font-display);font-size:15px;font-weight:600;color:var(--t3);margin-bottom:6px">Лига пустует</div>
-          <div style="font-size:12px;color:var(--t3);opacity:.6">Стань первым — займи вершину</div>
-        </div>`
-      : top10.map((p, i) => {
-          const isMe  = p.isMe;
-          const val   = getArenaValue(p, arenaMode);
-          const vStr  = formatArenaValue(val, arenaMode);
-          const barW  = Math.round((val/maxVal)*100);
-          const pc    = podiumColors[i] || null;
-          const click = !isMe && !p.fake && p.userId;
-          const rowDelay = cardDelay + 160 + i * 40;
-          const isTop3 = i < 3;
-
-          const av = isMe
-            ? (P.avatarUrl ? `<img src="${P.avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:${isTop3?11:8}px" onerror="this.parentNode.textContent='${P.avatar}'">` : `<span style="font-size:${isTop3?20:16}px">${P.avatar}</span>`)
-            : (p.avUrl    ? `<img src="${p.avUrl}"    style="width:100%;height:100%;object-fit:cover;border-radius:${isTop3?11:8}px" onerror="this.parentNode.textContent='${p.av}'">` : `<span style="font-size:${isTop3?20:16}px">${p.av}</span>`);
-
-          // Top-3: more prominent row
-          if(isTop3){
-            return `<div class="arena-row"
-              ${isMe?'data-isme="true"':''}
-              style="
-                display:flex;align-items:center;gap:14px;
-                padding:${i===0?'16px':'13px'} 20px;
-                border-bottom:0.5px solid rgba(255,255,255,.04);
-                background:${isMe
-                  ?`linear-gradient(90deg,${cat.color}16,${cat.color}06,transparent)`
-                  :`linear-gradient(90deg,${pc.ring},transparent)`};
-                ${isMe?`border-left:2.5px solid ${cat.color};`:''}
-                cursor:${click?'pointer':'default'};
-                animation-delay:${rowDelay}ms"
-              ${click?`onclick="openUserProfile('${esc(p.userId)}','${escAttr(p.name)}','${escAttr(p.av)}','${escAttr(p.avUrl||'')}')"`:''}>
-
-              <!-- Medal -->
-              <div style="width:28px;text-align:center;flex-shrink:0">
-                <span class="arena-medal" style="font-size:${i===0?22:19}px;display:block;filter:drop-shadow(0 0 7px ${pc.glow})">
-                  ${i===0?'🥇':i===1?'🥈':'🥉'}
-                </span>
-              </div>
-
-              <!-- Avatar with glow -->
-              <div class="arena-podium-av ${pc.avCls}"
-                style="width:${i===0?42:38}px;height:${i===0?42:38}px;border-radius:${i===0?13:11}px;flex-shrink:0;overflow:hidden;
-                  background:${isMe?cat.color+'18':'rgba(255,255,255,.05)'};
-                  border:1px solid ${isMe?cat.color+'55':pc.border};
-                  display:flex;align-items:center;justify-content:center;
-                  animation-delay:${rowDelay+60}ms">
-                ${av}
-              </div>
-
-              <!-- Name + bar -->
-              <div style="flex:1;min-width:0">
-                <div style="margin-bottom:6px">
-                  <span class="${i===0&&!isMe?'arena-rank1-name':''}"
-                    style="font-family:var(--font-display);font-size:${i===0?14:13}px;font-weight:${i===0?700:600};
-                    ${i===0&&isMe?`color:${cat.color}`:''}
-                    ${i>0&&!isMe?`color:${pc.txt}`:''}
-                    ${isMe&&i>0?`color:${cat.color}`:''}
-                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:160px">
-                    ${isMe?esc(P.name):esc(p.name)}
-                  </span>
-                </div>
-                <div style="height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;max-width:200px">
-                  <div class="arena-bar" style="height:100%;width:${barW}%;border-radius:2px;
-                    background:${isMe?cat.color:pc.txt};
-                    box-shadow:0 0 8px ${isMe?cat.color:pc.glow};
-                    animation-delay:${rowDelay+150}ms"></div>
-                </div>
-              </div>
-
-              <!-- Stat -->
-              <div style="text-align:right;flex-shrink:0">
-                <div style="font-family:var(--font-clock);font-size:${i===0?20:17}px;font-weight:400;letter-spacing:.04em;
-                  color:${isMe?cat.color:pc.txt};
-                  text-shadow:0 0 12px ${isMe?cat.color:pc.glow}">
-                  ${vStr}
-                </div>
-              </div>
-            </div>`;
-          }
-
-          // Rows 4–10: compact
-          return `<div class="arena-row"
-            ${isMe?'data-isme="true"':''}
-            style="
-              display:flex;align-items:center;gap:12px;
-              padding:10px 20px;
-              border-bottom:0.5px solid rgba(255,255,255,.028);
-              background:${isMe?`linear-gradient(90deg,${cat.color}10,transparent)`:'transparent'};
-              ${isMe?`border-left:2px solid ${cat.color}70;`:''}
-              cursor:${click?'pointer':'default'};
-              animation-delay:${rowDelay}ms"
-            ${click?`onclick="openUserProfile('${esc(p.userId)}','${escAttr(p.name)}','${escAttr(p.av)}','${escAttr(p.avUrl||'')}')"`:''}>
-
-            <div class="arena-rank-num">${i+1}</div>
-
-            <div style="width:30px;height:30px;border-radius:8px;flex-shrink:0;overflow:hidden;
-              background:${isMe?cat.color+'14':'rgba(255,255,255,.04)'};
-              border:0.5px solid ${isMe?cat.color+'40':'rgba(255,255,255,.06)'};
-              display:flex;align-items:center;justify-content:center">
-              ${av}
-            </div>
-
-            <div style="flex:1;min-width:0">
-              <div style="font-family:var(--font-body);font-size:13px;font-weight:${isMe?600:400};
-                color:${isMe?cat.color:'var(--t1)'};
-                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px">
-                ${isMe?esc(P.name):esc(p.name)}
-                ${isMe?`<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:${cat.color}18;color:${cat.color};margin-left:5px;letter-spacing:.04em">ты</span>`:''}
-              </div>
-            </div>
-
-            <div style="font-family:var(--font-clock);font-size:14px;font-weight:400;letter-spacing:.04em;
-              color:${isMe?cat.color:'var(--t2)'};flex-shrink:0">
-              ${vStr}
-            </div>
-          </div>`;
-        }).join('');
-
-    // My position footer if outside top-10
-    const myFooter = myRank && myIdx >= 10 ? `
-      <div style="padding:12px 20px;border-top:0.5px solid ${cat.color}18;
-        background:linear-gradient(90deg,${cat.color}0a,transparent);
-        display:flex;align-items:center;justify-content:space-between">
-        <span style="font-family:var(--font-body);font-size:11px;color:var(--t3)">Твоя позиция</span>
-        <span style="font-family:var(--font-clock);font-size:16px;font-weight:400;letter-spacing:.04em;color:${cat.color}">
-          #${myRank}
-        </span>
-      </div>` : '';
-
-    // Card header
-    const myRankBadge = myRank
-      ? `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
-          <div style="font-family:var(--font-clock);font-size:24px;font-weight:300;letter-spacing:.06em;
-            color:${myRank<=3?podiumColors[myRank-1].txt:cat.color};line-height:1">
-            ${myRank<=3?['🥇','🥈','🥉'][myRank-1]:'#'+myRank}
-          </div>
-          <div style="font-family:var(--font-body);font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t3)">твой ранг</div>
-        </div>`
-      : `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;opacity:.5">
-          <div style="font-size:18px">🏁</div>
-          <div style="font-family:var(--font-body);font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)">войти</div>
-        </div>`;
-
-    return `<div class="arena-card" style="
-      margin-bottom:16px;
-      border-radius:18px;overflow:hidden;
-      background:var(--panel);
-      border:0.5px solid ${cat.color}22;
-      box-shadow:0 4px 24px rgba(0,0,0,.35),0 1px 0 rgba(255,255,255,.03);
-      animation-delay:${cardDelay}ms;
-      position:relative">
-
-      <!-- Subtle top accent line -->
-      <div class="arena-card-top-line" style="
-        position:absolute;top:0;left:0;right:0;height:1px;
-        background:linear-gradient(90deg,transparent 0%,${cat.color}60 30%,${cat.color}90 50%,${cat.color}60 70%,transparent 100%);
-        opacity:.7;transition:opacity .3s"></div>
-
-      <!-- Card header -->
-      <div style="padding:16px 20px;
-        background:linear-gradient(135deg,${cat.color}0e,${cat.color}04,transparent);
-        border-bottom:0.5px solid ${cat.color}15;
-        display:flex;align-items:center;justify-content:space-between;gap:12px">
-
-        <div style="display:flex;align-items:center;gap:14px">
-          <!-- Icon — no box, just colour -->
-          <div style="width:42px;height:42px;flex-shrink:0;
-            display:flex;align-items:center;justify-content:center;color:${cat.color}">
-            ${getCatSVG(cat?.id||catKey, 24)}
-          </div>
-          <div>
-            <div style="font-family:var(--font-display);font-size:15px;font-weight:700;letter-spacing:-.015em;color:var(--t1);margin-bottom:3px">${cat.name}</div>
-            <div style="font-family:var(--font-body);font-size:11px;color:var(--t3)">
-              ${rawPlayers.length} участник${rawPlayers.length===1?'':rawPlayers.length>=2&&rawPlayers.length<=4?'а':'ов'}
+    // ── Empty state ──────────────────────────────────────────────
+    if(top10.length === 0){
+      return `<div class="arena-card" style="border-radius:18px;background:var(--panel);border:0.5px solid ${cat.color}1a;animation-delay:${cardDelay}ms">
+        <div class="arena-card-topline" style="background:linear-gradient(90deg,transparent,${cat.color}60,${cat.color}90,${cat.color}60,transparent)"></div>
+        <div style="padding:16px 18px;border-bottom:0.5px solid rgba(255,255,255,.05);display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="color:${cat.color}">${getCatSVG(cat?.id||catKey,22)}</div>
+            <div>
+              <div style="font-family:var(--font-display);font-size:14px;font-weight:700;color:var(--t1)">${cat.name}</div>
+              <div style="font-family:var(--font-body);font-size:11px;color:var(--t3);margin-top:2px">Нет участников</div>
             </div>
           </div>
         </div>
+        <div style="padding:40px 20px;text-align:center">
+          <div style="font-size:36px;opacity:.25;margin-bottom:10px">⚔️</div>
+          <div style="font-family:var(--font-display);font-size:14px;font-weight:600;color:var(--t3);margin-bottom:4px">Лига пустует</div>
+          <div style="font-family:var(--font-body);font-size:11px;color:var(--t3);opacity:.55">Стань первым — займи вершину</div>
+        </div>
+      </div>`;
+    }
 
+    // ── Rows ─────────────────────────────────────────────────────
+    const rows = top10.map((p, i) => {
+      const isMe  = p.isMe;
+      const val   = getArenaValue(p, arenaMode);
+      const vStr  = formatArenaValue(val, arenaMode);
+      const barW  = Math.round((val/maxVal)*100);
+      const pc    = P3[i] || null;
+      const isTop3 = i < 3;
+      const click = !isMe && !p.fake && p.userId;
+      const rowDelay = cardDelay + 140 + i * 38;
+
+      // Extra player data
+      const weekVal = p.weekHrs > 0 ? p.weekHrs.toFixed(1)+'ч' : null;
+      const streakVal = p.streak > 0 ? p.streak+'д' : null;
+      const totalHrs = p.hrs > 0 ? (p.hrs>=100?Math.round(p.hrs):p.hrs.toFixed(1))+'ч' : null;
+
+      const av = isMe
+        ? (P.avatarUrl ? `<img src="${P.avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:${isTop3?10:7}px" onerror="this.parentNode.textContent='${P.avatar}'">` : `<span style="font-size:${isTop3?19:15}px">${P.avatar}</span>`)
+        : (p.avUrl    ? `<img src="${p.avUrl}"    style="width:100%;height:100%;object-fit:cover;border-radius:${isTop3?10:7}px" onerror="this.parentNode.textContent='${p.av}'">` : `<span style="font-size:${isTop3?19:15}px">${p.av}</span>`);
+
+      const nameColor = isMe ? cat.color : isTop3 ? pc.txt : 'var(--t1)';
+      const statColor = isMe ? cat.color : isTop3 ? pc.txt : 'var(--t2)';
+
+      // TOP 3 ROW
+      if(isTop3) return `<div class="arena-row" ${isMe?'data-isme="true"':''}
+        style="display:flex;align-items:center;gap:13px;
+          padding:${i===0?'15px 18px':'12px 18px'};
+          border-bottom:0.5px solid rgba(255,255,255,.04);
+          background:${isMe?`linear-gradient(90deg,${cat.color}15,${cat.color}05,transparent)`:isTop3?`linear-gradient(90deg,${pc.ring},transparent)`:'transparent'};
+          ${isMe?`border-left:2.5px solid ${cat.color};`:''}
+          cursor:${click?'pointer':'default'};animation-delay:${rowDelay}ms"
+        ${click?`onclick="openUserProfile('${esc(p.userId)}','${escAttr(p.name)}','${escAttr(p.av)}','${escAttr(p.avUrl||'')}')"`:''}>
+
+        <!-- Rank badge -->
+        <div style="width:24px;flex-shrink:0;display:flex;justify-content:center;align-items:center">
+          <div class="arena-medal-wrap">${rankBadgeSVG(i+1, i===0?22:18)}</div>
+        </div>
+
+        <!-- Avatar -->
+        <div class="arena-podium-av ${pc.avCls}"
+          style="width:${i===0?42:36}px;height:${i===0?42:36}px;border-radius:${i===0?12:10}px;flex-shrink:0;overflow:hidden;
+            background:${isMe?cat.color+'18':'rgba(255,255,255,.05)'};
+            border:1px solid ${isMe?cat.color+'55':pc.border};
+            display:flex;align-items:center;justify-content:center;
+            animation-delay:${rowDelay+50}ms">
+          ${av}
+        </div>
+
+        <!-- Name + meta + bar -->
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <span class="${i===0&&!isMe?'arena-rank1-name':''}"
+              style="font-family:var(--font-display);font-size:${i===0?14:13}px;font-weight:${i===0?700:600};
+              color:${i===0&&!isMe?'transparent':nameColor};
+              white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px">
+              ${isMe?esc(P.name):esc(p.name)}
+            </span>
+            ${isMe?`<span style="font-size:8px;padding:1px 5px;border-radius:4px;background:${cat.color}20;color:${cat.color};letter-spacing:.04em;text-transform:uppercase;flex-shrink:0">ты</span>`:''}
+          </div>
+          <!-- Extra data pills -->
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px">
+            ${weekVal?`<span style="font-family:var(--font-mono);font-size:9px;color:rgba(255,255,255,.28);background:rgba(255,255,255,.04);padding:1px 5px;border-radius:4px">нед ${weekVal}</span>`:''}
+            ${streakVal?`<span style="font-family:var(--font-mono);font-size:9px;color:rgba(249,115,22,.6);background:rgba(249,115,22,.06);padding:1px 5px;border-radius:4px">🔥${streakVal}</span>`:''}
+            ${totalHrs&&arenaMode!=='hours'?`<span style="font-family:var(--font-mono);font-size:9px;color:rgba(255,255,255,.22);background:rgba(255,255,255,.04);padding:1px 5px;border-radius:4px">всего ${totalHrs}</span>`:''}
+          </div>
+          <div style="height:2.5px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;max-width:180px">
+            <div class="arena-bar" style="height:100%;width:${barW}%;border-radius:2px;
+              background:${isMe?cat.color:pc.txt};
+              box-shadow:0 0 8px ${isMe?cat.color:pc.glow};
+              animation-delay:${rowDelay+130}ms"></div>
+          </div>
+        </div>
+
+        <!-- Stat value -->
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-family:var(--font-clock);font-size:${i===0?20:16}px;font-weight:400;letter-spacing:.05em;
+            color:${statColor};text-shadow:0 0 14px ${isMe?cat.color:pc.glow}">${vStr}</div>
+        </div>
+      </div>`;
+
+      // ROWS 4–10
+      return `<div class="arena-row" ${isMe?'data-isme="true"':''}
+        style="display:flex;align-items:center;gap:11px;
+          padding:9px 18px;
+          border-bottom:0.5px solid rgba(255,255,255,.025);
+          background:${isMe?`linear-gradient(90deg,${cat.color}0d,transparent)`:'transparent'};
+          ${isMe?`border-left:2px solid ${cat.color}60;`:''}
+          cursor:${click?'pointer':'default'};animation-delay:${rowDelay}ms"
+        ${click?`onclick="openUserProfile('${esc(p.userId)}','${escAttr(p.name)}','${escAttr(p.av)}','${escAttr(p.avUrl||'')}')"`:''}>
+
+        <div class="arena-rank-num">${rankBadgeSVG(i+1,14)}</div>
+
+        <div style="width:28px;height:28px;border-radius:7px;flex-shrink:0;overflow:hidden;
+          background:${isMe?cat.color+'12':'rgba(255,255,255,.04)'};
+          border:0.5px solid ${isMe?cat.color+'35':'rgba(255,255,255,.06)'};
+          display:flex;align-items:center;justify-content:center">${av}</div>
+
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:5px">
+            <span style="font-family:var(--font-body);font-size:12.5px;font-weight:${isMe?600:400};
+              color:${isMe?cat.color:'var(--t1)'};
+              white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px">
+              ${isMe?esc(P.name):esc(p.name)}
+            </span>
+            ${streakVal?`<span style="font-family:var(--font-mono);font-size:9px;color:rgba(249,115,22,.55)">🔥${streakVal}</span>`:''}
+          </div>
+          ${weekVal&&arenaMode!=='week'?`<div style="font-family:var(--font-mono);font-size:9px;color:rgba(255,255,255,.2);margin-top:1px">нед ${weekVal}</div>`:''}
+        </div>
+
+        <div style="font-family:var(--font-clock);font-size:13px;font-weight:400;letter-spacing:.04em;
+          color:${isMe?cat.color:'var(--t3)'};flex-shrink:0">${vStr}</div>
+      </div>`;
+    }).join('');
+
+    // My footer if outside top-10
+    const myFooter = myRank && myIdx >= 10 ? `
+      <div style="padding:10px 18px;border-top:0.5px solid ${cat.color}15;
+        background:linear-gradient(90deg,${cat.color}08,transparent);
+        display:flex;align-items:center;justify-content:space-between">
+        <span style="font-family:var(--font-body);font-size:11px;color:var(--t3)">Твоя позиция</span>
+        <span style="font-family:var(--font-clock);font-size:15px;letter-spacing:.05em;color:${cat.color}">#${myRank}</span>
+      </div>` : '';
+
+    // My rank badge (header)
+    const myRankBadge = myRank
+      ? `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+          <div style="display:flex;align-items:center;gap:5px">
+            ${myRank<=3?rankBadgeSVG(myRank,24):`<span style="font-family:var(--font-clock);font-size:22px;font-weight:300;color:${cat.color};letter-spacing:.04em">#${myRank}</span>`}
+          </div>
+          <div style="font-family:var(--font-body);font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t3)">твой ранг</div>
+        </div>`
+      : `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;opacity:.4">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          <div style="font-family:var(--font-body);font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)">войти</div>
+        </div>`;
+
+    // Total hours / weekly summary strip
+    const myMe = sorted.find(p=>p.isMe);
+    const myHrsTotal = myMe ? (myMe.hrs>=100?Math.round(myMe.hrs):myMe.hrs?.toFixed(1)) : null;
+    const myWeekHrs = myMe?.weekHrs > 0 ? myMe.weekHrs.toFixed(1) : null;
+
+    return `<div class="arena-card" style="
+      border-radius:18px;background:var(--panel);
+      border:0.5px solid ${cat.color}22;
+      box-shadow:0 4px 20px rgba(0,0,0,.3),0 1px 0 rgba(255,255,255,.03);
+      animation-delay:${cardDelay}ms">
+
+      <!-- Flowing top line -->
+      <div class="arena-card-topline" style="background:linear-gradient(90deg,transparent,${cat.color}55,${cat.color}95,${cat.color}55,transparent)"></div>
+
+      <!-- Card header -->
+      <div style="padding:14px 18px;
+        background:linear-gradient(135deg,${cat.color}0f,${cat.color}04,transparent);
+        border-bottom:0.5px solid ${cat.color}14;
+        display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="color:${cat.color};flex-shrink:0">${getCatSVG(cat?.id||catKey,22)}</div>
+          <div>
+            <div style="font-family:var(--font-display);font-size:14px;font-weight:700;letter-spacing:-.015em;color:var(--t1);margin-bottom:2px">${cat.name}</div>
+            <div style="font-family:var(--font-body);font-size:10px;color:var(--t3)">
+              ${rawPlayers.length} игрок${rawPlayers.length===1?'':rawPlayers.length<=4?'а':'ов'}
+              ${myHrsTotal?` · <span style="color:${cat.color}">${myHrsTotal} ч моих</span>`:''}
+            </div>
+          </div>
+        </div>
         ${myRankBadge}
       </div>
 
-      <!-- Divider only if players exist -->
-      ${top10.length > 0 ? `<div style="height:0.5px;background:linear-gradient(90deg,${cat.color}20,transparent)"></div>` : ''}
-
-      <!-- Players -->
+      <!-- Players list -->
       ${rows}
       ${myFooter}
     </div>`;
   }).join('');
 
-  return arenaHeader + `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px">${leagueCards}</div>`;
+  return arenaHeader + `<div style="display:grid;grid-template-columns:${cols};gap:14px;align-items:start">${leagueCards}</div>`;
 }
-
-
-
 
 async function renderLgMini(){
   const el=document.getElementById('lgMini');if(!el)return;
