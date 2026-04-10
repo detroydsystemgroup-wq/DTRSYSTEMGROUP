@@ -18088,13 +18088,21 @@ function _buildArenaHTML(cats, results){
             // Card 2 — ДО ОБГОНА: у меня X, у него Y, нужно +Z
             const c2html = (()=>{
               if(myRank===1 || !aboveMe){
+                // SVG star matching the arena rank stars (gold/silver/bronze)
+                const posColor = myRank===1?'#FFD60A':myRank===2?'#C8C8D4':'#E8935A';
+                const posLabel = myRank===1?'Ты на первом месте':myRank===2?'Второе место':'Третье место';
+                const posTitle = myRank===1?'Лидер':myRank===2?'2-е место':'3-е место';
+                const posStar = rankBadgeSVG(myRank||1, 28);
                 return `<div style="padding:13px 16px;border-radius:12px;
-                  background:rgba(255,214,10,.06);border:0.5px solid rgba(255,214,10,.25);min-width:0">
+                  background:${posColor}0d;border:0.5px solid ${posColor}30;min-width:0">
                   <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
-                    color:#FFD60A;opacity:.7;margin-bottom:8px">Моя позиция</div>
-                  <div style="font-family:var(--font-mono);font-size:22px;font-weight:400;
-                    color:#FFD60A;letter-spacing:-.03em;line-height:1">🥇 Лидер</div>
-                  <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:5px">Ты на первом месте</div>
+                    color:${posColor};opacity:.75;margin-bottom:8px">Моя позиция</div>
+                  <div style="display:flex;align-items:center;gap:10px;line-height:1">
+                    <div style="animation:arenaMedalFloat 3s ease-in-out infinite;flex-shrink:0">${posStar}</div>
+                    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;
+                      color:${posColor};letter-spacing:-.02em">${posTitle}</div>
+                  </div>
+                  <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:6px">${posLabel}</div>
                 </div>`;
               }
               return `<div style="padding:13px 16px;border-radius:12px;
@@ -18105,7 +18113,7 @@ function _buildArenaHTML(cats, results){
                   <div id="arenaLiveGapAbove" data-gap="${gapAbove||0}"
                     style="font-family:var(--font-mono);font-size:22px;font-weight:400;
                     color:#4ADE80;letter-spacing:-.03em;line-height:1">
-                    +${gapAbove<0.1?'<0.1':gapAbove.toFixed(1)} ч
+                    +${arenaMode==='streak'?Math.ceil(gapAbove)+' дн':(gapAbove<0.1?'<0.1':gapAbove.toFixed(1))+' ч'}
                   </div>
                 </div>
                 <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:5px">
@@ -18127,7 +18135,7 @@ function _buildArenaHTML(cats, results){
                     color:#FFD60A;opacity:.7;margin-bottom:8px">Твой отрыв от #2</div>
                   <div style="font-family:var(--font-mono);font-size:22px;font-weight:400;
                     color:#FFD60A;letter-spacing:-.03em;line-height:1">
-                    +${lead<0.1?'<0.1':lead.toFixed(1)} ч
+                    +${arenaMode==='streak'?Math.ceil(lead)+' дн':(lead<0.1?'<0.1':lead.toFixed(1))+' ч'}
                   </div>
                   <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:5px">
                     ${closest ? 'За тобой · '+closest.name : 'Никого нет'}
@@ -18142,7 +18150,7 @@ function _buildArenaHTML(cats, results){
                   <div id="arenaLiveGapLeader" data-gap="${gapLeader||0}"
                     style="font-family:var(--font-mono);font-size:22px;font-weight:400;
                     color:#FFD60A;letter-spacing:-.03em;line-height:1">
-                    ${gapLeader!==null?('+'+((gapLeader<0.1?'<0.1':gapLeader.toFixed(1)))+' ч'):'—'}
+                    ${gapLeader!==null?(arenaMode==='streak'?'+'+Math.ceil(gapLeader)+' дн':'+'+((gapLeader<0.1?'<0.1':gapLeader.toFixed(1)))+' ч'):'—'}
                   </div>
                 </div>
                 <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:5px">
@@ -18152,23 +18160,28 @@ function _buildArenaHTML(cats, results){
               </div>`;
             })();
 
-            // Card 4 — МОЯ НЕДЕЛЯ: сколько я занимался на этой неделе vs топ недели
-            const myWeekVal = myMe ? myMe.weekHrs : 0;
-            const topWeekPlayer = [...rawPlayers].sort((a,b)=>(b.weekHrs||0)-(a.weekHrs||0))[0];
-            const topWeekVal = topWeekPlayer ? topWeekPlayer.weekHrs : 0;
-            const weekRank = [...rawPlayers].sort((a,b)=>(b.weekHrs||0)-(a.weekHrs||0)).findIndex(p=>p.isMe)+1;
+            // Card 4 — МОЯ НЕДЕЛЯ / МОЙ СТРИК (зависит от режима)
+            const isStreakMode = arenaMode === 'streak';
+            const myWeekVal = myMe ? (isStreakMode ? (myMe.streak||0) : myMe.weekHrs) : 0;
+            const topWeekPlayer = isStreakMode
+              ? [...rawPlayers].sort((a,b)=>(b.streak||0)-(a.streak||0))[0]
+              : [...rawPlayers].sort((a,b)=>(b.weekHrs||0)-(a.weekHrs||0))[0];
+            const topWeekVal = topWeekPlayer ? (isStreakMode ? topWeekPlayer.streak||0 : topWeekPlayer.weekHrs||0) : 0;
+            const weekRank = isStreakMode
+              ? [...rawPlayers].sort((a,b)=>(b.streak||0)-(a.streak||0)).findIndex(p=>p.isMe)+1
+              : [...rawPlayers].sort((a,b)=>(b.weekHrs||0)-(a.weekHrs||0)).findIndex(p=>p.isMe)+1;
+            const c4lbl = isStreakMode ? 'Мой стрик' : 'Моя неделя';
+            const c4val = isStreakMode
+              ? (myWeekVal>0 ? myWeekVal+' дн' : '0 дн')
+              : (myWeekVal>0 ? myWeekVal.toFixed(1)+' ч' : '0.0 ч');
+            const c4sub = weekRank>0 ? '#'+weekRank+(isStreakMode?' стрик-рейтинг':' нед. рейтинг') : '';
             const c4html = `<div style="padding:13px 16px;border-radius:12px;
               background:rgba(26,159,255,.05);border:0.5px solid rgba(26,159,255,.18);min-width:0">
               <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
-                color:#1a9fff;opacity:.7;margin-bottom:8px">Моя неделя</div>
+                color:#1a9fff;opacity:.7;margin-bottom:8px">${c4lbl}</div>
               <div style="font-family:var(--font-mono);font-size:22px;font-weight:400;
-                color:#1a9fff;letter-spacing:-.03em;line-height:1">
-                ${myWeekVal>0?myWeekVal.toFixed(1)+' ч':'0.0 ч'}
-              </div>
-              <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:5px">
-                ${weekRank>0?`#${weekRank} нед. рейтинг`:''}
-                ${topWeekVal>0&&!myMe?.isMe?` · топ ${topWeekVal.toFixed(1)} ч`:''}
-              </div>
+                color:#1a9fff;letter-spacing:-.03em;line-height:1">${c4val}</div>
+              <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:5px">${c4sub}</div>
             </div>`;
 
             return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px">
@@ -18244,17 +18257,18 @@ function _buildArenaHTML(cats, results){
       if(catId && catId !== curCatId) return;
       const live = baseVal + elapsed/3600;
       myCard.textContent = live.toFixed(2)+' ч';
-      // Gap to player above
-      const gapEl1 = document.getElementById('arenaLiveGapAbove');
-      if(gapEl1){
-        const g0 = parseFloat(gapEl1.dataset.gap);
-        if(!isNaN(g0) && g0 > 0){ const g=g0-(elapsed/3600); gapEl1.textContent = g>0?'+'+(g<0.1?'<0.1':g.toFixed(1))+' ч':'🏆 Обогнал!'; }
-      }
-      // Gap to leader
-      const gapEl2 = document.getElementById('arenaLiveGapLeader');
-      if(gapEl2){
-        const g0 = parseFloat(gapEl2.dataset.gap);
-        if(!isNaN(g0) && g0 > 0){ const g=g0-(elapsed/3600); gapEl2.textContent = g>0?'+'+(g<0.1?'<0.1':g.toFixed(1))+' ч':'🏆 Лидер!'; }
+      // Gap to player above (hours only — streak not live-updated)
+      if(arenaMode!=='streak'){
+        const gapEl1 = document.getElementById('arenaLiveGapAbove');
+        if(gapEl1){
+          const g0 = parseFloat(gapEl1.dataset.gap);
+          if(!isNaN(g0) && g0 > 0){ const g=g0-(elapsed/3600); gapEl1.textContent = g>0?'+'+(g<0.1?'<0.1':g.toFixed(1))+' ч':'🏆 Обогнал!'; }
+        }
+        const gapEl2 = document.getElementById('arenaLiveGapLeader');
+        if(gapEl2){
+          const g0 = parseFloat(gapEl2.dataset.gap);
+          if(!isNaN(g0) && g0 > 0){ const g=g0-(elapsed/3600); gapEl2.textContent = g>0?'+'+(g<0.1?'<0.1':g.toFixed(1))+' ч':'🏆 Лидер!'; }
+        }
       }
     }, 1000);
   }
