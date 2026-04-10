@@ -19983,7 +19983,7 @@ function initPresence() {
     await pingOnline();
     await updateOnlineCount();
     await updateLeagueOnlineCounts();
-  }, 45000);
+  }, 30000); // FIX: 30s < ONLINE_WINDOW_MS/2 — prevents false dropouts on flaky networks
 
   // Тихое фоновое обновление арены каждые 10 минут
   // Если арена открыта — обновляем данные без spinner
@@ -20010,13 +20010,22 @@ function initPresence() {
 }
 
 // FIX: Mark user offline immediately when tab is closed or hidden
-// sendBeacon works in beforeunload/pagehide where async fetch doesn't
-async function markOffline(){
+// Uses fetch with keepalive:true — guaranteed delivery even during page unload
+function markOffline(){
   if(!SB_USER || SB_USER.isDemoUser) return;
+  const offlineTime = new Date(Date.now() - ONLINE_WINDOW_MS - 5000).toISOString();
   try {
-    // Set last_seen to past (beyond the online window) so they drop off immediately
-    const offlineTime = new Date(Date.now() - ONLINE_WINDOW_MS - 5000).toISOString();
-    await sb.from('users').update({ last_seen: offlineTime }).eq('id', SB_USER.id);
+    fetch('https://jwqvlhmtjtpoxwncmpex.supabase.co/rest/v1/users?id=eq.'+SB_USER.id, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ last_seen: offlineTime }),
+      keepalive: true
+    }).catch(()=>{});
   } catch(e){ /* silent */ }
 }
 
@@ -20025,7 +20034,7 @@ document.addEventListener('visibilitychange', () => {
     markOffline();
   } else if(document.visibilityState === 'visible' && SB_USER && !SB_USER.isDemoUser){
     // Re-ping immediately when tab becomes visible again
-    pingOnline().then(() => updateOnlineCount());
+    pingOnline().then(() => { updateOnlineCount(); updateLeagueOnlineCounts(); });
     // Проверяем изменился ли день пока вкладка была скрыта
     // Если да — пересчитываем стрик и активные дни (без полной перезагрузки)
     _checkDayChangeOnResume();
