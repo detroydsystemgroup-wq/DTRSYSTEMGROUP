@@ -17382,28 +17382,90 @@ async function renderLeagues(){
   finally{ _lgFetching = false; }
 }
 
-// ── _buildArenaHTML — Apple Design Language ───────────────────────
+// ── _buildArenaHTML — EPIC ARENA ─────────────────────────────────
 function _buildArenaHTML(cats, results){
   const modeLbl = arenaModeLabel(arenaMode);
   const totalPlayers = new Set(results.flat().map(p=>p.userId||p.name)).size;
 
-  // ── Keyframes + card animation CSS (injected once) ─────────────
-  const animCSS = ``;
+  // ── Inject arena CSS once ─────────────────────────────────────
+  if(!document.getElementById('_arenaEpicCSS')){
+    const s=document.createElement('style');s.id='_arenaEpicCSS';
+    s.textContent=`
+@keyframes arenaCardIn{from{opacity:0;transform:translateY(22px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes arenaRowIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+@keyframes arenaPodiumIn{0%{opacity:0;transform:translateY(8px) scale(.88)}55%{transform:translateY(-4px) scale(1.04)}80%{transform:translateY(2px) scale(.99)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes arenaMedalFloat{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-5px) rotate(2deg)}}
+@keyframes arenaBarIn{from{width:0}to{}}
+@keyframes arenaGlowPulse{0%,100%{opacity:.7;transform:scale(1)}50%{opacity:1;transform:scale(1.25)}}
+@keyframes arenaLiveDot{0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,.5)}60%{box-shadow:0 0 0 5px rgba(74,222,128,.0)}}
+@keyframes arenaShimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes arenaCrownSpin{0%{transform:rotate(-8deg) scale(1)}50%{transform:rotate(4deg) scale(1.08)}100%{transform:rotate(-8deg) scale(1)}}
+@keyframes arenaTopGlow{0%,100%{box-shadow:var(--glow-base)}50%{box-shadow:var(--glow-pulse)}}
 
-  // ── Compact header ─────────────────────────────────────────────
-  const arenaHeader = animCSS + `
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:24px;padding:0 2px">
+.arena-card{animation:arenaCardIn .4s cubic-bezier(.34,1.2,.64,1) both}
+.arena-row{animation:arenaRowIn .3s ease both}
+.arena-medal{animation:arenaMedalFloat 2.8s ease-in-out infinite}
+.arena-bar{animation:arenaBarIn .8s cubic-bezier(.4,0,.2,1) both}
+.arena-podium-av{animation:arenaPodiumIn .5s cubic-bezier(.34,1.2,.64,1) both}
+
+/* Row hover */
+.arena-row{transition:background .14s,padding-left .14s!important}
+.arena-row:not([data-isme]):hover{background:rgba(255,255,255,.03)!important;padding-left:24px!important}
+.arena-row[data-isme]:hover{filter:brightness(1.06)}
+
+/* Card hover */
+.arena-card:hover{transform:translateY(-3px)!important;transition:transform .22s cubic-bezier(.34,1.56,.64,1),box-shadow .22s!important}
+.arena-card:hover .arena-card-top-line{opacity:1!important}
+
+/* Rank 1 crown */
+.arena-rank1-crown{animation:arenaCrownSpin 3s ease-in-out infinite;display:inline-block}
+
+/* Top-3 avatar glow pulse */
+.arena-top1-av{
+  --glow-base:0 0 0 2px rgba(255,214,10,.2),0 0 20px rgba(255,214,10,.25);
+  --glow-pulse:0 0 0 3px rgba(255,214,10,.35),0 0 32px rgba(255,214,10,.5);
+  box-shadow:var(--glow-base);animation:arenaTopGlow 2.4s ease-in-out infinite
+}
+.arena-top2-av{
+  --glow-base:0 0 0 2px rgba(200,200,212,.15),0 0 16px rgba(200,200,212,.2);
+  --glow-pulse:0 0 0 3px rgba(200,200,212,.28),0 0 24px rgba(200,200,212,.35);
+  box-shadow:var(--glow-base);animation:arenaTopGlow 3s ease-in-out infinite
+}
+.arena-top3-av{
+  --glow-base:0 0 0 2px rgba(232,147,90,.15),0 0 14px rgba(232,147,90,.18);
+  --glow-pulse:0 0 0 3px rgba(232,147,90,.28),0 0 20px rgba(232,147,90,.3);
+  box-shadow:var(--glow-base);animation:arenaTopGlow 3.5s ease-in-out infinite
+}
+
+/* Shimmer on #1 name */
+.arena-rank1-name{
+  background:linear-gradient(90deg,#FFD60A,#FFF5A0,#FFD60A);
+  background-size:200% 100%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:arenaShimmer 3s ease-in-out infinite
+}
+
+/* Rank number */
+.arena-rank-num{font-family:var(--font-mono);font-size:12px;font-weight:400;color:rgba(255,255,255,.2);width:26px;text-align:center;flex-shrink:0}
+    `;
+    document.head.appendChild(s);
+  }
+
+  // ── Header ─────────────────────────────────────────────────────
+  const arenaHeader = `
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:10px">
       <div style="display:flex;align-items:center;gap:5px">
-        <span style="width:6px;height:6px;border-radius:50%;background:#4ADE80;box-shadow:0 0 6px rgba(74,222,128,.7);animation:arenaGlowPulse 2s ease-in-out infinite"></span>
-        <span style="font-size:12px;font-weight:600;color:var(--t2)">${totalPlayers} участников</span>
+        <span style="width:7px;height:7px;border-radius:50%;background:#4ADE80;animation:arenaLiveDot 1.8s ease-in-out infinite"></span>
+        <span style="font-family:var(--font-body);font-size:12px;font-weight:600;color:var(--green-l)">${totalPlayers} онлайн</span>
       </div>
-      <span style="width:1px;height:12px;background:var(--border)"></span>
-      <span style="font-size:12px;font-weight:600;color:var(--t2)">${cats.length} лиги</span>
+      <span style="width:1px;height:12px;background:rgba(255,255,255,.08)"></span>
+      <span style="font-family:var(--font-body);font-size:12px;color:var(--t3)">${cats.length} лиг</span>
     </div>
-    <div style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
-      color:var(--gold);background:rgba(245,200,66,.08);border:0.5px solid rgba(245,200,66,.18);
-      padding:4px 12px;border-radius:20px">${modeLbl}</div>
+    <div style="font-family:var(--font-display);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+      color:var(--gold);background:rgba(245,200,66,.08);border:0.5px solid rgba(245,200,66,.2);
+      padding:5px 14px;border-radius:20px;
+      box-shadow:0 0 12px rgba(245,200,66,.1)">${modeLbl}</div>
   </div>`;
 
   // ── League cards ───────────────────────────────────────────────
@@ -17415,20 +17477,19 @@ function _buildArenaHTML(cats, results){
     const maxVal = Math.max(...top10.map(p=>getArenaValue(p,arenaMode)), 0.1);
     const myRank = myIdx >= 0 ? myIdx + 1 : null;
     const catKey = {read:'read',lang:'lang',code:'code',trading:'trading',cooking:'cooking',intellect:'intellect',project:'project',study:'study'}[cat.id];
+    const cardDelay = ci * 80;
 
     const podiumColors = [
-      { txt:'#FFD60A', glow:'rgba(255,214,10,.5)',  ring:'rgba(255,214,10,.25)' },
-      { txt:'#C8C8D4', glow:'rgba(200,200,212,.4)', ring:'rgba(200,200,212,.15)' },
-      { txt:'#E8935A', glow:'rgba(232,147,90,.4)',  ring:'rgba(232,147,90,.15)' },
+      { txt:'#FFD60A', glow:'rgba(255,214,10,.55)',  ring:'rgba(255,214,10,.08)',  border:'rgba(255,214,10,.28)', avCls:'arena-top1-av' },
+      { txt:'#C8C8D4', glow:'rgba(200,200,212,.45)', ring:'rgba(200,200,212,.06)', border:'rgba(200,200,212,.22)', avCls:'arena-top2-av' },
+      { txt:'#E8935A', glow:'rgba(232,147,90,.45)',  ring:'rgba(232,147,90,.06)',  border:'rgba(232,147,90,.22)', avCls:'arena-top3-av' },
     ];
 
-    // Card delay for stagger
-    const cardDelay = ci * 90;
-
     const rows = top10.length === 0
-      ? `<div style="padding:48px 24px;text-align:center;color:var(--t3)">
-          <div style="font-size:36px;margin-bottom:10px;opacity:.4">🏁</div>
-          <div style="font-size:13px">Первым войди в лигу</div>
+      ? `<div style="padding:52px 24px;text-align:center">
+          <div style="font-size:40px;margin-bottom:12px;opacity:.35;filter:grayscale(.5)">⚔️</div>
+          <div style="font-family:var(--font-display);font-size:15px;font-weight:600;color:var(--t3);margin-bottom:6px">Лига пустует</div>
+          <div style="font-size:12px;color:var(--t3);opacity:.6">Стань первым — займи вершину</div>
         </div>`
       : top10.map((p, i) => {
           const isMe  = p.isMe;
@@ -17437,72 +17498,110 @@ function _buildArenaHTML(cats, results){
           const barW  = Math.round((val/maxVal)*100);
           const pc    = podiumColors[i] || null;
           const click = !isMe && !p.fake && p.userId;
-          const rowDelay = cardDelay + 180 + i * 45;
+          const rowDelay = cardDelay + 160 + i * 40;
+          const isTop3 = i < 3;
 
-          const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
-          const nameColor = isMe ? cat.color
-            : pc ? pc.txt : 'var(--t1)';
-
-          // Avatar
           const av = isMe
-            ? (P.avatarUrl ? `<img src="${P.avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.parentNode.textContent='${P.avatar}'">` : `<span style="font-size:17px">${P.avatar}</span>`)
-            : (p.avUrl    ? `<img src="${p.avUrl}"    style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.parentNode.textContent='${p.av}'" >` : `<span style="font-size:17px">${p.av}</span>`);
+            ? (P.avatarUrl ? `<img src="${P.avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:${isTop3?11:8}px" onerror="this.parentNode.textContent='${P.avatar}'">` : `<span style="font-size:${isTop3?20:16}px">${P.avatar}</span>`)
+            : (p.avUrl    ? `<img src="${p.avUrl}"    style="width:100%;height:100%;object-fit:cover;border-radius:${isTop3?11:8}px" onerror="this.parentNode.textContent='${p.av}'">` : `<span style="font-size:${isTop3?20:16}px">${p.av}</span>`);
 
+          // Top-3: more prominent row
+          if(isTop3){
+            return `<div class="arena-row"
+              ${isMe?'data-isme="true"':''}
+              style="
+                display:flex;align-items:center;gap:14px;
+                padding:${i===0?'16px':'13px'} 20px;
+                border-bottom:0.5px solid rgba(255,255,255,.04);
+                background:${isMe
+                  ?`linear-gradient(90deg,${cat.color}16,${cat.color}06,transparent)`
+                  :`linear-gradient(90deg,${pc.ring},transparent)`};
+                ${isMe?`border-left:2.5px solid ${cat.color};`:''}
+                cursor:${click?'pointer':'default'};
+                animation-delay:${rowDelay}ms"
+              ${click?`onclick="openUserProfile('${esc(p.userId)}','${escAttr(p.name)}','${escAttr(p.av)}','${escAttr(p.avUrl||'')}')"`:''}>
+
+              <!-- Medal -->
+              <div style="width:28px;text-align:center;flex-shrink:0">
+                <span class="arena-medal" style="font-size:${i===0?22:19}px;display:block;filter:drop-shadow(0 0 7px ${pc.glow})">
+                  ${i===0?'🥇':i===1?'🥈':'🥉'}
+                </span>
+              </div>
+
+              <!-- Avatar with glow -->
+              <div class="arena-podium-av ${pc.avCls}"
+                style="width:${i===0?42:38}px;height:${i===0?42:38}px;border-radius:${i===0?13:11}px;flex-shrink:0;overflow:hidden;
+                  background:${isMe?cat.color+'18':'rgba(255,255,255,.05)'};
+                  border:1px solid ${isMe?cat.color+'55':pc.border};
+                  display:flex;align-items:center;justify-content:center;
+                  animation-delay:${rowDelay+60}ms">
+                ${av}
+              </div>
+
+              <!-- Name + bar -->
+              <div style="flex:1;min-width:0">
+                <div style="margin-bottom:6px">
+                  <span class="${i===0&&!isMe?'arena-rank1-name':''}"
+                    style="font-family:var(--font-display);font-size:${i===0?14:13}px;font-weight:${i===0?700:600};
+                    ${i===0&&isMe?`color:${cat.color}`:''}
+                    ${i>0&&!isMe?`color:${pc.txt}`:''}
+                    ${isMe&&i>0?`color:${cat.color}`:''}
+                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:160px">
+                    ${isMe?esc(P.name):esc(p.name)}
+                  </span>
+                </div>
+                <div style="height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;max-width:200px">
+                  <div class="arena-bar" style="height:100%;width:${barW}%;border-radius:2px;
+                    background:${isMe?cat.color:pc.txt};
+                    box-shadow:0 0 8px ${isMe?cat.color:pc.glow};
+                    animation-delay:${rowDelay+150}ms"></div>
+                </div>
+              </div>
+
+              <!-- Stat -->
+              <div style="text-align:right;flex-shrink:0">
+                <div style="font-family:var(--font-clock);font-size:${i===0?20:17}px;font-weight:400;letter-spacing:.04em;
+                  color:${isMe?cat.color:pc.txt};
+                  text-shadow:0 0 12px ${isMe?cat.color:pc.glow}">
+                  ${vStr}
+                </div>
+              </div>
+            </div>`;
+          }
+
+          // Rows 4–10: compact
           return `<div class="arena-row"
-            ${isMe ? 'data-isme="true"' : ''}
+            ${isMe?'data-isme="true"':''}
             style="
-              display:flex;align-items:center;gap:13px;
-              padding:${i<3?'14px':'11px'} 20px;
-              border-bottom:0.5px solid rgba(255,255,255,.035);
-              background:${isMe?`linear-gradient(90deg,${cat.color}14,transparent)`:i<3?`linear-gradient(90deg,${pc.ring},transparent)`:'transparent'};
-              ${isMe?`border-left:2.5px solid ${cat.color};`:''}
+              display:flex;align-items:center;gap:12px;
+              padding:10px 20px;
+              border-bottom:0.5px solid rgba(255,255,255,.028);
+              background:${isMe?`linear-gradient(90deg,${cat.color}10,transparent)`:'transparent'};
+              ${isMe?`border-left:2px solid ${cat.color}70;`:''}
               cursor:${click?'pointer':'default'};
-              animation-delay:${rowDelay}ms;
-              transition:background .14s"
+              animation-delay:${rowDelay}ms"
             ${click?`onclick="openUserProfile('${esc(p.userId)}','${escAttr(p.name)}','${escAttr(p.av)}','${escAttr(p.avUrl||'')}')"`:''}>
 
-            <!-- Rank / Medal -->
-            <div style="width:28px;text-align:center;flex-shrink:0">
-              ${medal
-                ? `<span class="arena-medal" style="font-size:20px;display:block;animation-delay:${rowDelay+80}ms;filter:drop-shadow(0 0 6px ${pc.glow})">${medal}</span>`
-                : `<span style="font-family:var(--font-mono);font-size:13px;font-weight:400;color:var(--t3)">${i+1}</span>`}
-            </div>
+            <div class="arena-rank-num">${i+1}</div>
 
-            <!-- Avatar -->
-            <div style="width:36px;height:36px;border-radius:9px;flex-shrink:0;overflow:hidden;
-              background:${isMe?cat.color+'18':'rgba(255,255,255,.04)'};
-              border:${isMe?`1.5px solid ${cat.color}55`:`0.5px solid rgba(255,255,255,.07)`};
-              display:flex;align-items:center;justify-content:center;
-              box-shadow:${isMe?`0 0 14px ${cat.color}44`:i<3?`0 0 8px ${pc.glow}`:'none'}">
+            <div style="width:30px;height:30px;border-radius:8px;flex-shrink:0;overflow:hidden;
+              background:${isMe?cat.color+'14':'rgba(255,255,255,.04)'};
+              border:0.5px solid ${isMe?cat.color+'40':'rgba(255,255,255,.06)'};
+              display:flex;align-items:center;justify-content:center">
               ${av}
             </div>
 
-            <!-- Name + bar -->
             <div style="flex:1;min-width:0">
-              <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
-                <span style="font-size:13px;font-weight:${i<3||isMe?700:500};
-                  color:${nameColor};
-                  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;
-                  ${i<3?`text-shadow:0 0 12px ${pc.glow}`:''}">
-                  ${isMe ? esc(P.name) : esc(p.name)}
-                </span>
-                ${isMe?`<span style="font-size:8px;font-weight:700;padding:1px 5px;border-radius:4px;
-                  background:${cat.color}18;color:${cat.color};
-                  letter-spacing:.05em;text-transform:uppercase;flex-shrink:0">ты</span>`:''}
-              </div>
-              <!-- Progress bar -->
-              <div style="height:2px;background:rgba(255,255,255,.06);border-radius:1px;overflow:hidden;max-width:180px">
-                <div class="arena-bar" style="height:100%;width:${barW}%;border-radius:1px;
-                  background:${isMe?cat.color:i<3?pc.txt:'rgba(255,255,255,.2)'};
-                  box-shadow:${isMe?`0 0 6px ${cat.color}`:i<3?`0 0 4px ${pc.glow}`:'none'};
-                  animation-delay:${rowDelay+120}ms"></div>
+              <div style="font-family:var(--font-body);font-size:13px;font-weight:${isMe?600:400};
+                color:${isMe?cat.color:'var(--t1)'};
+                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px">
+                ${isMe?esc(P.name):esc(p.name)}
+                ${isMe?`<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:${cat.color}18;color:${cat.color};margin-left:5px;letter-spacing:.04em">ты</span>`:''}
               </div>
             </div>
 
-            <!-- Stat -->
-            <div style="font-family:var(--font-mono);font-size:${i<3?18:14}px;font-weight:400;
-              color:${isMe?cat.color:pc?pc.txt:'var(--t2)'};
-              ${i<3||isMe?`text-shadow:0 0 10px ${isMe?cat.color:pc.glow}`:''}">
+            <div style="font-family:var(--font-clock);font-size:14px;font-weight:400;letter-spacing:.04em;
+              color:${isMe?cat.color:'var(--t2)'};flex-shrink:0">
               ${vStr}
             </div>
           </div>`;
@@ -17510,52 +17609,69 @@ function _buildArenaHTML(cats, results){
 
     // My position footer if outside top-10
     const myFooter = myRank && myIdx >= 10 ? `
-      <div style="padding:11px 20px;border-top:0.5px solid rgba(255,255,255,.05);
-        background:${cat.color}08;display:flex;align-items:center;justify-content:space-between">
-        <span style="font-size:11px;color:var(--t3)">Твоя позиция</span>
-        <span style="font-family:var(--font-mono);font-size:14px;color:${cat.color}">
+      <div style="padding:12px 20px;border-top:0.5px solid ${cat.color}18;
+        background:linear-gradient(90deg,${cat.color}0a,transparent);
+        display:flex;align-items:center;justify-content:space-between">
+        <span style="font-family:var(--font-body);font-size:11px;color:var(--t3)">Твоя позиция</span>
+        <span style="font-family:var(--font-clock);font-size:16px;font-weight:400;letter-spacing:.04em;color:${cat.color}">
           #${myRank}
         </span>
       </div>` : '';
 
-    return `<div class="arena-card" style="
-      margin-bottom:20px;
-      border-radius:20px;overflow:hidden;
-      background:var(--panel);
-      border:0.5px solid ${cat.color}20;
-      box-shadow:0 2px 8px rgba(0,0,0,.3),0 0 0 0.5px ${cat.color}0a;
-      animation-delay:${cardDelay}ms">
+    // Card header
+    const myRankBadge = myRank
+      ? `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+          <div style="font-family:var(--font-clock);font-size:24px;font-weight:300;letter-spacing:.06em;
+            color:${myRank<=3?podiumColors[myRank-1].txt:cat.color};line-height:1">
+            ${myRank<=3?['🥇','🥈','🥉'][myRank-1]:'#'+myRank}
+          </div>
+          <div style="font-family:var(--font-body);font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t3)">твой ранг</div>
+        </div>`
+      : `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;opacity:.5">
+          <div style="font-size:18px">🏁</div>
+          <div style="font-family:var(--font-body);font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)">войти</div>
+        </div>`;
 
-      <!-- League header — minimal, information-first -->
-      <div style="padding:18px 20px 16px;
-        background:linear-gradient(135deg,${cat.color}12,${cat.color}04,transparent);
-        border-bottom:0.5px solid ${cat.color}18;
+    return `<div class="arena-card" style="
+      margin-bottom:16px;
+      border-radius:18px;overflow:hidden;
+      background:var(--panel);
+      border:0.5px solid ${cat.color}22;
+      box-shadow:0 4px 24px rgba(0,0,0,.35),0 1px 0 rgba(255,255,255,.03);
+      animation-delay:${cardDelay}ms;
+      position:relative">
+
+      <!-- Subtle top accent line -->
+      <div class="arena-card-top-line" style="
+        position:absolute;top:0;left:0;right:0;height:1px;
+        background:linear-gradient(90deg,transparent 0%,${cat.color}60 30%,${cat.color}90 50%,${cat.color}60 70%,transparent 100%);
+        opacity:.7;transition:opacity .3s"></div>
+
+      <!-- Card header -->
+      <div style="padding:16px 20px;
+        background:linear-gradient(135deg,${cat.color}0e,${cat.color}04,transparent);
+        border-bottom:0.5px solid ${cat.color}15;
         display:flex;align-items:center;justify-content:space-between;gap:12px">
 
         <div style="display:flex;align-items:center;gap:14px">
-          <!-- Icon -->
-          <div style="width:44px;height:44px;border-radius:13px;flex-shrink:0;
-            background:${cat.color}16;border:0.5px solid ${cat.color}30;
+          <!-- Icon — no box, just colour -->
+          <div style="width:42px;height:42px;flex-shrink:0;
             display:flex;align-items:center;justify-content:center;color:${cat.color}">
-            ${getCatSVG(cat?.id||catKey, 22)}
+            ${getCatSVG(cat?.id||catKey, 24)}
           </div>
           <div>
-            <div style="font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--t1);margin-bottom:2px">${cat.name}</div>
-            <div style="font-size:11px;color:var(--t3)">${rawPlayers.length} участников</div>
+            <div style="font-family:var(--font-display);font-size:15px;font-weight:700;letter-spacing:-.015em;color:var(--t1);margin-bottom:3px">${cat.name}</div>
+            <div style="font-family:var(--font-body);font-size:11px;color:var(--t3)">
+              ${rawPlayers.length} участник${rawPlayers.length===1?'':rawPlayers.length>=2&&rawPlayers.length<=4?'а':'ов'}
+            </div>
           </div>
         </div>
 
-        <!-- My rank badge or enter prompt -->
-        ${myRank
-          ? `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
-              <div style="font-family:var(--font-mono);font-size:22px;font-weight:400;
-                color:${myRank<=3?'var(--gold)':cat.color};line-height:1">
-                ${myRank<=3?['🥇','🥈','🥉'][myRank-1]:'#'+myRank}
-              </div>
-              <div style="font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)">твой ранг</div>
-            </div>`
-          : `<div style="font-size:11px;font-weight:600;color:var(--t3)">не в лиге</div>`}
+        ${myRankBadge}
       </div>
+
+      <!-- Divider only if players exist -->
+      ${top10.length > 0 ? `<div style="height:0.5px;background:linear-gradient(90deg,${cat.color}20,transparent)"></div>` : ''}
 
       <!-- Players -->
       ${rows}
@@ -17563,8 +17679,10 @@ function _buildArenaHTML(cats, results){
     </div>`;
   }).join('');
 
-  return arenaHeader + leagueCards;
+  return arenaHeader + `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px">${leagueCards}</div>`;
 }
+
+
 
 
 async function renderLgMini(){
