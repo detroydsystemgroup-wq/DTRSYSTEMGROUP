@@ -16985,23 +16985,12 @@ function renderManageGrid(){
 
   // Header
   const headerHTML = `
-    <div style="margin-bottom:24px">
-      <div style="font-family:var(--font-display);font-size:22px;font-weight:700;letter-spacing:-.025em;color:var(--t1);margin-bottom:6px">
-        Выбери лиги
-      </div>
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div style="font-family:var(--font-body);font-size:13px;color:var(--t3);line-height:1.5;max-width:340px">
-          Соревнуйся с людьми с теми же целями. Войди в лигу — и начни отсчёт.
-        </div>
-        <div class="mg-active-count">
-          <span style="width:6px;height:6px;border-radius:50%;background:var(--green-l);box-shadow:0 0 6px rgba(74,222,128,.6)"></span>
-          ${activeCnt} активн${activeCnt===1?'ая':activeCnt>=2&&activeCnt<=4?'ые':'ых'}
-        </div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+      <div class="mg-active-count">
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--green-l);box-shadow:0 0 6px rgba(74,222,128,.6)"></span>
+        ${activeCnt} активн${activeCnt===1?'ая':activeCnt>=2&&activeCnt<=4?'ые':'ых'}
       </div>
     </div>`;
-
-  el.style.gridTemplateColumns = window.innerWidth <= 600 ? '1fr' : 'repeat(2,1fr)';
-  el.style.gap = '14px';
 
   const cardsHTML = ALL_CATS.map((c, i) => {
     const on  = P.activeCatIds.includes(c.id);
@@ -17107,7 +17096,18 @@ function renderManageGrid(){
     </div>`;
   }).join('');
 
-  el.innerHTML = headerHTML + cardsHTML;
+  // Badge goes BEFORE the grid, cards go INSIDE the grid
+  el.style.gridTemplateColumns = window.innerWidth <= 600 ? '1fr' : 'repeat(2,1fr)';
+  el.style.gap = '14px';
+  el.innerHTML = cardsHTML;
+
+  // Insert badge before el (outside grid)
+  const existingBadge = el.parentNode.querySelector('._mg-badge-wrap');
+  if(existingBadge) existingBadge.remove();
+  const badgeDiv = document.createElement('div');
+  badgeDiv.className = '_mg-badge-wrap';
+  badgeDiv.innerHTML = headerHTML;
+  el.parentNode.insertBefore(badgeDiv, el);
 }
 
 // Ripple helper + toggle wrapper
@@ -17496,15 +17496,12 @@ function _buildArenaHTML(cats, results){
   const rankBadgeSVG = (rank, size=20) => {
     if(rank===1) return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none">
       <polygon points="12,2 15.5,8.5 23,9.5 17.5,14.8 19,22 12,18.3 5,22 6.5,14.8 1,9.5 8.5,8.5" fill="#FFD60A" stroke="#C8940A" stroke-width=".8"/>
-      <text x="12" y="15.5" text-anchor="middle" font-size="7" font-weight="700" fill="#5A3800" font-family="sans-serif">1</text>
     </svg>`;
     if(rank===2) return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none">
       <polygon points="12,2 15.5,8.5 23,9.5 17.5,14.8 19,22 12,18.3 5,22 6.5,14.8 1,9.5 8.5,8.5" fill="#C8C8D4" stroke="#8A8A96" stroke-width=".8"/>
-      <text x="12" y="15.5" text-anchor="middle" font-size="7" font-weight="700" fill="#2A2A32" font-family="sans-serif">2</text>
     </svg>`;
     if(rank===3) return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none">
       <polygon points="12,2 15.5,8.5 23,9.5 17.5,14.8 19,22 12,18.3 5,22 6.5,14.8 1,9.5 8.5,8.5" fill="#E8935A" stroke="#A85020" stroke-width=".8"/>
-      <text x="12" y="15.5" text-anchor="middle" font-size="7" font-weight="700" fill="#3A1400" font-family="sans-serif">3</text>
     </svg>`;
     return `<span style="font-family:var(--font-mono);font-size:11px;color:rgba(255,255,255,.22)">${rank}</span>`;
   };
