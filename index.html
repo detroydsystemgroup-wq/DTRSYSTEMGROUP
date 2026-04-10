@@ -24068,7 +24068,7 @@ function renderMonthRep(){
       weeks.push(week);week=[];
     }
   }
-  const weekBars=weeks.map((wk,wi)=>{
+    const weekBars=weeks.map((wk,wi)=>{
     const validDays=wk.filter(d=>d!==null);
     if(!validDays.length) return '';
     const first=validDays[0],last=validDays[validDays.length-1];
@@ -24077,10 +24077,10 @@ function renderMonthRep(){
     const wPct=wPoss?Math.round(wDone/wPoss*100):0;
     const wColor=wPct===100?'var(--green)':wPct>=70?'var(--gold)':wPct>=40?'var(--orange)':'rgba(255,255,255,.15)';
     const isCurrentWeek=validDays.some(d=>`${yr}-${pad(mo+1)}-${pad(d)}`===td);
-    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;${isCurrentWeek?'':''}">
+    return `<div style="display:flex;align-items:center;gap:10px;height:34px;${isCurrentWeek?'background:rgba(245,200,66,.03);border-radius:6px;':''}">
       <div style="font-size:10px;font-weight:700;color:var(--t3);width:42px;flex-shrink:0;font-family:var(--font-mono)">${pad(first)}.${pad(mo+1)}</div>
-      <div style="flex:1;height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden">
-        <div style="height:100%;width:${wPct}%;background:${wColor};border-radius:3px;transition:width .8s cubic-bezier(.4,0,.2,1);box-shadow:${wPct>0?`0 0 8px ${wColor}55`:'none'}"></div>
+      <div style="flex:1;height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden">
+        <div style="height:100%;width:${wPct}%;background:${wColor};border-radius:2px;transition:width .8s cubic-bezier(.4,0,.2,1);box-shadow:${wPct>0?`0 0 8px ${wColor}55`:'none'}"></div>
       </div>
       <div style="font-size:11px;font-weight:700;color:${wColor};width:36px;text-align:right;flex-shrink:0;font-family:var(--font-mono)">${wPct}%</div>
       <div style="font-size:10px;color:var(--t3);width:28px;text-align:right;flex-shrink:0">${wDone}/${wPoss}</div>
@@ -24149,7 +24149,7 @@ function renderMonthRep(){
 
       <!-- Compact dot calendar -->
       <div style="flex-shrink:0">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;display:flex;align-items:center;gap:6px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);height:24px;display:flex;align-items:center;gap:6px;margin-bottom:10px">
           <span style="display:inline-block;width:3px;height:11px;border-radius:2px;background:var(--gold);opacity:.6"></span>
           Календарь
         </div>
@@ -24167,18 +24167,21 @@ function renderMonthRep(){
         </div>
       </div>
 
-      <!-- Week summary bars -->
+      <!-- Week summary bars — структура зеркально повторяет левую колонку -->
       <div style="flex:1;min-width:200px">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-bottom:10px;display:flex;align-items:center;gap:6px">
+        <!-- Title — высота совпадает с заголовком «Календарь»: height:24px + margin-bottom:10px -->
+        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);height:24px;display:flex;align-items:center;gap:6px;margin-bottom:10px">
           <span style="display:inline-block;width:3px;height:11px;border-radius:2px;background:var(--gold);opacity:.6"></span>
           По неделям
         </div>
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:9px;color:var(--t3)">
+        <!-- Header row — высота совпадает со строкой меток дней: height:20px + margin-bottom:4px -->
+        <div style="display:flex;align-items:center;gap:6px;height:20px;margin-bottom:4px;font-size:9px;color:var(--t3)">
           <div style="width:42px;flex-shrink:0">Начало</div>
           <div style="flex:1">Прогресс</div>
           <div style="width:36px;text-align:right">%</div>
           <div style="width:28px;text-align:right">✓/∑</div>
         </div>
+        <!-- Week bars — каждая строка height:34px совпадает с строкой ячеек (30px + gap 4px) -->
         ${weekBars}
       </div>
 
