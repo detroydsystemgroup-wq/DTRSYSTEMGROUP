@@ -10982,28 +10982,29 @@ html[data-theme="light"] .nav-icon-btn:hover {
   flex: 1;
   padding: 10px 8px;
   border-radius: 12px;
-  border: 0.5px solid rgba(255,255,255,.06);
+  border: 0.5px solid rgba(255,255,255,.07);
   background: rgba(255,255,255,.03);
-  color: var(--t3);
+  color: var(--t2);
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: .05em;
+  font-weight: 500;
+  letter-spacing: .03em;
   cursor: pointer;
   font-family: 'DM Sans', sans-serif;
   transition: all .2s cubic-bezier(.25,.46,.45,.94);
   white-space: nowrap;
-  will-change: transform;
   text-transform: uppercase;
+  -webkit-font-smoothing: antialiased;
 }
 .sfb:hover {
-  background: rgba(255,255,255,.06);
-  color: var(--t2);
-  border-color: rgba(255,255,255,.1);
+  background: rgba(255,255,255,.07);
+  color: var(--t1);
+  border-color: rgba(255,255,255,.12);
 }
 .sfb.active {
   background: linear-gradient(135deg,rgba(245,200,66,.14),rgba(245,200,66,.06));
   border-color: rgba(245,200,66,.4);
   color: var(--gold);
+  font-weight: 600;
   box-shadow: 0 0 18px rgba(245,200,66,.12), inset 0 1px 0 rgba(255,255,255,.07);
 }
 
@@ -16868,31 +16869,20 @@ function renderManageGrid(){
   if(!P || !P.activeCatIds){ el.innerHTML = ''; return; }
   const isMobile = window.innerWidth <= 600;
 
-  if(!document.getElementById('_mgAnimCSS')){
+  { // always refresh styles
     const s = document.createElement('style');
     s.id = '_mgAnimCSS';
     s.textContent = `
-      @keyframes mgCardIn {
-        0%   { opacity:0; transform:translateY(20px) scale(.95); }
-        65%  { opacity:1; transform:translateY(-3px) scale(1.008); }
-        100% { opacity:1; transform:translateY(0) scale(1); }
+      .mg-card-new {
+        opacity: 1 !important;
+        -webkit-font-smoothing: antialiased;
       }
-      @keyframes mgCheckIn {
-        0%   { opacity:0; transform:scale(0) rotate(-30deg); }
-        65%  { transform:scale(1.2) rotate(5deg); }
-        100% { opacity:1; transform:scale(1) rotate(0); }
-      }
-      @keyframes mgStatIn {
-        from { opacity:0; transform:translateY(6px); }
-        to   { opacity:1; transform:translateY(0); }
-      }
-      .mg-card-new { animation: mgCardIn .4s cubic-bezier(.34,1.18,.64,1) both; }
       .mg-card-new:hover {
         transform: translateY(-3px) !important;
         transition: transform .2s cubic-bezier(.34,1.56,.64,1) !important;
       }
-      .mg-check-anim { animation: mgCheckIn .32s cubic-bezier(.34,1.56,.64,1) both; }
-      .mg-stat-chip  { animation: mgStatIn .3s cubic-bezier(.22,1,.36,1) both; }
+      .mg-check-anim { }
+      .mg-stat-chip  { }
     `;
     document.head.appendChild(s);
   }
@@ -16946,7 +16936,7 @@ function renderManageGrid(){
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
         ${mc} участников
       </div>` : `
-      <div style="margin-top:8px;font-size:11px;color:var(--t3)">Войди первым в лигу</div>`;
+      <div style="margin-top:8px;font-size:11px;color:var(--t2);opacity:.5">Войди первым в лигу</div>`;
 
     return `<div class="mg-card-new"
       onclick="toggleCatEpic('${c.id}')"
@@ -16958,7 +16948,8 @@ function renderManageGrid(){
         background:${on ? `var(--panel)` : 'var(--panel)'};
         border:${on ? `1.5px solid ${col}45` : '0.5px solid var(--border)'};
         box-shadow:${on ? `0 2px 12px rgba(0,0,0,.4),inset 0 1px 0 ${col}18` : '0 1px 3px rgba(0,0,0,.3)'};
-        animation-delay:${delay}ms;
+        opacity:1;
+        -webkit-font-smoothing:antialiased;
         transition:border-color .2s,box-shadow .2s">
 
       ${on ? `<div style="position:absolute;inset:0;
@@ -16983,11 +16974,11 @@ function renderManageGrid(){
         </div>
 
         <div style="flex:1;min-width:0">
-          <div style="font-size:15px;font-weight:700;letter-spacing:-.015em;
-            color:${on ? col : 'var(--t1)'};line-height:1.2;margin-bottom:3px">
+          <div style="font-size:15px;font-weight:600;letter-spacing:-.015em;
+            color:${on ? col : 'var(--t1)'};line-height:1.2;margin-bottom:3px;-webkit-font-smoothing:antialiased">
             ${c.name}
           </div>
-          <div style="font-size:11px;color:var(--t3);
+          <div style="font-size:11px;color:var(--t2);opacity:.6;
             white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
             ${c.desc || 'Направление развития'}
           </div>
