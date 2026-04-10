@@ -30344,7 +30344,7 @@ window.renderCollabView=renderCollabView;
 
       // Strategy 1: partial ilike match
       var r = await sb2.from('users')
-        .select('id,username,avatar,avatar_url,total_hours,streak')
+        .select('id,username,avatar,avatar_url,streak')
         .ilike('username', '%' + query + '%')
         .limit(10);
 
@@ -30353,7 +30353,7 @@ window.renderCollabView=renderCollabView;
       // Strategy 2: starts-with (if partial fails or errors)
       if(r.error || !users.length){
         var r2 = await sb2.from('users')
-          .select('id,username,avatar,avatar_url,total_hours,streak')
+          .select('id,username,avatar,avatar_url,streak')
           .ilike('username', query + '%')
           .limit(10);
         users = r2.data || [];
@@ -30362,7 +30362,7 @@ window.renderCollabView=renderCollabView;
       // Strategy 3: exact match
       if(!users.length){
         var r3 = await sb2.from('users')
-          .select('id,username,avatar,avatar_url,total_hours,streak')
+          .select('id,username,avatar,avatar_url,streak')
           .eq('username', query)
           .limit(5);
         users = r3.data || [];
@@ -30382,7 +30382,6 @@ window.renderCollabView=renderCollabView;
           ? '<img src="' + u.avatar_url + '" onerror="this.style.display=\'none\'">'
           : (u.avatar || '🎯');
         var meta = [];
-        if(u.total_hours) meta.push(Math.round(u.total_hours) + ' ч');
         if(u.streak) meta.push('🔥 ' + u.streak);
         return '<div class="usr-search-row" onclick="usrSearchOpenProfile(\'' + u.id + '\',\'' + (u.username||'').replace(/'/g,"\\'") + '\',\'' + (u.avatar||'🎯') + '\',\'' + (u.avatar_url||'') + '\')">'
           + '<div class="usr-search-row-av">' + avHtml + '</div>'
