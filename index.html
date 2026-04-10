@@ -5026,28 +5026,53 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
 
 /* User chip — separate, gold-tinted */
 .nav-user-chip {
-  display: inline-flex; align-items: center; gap: 7px;
-  height: 34px; padding: 0 4px 0 6px;
+  display: inline-flex; align-items: stretch;
+  height: 34px; padding: 0;
   border-radius: 10px;
   background: rgba(245,200,66,.06);
   border: 0.5px solid rgba(245,200,66,.16);
-  cursor: pointer;
-  transition: background .14s, border-color .14s, box-shadow .14s;
+  cursor: default;
+  transition: border-color .14s, box-shadow .14s;
   overflow: hidden;
+  gap: 0;
 }
 .nav-user-chip:hover {
-  background: rgba(245,200,66,.1);
   border-color: rgba(245,200,66,.28);
   box-shadow: 0 0 16px rgba(245,200,66,.1);
 }
+/* Full-height avatar on the left */
+.nav-av-full {
+  width: 34px; height: 34px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  background: rgba(245,200,66,.1);
+  border-right: 0.5px solid rgba(245,200,66,.14);
+  cursor: pointer;
+  transition: background .14s;
+  overflow: hidden;
+}
+.nav-av-full:hover {
+  background: rgba(245,200,66,.18);
+}
+.nav-av-full img { width:100%; height:100%; object-fit:cover; border-radius:0; }
+/* Username area */
+.nav-uname {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 600; color: var(--t1);
+  letter-spacing: -.01em; max-width: 90px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 0 10px;
+  display: flex; align-items: center;
+}
+.nav-uname:hover { color: var(--gold); }
 .nav-chip-sep {
-  width: 0.5px; height: 18px; background: rgba(255,255,255,.1); flex-shrink:0;
+  width: 0.5px; background: rgba(255,255,255,.1); flex-shrink:0; align-self: stretch;
 }
 .nav-logout-btn {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px; border-radius: 7px;
+  width: 34px; height: 34px;
   background: transparent; border: none; cursor: pointer;
-  color: rgba(255,255,255,.3);
+  color: rgba(255,255,255,.25);
   transition: color .14s, background .14s;
   flex-shrink: 0;
 }
@@ -13752,11 +13777,11 @@ html[data-theme="light"] .nav-icon-btn:hover {
     </div>
 
     <!-- User chip with logout -->
-    <div class="nav-user-chip" onclick="showTab('dash')">
-      <div class="nav-av" id="navAv">🎯</div>
-      <span class="nav-uname" id="navUname"></span>
+    <div class="nav-user-chip">
+      <div class="nav-av-full" id="navAv" onclick="if(window.SB_USER&&!window.SB_USER.isDemoUser){openUserProfile(window.SB_USER.id,window.SB_USER.username,window.SB_USER.avatar||'🎯',window.SB_USER.avatar_url||'')}" title="Мой профиль">🎯</div>
+      <span class="nav-uname" id="navUname" onclick="showTab('dash')" style="cursor:pointer"></span>
       <div class="nav-chip-sep"></div>
-      <button class="nav-logout-btn" onclick="event.stopPropagation();doLogout()" title="Выйти">
+      <button class="nav-logout-btn" onclick="doLogout()" title="Выйти">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </button>
     </div>
@@ -15893,8 +15918,8 @@ function _doRenderAll(){
 
 function renderNav(){
   const avEl=document.getElementById('navAv');
-  if(P.avatarUrl){const cbUrl=P.avatarUrl.startsWith("data:")?P.avatarUrl:(P.avatarUrl);avEl.innerHTML=`<img src="${cbUrl}" style="width:100%;height:100%;border-radius:6px;object-fit:cover" onerror="this.parentNode.textContent='${P.avatar}'">`;}
-  else{avEl.textContent=P.avatar;avEl.innerHTML=P.avatar;}
+  if(P.avatarUrl){const cbUrl=P.avatarUrl.startsWith("data:")?P.avatarUrl:(P.avatarUrl);avEl.innerHTML=`<img src="${cbUrl}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.parentNode.textContent='${P.avatar}'">`;}
+  else{avEl.innerHTML=P.avatar;}
   document.getElementById('navUname').textContent=P.name;
 }
 function renderHeader(){
