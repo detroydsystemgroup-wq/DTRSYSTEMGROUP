@@ -2076,14 +2076,15 @@ button, a, [onclick], .stab, .mg-item, .cat-item, .csg-item, .mb, .cf-btn, .lg-r
 
 .arena-mode-btn{
   display:inline-flex;align-items:center;gap:7px;
-  padding:8px 14px;
+  padding:0 14px;
+  height:36px;
   border-radius:10px;
   border:0.5px solid rgba(255,255,255,.08);
   background:rgba(255,255,255,.03);
   color:rgba(255,255,255,.4);
   font-size:11px;font-weight:700;
   cursor:pointer;white-space:nowrap;
-  letter-spacing:.8px;
+  letter-spacing:.03em;
   font-family:var(--font-display);
   text-transform:uppercase;
   position:relative;overflow:hidden;
@@ -14154,39 +14155,50 @@ html[data-theme="light"] .nav-icon-btn:hover {
 
     <div id="tab-leagues" class="tc">
       <!-- Arena mode tabs -->
-      <div class="arena-mode-bar" id="arenaModeBar">
-        <button class="arena-mode-btn" onclick="setArenaMode('week',this)" data-mode="week">
-          <span class="amb-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          </span>
-          <span class="amb-label">За неделю</span>
+      <!-- ── Arena Top Bar: League Picker + Mode Buttons ── -->
+      <div id="arenaTopBar" style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap">
+
+        <!-- League Dropdown -->
+        <div id="arenaLeagueDropWrap" style="position:relative;flex-shrink:0">
+          <button id="arenaLeagueDrop" class="a-ctrl-btn" onclick="toggleArenaLeagueDrop()"
+            style="min-width:156px;justify-content:space-between;gap:8px;padding:0 10px 0 9px">
+            <div style="display:flex;align-items:center;gap:7px;min-width:0">
+              <span id="arenaLeagueDropIcon" class="a-ctrl-ico"></span>
+              <span id="arenaLeagueDropLabel" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Лига</span>
+            </div>
+            <svg id="arenaLeagueDropChev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="2.5" stroke-linecap="round" style="transition:transform .18s;flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div id="arenaLeagueMenu" style="display:none;position:absolute;top:calc(100% + 6px);left:0;
+            min-width:210px;background:var(--panel);border:0.5px solid rgba(255,255,255,.1);
+            border-radius:12px;padding:4px;z-index:200;
+            box-shadow:0 16px 48px rgba(0,0,0,.65);
+            animation:arenaDropIn .16s cubic-bezier(.34,1.2,.64,1)">
+          </div>
+        </div>
+
+        <!-- Mode Buttons -->
+        <button class="a-ctrl-btn" onclick="setArenaMode('week',this)" data-mode="week">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          За неделю
         </button>
-        <button class="arena-mode-btn" onclick="setArenaMode('month',this)" data-mode="month">
-          <span class="amb-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-          </span>
-          <span class="amb-label">За месяц</span>
+        <button class="a-ctrl-btn" onclick="setArenaMode('month',this)" data-mode="month">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          За месяц
         </button>
-        <button class="arena-mode-btn" onclick="setArenaMode('streak',this)" data-mode="streak">
-          <span class="amb-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
-          </span>
-          <span class="amb-label">Дисциплина</span>
+        <button class="a-ctrl-btn" onclick="setArenaMode('streak',this)" data-mode="streak">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+          Дисциплина
         </button>
-        <button class="arena-mode-btn" onclick="setArenaMode('session',this)" data-mode="session">
-          <span class="amb-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-          </span>
-          <span class="amb-label">Лучшая сессия</span>
+        <button class="a-ctrl-btn" onclick="setArenaMode('session',this)" data-mode="session">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Лучшая сессия
         </button>
-        <button class="arena-mode-btn active" onclick="setArenaMode('hours',this)" data-mode="hours">
-          <span class="amb-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          </span>
-          <span class="amb-label">За всё время</span>
+        <button class="a-ctrl-btn active" onclick="setArenaMode('hours',this)" data-mode="hours">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          За всё время
         </button>
       </div>
-      <div id="leaguesContent"></div>
+      <div id="leaguesContent" style="margin-top:14px"></div>
     </div>
 
     <div id="tab-activity" class="tc">
@@ -15104,6 +15116,7 @@ let lgCache={};
 let lgCacheTime={}; // TTL: timestamp when each catId was cached
 const LG_CACHE_TTL = 10 * 60 * 1000; // 10 минут — дольше кеш = меньше лишних запросов
 let arenaMode='hours'; // 'hours'|'streak'|'week'|'month'|'session'
+let arenaLeagueFilter=null; // null = first league, or catId string
 
 // ══ BANNER ═══════════════════════════════════════════════════
 let bIdx=0,bTmr=null;
@@ -17381,11 +17394,79 @@ async function _fetchLeagueData(catId){
 // ══ ARENA MODE ═══════════════════════════════════════════════
 function setArenaMode(mode, btn) {
   arenaMode = mode;
-  // НЕ инвалидируем кэш — данные те же, меняется только сортировка
-  // Это позволяет мгновенно переключаться между режимами без новых запросов к БД
-  document.querySelectorAll('.arena-mode-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.a-ctrl-btn[data-mode]').forEach(b => b.classList.remove('active'));
   if(btn) btn.classList.add('active');
   renderLeagues();
+}
+
+/* ── Arena League Dropdown ───────────────────────────────── */
+function toggleArenaLeagueDrop(){
+  const menu = document.getElementById('arenaLeagueMenu');
+  const chev = document.getElementById('arenaLeagueDropChev');
+  const btn  = document.getElementById('arenaLeagueDrop');
+  if(!menu) return;
+  const isOpen = menu.style.display !== 'none';
+  if(isOpen){ menu.style.display='none'; chev.style.transform=''; btn.style.borderColor='rgba(255,255,255,.12)'; return; }
+
+  // Build menu items
+  const cats = activeCats();
+  let html = '';
+
+  // Per-league options — no "Все лиги" option
+  cats.forEach(cat => {
+    const isActive = arenaLeagueFilter === cat.id;
+    const catPlayers = lgCache[cat.id] ? lgCache[cat.id].length : '?';
+    html += `<button onclick="selectArenaLeague('${cat.id}')"
+      style="width:100%;display:flex;align-items:center;gap:10px;padding:9px 12px;
+      border-radius:9px;border:none;cursor:pointer;text-align:left;transition:background .12s;
+      background:${isActive?cat.color+'18':'transparent'};
+      font-family:var(--font-display);font-size:12px;font-weight:${isActive?700:500};
+      color:${isActive?cat.color:'var(--t2)'}"
+      onmouseover="this.style.background='${cat.color}12'"
+      onmouseout="this.style.background='${isActive?cat.color+'18':'transparent'}'">
+      <span style="width:26px;height:26px;border-radius:7px;background:${cat.color}18;border:0.5px solid ${cat.color}30;
+        display:flex;align-items:center;justify-content:center;flex-shrink:0;color:${cat.color}">
+        ${getCatSVG(cat.id,13)}
+      </span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cat.name}</span>
+      <span style="font-family:var(--font-mono);font-size:10px;color:${isActive?cat.color:'var(--t3)'};">${catPlayers}</span>
+      ${isActive?`<svg style="flex-shrink:0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${cat.color}" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>`:''}
+    </button>`;
+  });
+
+  menu.innerHTML = html;
+  menu.style.display = 'block';
+  chev.style.transform = 'rotate(180deg)';
+  btn.style.borderColor = 'rgba(245,200,66,.35)';
+
+  // Close on outside click
+  setTimeout(()=>{
+    const close = (e)=>{ if(!document.getElementById('arenaLeagueDropWrap')?.contains(e.target)){ menu.style.display='none'; chev.style.transform=''; btn.style.borderColor='rgba(255,255,255,.12)'; document.removeEventListener('click',close); } };
+    document.addEventListener('click', close);
+  }, 50);
+}
+
+function selectArenaLeague(catId){
+  arenaLeagueFilter = catId;
+  const menu = document.getElementById('arenaLeagueMenu');
+  const chev = document.getElementById('arenaLeagueDropChev');
+  if(menu) menu.style.display='none';
+  if(chev) chev.style.transform='';
+
+  const cat = activeCats().find(c=>c.id===catId);
+  if(cat) _updateArenaDropLabel(cat);
+  renderLeagues();
+}
+
+/* ── Update dropdown label ── */
+function _updateArenaDropLabel(cat){
+  if(!cat) return;
+  const lbl = document.getElementById('arenaLeagueDropLabel');
+  const ico = document.getElementById('arenaLeagueDropIcon');
+  const btn = document.getElementById('arenaLeagueDrop');
+  if(lbl){ lbl.textContent = cat.name; lbl.style.color = cat.color; }
+  if(ico){ ico.style.background=cat.color+'18'; ico.style.border='0.5px solid '+cat.color+'35'; ico.innerHTML=getCatSVG(cat.id,13).replace('stroke="currentColor"','stroke="'+cat.color+'"'); }
+  if(btn){ btn.style.borderColor=cat.color+'55'; btn.style.background=cat.color+'08'; }
 }
 
 function getArenaValue(player, mode) {
@@ -17417,8 +17498,16 @@ function arenaModeLabel(mode) {
 async function renderLeagues(){
   const el=document.getElementById('leaguesContent');if(!el)return;
   try{
-  const cats=activeCats();
-  if(!cats.length){el.innerHTML=`<div class="empty" style="padding:40px">Нет активных категорий</div>`;return;}
+  const allCats=activeCats();
+  if(!allCats.length){el.innerHTML=`<div class="empty" style="padding:40px">Нет активных категорий</div>`;return;}
+  // Apply league filter — always show one league
+  // On first load, set to first available cat
+  if(!arenaLeagueFilter || !allCats.find(c=>c.id===arenaLeagueFilter)){
+    arenaLeagueFilter = allCats[0].id;
+    _updateArenaDropLabel(allCats[0]);
+  }
+  const cats = allCats.filter(c=>c.id===arenaLeagueFilter);
+  if(!cats.length){ arenaLeagueFilter=allCats[0].id; cats.push(allCats[0]); }
 
   // ── TRUE STALE-WHILE-REVALIDATE ───────────────────────────────
   // 1. Если кеш есть — рисуем МГНОВЕННО (0 мс задержки пользователю)
@@ -17473,6 +17562,8 @@ function _buildArenaHTML(cats, results){
     const s=document.createElement('style');s.id='_arenaEpicCSS';
     s.textContent=`
 @keyframes arenaCardIn{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes arenaDropIn{from{opacity:0;transform:translateY(-8px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes arenaSingleIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
 @keyframes arenaRowIn{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}
 @keyframes arenaPodiumIn{0%{opacity:0;transform:scale(.82)}60%{transform:scale(1.04)}80%{transform:scale(.98)}100%{opacity:1;transform:scale(1)}}
 @keyframes arenaMedalFloat{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-6px) rotate(3deg)}}
@@ -17496,6 +17587,49 @@ function _buildArenaHTML(cats, results){
 .arena-top3-av{--glow-base:0 0 0 2px rgba(232,147,90,.18),0 0 14px rgba(232,147,90,.2);--glow-pulse:0 0 0 3px rgba(232,147,90,.32),0 0 22px rgba(232,147,90,.35);box-shadow:var(--glow-base);animation:arenaTopGlow 3.2s ease-in-out infinite}
 .arena-card-topline{position:absolute;top:0;left:0;right:0;height:1.5px;background-size:200% 100%;animation:arenaToplineFlow 2.5s linear infinite;opacity:.8}
 .arena-rank-num{font-family:var(--font-mono);font-size:11px;color:rgba(255,255,255,.18);width:22px;text-align:center;flex-shrink:0}
+
+/* ── a-ctrl-btn: SINGLE SOURCE OF TRUTH for arena top bar ── */
+.a-ctrl-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  height:34px;
+  padding:0 13px;
+  border-radius:10px;
+  border:0.5px solid rgba(255,255,255,.09);
+  background:rgba(255,255,255,.04);
+  color:rgba(255,255,255,.45);
+  font-family:var(--font-display);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  white-space:nowrap;
+  flex-shrink:0;
+  cursor:pointer;
+  box-sizing:border-box;
+  line-height:1;
+  position:relative;
+  overflow:hidden;
+  transition:background .18s,border-color .18s,color .18s,box-shadow .18s;
+}
+.a-ctrl-btn:hover{
+  background:rgba(245,200,66,.07);
+  border-color:rgba(245,200,66,.3);
+  color:var(--gold);
+}
+.a-ctrl-btn.active{
+  background:rgba(245,200,66,.12);
+  border-color:rgba(245,200,66,.45);
+  color:var(--gold);
+  box-shadow:0 0 0 1px rgba(245,200,66,.1),0 3px 12px rgba(245,200,66,.15);
+}
+.a-ctrl-btn.active svg{ stroke:var(--gold); }
+.a-ctrl-ico{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:18px;height:18px;border-radius:5px;
+  background:rgba(255,255,255,.07);flex-shrink:0;
+}
     `;
     document.head.appendChild(s);
   }
@@ -17515,7 +17649,8 @@ function _buildArenaHTML(cats, results){
   };
 
   // ── Adaptive grid columns based on cat count ──────────────────
-  const cols = cats.length === 1 ? '1fr'
+  const isSingle = cats.length === 1;
+  const cols = isSingle ? '1fr'
              : cats.length === 2 ? 'repeat(2,1fr)'
              : cats.length === 3 ? 'repeat(3,1fr)'
              : 'repeat(auto-fill,minmax(300px,1fr))';
@@ -17655,36 +17790,48 @@ function _buildArenaHTML(cats, results){
       </div>`;
 
       // ROWS 4–10
+      const monthVal = p.monthHrs > 0 ? p.monthHrs.toFixed(1)+'ч' : null;
+      const bestVal  = p.bestSession > 0 ? p.bestSession.toFixed(1)+'ч' : null;
       return `<div class="arena-row" ${isMe?'data-isme="true"':''}
         style="display:flex;align-items:center;gap:11px;
-          padding:9px 18px;
+          padding:${isSingle?'11px 24px':'9px 18px'};
           border-bottom:0.5px solid rgba(255,255,255,.025);
           background:${isMe?`linear-gradient(90deg,${cat.color}0d,transparent)`:'transparent'};
           ${isMe?`border-left:2px solid ${cat.color}60;`:''}
           cursor:${click?'pointer':'default'};animation-delay:${rowDelay}ms"
         ${click?`onclick="openUserProfile('${esc(p.userId)}','${escAttr(p.name)}','${escAttr(p.av)}','${escAttr(p.avUrl||'')}')"`:''}>
 
-        <div class="arena-rank-num">${rankBadgeSVG(i+1,14)}</div>
+        <div class="arena-rank-num" style="width:${isSingle?28:22}px">${isSingle?rankBadgeSVG(i+1,16):rankBadgeSVG(i+1,14)}</div>
 
-        <div style="width:28px;height:28px;border-radius:7px;flex-shrink:0;overflow:hidden;
+        <div style="width:${isSingle?34:28}px;height:${isSingle?34:28}px;border-radius:${isSingle?9:7}px;flex-shrink:0;overflow:hidden;
           background:${isMe?cat.color+'12':'rgba(255,255,255,.04)'};
           border:0.5px solid ${isMe?cat.color+'35':'rgba(255,255,255,.06)'};
           display:flex;align-items:center;justify-content:center">${av}</div>
 
         <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:baseline;gap:5px">
-            <span style="font-family:var(--font-body);font-size:12.5px;font-weight:${isMe?600:400};
+          <div style="display:flex;align-items:center;gap:5px">
+            <span style="font-family:var(--font-body);font-size:${isSingle?13:12.5}px;font-weight:${isMe?600:400};
               color:${isMe?cat.color:'var(--t1)'};
-              white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px">
+              white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:${isSingle?160:140}px">
               ${isMe?esc(P.name):esc(p.name)}
             </span>
-            ${streakVal?`<span style="font-family:var(--font-mono);font-size:9px;color:rgba(249,115,22,.55)">🔥${streakVal}</span>`:''}
+            ${isMe?`<span style="font-size:8px;padding:1px 5px;border-radius:4px;background:${cat.color}20;color:${cat.color};letter-spacing:.04em;text-transform:uppercase;flex-shrink:0">ты</span>`:''}
           </div>
-          ${weekVal&&arenaMode!=='week'?`<div style="font-family:var(--font-mono);font-size:9px;color:rgba(255,255,255,.2);margin-top:1px">нед ${weekVal}</div>`:''}
+          <div style="display:flex;align-items:center;gap:5px;margin-top:2px;flex-wrap:wrap">
+            ${streakVal?`<span style="font-family:var(--font-mono);font-size:9px;color:rgba(249,115,22,.6);background:rgba(249,115,22,.06);padding:1px 5px;border-radius:4px">🔥${streakVal}</span>`:''}
+            ${weekVal&&arenaMode!=='week'?`<span style="font-family:var(--font-mono);font-size:9px;color:rgba(255,255,255,.28);background:rgba(255,255,255,.04);padding:1px 5px;border-radius:4px">нед ${weekVal}</span>`:''}
+            ${isSingle&&monthVal&&arenaMode!=='month'?`<span style="font-family:var(--font-mono);font-size:9px;color:rgba(26,159,255,.5);background:rgba(26,159,255,.06);padding:1px 5px;border-radius:4px">мес ${monthVal}</span>`:''}
+            ${isSingle&&bestVal&&arenaMode!=='session'?`<span style="font-family:var(--font-mono);font-size:9px;color:rgba(168,85,247,.55);background:rgba(168,85,247,.06);padding:1px 5px;border-radius:4px">⚡${bestVal}</span>`:''}
+          </div>
         </div>
 
-        <div style="font-family:var(--font-clock);font-size:13px;font-weight:400;letter-spacing:.04em;
-          color:${isMe?cat.color:'var(--t3)'};flex-shrink:0">${vStr}</div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-family:var(--font-clock);font-size:${isSingle?15:13}px;font-weight:400;letter-spacing:.04em;
+            color:${isMe?cat.color:'var(--t3)'}">${vStr}</div>
+          ${isSingle&&barW>0?`<div style="width:${Math.max(28,Math.round(barW*0.7))}px;height:2px;background:rgba(255,255,255,.06);border-radius:1px;overflow:hidden;margin-top:4px;margin-left:auto">
+            <div style="height:100%;width:${barW}%;background:${isMe?cat.color:'rgba(255,255,255,.2)'};border-radius:1px;transition:width .8s cubic-bezier(.4,0,.2,1)"></div>
+          </div>`:''}
+        </div>
       </div>`;
     }).join('');
 
@@ -17714,6 +17861,88 @@ function _buildArenaHTML(cats, results){
     const myMe = sorted.find(p=>p.isMe);
     const myHrsTotal = myMe ? (myMe.hrs>=100?Math.round(myMe.hrs):myMe.hrs?.toFixed(1)) : null;
     const myWeekHrs = myMe?.weekHrs > 0 ? myMe.weekHrs.toFixed(1) : null;
+
+    // ── Epic single-league layout ──────────────────────────────
+    if(isSingle){
+      const totalMonth = rawPlayers.reduce((a,p)=>a+(p.monthHrs||0),0).toFixed(1);
+      const totalWeek  = rawPlayers.reduce((a,p)=>a+(p.weekHrs||0),0).toFixed(1);
+      const topStreak  = rawPlayers.reduce((a,p)=>Math.max(a,p.streak||0),0);
+      const avgHrs     = rawPlayers.length ? (rawPlayers.reduce((a,p)=>a+(p.hrs||0),0)/rawPlayers.length).toFixed(1) : '0.0';
+
+      return `<div class="arena-card" style="
+        border-radius:20px;background:var(--panel);
+        border:0.5px solid ${cat.color}28;
+        box-shadow:0 8px 40px rgba(0,0,0,.45),0 0 0 0.5px ${cat.color}10,0 1px 0 rgba(255,255,255,.04);
+        animation:arenaSingleIn .38s cubic-bezier(.34,1.2,.64,1) both;overflow:hidden">
+
+        <!-- Animated top line -->
+        <div class="arena-card-topline" style="height:2px;background:linear-gradient(90deg,transparent,${cat.color}60,${cat.color},${cat.color}60,transparent)"></div>
+
+        <!-- Ambient bg glow -->
+        <div style="position:absolute;top:0;left:0;right:0;height:200px;
+          background:radial-gradient(ellipse 60% 120px at 50% 0,${cat.color}10,transparent);
+          pointer-events:none"></div>
+
+        <!-- Hero header -->
+        <div style="padding:22px 28px 18px;
+          border-bottom:0.5px solid ${cat.color}14;
+          position:relative;z-index:1">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+            <!-- Left: icon + name -->
+            <div style="display:flex;align-items:center;gap:16px">
+              <div style="width:52px;height:52px;border-radius:15px;
+                background:${cat.color}18;border:0.5px solid ${cat.color}35;
+                display:flex;align-items:center;justify-content:center;flex-shrink:0;
+                box-shadow:0 0 0 4px ${cat.color}08">
+                <div style="color:${cat.color}">${getCatSVG(cat?.id||catKey,26)}</div>
+              </div>
+              <div>
+                <div style="font-family:var(--font-display);font-size:22px;font-weight:800;
+                  letter-spacing:-.04em;color:var(--t1);line-height:1.1">${cat.name}</div>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+                  <span style="width:6px;height:6px;border-radius:50%;background:#4ADE80;flex-shrink:0;
+                    animation:arenaLiveDot 1.8s ease-in-out infinite"></span>
+                  <span style="font-size:12px;color:var(--green-l);font-weight:600">${rawPlayers.length} участников</span>
+                  <span style="width:1px;height:10px;background:rgba(255,255,255,.08)"></span>
+                  <span style="font-size:12px;color:var(--t3)">${arenaModeLabel(arenaMode)}</span>
+                </div>
+              </div>
+            </div>
+            <!-- Right: my rank big -->
+            ${myRank ? `<div style="text-align:center;padding:14px 22px;border-radius:14px;
+              background:${cat.color}10;border:0.5px solid ${cat.color}25;
+              box-shadow:0 0 0 3px ${cat.color}06">
+              ${myRank<=3 ? rankBadgeSVG(myRank,32) : `<div style="font-family:var(--font-clock);font-size:36px;font-weight:300;color:${cat.color};letter-spacing:.04em;line-height:1">#${myRank}</div>`}
+              <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${cat.color};opacity:.6;margin-top:4px">Мой ранг</div>
+            </div>` : ''}
+          </div>
+
+          <!-- Stats strip -->
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:18px">
+            ${[
+              {lbl:'За неделю', val:totalWeek+' ч', clr:cat.color},
+              {lbl:'За месяц',  val:totalMonth+' ч', clr:'#1a9fff'},
+              {lbl:'Топ стрик', val:topStreak+' дн', clr:'#F97316'},
+              {lbl:'Ср. всего', val:avgHrs+' ч', clr:'var(--green-l)'},
+            ].map(s=>`<div style="padding:10px 14px;border-radius:11px;
+              background:rgba(255,255,255,.03);border:0.5px solid rgba(255,255,255,.06)">
+              <div style="font-family:var(--font-mono);font-size:16px;font-weight:400;
+                color:${s.clr};letter-spacing:-.02em;line-height:1">${s.val}</div>
+              <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+                color:var(--t3);margin-top:4px">${s.lbl}</div>
+            </div>`).join('')}
+          </div>
+        </div>
+
+        <!-- Full-width player list: 2 columns when >5 players -->
+        <div style="padding:8px 0;display:grid;
+          grid-template-columns:${top10.length>5?'1fr 1fr':'1fr'};
+          gap:0;position:relative;z-index:1">
+          ${rows}
+        </div>
+        ${myFooter}
+      </div>`;
+    }
 
     return `<div class="arena-card" style="
       border-radius:18px;background:var(--panel);
