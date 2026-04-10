@@ -17542,7 +17542,13 @@ async function renderLeagues(){
     // Skeleton показываем ТОЛЬКО если контейнер реально пуст (первый визит).
     // Если там уже есть старый рендер — оставляем его, не мигаем.
     if(!el.children.length){
-      el.innerHTML=`<div style="text-align:center;padding:32px;color:var(--t3)"><div style="font-size:36px;margin-bottom:8px;animation:floatUp 2s ease-in-out infinite">⚔️</div>Загрузка арены...</div>`;
+      el.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;gap:14px">
+        <div style="width:48px;height:48px;border-radius:14px;background:rgba(245,200,66,.08);border:0.5px solid rgba(245,200,66,.15);display:flex;align-items:center;justify-content:center">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(245,200,66,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>
+        </div>
+        <div style="font-family:var(--font-display);font-size:13px;font-weight:600;color:var(--t3);letter-spacing:.02em">Загрузка лиги...</div>
+        <div style="display:flex;gap:5px">${[0,1,2].map(i=>`<div style="width:6px;height:6px;border-radius:50%;background:rgba(245,200,66,.3);animation:arenaLiveDot ${1.2+i*0.2}s ease-in-out infinite;animation-delay:${i*0.15}s"></div>`).join('')}</div>
+      </div>`;
     }
     const results=await Promise.all(cats.map(c=>loadLeagueData(c.id)));
     el.innerHTML = _buildArenaHTML(cats, results);
@@ -17917,27 +17923,71 @@ function _buildArenaHTML(cats, results){
             </div>` : ''}
           </div>
 
-          <!-- Stats strip -->
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:18px">
-            ${[
-              {lbl:'За неделю', val:totalWeek+' ч', clr:cat.color},
-              {lbl:'За месяц',  val:totalMonth+' ч', clr:'#1a9fff'},
-              {lbl:'Топ стрик', val:topStreak+' дн', clr:'#F97316'},
-              {lbl:'Ср. всего', val:avgHrs+' ч', clr:'var(--green-l)'},
-            ].map(s=>`<div style="padding:10px 14px;border-radius:11px;
-              background:rgba(255,255,255,.03);border:0.5px solid rgba(255,255,255,.06)">
-              <div style="font-family:var(--font-mono);font-size:16px;font-weight:400;
-                color:${s.clr};letter-spacing:-.02em;line-height:1">${s.val}</div>
-              <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
-                color:var(--t3);margin-top:4px">${s.lbl}</div>
-            </div>`).join('')}
-          </div>
+          <!-- Smart Stats Strip: my hours, gap to above, gap to #1 -->
+          ${(()=>{
+            const myMe = sorted.find(p=>p.isMe);
+            const myVal = myMe ? getArenaValue(myMe, arenaMode) : null;
+            const aboveMe = myRank && myRank > 1 ? sorted[myRank-2] : null;
+            const leader  = sorted[0] && !sorted[0].isMe ? sorted[0] : (sorted[1] || null);
+
+            // Card 1: My current value
+            const myValStr = myVal !== null ? formatArenaValue(myVal, arenaMode) : '—';
+
+            // Card 2: Player above me + gap to beat them
+            const aboveVal = aboveMe ? getArenaValue(aboveMe, arenaMode) : null;
+            const gapAbove = (aboveVal !== null && myVal !== null) ? Math.max(0, aboveVal - myVal) : null;
+            const aboveName = aboveMe ? (aboveMe.name.length > 9 ? aboveMe.name.slice(0,9)+'…' : aboveMe.name) : null;
+            const gapAboveStr = gapAbove !== null ? (arenaMode==='streak' ? '+'+Math.ceil(gapAbove)+' дн' : '+'+(gapAbove<0.1?'<0.1':gapAbove.toFixed(1))+' ч') : null;
+
+            // Card 3: Leader gap (only if I'm not already #1 or #2)
+            const leaderVal = leader ? getArenaValue(leader, arenaMode) : null;
+            const gapLeader = (leaderVal !== null && myVal !== null && myRank > 1) ? Math.max(0, leaderVal - myVal) : null;
+            const leaderName = leader ? (leader.name.length > 9 ? leader.name.slice(0,9)+'…' : leader.name) : null;
+            const gapLeaderStr = gapLeader !== null ? (arenaMode==='streak' ? '+'+Math.ceil(gapLeader)+' дн' : '+'+(gapLeader<0.1?'<0.1':gapLeader.toFixed(1))+' ч') : null;
+
+            // Card 4: Total participants stat
+            const totalWeekAll = rawPlayers.reduce((a,p)=>a+(p.weekHrs||0),0);
+
+            const card = (lbl,val,sub,clr,icon)=>`<div style="padding:11px 14px;border-radius:11px;
+              background:rgba(255,255,255,.03);border:0.5px solid rgba(255,255,255,.06);min-width:0">
+              <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px">
+                ${icon}
+                <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3)">${lbl}</div>
+              </div>
+              <div style="font-family:var(--font-mono);font-size:17px;font-weight:400;
+                color:${clr};letter-spacing:-.02em;line-height:1">${val}</div>
+              ${sub?`<div style="font-size:9px;color:rgba(255,255,255,.25);margin-top:3px;letter-spacing:.01em">${sub}</div>`:''}
+            </div>`;
+
+            const svgMe   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="${cat.color}" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+            const svgUp   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" stroke-width="2.5" stroke-linecap="round"><polyline points="18 15 12 9 6 15"/></svg>`;
+            const svgTop  = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#FFD60A" stroke-width="2" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+            const svgGroup= `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+
+            return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px">
+              ${(()=>{
+                // Patch card() to inject data attrs for live ticker
+                const c1 = card('Мои часы', myVal!==null?myValStr:'—', myRank?'Ранг #'+myRank:'Не в рейтинге', cat.color, svgMe)
+                  .replace('font-size:17px', 'font-size:17px" id="arenaLiveMyVal" data-base="'+(myVal||0)+'" data-cat="'+cat.id+'"');
+                const c2 = card(aboveName?'До '+aboveName:(myRank===1?'Ты первый!':'До обгона'),
+                  gapAboveStr||(myRank===1?'🥇':'—'),
+                  aboveVal!==null?formatArenaValue(aboveVal,arenaMode):'',
+                  myRank===1?'#FFD60A':'#4ADE80', svgUp)
+                  .replace('font-size:17px', 'font-size:17px" id="arenaLiveGapAbove" data-gap="'+(gapAbove||0)+'"');
+                const c3 = card(leaderName&&myRank>2?'До #1 '+leaderName:'До первого места',
+                  myRank===1?'Ты лидер':(gapLeaderStr||'—'),
+                  leaderVal!==null&&myRank>2?formatArenaValue(leaderVal,arenaMode):'',
+                  '#FFD60A', svgTop)
+                  .replace('font-size:17px', 'font-size:17px" id="arenaLiveGapLeader" data-gap="'+(gapLeader||0)+'"');
+                const c4 = card('Участников', rawPlayers.length+' чел', totalWeekAll>0?'нед '+totalWeekAll.toFixed(1)+' ч':'', 'var(--t2)', svgGroup);
+                return c1+c2+c3+c4;
+              })()}
+            </div>`;
+          })()}
         </div>
 
-        <!-- Full-width player list: 2 columns when >5 players -->
-        <div style="padding:8px 0;display:grid;
-          grid-template-columns:${top10.length>5?'1fr 1fr':'1fr'};
-          gap:0;position:relative;z-index:1">
+        <!-- Single-column player list -->
+        <div style="padding:4px 0;position:relative;z-index:1">
           ${rows}
         </div>
         ${myFooter}
@@ -17979,6 +18029,55 @@ function _buildArenaHTML(cats, results){
 
   return arenaHeader + `<div style="display:grid;grid-template-columns:${cols};gap:14px;align-items:start">${leagueCards}</div>`;
 }
+
+/* ── Arena live ticker: updates "Мои часы" card every second when timer running ── */
+(function(){
+  let _arTick = null;
+  function _arStartTicker(){
+    if(_arTick) return;
+    _arTick = setInterval(()=>{
+      // Only run if arena tab is visible
+      const el = document.getElementById('leaguesContent');
+      if(!el || !el.offsetParent) return;
+      // Get current timer delta (seconds since start)
+      const running = typeof timerRunning !== 'undefined' && timerRunning;
+      if(!running) return;
+      const elapsed = typeof elapsedSeconds !== 'undefined' ? elapsedSeconds : 0;
+      // Find my value card and update it
+      const myCard = document.getElementById('arenaLiveMyVal');
+      if(!myCard) return;
+      const baseVal = parseFloat(myCard.dataset.base) || 0;
+      const catId   = myCard.dataset.cat || '';
+      // Only update if timer is running for the same category
+      const curCatId = typeof currentCatId !== 'undefined' ? currentCatId : (typeof _timerCatId !== 'undefined' ? _timerCatId : '');
+      if(catId && catId !== curCatId) return;
+      const live = baseVal + elapsed/3600;
+      myCard.textContent = live.toFixed(2)+' ч';
+      // Gap to player above
+      const gapEl1 = document.getElementById('arenaLiveGapAbove');
+      if(gapEl1){
+        const g0 = parseFloat(gapEl1.dataset.gap);
+        if(!isNaN(g0) && g0 > 0){ const g=g0-(elapsed/3600); gapEl1.textContent = g>0?'+'+(g<0.1?'<0.1':g.toFixed(1))+' ч':'🏆 Обогнал!'; }
+      }
+      // Gap to leader
+      const gapEl2 = document.getElementById('arenaLiveGapLeader');
+      if(gapEl2){
+        const g0 = parseFloat(gapEl2.dataset.gap);
+        if(!isNaN(g0) && g0 > 0){ const g=g0-(elapsed/3600); gapEl2.textContent = g>0?'+'+(g<0.1?'<0.1':g.toFixed(1))+' ч':'🏆 Лидер!'; }
+      }
+    }, 1000);
+  }
+  // Start ticker when arena tab is shown
+  const _origShowTab = window.showTab;
+  window.showTab = function(name, el){
+    const res = _origShowTab ? _origShowTab(name, el) : undefined;
+    if(name==='leagues') _arStartTicker();
+    return res;
+  };
+  // Also start on page load if arena is active
+  document.addEventListener('DOMContentLoaded', ()=>{ if(document.getElementById('tab-leagues')?.classList.contains('active')) _arStartTicker(); });
+  window._arStartTicker = _arStartTicker;
+})();
 
 async function renderLgMini(){
   const el=document.getElementById('lgMini');if(!el)return;
