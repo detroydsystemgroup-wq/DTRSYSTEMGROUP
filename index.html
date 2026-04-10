@@ -17539,17 +17539,7 @@ async function renderLeagues(){
     if(_lgFetching) return;
     _lgFetching = true;
 
-    // Skeleton показываем ТОЛЬКО если контейнер реально пуст (первый визит).
-    // Если там уже есть старый рендер — оставляем его, не мигаем.
-    if(!el.children.length){
-      el.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;gap:14px">
-        <div style="width:48px;height:48px;border-radius:14px;background:rgba(245,200,66,.08);border:0.5px solid rgba(245,200,66,.15);display:flex;align-items:center;justify-content:center">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(245,200,66,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>
-        </div>
-        <div style="font-family:var(--font-display);font-size:13px;font-weight:600;color:var(--t3);letter-spacing:.02em">Загрузка лиги...</div>
-        <div style="display:flex;gap:5px">${[0,1,2].map(i=>`<div style="width:6px;height:6px;border-radius:50%;background:rgba(245,200,66,.3);animation:arenaLiveDot ${1.2+i*0.2}s ease-in-out infinite;animation-delay:${i*0.15}s"></div>`).join('')}</div>
-      </div>`;
-    }
+    // Silent load — no skeleton flash, just transparent until data arrives
     const results=await Promise.all(cats.map(c=>loadLeagueData(c.id)));
     el.innerHTML = _buildArenaHTML(cats, results);
   }
@@ -17567,32 +17557,155 @@ function _buildArenaHTML(cats, results){
   if(!document.getElementById('_arenaEpicCSS')){
     const s=document.createElement('style');s.id='_arenaEpicCSS';
     s.textContent=`
-@keyframes arenaCardIn{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
-@keyframes arenaDropIn{from{opacity:0;transform:translateY(-8px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
-@keyframes arenaSingleIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
-@keyframes arenaRowIn{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}
-@keyframes arenaPodiumIn{0%{opacity:0;transform:scale(.82)}60%{transform:scale(1.04)}80%{transform:scale(.98)}100%{opacity:1;transform:scale(1)}}
-@keyframes arenaMedalFloat{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-6px) rotate(3deg)}}
-@keyframes arenaBarIn{from{width:0!important}to{}}
-@keyframes arenaLiveDot{0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,.6)}60%{box-shadow:0 0 0 6px transparent}}
-@keyframes arenaShimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-@keyframes arenaTopGlow{0%,100%{box-shadow:var(--glow-base)}50%{box-shadow:var(--glow-pulse)}}
-@keyframes arenaToplineFlow{0%{background-position:0% 0}100%{background-position:200% 0}}
+/* ── Epic Arena Keyframes ── */
+@keyframes arenaCardIn{
+  0%{opacity:0;transform:translateY(28px) scale(.95)}
+  60%{opacity:1;transform:translateY(-4px) scale(1.005)}
+  100%{opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes arenaDropIn{from{opacity:0;transform:translateY(-10px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes arenaSingleIn{
+  0%{opacity:0;transform:translateY(20px) scale(.97)}
+  70%{opacity:1;transform:translateY(-3px) scale(1.003)}
+  100%{opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes arenaRowIn{
+  0%{opacity:0;transform:translateX(-18px)}
+  70%{opacity:1;transform:translateX(3px)}
+  100%{opacity:1;transform:translateX(0)}
+}
+@keyframes arenaPodiumIn{
+  0%{opacity:0;transform:scale(.75) translateY(10px)}
+  65%{transform:scale(1.06) translateY(-3px)}
+  82%{transform:scale(.98)}
+  100%{opacity:1;transform:scale(1) translateY(0)}
+}
+@keyframes arenaMedalFloat{
+  0%,100%{transform:translateY(0) rotate(-5deg)}
+  50%{transform:translateY(-7px) rotate(4deg)}
+}
+@keyframes arenaBarIn{
+  0%{width:0!important;opacity:0}
+  30%{opacity:1}
+  100%{}
+}
+@keyframes arenaLiveDot{
+  0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,.7)}
+  60%{box-shadow:0 0 0 7px transparent}
+}
+@keyframes arenaShimmer{
+  0%{background-position:-200% 0}
+  100%{background-position:200% 0}
+}
+@keyframes arenaTopGlow{
+  0%,100%{box-shadow:var(--glow-base)}
+  50%{box-shadow:var(--glow-pulse)}
+}
+@keyframes arenaToplineFlow{
+  0%{background-position:0% 0}
+  100%{background-position:200% 0}
+}
+@keyframes arenaStatIn{
+  0%{opacity:0;transform:translateY(12px) scale(.94)}
+  65%{opacity:1;transform:translateY(-2px) scale(1.01)}
+  100%{opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes arenaGlowPulse{
+  0%,100%{opacity:.4}
+  50%{opacity:.85}
+}
+@keyframes arenaRankBounce{
+  0%{opacity:0;transform:scale(.5) rotate(-12deg)}
+  55%{transform:scale(1.15) rotate(3deg)}
+  75%{transform:scale(.95) rotate(-1deg)}
+  100%{opacity:1;transform:scale(1) rotate(0deg)}
+}
+@keyframes arenaNameSlide{
+  0%{opacity:0;transform:translateX(-14px)}
+  100%{opacity:1;transform:translateX(0)}
+}
+@keyframes arenaNumberCount{
+  0%{opacity:0;transform:translateY(6px)}
+  100%{opacity:1;transform:translateY(0)}
+}
 
-.arena-card{animation:arenaCardIn .38s cubic-bezier(.34,1.2,.64,1) both;position:relative;overflow:hidden}
-.arena-row{animation:arenaRowIn .28s ease both;transition:background .14s,transform .14s!important}
-.arena-row:not([data-isme]):hover{background:rgba(255,255,255,.035)!important;transform:translateX(3px)!important}
-.arena-row[data-isme]:hover{filter:brightness(1.07)!important}
-.arena-bar{animation:arenaBarIn .85s cubic-bezier(.4,0,.2,1) both}
-.arena-podium-av{animation:arenaPodiumIn .45s cubic-bezier(.34,1.2,.64,1) both}
-.arena-medal-wrap{animation:arenaMedalFloat 3s ease-in-out infinite}
-.arena-card:hover{transform:translateY(-4px)!important;transition:transform .22s cubic-bezier(.34,1.56,.64,1),box-shadow .22s!important}
-.arena-rank1-name{background:linear-gradient(90deg,#FFD60A,#FFF9A0,#FFD60A);background-size:200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:arenaShimmer 2.8s ease infinite}
-.arena-top1-av{--glow-base:0 0 0 2.5px rgba(255,214,10,.3),0 0 22px rgba(255,214,10,.3);--glow-pulse:0 0 0 3px rgba(255,214,10,.5),0 0 36px rgba(255,214,10,.55);box-shadow:var(--glow-base);animation:arenaTopGlow 2.2s ease-in-out infinite}
-.arena-top2-av{--glow-base:0 0 0 2px rgba(200,200,212,.2),0 0 16px rgba(200,200,212,.22);--glow-pulse:0 0 0 3px rgba(200,200,212,.35),0 0 26px rgba(200,200,212,.38);box-shadow:var(--glow-base);animation:arenaTopGlow 2.8s ease-in-out infinite}
-.arena-top3-av{--glow-base:0 0 0 2px rgba(232,147,90,.18),0 0 14px rgba(232,147,90,.2);--glow-pulse:0 0 0 3px rgba(232,147,90,.32),0 0 22px rgba(232,147,90,.35);box-shadow:var(--glow-base);animation:arenaTopGlow 3.2s ease-in-out infinite}
-.arena-card-topline{position:absolute;top:0;left:0;right:0;height:1.5px;background-size:200% 100%;animation:arenaToplineFlow 2.5s linear infinite;opacity:.8}
-.arena-rank-num{font-family:var(--font-mono);font-size:11px;color:rgba(255,255,255,.18);width:22px;text-align:center;flex-shrink:0}
+/* ── Arena card ── */
+.arena-card{
+  animation:arenaSingleIn .52s cubic-bezier(.34,1.1,.64,1) both;
+  position:relative;overflow:hidden;
+}
+.arena-row{
+  animation:arenaRowIn .32s cubic-bezier(.34,1.1,.64,1) both;
+  transition:background .15s,transform .18s cubic-bezier(.34,1.4,.64,1)!important;
+}
+.arena-row:not([data-isme]):hover{
+  background:rgba(255,255,255,.055)!important;
+  transform:translateX(5px)!important;
+}
+.arena-row[data-isme]{
+  transition:filter .15s!important;
+}
+.arena-row[data-isme]:hover{filter:brightness(1.1)!important}
+
+/* ── Progress bars ── */
+.arena-bar{
+  animation:arenaBarIn 1s cubic-bezier(.4,0,.2,1) both;
+}
+
+/* ── Podium avatars ── */
+.arena-podium-av{animation:arenaPodiumIn .55s cubic-bezier(.34,1.15,.64,1) both}
+.arena-medal-wrap{animation:arenaMedalFloat 3.2s ease-in-out infinite}
+
+/* ── Rank #1 name shimmer ── */
+.arena-rank1-name{
+  background:linear-gradient(90deg,#FFD60A 0%,#FFF6A0 40%,#FFD60A 60%,#FFEC60 80%,#FFD60A 100%);
+  background-size:250%;
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+  animation:arenaShimmer 2.5s ease-in-out infinite;
+}
+
+/* ── Avatar glows ── */
+.arena-top1-av{
+  --glow-base:0 0 0 2.5px rgba(255,214,10,.4),0 0 24px rgba(255,214,10,.35),0 0 48px rgba(255,214,10,.12);
+  --glow-pulse:0 0 0 3.5px rgba(255,214,10,.65),0 0 40px rgba(255,214,10,.55),0 0 72px rgba(255,214,10,.2);
+  box-shadow:var(--glow-base);
+  animation:arenaTopGlow 2s ease-in-out infinite;
+}
+.arena-top2-av{
+  --glow-base:0 0 0 2px rgba(200,200,220,.3),0 0 18px rgba(200,200,220,.25);
+  --glow-pulse:0 0 0 3px rgba(200,200,220,.5),0 0 30px rgba(200,200,220,.4);
+  box-shadow:var(--glow-base);
+  animation:arenaTopGlow 2.6s ease-in-out infinite;
+}
+.arena-top3-av{
+  --glow-base:0 0 0 2px rgba(232,147,90,.25),0 0 16px rgba(232,147,90,.22);
+  --glow-pulse:0 0 0 3px rgba(232,147,90,.45),0 0 28px rgba(232,147,90,.38);
+  box-shadow:var(--glow-base);
+  animation:arenaTopGlow 3s ease-in-out infinite;
+}
+
+/* ── Top line flow ── */
+.arena-card-topline{
+  position:absolute;top:0;left:0;right:0;height:2px;
+  background-size:250% 100%;
+  animation:arenaToplineFlow 2s linear infinite;
+  opacity:1;
+}
+
+/* ── Rank number ── */
+.arena-rank-num{
+  font-family:var(--font-mono);font-size:11px;
+  color:rgba(255,255,255,.3);
+  width:22px;text-align:center;flex-shrink:0;
+  font-weight:600;
+}
+
+/* ── Stat cards entrance ── */
+.arena-stat-card{
+  animation:arenaStatIn .45s cubic-bezier(.34,1.1,.64,1) both;
+}
 
 /* ── a-ctrl-btn: SINGLE SOURCE OF TRUTH for arena top bar ── */
 .a-ctrl-btn{
@@ -17740,11 +17853,11 @@ function _buildArenaHTML(cats, results){
 
       // TOP 3 ROW
       if(isTop3) return `<div class="arena-row" ${isMe?'data-isme="true"':''}
-        style="display:flex;align-items:center;gap:13px;
+        style="display:flex;align-items:center;gap:13px;animation-delay:${cardDelay+120+i*80}ms;
           padding:${i===0?'15px 18px':'12px 18px'};
-          border-bottom:0.5px solid rgba(255,255,255,.04);
-          background:${isMe?`linear-gradient(90deg,${cat.color}15,${cat.color}05,transparent)`:isTop3?`linear-gradient(90deg,${pc.ring},transparent)`:'transparent'};
-          ${isMe?`border-left:2.5px solid ${cat.color};`:''}
+          border-bottom:0.5px solid rgba(255,255,255,.07);
+          background:${isMe?`linear-gradient(90deg,${cat.color}22,${cat.color}08,transparent)`:isTop3?`linear-gradient(90deg,${pc.ring.replace(',.07)',',rgba(255,255,255,.04)')},transparent)`:'transparent'};
+          border-left:${isMe?`3px solid ${cat.color}`:`2px solid transparent`};
           cursor:${click?'pointer':'default'};animation-delay:${rowDelay}ms"
         ${click?`onclick="openUserProfile('${esc(p.userId)}','${escAttr(p.name)}','${escAttr(p.av)}','${escAttr(p.avUrl||'')}')"`:''}>
 
@@ -17799,11 +17912,11 @@ function _buildArenaHTML(cats, results){
       const monthVal = p.monthHrs > 0 ? p.monthHrs.toFixed(1)+'ч' : null;
       const bestVal  = p.bestSession > 0 ? p.bestSession.toFixed(1)+'ч' : null;
       return `<div class="arena-row" ${isMe?'data-isme="true"':''}
-        style="display:flex;align-items:center;gap:11px;
+        style="display:flex;align-items:center;gap:11px;animation-delay:${rowDelay}ms;
           padding:${isSingle?'11px 24px':'9px 18px'};
-          border-bottom:0.5px solid rgba(255,255,255,.025);
-          background:${isMe?`linear-gradient(90deg,${cat.color}0d,transparent)`:'transparent'};
-          ${isMe?`border-left:2px solid ${cat.color}60;`:''}
+          border-bottom:0.5px solid rgba(255,255,255,.05);
+          background:${isMe?`linear-gradient(90deg,${cat.color}18,${cat.color}06,transparent)`:`rgba(255,255,255,.01)`};
+          border-left:${isMe?`3px solid ${cat.color}90`:`2px solid transparent`};
           cursor:${click?'pointer':'default'};animation-delay:${rowDelay}ms"
         ${click?`onclick="openUserProfile('${esc(p.userId)}','${escAttr(p.name)}','${escAttr(p.av)}','${escAttr(p.avUrl||'')}')"`:''}>
 
@@ -17817,7 +17930,7 @@ function _buildArenaHTML(cats, results){
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:5px">
             <span style="font-family:var(--font-body);font-size:${isSingle?13:12.5}px;font-weight:${isMe?600:400};
-              color:${isMe?cat.color:'var(--t1)'};
+              color:${isMe?cat.color:'#E8E6E0'};
               white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:${isSingle?160:140}px">
               ${isMe?esc(P.name):esc(p.name)}
             </span>
@@ -17833,7 +17946,7 @@ function _buildArenaHTML(cats, results){
 
         <div style="text-align:right;flex-shrink:0">
           <div style="font-family:var(--font-clock);font-size:${isSingle?15:13}px;font-weight:400;letter-spacing:.04em;
-            color:${isMe?cat.color:'var(--t3)'}">${vStr}</div>
+            color:${isMe?cat.color:'rgba(255,255,255,.55)'}">${vStr}</div>
           ${isSingle&&barW>0?`<div style="width:${Math.max(28,Math.round(barW*0.7))}px;height:2px;background:rgba(255,255,255,.06);border-radius:1px;overflow:hidden;margin-top:4px;margin-left:auto">
             <div style="height:100%;width:${barW}%;background:${isMe?cat.color:'rgba(255,255,255,.2)'};border-radius:1px;transition:width .8s cubic-bezier(.4,0,.2,1)"></div>
           </div>`:''}
@@ -17876,22 +17989,27 @@ function _buildArenaHTML(cats, results){
       const avgHrs     = rawPlayers.length ? (rawPlayers.reduce((a,p)=>a+(p.hrs||0),0)/rawPlayers.length).toFixed(1) : '0.0';
 
       return `<div class="arena-card" style="
-        border-radius:20px;background:var(--panel);
-        border:0.5px solid ${cat.color}28;
-        box-shadow:0 8px 40px rgba(0,0,0,.45),0 0 0 0.5px ${cat.color}10,0 1px 0 rgba(255,255,255,.04);
-        animation:arenaSingleIn .38s cubic-bezier(.34,1.2,.64,1) both;overflow:hidden">
+        border-radius:20px;
+        background:linear-gradient(160deg,rgba(22,22,28,.98) 0%,rgba(14,14,18,.99) 100%);
+        border:0.5px solid ${cat.color}40;
+        box-shadow:0 12px 60px rgba(0,0,0,.6),0 0 0 1px ${cat.color}14,0 1px 0 rgba(255,255,255,.06);
+        overflow:hidden">
 
-        <!-- Animated top line -->
-        <div class="arena-card-topline" style="height:2px;background:linear-gradient(90deg,transparent,${cat.color}60,${cat.color},${cat.color}60,transparent)"></div>
+        <!-- Flowing top accent line -->
+        <div class="arena-card-topline" style="height:2.5px;background:linear-gradient(90deg,transparent 0%,${cat.color}70 20%,${cat.color} 50%,${cat.color}70 80%,transparent 100%)"></div>
 
-        <!-- Ambient bg glow -->
-        <div style="position:absolute;top:0;left:0;right:0;height:200px;
-          background:radial-gradient(ellipse 60% 120px at 50% 0,${cat.color}10,transparent);
-          pointer-events:none"></div>
+        <!-- Ambient corner glow -->
+        <div style="position:absolute;top:-60px;left:-60px;width:280px;height:280px;
+          background:radial-gradient(circle,${cat.color}12 0%,transparent 65%);
+          pointer-events:none;z-index:0"></div>
+        <div style="position:absolute;bottom:-40px;right:-40px;width:200px;height:200px;
+          background:radial-gradient(circle,${cat.color}08 0%,transparent 65%);
+          pointer-events:none;z-index:0"></div>
 
         <!-- Hero header -->
         <div style="padding:22px 28px 18px;
-          border-bottom:0.5px solid ${cat.color}14;
+          border-bottom:0.5px solid ${cat.color}25;
+          background:rgba(255,255,255,.012);
           position:relative;z-index:1">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
             <!-- Left: icon + name -->
@@ -17918,7 +18036,7 @@ function _buildArenaHTML(cats, results){
             ${myRank ? `<div style="text-align:center;padding:14px 22px;border-radius:14px;
               background:${cat.color}10;border:0.5px solid ${cat.color}25;
               box-shadow:0 0 0 3px ${cat.color}06">
-              ${myRank<=3 ? rankBadgeSVG(myRank,32) : `<div style="font-family:var(--font-clock);font-size:36px;font-weight:300;color:${cat.color};letter-spacing:.04em;line-height:1">#${myRank}</div>`}
+              ${myRank<=3 ? rankBadgeSVG(myRank,32) : `<div style="font-family:var(--font-mono);font-size:32px;font-weight:600;color:${cat.color};text-shadow:0 0 24px ${cat.color}66;letter-spacing:.04em;line-height:1">#${myRank}</div>`}
               <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${cat.color};opacity:.6;margin-top:4px">Мой ранг</div>
             </div>` : ''}
           </div>
@@ -17958,8 +18076,8 @@ function _buildArenaHTML(cats, results){
               <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
                 color:${cat.color};opacity:.7;margin-bottom:8px">Мой результат</div>
               <div id="arenaLiveMyVal" data-base="${myVal||0}" data-cat="${cat.id}"
-                style="font-family:var(--font-mono);font-size:22px;font-weight:400;
-                color:${cat.color};letter-spacing:-.03em;line-height:1">
+                style="font-family:var(--font-mono);font-size:22px;font-weight:500;
+                color:${cat.color};letter-spacing:-.03em;line-height:1;text-shadow:0 0 20px ${cat.color}55">
                 ${myVal!==null ? fmtH(myVal) : '—'}
               </div>
               <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:5px">
@@ -18054,7 +18172,7 @@ function _buildArenaHTML(cats, results){
             </div>`;
 
             return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px">
-              ${c1html}${c2html}${c3html}${c4html}
+              ${[c1html,c2html,c3html,c4html].map((h,i)=>h.replace('border-radius:12px;','border-radius:12px;animation:arenaStatIn .45s cubic-bezier(.34,1.1,.64,1) '+(i*0.07+0.18)+'s both;')).join('')}
             </div>`;
           })()}
         </div>
