@@ -1631,7 +1631,7 @@ button, a, [onclick], .stab, .mg-item, .cat-item, .csg-item, .mb, .cf-btn, .lg-r
 
 /* Nav avatar */
 .nav-av { transition: transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s; }
-.nav-av:hover { transform: scale(1.12); }
+.nav-av:hover { transform: none; } /* overflow:hidden handles containment */
 
 /* ══ STAGGERED REVEAL — cascade entrance ════════════════════ */
 /* Sessions list */
@@ -1876,8 +1876,8 @@ button, a, [onclick], .stab, .mg-item, .cat-item, .csg-item, .mb, .cf-btn, .lg-r
 }
 
 /* Nav avatar bounce */
-.nav-user:hover{transform:scale(1.1)!important;}
-.nav-user{transition:transform .2s cubic-bezier(.34,1.56,.64,1)!important;}
+.nav-user:hover{transform:none!important;}
+.nav-user{transition:background .18s!important;}
 
 /* Timer display glow when running */
 .t-disp.run{
@@ -4981,6 +4981,8 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
   border: 0.5px solid rgba(255,255,255,.09);
   border-radius: 10px;
   overflow: hidden;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 .nav-pill-group-sep {
   width: 0.5px;
@@ -4992,10 +4994,10 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
 /* Search segment */
 .nav-search-pill {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 0 13px;
+  padding: 0 14px;
   background: transparent; border: none;
   font-size: 12px; font-weight: 600;
-  color: rgba(255,255,255,.38);
+  color: rgba(255,255,255,.45);
   font-family: 'DM Sans', sans-serif;
   cursor: pointer;
   white-space: nowrap;
@@ -5004,10 +5006,10 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
 }
 .nav-search-pill svg { stroke: currentColor; flex-shrink: 0; }
 .nav-search-pill:hover {
-  background: rgba(255,255,255,.06);
-  color: rgba(255,255,255,.7);
+  background: rgba(255,255,255,.07);
+  color: rgba(255,255,255,.85);
 }
-.nav-search-pill:active { background: rgba(255,255,255,.09); }
+.nav-search-pill:active { background: rgba(255,255,255,.1); }
 
 /* Online badge — segment inside pill group */
 .nav-online {
@@ -5024,19 +5026,36 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
 
 /* User chip — separate, gold-tinted */
 .nav-user-chip {
-  display: inline-flex; align-items: center; gap: 8px;
-  height: 34px; padding: 0 12px 0 8px;
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 34px; padding: 0 4px 0 6px;
   border-radius: 10px;
   background: rgba(245,200,66,.06);
   border: 0.5px solid rgba(245,200,66,.16);
   cursor: pointer;
   transition: background .14s, border-color .14s, box-shadow .14s;
+  overflow: hidden;
 }
 .nav-user-chip:hover {
   background: rgba(245,200,66,.1);
   border-color: rgba(245,200,66,.28);
-  box-shadow: 0 0 14px rgba(245,200,66,.08);
+  box-shadow: 0 0 16px rgba(245,200,66,.1);
 }
+.nav-chip-sep {
+  width: 0.5px; height: 18px; background: rgba(255,255,255,.1); flex-shrink:0;
+}
+.nav-logout-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 7px;
+  background: transparent; border: none; cursor: pointer;
+  color: rgba(255,255,255,.3);
+  transition: color .14s, background .14s;
+  flex-shrink: 0;
+}
+.nav-logout-btn:hover {
+  color: #EF4444;
+  background: rgba(239,68,68,.1);
+}
+.nav-logout-btn:active { transform: scale(.9); }
 .nav-uname {
   font-size: 13px; font-weight: 700;
   color: rgba(255,255,255,.75);
@@ -5095,11 +5114,12 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
 }
 .nav-user-chip:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.16); }
 .nav-av {
-  width: 24px !important; height: 24px !important;
-  border-radius: 6px !important;
+  width: 26px !important; height: 26px !important;
+  border-radius: 7px !important;
   background: rgba(255,255,255,.08) !important;
   display: flex !important; align-items: center !important; justify-content: center !important;
-  font-size: 13px !important; border: none !important; flex-shrink: 0;
+  font-size: 14px !important; border: none !important; flex-shrink: 0;
+  overflow: hidden !important;
 }
 .nav-uname {
   font-family: 'DM Sans', sans-serif;
@@ -10045,13 +10065,17 @@ html[data-theme="light"] .nav-icon-btn:hover {
    ═══════════════════════════════════════════════════════════════ */
 
 #lgMini > div {
-  padding: 10px 12px !important;
+  padding: 10px 14px !important;
   border-radius: 12px !important;
+  background: var(--card) !important;
+  border: 0.5px solid var(--border) !important;
   transition: background .18s cubic-bezier(.25,.46,.45,.94),
-              transform .2s cubic-bezier(.34,1.56,.64,1) !important;
+              transform .2s cubic-bezier(.34,1.56,.64,1),
+              border-color .18s !important;
 }
 #lgMini > div:hover {
   background: var(--hover) !important;
+  border-color: rgba(245,200,66,.18) !important;
   transform: translateX(4px) !important;
 }
 
@@ -13727,10 +13751,14 @@ html[data-theme="light"] .nav-icon-btn:hover {
       </div>
     </div>
 
-    <!-- User chip — separate gold-tinted block -->
+    <!-- User chip with logout -->
     <div class="nav-user-chip" onclick="showTab('dash')">
       <div class="nav-av" id="navAv">🎯</div>
       <span class="nav-uname" id="navUname"></span>
+      <div class="nav-chip-sep"></div>
+      <button class="nav-logout-btn" onclick="event.stopPropagation();doLogout()" title="Выйти">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
     </div>
 
   </div>
@@ -14349,7 +14377,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
 
     <div class="card">
       <div class="ch"><span class="ct" style="display:inline-flex;align-items:center;gap:7px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.2" style="opacity:.8"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>МОЯ АРЕНА</span><span style="font-size:11px;color:var(--gold);opacity:.6;cursor:pointer;font-weight:600;letter-spacing:.02em" onclick="showTab('leagues')">Все →</span></div>
-      <div class="cb" style="padding:8px 6px 12px;display:flex;flex-direction:column;gap:5px" id="lgMini"></div>
+      <div class="cb" style="padding:8px 2px 12px;display:flex;flex-direction:column;gap:7px" id="lgMini"></div>
     </div>
 
     <div class="card">
