@@ -25007,15 +25007,17 @@ function _lrnInjectCSS(){
 /* ── Section (category card — Arena style) ───────────────── */
 .lrn-sec{
   margin-bottom:16px;
-  border-radius:16px;
+  border-radius:18px;
   border:0.5px solid var(--border);
-  background:var(--card);
-  transition:box-shadow .2s;
+  background:var(--card-bg);
+  transition:box-shadow .22s, border-color .22s;
+  position:relative;
+  overflow:hidden;
 }
 .lrn-sec:hover{
-  box-shadow:0 4px 24px rgba(0,0,0,.35);
+  box-shadow:0 4px 28px rgba(0,0,0,.4);
+  border-color:rgba(255,255,255,.08);
 }
-
 /* Colored left accent bar */
 .lrn-sec::before{
   content:'';
@@ -25024,19 +25026,29 @@ function _lrnInjectCSS(){
   width:3px;
   background:var(--sec-c, var(--gold));
   border-radius:0;
+  opacity:.85;
 }
-/* Make sec position:relative for ::before */
-.lrn-sec{ position:relative; }
+/* Top ambient line from accent color */
+.lrn-sec::after{
+  content:'';
+  position:absolute;
+  top:0; left:0; right:0;
+  height:1px;
+  background:linear-gradient(90deg,var(--sec-c,var(--gold)) 0%,transparent 55%);
+  opacity:.3;
+  pointer-events:none;
+}
 
 /* Category header inside card */
 .lrn-sec-hdr{
   display:flex;
   align-items:center;
   gap:12px;
-  padding:14px 18px;
+  padding:14px 20px;
   border-bottom:0.5px solid rgba(255,255,255,.05);
-  background:rgba(255,255,255,.015);
+  background:rgba(255,255,255,.012);
   position:relative;
+  z-index:1;
 }
 
 /* Category icon box */
@@ -25048,7 +25060,9 @@ function _lrnInjectCSS(){
   align-items:center;
   justify-content:center;
   flex-shrink:0;
+  transition:transform .2s cubic-bezier(.34,1.4,.64,1);
 }
+.lrn-sec:hover .lrn-sec-icon{ transform:scale(1.08); }
 
 .lrn-sec-info{ flex:1; min-width:0; }
 .lrn-sec-name{
@@ -25104,7 +25118,9 @@ function _lrnInjectCSS(){
 
 /* Card grid — horizontal scroll, 4 visible at once */
 .lrn-row-wrap{
-  padding:16px 18px 20px;
+  padding:16px 20px 20px;
+  position:relative;
+  z-index:1;
 }
 .lrn-row{
   display:grid;
@@ -25134,7 +25150,7 @@ function _lrnInjectCSS(){
 .lrn-card{
   cursor:pointer;
   border-radius:14px;
-  background:var(--card);
+  background:var(--card-bg,var(--card));
   border:0.5px solid rgba(255,255,255,.06);
   overflow:hidden;
   transition:transform .25s cubic-bezier(.34,1.15,.64,1),
@@ -25149,9 +25165,10 @@ function _lrnInjectCSS(){
   transition:opacity .25s;
 }
 .lrn-card:hover{
-  transform:translateY(-6px) scale(1.01);
-  box-shadow:0 16px 40px rgba(0,0,0,.5);
-  border-color:rgba(255,255,255,.12);
+  transform:translateY(-5px) scale(1.01);
+  box-shadow:0 14px 36px rgba(0,0,0,.5),
+             0 0 0 0.5px rgba(255,255,255,.08);
+  border-color:rgba(255,255,255,.13);
 }
 .lrn-card:hover::before{ opacity:1; }
 
@@ -25292,8 +25309,8 @@ function _lrnInjectCSS(){
 
 /* ── Add card ─────────────────────────────────────────────── */
 .lrn-add-card{
-  border:0.5px solid rgba(255,255,255,.07);
-  border-radius:12px;
+  border:0.5px dashed rgba(255,255,255,.09);
+  border-radius:14px;
   display:flex;
   flex-direction:column;
   align-items:center;
@@ -25303,31 +25320,36 @@ function _lrnInjectCSS(){
   color:var(--t3);
   font-size:12px;
   font-weight:500;
-  transition:background-color .18s,border-color .18s,color .18s,box-shadow .18s,opacity .18s;
-  background:rgba(255,255,255,.02);
+  transition:background-color .2s,border-color .2s,color .2s,transform .2s,box-shadow .2s;
+  background:rgba(255,255,255,.015);
   font-family:var(--font-display);
   aspect-ratio:unset;
   min-height:140px;
   letter-spacing:-.005em;
 }
 .lrn-add-card:hover{
-  border-color:rgba(239,192,48,.3);
+  border-color:rgba(245,200,66,.28);
+  border-style:solid;
   color:var(--gold);
-  background:rgba(239,192,48,.05);
-  transform:translateY(-2px);
+  background:rgba(245,200,66,.04);
+  transform:translateY(-3px);
+  box-shadow:0 8px 20px rgba(0,0,0,.3);
 }
 .lrn-add-card-icon{
-  width:36px;
-  height:36px;
-  border-radius:10px;
+  width:38px;
+  height:38px;
+  border-radius:11px;
   background:rgba(255,255,255,.05);
+  border:0.5px solid rgba(255,255,255,.08);
   display:flex;
   align-items:center;
   justify-content:center;
-  transition:background .18s;
+  transition:background .2s, border-color .2s, transform .2s cubic-bezier(.34,1.4,.64,1);
 }
 .lrn-add-card:hover .lrn-add-card-icon{
-  background:rgba(239,192,48,.1);
+  background:rgba(245,200,66,.1);
+  border-color:rgba(245,200,66,.25);
+  transform:scale(1.1);
 }
 
 /* ── Empty state ─────────────────────────────────────────── */
@@ -25985,38 +26007,101 @@ function _lrnInjectCSS(){
 .svc-sb-cat:hover .svc-sb-cat-del{ opacity:1; }
 .svc-sb-cat-del:hover{ background:rgba(239,68,68,.12);color:var(--red); }
 
-/* Services grid */
+/* Services grid — card-block style (mirrors lrn-sec) */
 .svc-section{
-  padding:20px 24px;
+  margin-bottom:16px;
+  border-radius:18px;
+  border:0.5px solid var(--border);
+  background:var(--card-bg);
+  position:relative;
+  overflow:hidden;
+  transition:box-shadow .2s, border-color .2s;
+}
+.svc-section:hover{
+  box-shadow:0 4px 28px rgba(0,0,0,.4);
+  border-color:rgba(255,255,255,.08);
+}
+/* Colored left accent bar */
+.svc-section::before{
+  content:'';
+  position:absolute;
+  left:0; top:0; bottom:0;
+  width:3px;
+  background:var(--svc-c, #06B6D4);
+  border-radius:0;
+  opacity:.85;
+}
+/* Top ambient glow from accent color */
+.svc-section::after{
+  content:'';
+  position:absolute;
+  top:0; left:0; right:0;
+  height:1px;
+  background:linear-gradient(90deg,var(--svc-c,#06B6D4) 0%,transparent 60%);
+  opacity:.35;
+  pointer-events:none;
 }
 .svc-section-hdr{
   display:flex;align-items:center;justify-content:space-between;
-  margin-bottom:16px;
+  padding:14px 20px;
+  border-bottom:0.5px solid rgba(255,255,255,.05);
+  background:rgba(255,255,255,.015);
+  gap:12px;
 }
 .svc-section-name{
-  font-size:13px;font-weight:700;
-  color:var(--t1);letter-spacing:-.01em;
-  display:flex;align-items:center;gap:8px;
+  display:flex;align-items:center;gap:10px;
+  flex:1;min-width:0;
+}
+/* Category icon box (replaces plain dot) */
+.svc-section-icon{
+  width:34px;height:34px;
+  border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+  background:var(--svc-icon-bg, rgba(6,182,212,.1));
+  border:0.5px solid var(--svc-icon-bd, rgba(6,182,212,.25));
 }
 .svc-section-dot{
   width:7px;height:7px;border-radius:50%;flex-shrink:0;
 }
+.svc-section-label{
+  flex:1;min-width:0;
+}
+.svc-section-label-name{
+  font-size:13.5px;font-weight:700;
+  color:var(--t1);letter-spacing:-.02em;line-height:1.2;
+}
+.svc-section-label-sub{
+  font-size:10px;color:var(--t3);letter-spacing:.01em;margin-top:2px;
+}
+.svc-section-cnt{
+  font-family:var(--font-mono);
+  font-size:10px;color:var(--t3);
+  background:rgba(255,255,255,.06);
+  border:0.5px solid rgba(255,255,255,.08);
+  border-radius:6px;padding:2px 8px;
+  flex-shrink:0;
+}
 .svc-section-acts{
-  display:flex;gap:4px;
+  display:flex;gap:3px;
+  opacity:0;transition:opacity .15s;
 }
+.svc-section:hover .svc-section-acts{ opacity:1; }
 .svc-section-btn{
-  width:26px;height:26px;border-radius:7px;
-  background:transparent;border:none;color:var(--t3);
+  width:28px;height:28px;border-radius:8px;
+  border:0.5px solid rgba(255,255,255,.08);
+  background:transparent;color:var(--t3);
   cursor:pointer;display:flex;align-items:center;justify-content:center;
-  transition:all .14s;
+  transition:all .12s;
 }
-.svc-section-btn:hover{ background:rgba(255,255,255,.07);color:var(--t1); }
-.svc-section-btn.del:hover{ background:rgba(239,68,68,.1);color:var(--red); }
+.svc-section-btn:hover{ background:rgba(255,255,255,.08);color:var(--t2); }
+.svc-section-btn.del:hover{ background:rgba(239,68,68,.1);color:var(--red);border-color:rgba(239,68,68,.2); }
 
 .svc-grid{
   display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(88px,1fr));
-  gap:10px;
+  grid-template-columns:repeat(auto-fill,minmax(90px,1fr));
+  gap:12px;
+  padding:16px 20px 20px;
 }
 /* Service tile */
 .svc-tile{
@@ -26110,6 +26195,84 @@ function _lrnInjectCSS(){
 .svc-empty-sub{
   font-size:13px;color:var(--t2);line-height:1.6;
   max-width:260px;
+}
+
+/* ── Tile hover: glow from category color ── */
+.svc-tile:hover{
+  border-color:rgba(255,255,255,.14);
+  box-shadow:0 10px 28px rgba(0,0,0,.45), 0 0 0 0.5px rgba(255,255,255,.07);
+}
+
+/* ── svc-tile icon container rounded upgrade ── */
+.svc-tile-ico{
+  width:52px!important;height:52px!important;
+  border-radius:14px!important;
+}
+
+/* ── Add-tile hover: uses --svc-c if available ── */
+.svc-section .svc-add-tile:hover{
+  border-color:var(--svc-c, rgba(6,182,212,.35))!important;
+  color:var(--svc-c, #06B6D4)!important;
+  background:color-mix(in srgb, var(--svc-c, #06B6D4) 5%, transparent)!important;
+}
+
+/* ── svc-section content padding (no extra wrapper needed) ── */
+.svc-section > .svc-grid{
+  padding-bottom:20px;
+}
+
+/* ── Mode bar polish ── */
+.lrn-mode-bar{
+  background:rgba(9,9,11,.96);
+  border-bottom:0.5px solid rgba(255,255,255,.05);
+  backdrop-filter:blur(16px);
+  padding:6px 20px;
+  gap:4px;
+}
+.lrn-mode-btn{
+  font-size:12px!important;
+  padding:8px 16px!important;
+  border-radius:10px!important;
+  letter-spacing:.01em!important;
+}
+.lrn-mode-btn.active{
+  background:rgba(245,200,66,.1)!important;
+  border-color:rgba(245,200,66,.28)!important;
+  color:var(--gold)!important;
+  box-shadow:0 0 0 1.5px rgba(245,200,66,.08), 0 3px 12px rgba(245,200,66,.1)!important;
+}
+.lrn-mode-btn.active.collab{
+  background:rgba(168,85,247,.1)!important;
+  border-color:rgba(168,85,247,.28)!important;
+  color:#c084fc!important;
+  box-shadow:0 0 0 1.5px rgba(168,85,247,.08), 0 3px 12px rgba(168,85,247,.1)!important;
+}
+
+/* ── Sub-switcher (Материалы / Сервисы) polish ── */
+.lrn-sb-sw{
+  display:flex;background:rgba(255,255,255,.04);
+  border-radius:9px;padding:3px;gap:2px;
+  border:0.5px solid rgba(255,255,255,.06);
+}
+.lrn-sb-sw-btn{
+  flex:1;padding:6px 10px;border-radius:6px;
+  font-size:11px!important;font-weight:700!important;
+  cursor:pointer;border:none;background:transparent;
+  color:var(--t3);
+  transition:all .18s;
+  font-family:var(--font-display)!important;
+  display:flex;align-items:center;justify-content:center;gap:5px;
+}
+.lrn-sb-sw-btn.active.mat{
+  background:rgba(245,200,66,.1);
+  color:var(--gold);border:0.5px solid rgba(245,200,66,.2);
+}
+.lrn-sb-sw-btn.active.tools{
+  background:rgba(6,182,212,.1);
+  color:#06B6D4;border:0.5px solid rgba(6,182,212,.2);
+}
+.lrn-sb-sw-btn:hover:not(.active){
+  color:var(--t1);background:rgba(255,255,255,.05);
 }
   `;
   document.head.appendChild(s);
@@ -26908,13 +27071,20 @@ window._svcRenderMain = function(){
       </div>`
     :displayCats.map(cat=>{
       const svcs=cat.services||[];
-      return `<div class="svc-section" id="svc-s-${cat.id}">
+      const svcCnt=svcs.length;
+      const svcCntStr=svcCnt===1?'сервис':svcCnt<=4?'сервиса':'сервисов';
+      return `<div class="svc-section" id="svc-s-${cat.id}" style="--svc-c:${cat.color};--svc-icon-bg:${cat.color}18;--svc-icon-bd:${cat.color}35">
         <div class="svc-section-hdr">
           <div class="svc-section-name">
-            <div class="svc-section-dot" style="background:${cat.color}"></div>
-            ${cat.name}
-            <span style="font-size:11px;font-weight:400;color:var(--t3);font-family:var(--font-mono)">${svcs.length}</span>
+            <div class="svc-section-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${cat.color}" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="3" width="7" height="7" rx="1"/><rect x="15" y="3" width="7" height="7" rx="1"/><rect x="15" y="14" width="7" height="7" rx="1"/><rect x="2" y="14" width="7" height="7" rx="1"/></svg>
+            </div>
+            <div class="svc-section-label">
+              <div class="svc-section-label-name">${cat.name}</div>
+              <div class="svc-section-label-sub">${svcCnt} ${svcCntStr}</div>
+            </div>
           </div>
+          <div class="svc-section-cnt">${svcCnt}</div>
           <div class="svc-section-acts">
             <button class="svc-section-btn" onclick="window.svcRenameCat('${cat.id}')">${svgEdit}</button>
             <button class="svc-section-btn del" onclick="window.svcDeleteCat('${cat.id}')">${svgTrash}</button>
@@ -27533,13 +27703,14 @@ window._cmatRenderMain=function(){
     const col=CMAT_COLORS[ci%CMAT_COLORS.length];
     const catItems=filteredItems.filter(i=>(i.cat||'Общее')===cat);
     if(isTool){
-      return `<div class="svc-section" id="cmat-cat-${cmatCatKey(cat)}-tool">
+      const cntTxt=catItems.length===1?'сервис':catItems.length<=4?'сервиса':'сервисов';
+      return `<div class="svc-section" id="cmat-cat-${cmatCatKey(cat)}-tool" style="--svc-c:${col};--svc-icon-bg:${col}18;--svc-icon-bd:${col}35">
         <div class="svc-section-hdr">
           <div class="svc-section-name">
-            <div class="svc-section-dot" style="background:${col}"></div>
-            ${cat}
-            <span style="font-size:11px;font-weight:400;color:var(--t3);font-family:var(--font-mono)">${catItems.length}</span>
+            <div class="svc-section-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${col}" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="3" width="7" height="7" rx="1"/><rect x="15" y="3" width="7" height="7" rx="1"/><rect x="15" y="14" width="7" height="7" rx="1"/><rect x="2" y="14" width="7" height="7" rx="1"/></svg></div>
+            <div class="svc-section-label"><div class="svc-section-label-name">${cat}</div><div class="svc-section-label-sub">${catItems.length} ${cntTxt}</div></div>
           </div>
+          <div class="svc-section-cnt">${catItems.length}</div>
           <div class="svc-section-acts">
             <button class="svc-section-btn" onclick="window.cmatCatMenu('${room.id}','${cat.replace(/'/g,"\\'")}','tool')" title="Управление">${svgEdit}</button>
           </div>
