@@ -17948,40 +17948,113 @@ function _buildArenaHTML(cats, results){
             // Card 4: Total participants stat
             const totalWeekAll = rawPlayers.reduce((a,p)=>a+(p.weekHrs||0),0);
 
-            const card = (lbl,val,sub,clr,icon)=>`<div style="padding:11px 14px;border-radius:11px;
-              background:rgba(255,255,255,.03);border:0.5px solid rgba(255,255,255,.06);min-width:0">
-              <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px">
-                ${icon}
-                <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3)">${lbl}</div>
+            // ── Smart stat cards ────────────────────────────────────────
+            // fmtH: short format for hours value
+            const fmtH = (v) => arenaMode==='streak' ? v+' дн' : (v>=100?Math.round(v):v.toFixed(1))+' ч';
+
+            // Card 1 — МОИ ЧАСЫ: моё значение + мой ранг
+            const c1html = `<div style="padding:13px 16px;border-radius:12px;
+              background:${cat.color}0d;border:0.5px solid ${cat.color}30;min-width:0">
+              <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+                color:${cat.color};opacity:.7;margin-bottom:8px">Мой результат</div>
+              <div id="arenaLiveMyVal" data-base="${myVal||0}" data-cat="${cat.id}"
+                style="font-family:var(--font-mono);font-size:22px;font-weight:400;
+                color:${cat.color};letter-spacing:-.03em;line-height:1">
+                ${myVal!==null ? fmtH(myVal) : '—'}
               </div>
-              <div style="font-family:var(--font-mono);font-size:17px;font-weight:400;
-                color:${clr};letter-spacing:-.02em;line-height:1">${val}</div>
-              ${sub?`<div style="font-size:9px;color:rgba(255,255,255,.25);margin-top:3px;letter-spacing:.01em">${sub}</div>`:''}
+              <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:5px">
+                ${myRank ? `Ранг <span style="color:${cat.color};font-weight:600">#${myRank}</span> из ${rawPlayers.length}` : 'Не в рейтинге'}
+              </div>
             </div>`;
 
-            const svgMe   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="${cat.color}" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
-            const svgUp   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" stroke-width="2.5" stroke-linecap="round"><polyline points="18 15 12 9 6 15"/></svg>`;
-            const svgTop  = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#FFD60A" stroke-width="2" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
-            const svgGroup= `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+            // Card 2 — ДО ОБГОНА: у меня X, у него Y, нужно +Z
+            const c2html = (()=>{
+              if(myRank===1 || !aboveMe){
+                return `<div style="padding:13px 16px;border-radius:12px;
+                  background:rgba(255,214,10,.06);border:0.5px solid rgba(255,214,10,.25);min-width:0">
+                  <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+                    color:#FFD60A;opacity:.7;margin-bottom:8px">Моя позиция</div>
+                  <div style="font-family:var(--font-mono);font-size:22px;font-weight:400;
+                    color:#FFD60A;letter-spacing:-.03em;line-height:1">🥇 Лидер</div>
+                  <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:5px">Ты на первом месте</div>
+                </div>`;
+              }
+              return `<div style="padding:13px 16px;border-radius:12px;
+                background:rgba(74,222,128,.05);border:0.5px solid rgba(74,222,128,.2);min-width:0">
+                <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+                  color:#4ADE80;opacity:.8;margin-bottom:8px">До обгона · ${aboveName}</div>
+                <div style="display:flex;align-items:baseline;gap:6px">
+                  <div id="arenaLiveGapAbove" data-gap="${gapAbove||0}"
+                    style="font-family:var(--font-mono);font-size:22px;font-weight:400;
+                    color:#4ADE80;letter-spacing:-.03em;line-height:1">
+                    +${gapAbove<0.1?'<0.1':gapAbove.toFixed(1)} ч
+                  </div>
+                </div>
+                <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:5px">
+                  У меня <span style="color:rgba(255,255,255,.55)">${myVal!==null?fmtH(myVal):'—'}</span>
+                  &nbsp;·&nbsp; у него <span style="color:#4ADE80">${aboveVal!==null?fmtH(aboveVal):'—'}</span>
+                </div>
+              </div>`;
+            })();
+
+            // Card 3 — ДО ПЕРВОГО МЕСТА: у меня X, у лидера Y, нужно +Z
+            const c3html = (()=>{
+              if(myRank===1){
+                const closest = sorted[1];
+                const closestVal = closest ? getArenaValue(closest,arenaMode) : 0;
+                const lead = myVal!==null ? Math.max(0,myVal-closestVal) : 0;
+                return `<div style="padding:13px 16px;border-radius:12px;
+                  background:rgba(255,214,10,.06);border:0.5px solid rgba(255,214,10,.2);min-width:0">
+                  <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+                    color:#FFD60A;opacity:.7;margin-bottom:8px">Твой отрыв от #2</div>
+                  <div style="font-family:var(--font-mono);font-size:22px;font-weight:400;
+                    color:#FFD60A;letter-spacing:-.03em;line-height:1">
+                    +${lead<0.1?'<0.1':lead.toFixed(1)} ч
+                  </div>
+                  <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:5px">
+                    ${closest ? 'За тобой · '+closest.name : 'Никого нет'}
+                  </div>
+                </div>`;
+              }
+              return `<div style="padding:13px 16px;border-radius:12px;
+                background:rgba(255,214,10,.05);border:0.5px solid rgba(255,214,10,.18);min-width:0">
+                <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+                  color:#FFD60A;opacity:.7;margin-bottom:8px">До 1-го места · ${leaderName||'—'}</div>
+                <div style="display:flex;align-items:baseline;gap:6px">
+                  <div id="arenaLiveGapLeader" data-gap="${gapLeader||0}"
+                    style="font-family:var(--font-mono);font-size:22px;font-weight:400;
+                    color:#FFD60A;letter-spacing:-.03em;line-height:1">
+                    ${gapLeader!==null?('+'+((gapLeader<0.1?'<0.1':gapLeader.toFixed(1)))+' ч'):'—'}
+                  </div>
+                </div>
+                <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:5px">
+                  У меня <span style="color:rgba(255,255,255,.55)">${myVal!==null?fmtH(myVal):'—'}</span>
+                  &nbsp;·&nbsp; у него <span style="color:#FFD60A">${leaderVal!==null?fmtH(leaderVal):'—'}</span>
+                </div>
+              </div>`;
+            })();
+
+            // Card 4 — МОЯ НЕДЕЛЯ: сколько я занимался на этой неделе vs топ недели
+            const myWeekVal = myMe ? myMe.weekHrs : 0;
+            const topWeekPlayer = [...rawPlayers].sort((a,b)=>(b.weekHrs||0)-(a.weekHrs||0))[0];
+            const topWeekVal = topWeekPlayer ? topWeekPlayer.weekHrs : 0;
+            const weekRank = [...rawPlayers].sort((a,b)=>(b.weekHrs||0)-(a.weekHrs||0)).findIndex(p=>p.isMe)+1;
+            const c4html = `<div style="padding:13px 16px;border-radius:12px;
+              background:rgba(26,159,255,.05);border:0.5px solid rgba(26,159,255,.18);min-width:0">
+              <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+                color:#1a9fff;opacity:.7;margin-bottom:8px">Моя неделя</div>
+              <div style="font-family:var(--font-mono);font-size:22px;font-weight:400;
+                color:#1a9fff;letter-spacing:-.03em;line-height:1">
+                ${myWeekVal>0?myWeekVal.toFixed(1)+' ч':'0.0 ч'}
+              </div>
+              <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:5px">
+                ${weekRank>0?`#${weekRank} нед. рейтинг`:''}
+                ${topWeekVal>0&&!myMe?.isMe?` · топ ${topWeekVal.toFixed(1)} ч`:''}
+              </div>
+            </div>`;
 
             return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px">
-              ${(()=>{
-                // Patch card() to inject data attrs for live ticker
-                const c1 = card('Мои часы', myVal!==null?myValStr:'—', myRank?'Ранг #'+myRank:'Не в рейтинге', cat.color, svgMe)
-                  .replace('font-size:17px', 'font-size:17px" id="arenaLiveMyVal" data-base="'+(myVal||0)+'" data-cat="'+cat.id+'"');
-                const c2 = card(aboveName?'До '+aboveName:(myRank===1?'Ты первый!':'До обгона'),
-                  gapAboveStr||(myRank===1?'🥇':'—'),
-                  aboveVal!==null?formatArenaValue(aboveVal,arenaMode):'',
-                  myRank===1?'#FFD60A':'#4ADE80', svgUp)
-                  .replace('font-size:17px', 'font-size:17px" id="arenaLiveGapAbove" data-gap="'+(gapAbove||0)+'"');
-                const c3 = card(leaderName&&myRank>2?'До #1 '+leaderName:'До первого места',
-                  myRank===1?'Ты лидер':(gapLeaderStr||'—'),
-                  leaderVal!==null&&myRank>2?formatArenaValue(leaderVal,arenaMode):'',
-                  '#FFD60A', svgTop)
-                  .replace('font-size:17px', 'font-size:17px" id="arenaLiveGapLeader" data-gap="'+(gapLeader||0)+'"');
-                const c4 = card('Участников', rawPlayers.length+' чел', totalWeekAll>0?'нед '+totalWeekAll.toFixed(1)+' ч':'', 'var(--t2)', svgGroup);
-                return c1+c2+c3+c4;
-              })()}
+              ${c1html}${c2html}${c3html}${c4html}
             </div>`;
           })()}
         </div>
