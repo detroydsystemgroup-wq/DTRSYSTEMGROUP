@@ -15977,6 +15977,12 @@ const getWeekStart=()=>{
   return d.getTime();
 };
 
+// ── Начало текущего месяца: 1-е число 00:00:00.000 ──
+const getMonthStart=()=>{
+  const d=new Date();
+  return new Date(d.getFullYear(),d.getMonth(),1,0,0,0,0).getTime();
+};
+
 // Часы за текущую календарную неделю (Пн 00:00 — Вс 23:59)
 const weekHrs=()=>{
   const weekStart=getWeekStart();
@@ -16179,16 +16185,20 @@ function getDashData(){
     });
     return{data,buckets,isWeek,weekStart};
   } else {
-    // Месяц: скользящие 30 дней (остаётся как было)
-    const buckets=30;
+    // Месяц: с 1-го числа текущего месяца по сегодня
+    const monthStart=getMonthStart(); // 1-е число 00:00
+    const today=new Date(); today.setHours(23,59,59,999);
+    const dayOfMonth=new Date().getDate(); // сколько дней прошло (1-based)
+    const buckets=dayOfMonth; // столбцов = дней с начала месяца
     const data={};ALL_CATS.forEach(c=>{data[c.id]=Array(buckets).fill(0);});
     P.sessions.forEach(s=>{
       const t=sessTs(s);
-      if(!t||isNaN(t)) return;
-      const age=Math.floor((now-t)/86400000);
-      if(age>=0&&age<buckets&&data[s.cat]!==undefined)data[s.cat][buckets-1-age]+=s.dur/3600;
+      if(!t||isNaN(t)||t<monthStart) return; // только с 1-го числа
+      const dayIdx=Math.floor((t-monthStart)/86400000); // 0 = 1-е число
+      if(dayIdx>=0&&dayIdx<buckets&&data[s.cat]!==undefined)
+        data[s.cat][dayIdx]+=s.dur/3600;
     });
-    return{data,buckets,isWeek};
+    return{data,buckets,isWeek,monthStart};
   }
 }
 function renderDash(){
@@ -16205,7 +16215,7 @@ function renderDash(){
   const labels=isWeek
     ? DAYS  // ['Пн','Вт','Ср','Чт','Пт','Сб','Вс']
     : Array.from({length:buckets},(_,i)=>{
-        const d=new Date(now-(buckets-1-i)*86400000);
+        const d=new Date(getMonthStart()+i*86400000); // i=0 → 1-е число
         return i%5===0?`${d.getDate()}/${d.getMonth()+1}`:'';
       });
   const totals=Array(buckets).fill(0);
@@ -16214,12 +16224,12 @@ function renderDash(){
   statsSource.forEach(id=>{if(data[id])data[id].forEach((v,i)=>totals[i]+=v);});
   const maxVal=Math.max(...totals,0.1);
   const periodHrs=statsSource.reduce((a,id)=>a+(data[id]?data[id].reduce((x,v)=>x+v,0):0),0);
-  const avgPerDay=isWeek?(periodHrs/7):(periodHrs/buckets);
+  const avgPerDay=isWeek?(periodHrs/7):(activeDays>0?periodHrs/activeDays:0);
   const bestDay=Math.max(...totals);
   const activeDays=totals.filter(v=>v>0).length;
   // Прошлый период — тоже все лиги
-  const prevPeriodStart=isWeek?(getWeekStart()-7*86400000):(Date.now()-buckets*2*86400000);
-  const prevPeriodEnd=isWeek?getWeekStart():(Date.now()-buckets*86400000);
+  const prevPeriodStart=isWeek?(getWeekStart()-7*86400000):(new Date(new Date().getFullYear(),new Date().getMonth()-1,1,0,0,0,0).getTime());
+  const prevPeriodEnd=isWeek?getWeekStart():getMonthStart();
   const prevPeriodHrs=P.sessions.filter(s=>{
     const t=sessTs(s);
     return t>=prevPeriodStart&&t<prevPeriodEnd&&(!dashCatFilter||s.cat===dashCatFilter);
@@ -16239,8 +16249,8 @@ function renderDash(){
       const fmtShort=d=>d.toLocaleDateString('ru',{day:'numeric',month:'short'}).replace(' г.','');
       titleStr=`Неделя · ${ws.getDate()}–${fmtShort(we)}`;
     } else {
-      const d30=new Date(Date.now()-29*86400000);
-      titleStr=`Месяц · ${d30.toLocaleDateString('ru',{day:'numeric',month:'short'}).replace(' г.','')}–сегодня`;
+      const d30=new Date(getMonthStart());
+      titleStr=`Месяц · ${d30.toLocaleDateString('ru',{day:'numeric',month:'long'}).replace(' г.','').replace(/^(\d+) (\S+)/, (_,d,m)=>d+' '+m)}–сегодня`;
     }
     dashTitleEl.innerHTML=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.6"><rect x="2" y="2" width="9" height="9" rx="2"/><rect x="13" y="2" width="9" height="9" rx="2"/><rect x="2" y="13" width="9" height="9" rx="2"/><rect x="13" y="13" width="9" height="9" rx="2"/></svg>${titleStr}`;
   }
@@ -16666,7 +16676,7 @@ function renderDash(){
     const catH=data[c.id].reduce((a,v)=>a+v,0);
     const pct=Math.min(100,Math.round((catH/maxCatH)*100));
     // Считаем сессии за выбранный период (для недели — с Пн 00:00, для месяца — скользящие 30 дней)
-    const cut=isWeek ? getWeekStart() : Date.now()-30*86400000;
+    const cut=isWeek ? getWeekStart() : getMonthStart();
     const sessCount=P.sessions.filter(s=>{
       const t=sessTs(s);
       return s.cat===c.id && t>=cut;
@@ -16865,8 +16875,8 @@ function renderSessions(all=false){
     if(_sessFilter === 'today')     return dMs === todayMs;
     if(_sessFilter === 'yesterday') return dMs === todayMs - 86400000;
     if(_sessFilter === 'week')      return t >= weekStart;
-    if(_sessFilter === 'month')     return t >= todayMs - 30 * 86400000;
-    return t >= todayMs - 30 * 86400000; // fallback = month
+    if(_sessFilter === 'month')     return t >= getMonthStart();
+    return t >= getMonthStart(); // fallback = month
   }
 
   const list = P.sessions.filter(sessInFilter);
@@ -17330,19 +17340,20 @@ async function _fetchLeagueData(catId){
 
   // Step 3: get session stats — неделя от Пн 00:00 (не скользящие 7 дней), месяц с запасом
   const wCut=new Date(getWeekStart()).toISOString(); // Пн 00:00 текущей недели
-  const mCut=new Date(Date.now()-35*86400000).toISOString();
+  const mCut=new Date(Math.min(getMonthStart(),Date.now()-35*86400000)).toISOString(); // DB fetch: covers full month + buffer
   const{data:sessData}=await sb.from('sessions')
     .select('user_id,duration_seconds,created_at')
     .in('user_id',userIds)
     .eq('category_id',catId)
     .gte('created_at',mCut);
 
-  // Build stats map
+  // Build stats map — monthHrs from 1st of month, weekHrs from Mon 00:00
+  const mCutISO=new Date(getMonthStart()).toISOString(); // 1-е число 00:00
   const statsMap={};
   (sessData||[]).forEach(s=>{
     if(!statsMap[s.user_id])statsMap[s.user_id]={weekHrs:0,monthHrs:0,bestSession:0};
     const h=s.duration_seconds/3600;
-    statsMap[s.user_id].monthHrs+=h;
+    if(s.created_at>=mCutISO)statsMap[s.user_id].monthHrs+=h; // только с 1-го числа
     if(s.created_at>=wCut)statsMap[s.user_id].weekHrs+=h;
     if(h>statsMap[s.user_id].bestSession)statsMap[s.user_id].bestSession=h;
   });
@@ -17364,10 +17375,13 @@ async function _fetchLeagueData(catId){
       totalHrs = uc.hours||0;
     }
 
-    // Для текущего пользователя weekHrs тоже берём из реальных P.sessions
+    // Для текущего пользователя weekHrs и monthHrs берём из реальных P.sessions
     const myWeekHrs = isMe && P
       ? P.sessions.filter(s=>s.cat===catId&&sessTs(s)>=getWeekStart()).reduce((a,s)=>a+s.dur/3600,0)
       : (st.weekHrs||0);
+    const myMonthHrs = isMe && P
+      ? P.sessions.filter(s=>s.cat===catId&&sessTs(s)>=getMonthStart()).reduce((a,s)=>a+s.dur/3600,0)
+      : (st.monthHrs||0);
 
     return{
       name:isMe?(P?.name||u.username||'?'):(u.username||'?'),
@@ -17376,7 +17390,7 @@ async function _fetchLeagueData(catId){
       hrs:Math.round(totalHrs*10)/10,
       streak:isMe?(P?.streak||0):(u.streak||0),
       weekHrs:Math.round(myWeekHrs*10)/10,
-      monthHrs:Math.round((st.monthHrs||0)*10)/10,
+      monthHrs:Math.round((isMe?myMonthHrs:(st.monthHrs||0))*10)/10,
       bestSession:Math.round((st.bestSession||0)*10)/10,
       fake:false,
       isMe,
@@ -32334,8 +32348,8 @@ async function _rptBuild(){
   /* 3. Delta vs prev period */
   var deltaHTML='';
   try{
-    var prevStart=isWeek?(getWeekStart()-7*86400000):(now-60*86400000);
-    var prevEnd=isWeek?getWeekStart():(now-30*86400000);
+    var prevStart=isWeek?(getWeekStart()-7*86400000):(new Date(new Date().getFullYear(),new Date().getMonth()-1,1,0,0,0,0).getTime());
+    var prevEnd=isWeek?getWeekStart():getMonthStart();
     var prevHrs=P.sessions.filter(function(s){var t=sessTs(s);return t>=prevStart&&t<prevEnd;}).reduce(function(a,s){return a+s.dur/3600;},0);
     var delta=prevHrs>0?((periodHrs-prevHrs)/prevHrs*100):(periodHrs>0?100:0);
     var dColor=delta>=0?'#4ADE80':'#f85149';
@@ -32395,7 +32409,7 @@ async function _rptBuild(){
   /* 9. Best session */
   var bestSessHrs=0,bestSessDate='',bestSessCat='';
   try{
-    var pStart=isWeek?getWeekStart():(now-30*86400000);
+    var pStart=isWeek?getWeekStart():getMonthStart();
     var pSess=P.sessions.filter(function(s){var t=sessTs(s);return t>=pStart&&t<=now;});
     if(pSess.length>0){
       var best=pSess.reduce(function(a,b){return a.dur>b.dur?a:b;});
