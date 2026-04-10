@@ -14752,6 +14752,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
 const SUPABASE_URL='https://jwqvlhmtjtpoxwncmpex.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3cXZsaG10anRwb3h3bmNtcGV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyMDY0NTIsImV4cCI6MjA4OTc4MjQ1Mn0.uCSike4yk_tbNUxdMUTVGjHof8aV8QnEsSWyo8KR-8Y';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+window.sb=sb; // expose globally for cross-script access
 
 // ══ CONSTANTS ════════════════════════════════════════════════
 const AVATARS=['🌀','💫','⚡','🔮','🌑','💎','🦋','🫡','🌊','🎯','🏔️','🦅','🐉','🌙','⭐','🔱','🫧','💠','🌐','🦾'];
@@ -30337,9 +30338,9 @@ window.renderCollabView=renderCollabView;
     var res = document.getElementById('usrSearchResults');
     if(!res) return;
     try {
-      var sb2 = window.sb;
-      var me = window.SB_USER;
-      if(!sb2){ res.innerHTML='<div class="usr-search-empty">Необходима авторизация</div>'; return; }
+      var sb2 = (typeof sb !== 'undefined' ? sb : null) || window.sb || (typeof getSB === 'function' ? getSB() : null);
+      var me = window.SB_USER || (typeof getUser === 'function' ? getUser() : null);
+      if(!sb2){ res.innerHTML='<div class="usr-search-empty">Ошибка соединения. Попробуй ещё раз.</div>'; return; }
 
       var r = await sb2.from('users')
         .select('id,username,avatar,avatar_url,total_hours,streak')
