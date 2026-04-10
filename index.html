@@ -30342,17 +30342,38 @@ window.renderCollabView=renderCollabView;
       var me = window.SB_USER || (typeof getUser === 'function' ? getUser() : null);
       if(!sb2){ res.innerHTML='<div class="usr-search-empty">Ошибка соединения. Попробуй ещё раз.</div>'; return; }
 
+      // Strategy 1: partial ilike match
       var r = await sb2.from('users')
         .select('id,username,avatar,avatar_url,total_hours,streak')
         .ilike('username', '%' + query + '%')
         .limit(10);
 
       var users = r.data || [];
+
+      // Strategy 2: starts-with (if partial fails or errors)
+      if(r.error || !users.length){
+        var r2 = await sb2.from('users')
+          .select('id,username,avatar,avatar_url,total_hours,streak')
+          .ilike('username', query + '%')
+          .limit(10);
+        users = r2.data || [];
+      }
+
+      // Strategy 3: exact match
+      if(!users.length){
+        var r3 = await sb2.from('users')
+          .select('id,username,avatar,avatar_url,total_hours,streak')
+          .eq('username', query)
+          .limit(5);
+        users = r3.data || [];
+      }
+
       // Filter self out if logged in
       if(me && me.id) users = users.filter(function(u){ return u.id !== me.id; });
 
       if(!users.length){
-        res.innerHTML = '<div class="usr-search-empty"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="1.2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><div>Никого не найдено по «'+ query +'»</div></div>';
+        var errHint = r.error ? '<div style="font-size:11px;color:var(--red);opacity:.7;margin-top:6px">'+r.error.message+'</div>' : '';
+        res.innerHTML = '<div class="usr-search-empty"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="1.2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><div>Никого не найдено по «'+ query +'»</div>'+errHint+'</div>';
         return;
       }
 
