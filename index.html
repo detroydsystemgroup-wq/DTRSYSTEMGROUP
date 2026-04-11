@@ -21409,6 +21409,8 @@ async function _vcAcceptCall(fromUserId, fromName, offerSdp){
 
   try {
     await _vcGetLocalMedia();
+    // Refresh TURN before accepting too
+    await _vcRefreshICE();
     // Setup two-way signaling using the symmetric channel
     _vcSetupSignaling(fromUserId, false);
     _vcCreatePC();
@@ -33126,16 +33128,42 @@ const VC = {
   _incomingTimeout: null,
 };
 
-const VC_ICE = {
+// ── ICE servers: multiple STUN + reliable TURN fallbacks ──
+// STUN: free, works in ~60% of network configs (no symmetric NAT)
+// TURN: relay server for the remaining ~40% (corporate networks, strict routers)
+const VC_ICE_BASE = {
   iceServers: [
+    // Google STUN (most reliable, always available)
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
-    // Free TURN server for NAT traversal (metered.ca free tier)
-    { urls: 'turn:a.relay.metered.ca:80', username: 'open', credential: 'open' },
-    { urls: 'turn:a.relay.metered.ca:443', username: 'open', credential: 'open' },
-  ]
+    { urls: 'stun:stun3.l.google.com:19302' },
+    // Cloudflare STUN
+    { urls: 'stun:stun.cloudflare.com:3478' },
+    // Open Relay TURN — reliable public TURN (no account needed)
+    { urls: 'turn:openrelay.metered.ca:80',  username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+    // Backup TURN servers
+    { urls: 'turn:relay1.expressturn.com:3478', username: 'efEMPTY', credential: 'empty' },
+  ],
+  iceCandidatePoolSize: 10,
+  bundlePolicy: 'max-bundle',
+  rtcpMuxPolicy: 'require',
 };
+let VC_ICE = VC_ICE_BASE;
+
+// Try to fetch fresh TURN credentials from open relay (improves reliability)
+async function _vcRefreshICE(){
+  try {
+    const r = await fetch('https://openrelay.metered.ca/api/v1/turn/credentials?apiKey=openrelayproject', {signal: AbortSignal.timeout(3000)});
+    if(!r.ok) return;
+    const servers = await r.json();
+    if(Array.isArray(servers) && servers.length > 0){
+      VC_ICE = { ...VC_ICE_BASE, iceServers: [...VC_ICE_BASE.iceServers, ...servers] };
+    }
+  } catch(e){ /* use base config */ }
+}
 
 // ── Start call (caller side) ──
 async function _startVideoCall(userId, name){
@@ -33156,6 +33184,9 @@ async function _startVideoCall(userId, name){
 
     // Switch to "ringing" state
     _vcShowRinging(name);
+
+    // Refresh TURN credentials for best connectivity
+    await _vcRefreshICE();
 
     // Setup signaling channel
     _vcSetupSignaling(userId, true);
@@ -33300,6 +33331,16 @@ async function _vcHandleSignal(payload, isCaller){
       if(payload.candidate && VC.pc){
         try { await VC.pc.addIceCandidate(new RTCIceCandidate(payload.candidate)); } catch(e){}
       }
+    } else if(payload.type === 'ice_restart'){
+      // Caller restarted ICE — respond with new answer
+      if(VC.pc && !VC.isCaller){
+        try {
+          await VC.pc.setRemoteDescription({ type: 'offer', sdp: payload.sdp });
+          const answer = await VC.pc.createAnswer();
+          await VC.pc.setLocalDescription(answer);
+          _vcSendSignal({ type: 'answer', sdp: answer.sdp, from: SB_USER.id, to: payload.from });
+        } catch(e){ console.warn('ICE restart answer failed:', e); }
+      }
     } else if(payload.type === 'hangup'){
       _vcEndCall(true);
     } else if(payload.type === 'busy'){
@@ -33333,6 +33374,32 @@ function _vcCreatePC(){
   VC.pc.onicecandidate = (e) => {
     if(e.candidate){
       _vcSendSignal({ type: 'ice', candidate: e.candidate, from: SB_USER.id, to: VC.partnerUserId });
+    }
+  };
+
+  // Log ICE gathering for debugging
+  VC.pc.onicegatheringstatechange = () => {
+    console.log('[DTR VC] ICE gathering:', VC.pc?.iceGatheringState);
+  };
+
+  VC.pc.oniceconnectionstatechange = () => {
+    const s = VC.pc?.iceConnectionState;
+    console.log('[DTR VC] ICE connection:', s);
+    if(s === 'checking') _vcSetConnText('Устанавливаем соединение…', 'Проверяем маршруты');
+    if(s === 'connected' || s === 'completed') _vcSetConnText('Подключено', '');
+    if(s === 'failed'){
+      // Try ICE restart before giving up
+      _vcSetConnText('Переподключение…', 'Пробуем другой маршрут');
+      if(VC.pc && VC.isCaller){
+        VC.pc.restartIce();
+        VC.pc.createOffer({ iceRestart: true }).then(offer => {
+          VC.pc.setLocalDescription(offer);
+          _vcSendSignal({ type: 'ice_restart', sdp: offer.sdp, from: SB_USER.id, to: VC.partnerUserId });
+        }).catch(()=>{});
+      }
+    }
+    if(s === 'disconnected'){
+      _vcSetConnText('Связь прервана…', 'Попытка восстановить');
     }
   };
 
@@ -33571,7 +33638,43 @@ function _vcStartTimer(){
     const s = String(VC.seconds%60).padStart(2,'0');
     const dur = document.getElementById('vcDuration');
     if(dur) dur.textContent = (VC.seconds >= 3600 ? Math.floor(VC.seconds/3600)+':' : '') + m+':'+s;
+    // Check connection quality every 5 seconds
+    if(VC.seconds % 5 === 0) _vcCheckQuality();
   }, 1000);
+}
+
+// ── Connection quality monitor ──
+async function _vcCheckQuality(){
+  if(!VC.pc || !VC.connected) return;
+  try {
+    const stats = await VC.pc.getStats();
+    let rtt = null, packetLoss = null;
+    stats.forEach(report => {
+      if(report.type === 'candidate-pair' && report.state === 'succeeded'){
+        if(report.currentRoundTripTime !== undefined) rtt = report.currentRoundTripTime * 1000;
+      }
+      if(report.type === 'inbound-rtp' && report.kind === 'video'){
+        if(report.packetsLost !== undefined && report.packetsReceived !== undefined){
+          const total = report.packetsLost + report.packetsReceived;
+          packetLoss = total > 0 ? (report.packetsLost / total * 100) : 0;
+        }
+      }
+    });
+    const qualEl = document.getElementById('vcQuality');
+    if(!qualEl) return;
+    if(rtt !== null){
+      let label, color;
+      if(rtt < 100 && (packetLoss === null || packetLoss < 2)){
+        label = 'HD · ' + Math.round(rtt) + 'ms'; color = '#22C55E';
+      } else if(rtt < 250){
+        label = 'Хорошо · ' + Math.round(rtt) + 'ms'; color = '#F5C842';
+      } else {
+        label = 'Слабый сигнал · ' + Math.round(rtt) + 'ms'; color = '#F97316';
+      }
+      qualEl.innerHTML = `<svg width="8" height="8" viewBox="0 0 24 24" fill="${color}"><circle cx="12" cy="12" r="10"/></svg> ${label}`;
+      qualEl.style.color = color;
+    }
+  } catch(e){}
 }
 
 function _vcHandleMediaError(err){
