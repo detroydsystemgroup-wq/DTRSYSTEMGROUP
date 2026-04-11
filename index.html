@@ -19423,15 +19423,177 @@ function _msgHideTyping(){
 }
 
 // ── Chat header menu ──
+// ══ MUTE ════════════════════════════════════════════════════
+const _mutedChats = new Set(JSON.parse(localStorage.getItem('dtr_muted_chats')||'[]'));
+function _saveMuted(){ try{localStorage.setItem('dtr_muted_chats',JSON.stringify([..._mutedChats]));}catch(e){} }
+function _isMuted(uid){ return _mutedChats.has(uid); }
+
+// ══ SEARCH IN CHAT ══════════════════════════════════════════
+let _msgSearchActive = false;
+let _searchMatches = [], _searchIdx = 0;
+
+function _msgOpenSearch(){
+  if(_msgSearchActive){ _msgCloseSearch(); return; }
+  _msgSearchActive = true;
+  document.getElementById('_msgSearchBar')?.remove();
+  const head = document.querySelector('.msg-chat-head');
+  if(!head) return;
+  const bar = document.createElement('div');
+  bar.id = '_msgSearchBar';
+  bar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(9,9,11,.96);border-bottom:0.5px solid rgba(255,255,255,.06);position:relative;z-index:4;animation:msgIn .18s ease both;flex-shrink:0;';
+  bar.innerHTML = `
+    <div style="position:relative;flex:1;">
+      <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t3);pointer-events:none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input id="_msgSearchInput" type="text" placeholder="Поиск в переписке…"
+        style="width:100%;padding:8px 10px 8px 32px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.08);border-radius:12px;color:var(--t1);font-size:13px;font-family:var(--font-display);outline:none;box-sizing:border-box;transition:border-color .2s;"
+        oninput="_msgDoSearch(this.value)"
+        onfocus="this.style.borderColor='rgba(245,200,66,.3)'"
+        onblur="this.style.borderColor='rgba(255,255,255,.08)'"
+        onkeydown="if(event.key==='Escape')_msgCloseSearch();if(event.key==='Enter')_msgSearchNav(1);">
+    </div>
+    <div id="_msgSearchCount" style="font-size:11px;color:var(--t3);font-family:var(--font-mono);white-space:nowrap;min-width:36px;text-align:center;"></div>
+    <button onclick="_msgSearchNav(-1)" style="width:26px;height:26px;border-radius:8px;background:none;border:0.5px solid rgba(255,255,255,.08);color:var(--t2);display:flex;align-items:center;justify-content:center;cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='none'">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+    </button>
+    <button onclick="_msgSearchNav(1)" style="width:26px;height:26px;border-radius:8px;background:none;border:0.5px solid rgba(255,255,255,.08);color:var(--t2);display:flex;align-items:center;justify-content:center;cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='none'">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <button onclick="_msgCloseSearch()" style="width:26px;height:26px;border-radius:8px;background:none;border:none;color:var(--t3);display:flex;align-items:center;justify-content:center;cursor:pointer;" onmouseover="this.style.color='var(--t1)'" onmouseout="this.style.color='var(--t3)'">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>`;
+  head.insertAdjacentElement('afterend', bar);
+  setTimeout(()=>document.getElementById('_msgSearchInput')?.focus(), 60);
+}
+
+function _msgCloseSearch(){
+  _msgSearchActive = false;
+  document.getElementById('_msgSearchBar')?.remove();
+  _msgClearSearchHighlights();
+  _searchMatches = []; _searchIdx = 0;
+}
+
+function _msgClearSearchHighlights(){
+  document.querySelectorAll('#msgMessages .search-highlight,.search-highlight-active').forEach(m=>{
+    const t = document.createTextNode(m.textContent);
+    m.parentNode?.replaceChild(t, m);
+  });
+  document.querySelectorAll('#msgMessages span').forEach(s=>s.normalize?.());
+}
+
+function _msgDoSearch(q){
+  const cnt = document.getElementById('_msgSearchCount');
+  _msgClearSearchHighlights();
+  _searchMatches = []; _searchIdx = 0;
+  if(!q || q.trim().length < 1){ if(cnt) cnt.textContent=''; return; }
+  const term = q.trim().toLowerCase();
+  document.querySelectorAll('#msgMessages .msg-bubble span').forEach(spanEl=>{
+    const text = spanEl.textContent || '';
+    if(!text.toLowerCase().includes(term)) return;
+    const regex = new RegExp('('+term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
+    spanEl.innerHTML = text.replace(regex,'<mark class="search-highlight" style="background:rgba(245,200,66,.4);color:var(--t1);border-radius:2px;padding:0 1px;">$1</mark>');
+    spanEl.querySelectorAll('.search-highlight').forEach(m=>_searchMatches.push(m));
+  });
+  if(cnt) cnt.textContent = _searchMatches.length ? `1/${_searchMatches.length}` : '0';
+  if(_searchMatches.length) _msgSearchScrollTo(0);
+}
+
+function _msgSearchNav(dir){
+  if(!_searchMatches.length) return;
+  _searchMatches[_searchIdx] && (_searchMatches[_searchIdx].style.background='rgba(245,200,66,.4)');
+  _searchIdx = (_searchIdx+dir+_searchMatches.length)%_searchMatches.length;
+  const cnt = document.getElementById('_msgSearchCount');
+  if(cnt) cnt.textContent = `${_searchIdx+1}/${_searchMatches.length}`;
+  _msgSearchScrollTo(_searchIdx);
+}
+
+function _msgSearchScrollTo(idx){
+  const el = _searchMatches[idx]; if(!el) return;
+  el.style.background = 'rgba(245,200,66,.75)';
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+// ══ CLEAR HISTORY MODAL ═════════════════════════════════════
+function _msgShowClearModal(userId){
+  document.getElementById('_msgClearModal')?.remove();
+  const ov = document.createElement('div');
+  ov.id = '_msgClearModal';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .18s ease;';
+  ov.innerHTML = `
+    <div style="background:var(--card);border:0.5px solid var(--border);border-radius:18px;padding:24px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,.6);animation:msgIn .22s cubic-bezier(.34,1.3,.64,1) both;">
+      <div style="font-family:var(--font-display);font-size:16px;font-weight:700;color:var(--t1);margin-bottom:6px;letter-spacing:-.02em;">Очистить историю</div>
+      <div style="font-size:13px;color:var(--t3);margin-bottom:20px;line-height:1.5;">Сообщения будут удалены без возможности восстановления</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+        <label style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:0.5px solid rgba(255,255,255,.08);cursor:pointer;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background='none'">
+          <input type="radio" name="clearScope" value="me" checked style="accent-color:var(--gold);width:16px;height:16px;cursor:pointer;">
+          <div><div style="font-size:13.5px;font-weight:600;color:var(--t1);">Только у меня</div><div style="font-size:11.5px;color:var(--t3);margin-top:2px;">Собеседник сохранит переписку</div></div>
+        </label>
+        <label style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:0.5px solid rgba(255,255,255,.08);cursor:pointer;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background='none'">
+          <input type="radio" name="clearScope" value="both" style="accent-color:var(--gold);width:16px;height:16px;cursor:pointer;">
+          <div><div style="font-size:13.5px;font-weight:600;color:var(--t1);">У обоих</div><div style="font-size:11.5px;color:var(--t3);margin-top:2px;">Удалит переписку у вас и у собеседника</div></div>
+        </label>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="document.getElementById('_msgClearModal').remove()" style="flex:1;padding:11px;border-radius:11px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.08);color:var(--t2);font-size:13px;font-weight:600;font-family:var(--font-display);cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,.09)'" onmouseout="this.style.background='rgba(255,255,255,.05)'">Отмена</button>
+        <button id="_msgClearConfirmBtn" onclick="_msgExecuteClear('${userId}')" style="flex:1;padding:11px;border-radius:11px;background:rgba(239,68,68,.14);border:0.5px solid rgba(239,68,68,.3);color:var(--red);font-size:13px;font-weight:600;font-family:var(--font-display);cursor:pointer;" onmouseover="this.style.background='rgba(239,68,68,.22)'" onmouseout="this.style.background='rgba(239,68,68,.14)'">Очистить</button>
+      </div>
+    </div>`;
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
+  document.body.appendChild(ov);
+}
+
+async function _msgExecuteClear(userId){
+  const ov = document.getElementById('_msgClearModal');
+  const scope = ov?.querySelector('input[name="clearScope"]:checked')?.value || 'me';
+  ov?.remove();
+  if(!SB_USER) return;
+  try {
+    if(scope==='me'){
+      await sb.from('messages').delete().eq('from_user_id',SB_USER.id).eq('to_user_id',userId);
+    } else {
+      await sb.from('messages').delete().or(`and(from_user_id.eq.${SB_USER.id},to_user_id.eq.${userId}),and(from_user_id.eq.${userId},to_user_id.eq.${SB_USER.id})`);
+    }
+  } catch(e){ console.warn('clear history error:',e); }
+  const el = document.getElementById('msgMessages');
+  if(el) el.innerHTML = `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:32px;text-align:center;color:var(--t3);"><div style="font-size:28px;opacity:.3">🗑️</div><div style="font-size:13px;font-weight:600;color:var(--t2);">История очищена</div><div style="font-size:12px;">Напишите первое сообщение</div></div>`;
+  if(_convsCache){
+    const cv=_convsCache.find(c=>c.userId===userId);
+    if(cv){cv.lastMsg='История очищена';cv.lastMsgMine=false;cv.lastTime=new Date().toISOString();}
+    _renderConvList(_convsCache);
+  }
+  showToast(scope==='both'?'История удалена у обоих':'История очищена у вас','🗑️');
+}
+
+// ══ CHAT HEADER MENU ════════════════════════════════════════
 function _msgOpenMenu(e, userId){
   e.stopPropagation();
   _msgCloseCtx();
+  const isMuted = _isMuted(userId);
   const menu = _msgGetCtxMenu([
-    {icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>', label:'Поиск в чате', action:()=>showToast('Поиск — скоро 🔍')},
-    {icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>', label:'Заглушить уведомления', action:()=>showToast('Уведомления заглушены 🔕')},
+    {
+      icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>',
+      label:'Поиск в чате',
+      action: ()=>_msgOpenSearch()
+    },
+    {
+      icon: isMuted
+        ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>'
+        : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>',
+      label: isMuted ? 'Включить уведомления' : 'Заглушить уведомления',
+      action: ()=>{
+        if(_mutedChats.has(userId)){ _mutedChats.delete(userId); showToast('Уведомления включены 🔔'); }
+        else { _mutedChats.add(userId); showToast('Уведомления заглушены 🔕'); }
+        _saveMuted();
+        _renderConvList(_convsCache||allConvsCache||[]);
+      }
+    },
     {sep:true},
-    {icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>', label:'Очистить историю', action:()=>{const el=document.getElementById('msgMessages');if(el)el.innerHTML='';showToast('История очищена');}, danger:true},
-  ], e.clientX - 160, e.clientY + 4);
+    {
+      icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+      label:'Очистить историю',
+      action: ()=>_msgShowClearModal(userId),
+      danger: true
+    },
+  ], e.clientX - 168, e.clientY + 4);
   document.body.appendChild(menu);
   requestAnimationFrame(()=>menu.classList.add('open'));
 }
@@ -21263,62 +21425,212 @@ window.addEventListener('pagehide', () => {
 let msgRealtimeChannel = null;
 let usersRealtimeChannel = null;
 
-// ── Global incoming call listener ──
-// Must be subscribed BEFORE any call is made so offers arrive
-let _vcInboundChannel = null;
+// ══════════════════════════════════════════════════════════════
+// VIDEO CALL SIGNALING v2 — Supabase DB-based (reliable delivery)
+//
+// Architecture:
+//  1. Caller  → INSERT calls row {to_user_id, sdp_offer, status:'ringing'}
+//  2. Callee  → Realtime INSERT fires → shows incoming UI
+//  3. Callee accepts → UPDATE calls SET status='accepted', sdp_answer=...
+//  4. Caller  → Realtime UPDATE fires → sets remote desc
+//  5. ICE     → calls_ice table inserts, both sides listen
+//  6. Cancel/Decline/Hangup → UPDATE calls SET status='cancelled'/'declined'/'ended'
+//
+// This works even if callee loads page AFTER call was initiated (polls DB)
+// ══════════════════════════════════════════════════════════════
 
-function _vcInitInboundListener(){
-  if(!SB_USER || !sb) return;
-  if(_vcInboundChannel){ sb.removeChannel(_vcInboundChannel); }
+let _vcCallChannel    = null;  // listens for incoming calls
+let _vcIceChannel     = null;  // listens for ICE candidates
+let _vcCurrentCallId  = null;  // active call row ID
 
-  // Each user listens on their own personal channel: vc_inbound_{userId}
-  // Caller sends offer directly to this channel
-  const chName = 'vc_inbound_' + SB_USER.id;
-  _vcInboundChannel = sb.channel(chName, { config:{ broadcast:{ self:false } } })
-    .on('broadcast', { event: 'vc_offer' }, ({ payload })=>{
-      if(!payload || payload.to !== SB_USER.id) return;
-      if(VC.pc){ 
-        // Already in a call — send busy
-        _vcSendDirect(payload.from, { type:'busy', from:SB_USER.id, to:payload.from });
-        return;
-      }
-      _vcShowIncomingCall(payload);
-    })
-    .on('broadcast', { event: 'vc_cancel' }, ({ payload })=>{
-      if(!payload || payload.to !== SB_USER.id) return;
-      _vcDismissIncoming();
-      showToast('Собеседник отменил звонок 📵');
-    })
-    .subscribe((status)=>{
-      console.log('[DTR] VC inbound channel:', status);
-    });
+// ── Create SQL table if not exists (run once via REST) ──
+async function _vcEnsureTable(){
+  // We use direct REST API since we can't run DDL from client
+  // Tables must exist in Supabase — check via select, handle gracefully
+  try {
+    await sb.from('calls').select('id').limit(1);
+    return true;
+  } catch(e){
+    console.warn('[DTR VC] calls table not found — creating via RPC');
+    // Try to create via raw SQL RPC
+    try {
+      await sb.rpc('exec_sql', { sql: `
+        CREATE TABLE IF NOT EXISTS calls (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          from_user_id uuid NOT NULL,
+          to_user_id uuid NOT NULL,
+          sdp_offer text,
+          sdp_answer text,
+          status text DEFAULT 'ringing',
+          caller_name text,
+          caller_av text,
+          created_at timestamptz DEFAULT now(),
+          updated_at timestamptz DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS calls_ice (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          call_id uuid NOT NULL,
+          from_user_id uuid NOT NULL,
+          candidate jsonb NOT NULL,
+          created_at timestamptz DEFAULT now()
+        );
+        ALTER TABLE calls ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE calls_ice ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "calls_all" ON calls;
+        DROP POLICY IF EXISTS "calls_ice_all" ON calls_ice;
+        CREATE POLICY "calls_all" ON calls FOR ALL USING (true) WITH CHECK (true);
+        CREATE POLICY "calls_ice_all" ON calls_ice FOR ALL USING (true) WITH CHECK (true);
+      `});
+    } catch(e2){ /* RPC may not exist — tables might already be there */ }
+    return false;
+  }
 }
 
-// Send directly to a user's inbound channel
-// Uses ephemeral channel: subscribe → send → cleanup
+// ── Initialize global incoming call listener ──
+let _vcInboundChannel = null;
+function _vcInitInboundListener(){
+  if(!SB_USER || !sb) return;
+  if(_vcInboundChannel){ try{ sb.removeChannel(_vcInboundChannel); }catch(e){} }
+
+  _vcInboundChannel = sb
+    .channel('dtr-calls-inbound-' + SB_USER.id)
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'calls',
+      filter: 'to_user_id=eq.' + SB_USER.id,
+    }, (payload) => {
+      const row = payload.new;
+      if(!row || row.status !== 'ringing') return;
+      if(VC.pc){
+        // Already in call — mark busy
+        sb.from('calls').update({ status:'busy' }).eq('id', row.id).then(()=>{});
+        return;
+      }
+      _vcShowIncomingCall({
+        callId: row.id,
+        from: row.from_user_id,
+        sdp: row.sdp_offer,
+        callerName: row.caller_name || 'Участник DTR',
+        callerAv: row.caller_av || '👤',
+      });
+    })
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'calls',
+      filter: 'to_user_id=eq.' + SB_USER.id,
+    }, (payload) => {
+      const row = payload.new;
+      if(!row) return;
+      if(row.status === 'cancelled'){
+        _vcDismissIncoming();
+        showToast('Собеседник отменил звонок 📵');
+      } else if(row.status === 'ended' && VC.pc){
+        _vcEndCall(true);
+        showToast('Звонок завершён');
+      }
+    })
+    .subscribe((status) => {
+      console.log('[DTR VC] Inbound channel:', status);
+    });
+
+  // Also check for any pending ringing calls (in case we missed the INSERT)
+  setTimeout(()=>_vcPollPendingCall(), 2000);
+}
+
+// Poll for missed calls (page load after call was initiated)
+async function _vcPollPendingCall(){
+  if(!SB_USER || VC.pc) return;
+  try {
+    const { data } = await sb.from('calls')
+      .select('*')
+      .eq('to_user_id', SB_USER.id)
+      .eq('status', 'ringing')
+      .gt('created_at', new Date(Date.now()-60000).toISOString())
+      .order('created_at', {ascending:false})
+      .limit(1);
+    if(data && data.length > 0 && !VC.pc){
+      const row = data[0];
+      _vcShowIncomingCall({
+        callId: row.id,
+        from: row.from_user_id,
+        sdp: row.sdp_offer,
+        callerName: row.caller_name || 'Участник DTR',
+        callerAv: row.caller_av || '👤',
+      });
+    }
+  } catch(e){ /* table may not exist yet */ }
+}
+
+// ── Caller channel: listen for answer + ICE ──
+function _vcListenForAnswer(callId){
+  if(_vcCallChannel){ try{ sb.removeChannel(_vcCallChannel); }catch(e){} }
+  _vcCallChannel = sb
+    .channel('dtr-calls-answer-' + SB_USER.id)
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'calls',
+      filter: 'id=eq.' + callId,
+    }, async (payload) => {
+      const row = payload.new;
+      if(!row) return;
+      if(row.status === 'accepted' && row.sdp_answer && VC.pc){
+        try {
+          if(VC.pc.signalingState !== 'stable'){
+            await VC.pc.setRemoteDescription({ type:'answer', sdp: row.sdp_answer });
+            _vcListenForICE(callId);
+          }
+        } catch(e){ console.error('Set answer SDP:', e); }
+      } else if(row.status === 'declined'){
+        _vcEndCall(true);
+        showToast('Звонок отклонён собеседником 📵');
+      } else if(row.status === 'busy'){
+        _vcEndCall(true);
+        showToast('Собеседник уже в звонке 📵');
+      } else if(row.status === 'ended'){
+        _vcEndCall(true);
+      }
+    })
+    .subscribe();
+}
+
+// ── ICE candidate exchange via calls_ice table ──
+function _vcListenForICE(callId){
+  if(_vcIceChannel){ try{ sb.removeChannel(_vcIceChannel); }catch(e){} }
+  _vcIceChannel = sb
+    .channel('dtr-calls-ice-' + callId + '-' + SB_USER.id)
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'calls_ice',
+      filter: 'call_id=eq.' + callId,
+    }, async (payload) => {
+      const row = payload.new;
+      if(!row || !VC.pc) return;
+      if(row.from_user_id === SB_USER.id) return; // ignore own candidates
+      try {
+        await VC.pc.addIceCandidate(new RTCIceCandidate(row.candidate));
+      } catch(e){}
+    })
+    .subscribe();
+}
+
+async function _vcSendICE(callId, candidate){
+  try {
+    await sb.from('calls_ice').insert({
+      call_id: callId,
+      from_user_id: SB_USER.id,
+      candidate: candidate,
+    });
+  } catch(e){}
+}
+
+// Legacy compatibility stub (used in cancel/decline paths)
 function _vcSendDirect(toUserId, data){
-  if(!sb || !SB_USER) return;
-  const eventName = data.type === 'vc_offer' ? 'vc_offer' : 'vc_cancel';
-  const chName = 'vc_inbound_' + toUserId;
-  const ch = sb.channel(chName, { config:{ broadcast:{ self:false, ack:false } } });
-  let sent = false;
-
-  const cleanup = () => { try{ sb.removeChannel(ch); }catch(e){} };
-
-  ch.subscribe((status) => {
-    if(status === 'SUBSCRIBED' && !sent){
-      sent = true;
-      ch.send({ type:'broadcast', event: eventName, payload: data })
-        .then(()=>{ setTimeout(cleanup, 2000); })
-        .catch(()=>{ cleanup(); });
-    }
-    if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT'){
-      cleanup();
-    }
-  });
-
-  // Safety timeout: remove channel after 8s no matter what
-  setTimeout(cleanup, 8000);
+  // No-op — replaced by DB-based signaling
+  console.log('[DTR VC] _vcSendDirect called (DB-based now)', data.type);
 }
 
 // ── Incoming call UI ──
@@ -21361,14 +21673,14 @@ function _vcShowIncomingCall(payload){
     <div style="display:flex;gap:16px;width:100%;justify-content:center;">
       <!-- Decline -->
       <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
-        <button onclick="_vcDeclineCall('${payload.from}')" style="width:56px;height:56px;border-radius:50%;background:#EF4444;border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .15s,background .15s;" onmouseover="this.style.transform='scale(1.08)';this.style.background='#f87171'" onmouseout="this.style.transform='scale(1)';this.style.background='#EF4444'">
+        <button onclick="_vcDeclineStoredCall()" style="width:56px;height:56px;border-radius:50%;background:#EF4444;border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .15s,background .15s;" onmouseover="this.style.transform='scale(1.08)';this.style.background='#f87171'" onmouseout="this.style.transform='scale(1)';this.style.background='#EF4444'">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07C9.44 16.29 7.71 14.56 6.31 12.59A19.79 19.79 0 0 1 3.24 3.95 2 2 0 0 1 5.22 1.77h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L9.2 9.68A16 16 0 0 0 12 12"/><line x1="23" y1="1" x2="1" y2="23"/></svg>
         </button>
         <span style="font-size:11px;color:rgba(255,255,255,.4);">Отклонить</span>
       </div>
       <!-- Accept -->
       <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
-        <button onclick="_vcAcceptCall('${payload.from}','${callerName}',\`${payload.sdp||''}\`)" style="width:56px;height:56px;border-radius:50%;background:#22C55E;border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;animation:vcPulseRing 1.8s ease infinite;transition:transform .15s,background .15s;" onmouseover="this.style.transform='scale(1.08)';this.style.background='#4ade80'" onmouseout="this.style.transform='scale(1)';this.style.background='#22C55E'">
+        <button onclick="_vcAcceptStoredCall()" style="width:56px;height:56px;border-radius:50%;background:#22C55E;border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;animation:vcPulseRing 1.8s ease infinite;transition:transform .15s,background .15s;" onmouseover="this.style.transform='scale(1.08)';this.style.background='#4ade80'" onmouseout="this.style.transform='scale(1)';this.style.background='#22C55E'">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
         </button>
         <span style="font-size:11px;color:rgba(255,255,255,.4);">Принять</span>
@@ -21378,7 +21690,9 @@ function _vcShowIncomingCall(payload){
   document.body.appendChild(ui);
 
   // Auto-dismiss after 45s if not answered
+  // Store full payload for accept/decline buttons (avoids escaping issues)
   VC._incomingPayload = payload;
+  window._vcPendingCall = payload;
   VC._incomingTimeout = setTimeout(()=>{
     _vcDismissIncoming();
     // Notify caller we didn't answer
@@ -21398,37 +21712,49 @@ function _vcDismissIncoming(){
   setTimeout(()=>ui.remove(), 220);
 }
 
-async function _vcAcceptCall(fromUserId, fromName, offerSdp){
+async function _vcAcceptCall(fromUserId, fromName, offerSdp, callId){
   _vcDismissIncoming();
-  VC.partnerUserId = fromUserId;
-  VC.partnerName   = fromName;
-  VC.isCaller      = false;
+  VC.partnerUserId  = fromUserId;
+  VC.partnerName    = fromName;
+  VC.isCaller       = false;
+  VC._currentCallId = callId;
+  _vcCurrentCallId  = callId;
 
   _vcShowOverlay(fromName);
   _vcSetConnText('Подключаемся…', 'Принимаем звонок');
 
   try {
     await _vcGetLocalMedia();
-    // Refresh TURN before accepting too
     await _vcRefreshICE();
-    // Setup two-way signaling using the symmetric channel
-    _vcSetupSignaling(fromUserId, false);
     _vcCreatePC();
     VC.localStream.getTracks().forEach(t => VC.pc.addTrack(t, VC.localStream));
+
+    // Set remote offer from caller
     await VC.pc.setRemoteDescription({ type:'offer', sdp: offerSdp });
     const answer = await VC.pc.createAnswer();
     await VC.pc.setLocalDescription(answer);
-    _vcSendSignal({ type:'answer', sdp: answer.sdp, from: SB_USER.id, to: fromUserId });
+
+    // Write answer to DB — caller's Realtime listener will pick it up
+    await sb.from('calls').update({
+      status:     'accepted',
+      sdp_answer: answer.sdp,
+    }).eq('id', callId);
+
+    // Start listening for ICE candidates from caller
+    _vcListenForICE(callId);
+
   } catch(err){
-    console.error('Accept call error:', err);
+    console.error('[DTR VC] Accept call error:', err);
     _vcHandleMediaError(err);
   }
 }
 
-function _vcDeclineCall(fromUserId){
+function _vcDeclineCall(callId, fromUserId){
   _vcDismissIncoming();
-  _vcSendDirect(fromUserId, { type:'vc_cancel', from: SB_USER.id, to: fromUserId, reason:'declined' });
-  _vcSendSignal({ type:'declined', from: SB_USER.id, to: fromUserId });
+  // Mark as declined in DB — caller's listener fires
+  if(callId){
+    sb.from('calls').update({ status:'declined' }).eq('id', callId).then(()=>{});
+  }
   showToast('Звонок отклонён');
 }
 
@@ -21436,7 +21762,7 @@ function initRealtimeMessages() {
   if (!SB_USER) return;
   if (msgRealtimeChannel) { sb.removeChannel(msgRealtimeChannel); }
 
-  // Start listening for incoming video calls (personal channel, always-on)
+  // Start listening for incoming video calls via DB Realtime
   _vcInitInboundListener();
 
   msgRealtimeChannel = sb.channel('dtr-messages')
@@ -33201,15 +33527,31 @@ async function _startVideoCall(userId, name){
     const offer = await VC.pc.createOffer({ offerToReceiveVideo: true, offerToReceiveAudio: true });
     await VC.pc.setLocalDescription(offer);
 
-    // Send offer to partner's personal inbound channel
-    _vcSendDirect(userId, {
-      type: 'vc_offer',
-      from: SB_USER.id,
-      to: userId,
-      sdp: offer.sdp,
-      callerName: SB_USER.user_metadata?.username || P?.username || 'Участник DTR',
-      callerAv: P?.avatar || '👤',
-    });
+    // INSERT call row into DB — reliable delivery even if callee was offline
+    const callerName = (P?.username) || SB_USER.user_metadata?.username || 'Участник DTR';
+    const callerAv   = P?.avatar || '👤';
+    const { data: callRow, error: callErr } = await sb.from('calls').insert({
+      from_user_id: SB_USER.id,
+      to_user_id:   userId,
+      sdp_offer:    offer.sdp,
+      status:       'ringing',
+      caller_name:  callerName,
+      caller_av:    callerAv,
+    }).select('id').single();
+
+    if(callErr){
+      console.error('[DTR VC] Failed to insert call row:', callErr);
+      // Fallback: try broadcast as last resort
+      _vcSetConnText('Ошибка сигнализации', 'Таблица calls не создана в БД');
+      setTimeout(()=>_vcEndCall(), 3000);
+      return;
+    }
+
+    _vcCurrentCallId = callRow.id;
+    VC._currentCallId = callRow.id;
+
+    // Listen for answer from callee
+    _vcListenForAnswer(callRow.id);
 
     // Auto-cancel after 45 seconds if no answer
     _vcStartRingTimeout(userId);
@@ -33266,11 +33608,11 @@ function _vcCancelCall(){
   clearInterval(VC.ringTimer);
   clearTimeout(VC.callTimeout);
   // Send cancel signal to partner
-  if(VC.partnerUserId && SB_USER){
-    // Send cancel to partner's personal inbound channel
-    _vcSendDirect(VC.partnerUserId, { type:'vc_cancel', from: SB_USER.id, to: VC.partnerUserId });
-    // Also signal via peer channel in case they already subscribed
-    _vcSendSignal({ type: 'cancel', from: SB_USER.id, to: VC.partnerUserId });
+  if(VC._currentCallId && SB_USER){
+    // Mark call as cancelled in DB — callee's realtime listener will fire
+    sb.from('calls').update({ status:'cancelled' }).eq('id', VC._currentCallId).then(()=>{});
+    VC._currentCallId = null;
+    _vcCurrentCallId = null;
   }
   _vcEndCall(false);
   showToast('Звонок отменён');
@@ -33297,20 +33639,12 @@ async function _vcGetLocalMedia(){
   if(lv){ lv.srcObject = VC.localStream; lv.style.display = 'block'; }
 }
 
-// ── Setup Supabase signaling channel ──
+// ── _vcSetupSignaling: kept for compatibility (ICE restart path) ──
+// Main signaling now via DB table. This is only used as fallback.
 function _vcSetupSignaling(remoteUserId, isCaller){
-  if(!sb || !SB_USER) return;
-  // Channel name: sorted user ids to be symmetric
-  const ids = [SB_USER.id, remoteUserId].sort().join('_');
-  const channelName = 'vc_signal_' + ids;
-
-  if(VC.sigChannel){ sb.removeChannel(VC.sigChannel); }
-  VC.sigChannel = sb.channel(channelName, { config: { broadcast: { self: false } } })
-    .on('broadcast', { event: 'signal' }, ({ payload }) => {
-      if(!payload || payload.to !== SB_USER.id) return;
-      _vcHandleSignal(payload, isCaller);
-    })
-    .subscribe();
+  // No-op — DB-based signaling handles everything
+  // ICE candidates go through calls_ice table
+  // Answers go through calls table updates
 }
 
 async function _vcHandleSignal(payload, isCaller){
@@ -33362,18 +33696,18 @@ async function _vcHandleSignal(payload, isCaller){
 }
 
 function _vcSendSignal(data){
-  if(!VC.sigChannel) return;
-  VC.sigChannel.send({ type: 'broadcast', event: 'signal', payload: data });
+  // No-op — DB-based signaling replaces broadcast
+  // Kept for compatibility with ICE restart path
 }
 
 // ── Create RTCPeerConnection ──
 function _vcCreatePC(){
   VC.pc = new RTCPeerConnection(VC_ICE);
 
-  // ICE candidates → send to remote
+  // ICE candidates → insert into calls_ice table
   VC.pc.onicecandidate = (e) => {
-    if(e.candidate){
-      _vcSendSignal({ type: 'ice', candidate: e.candidate, from: SB_USER.id, to: VC.partnerUserId });
+    if(e.candidate && VC._currentCallId){
+      _vcSendICE(VC._currentCallId, e.candidate.toJSON());
     }
   };
 
@@ -33411,6 +33745,10 @@ function _vcCreatePC(){
       // Clear ringing state
       clearInterval(VC.ringTimer);
       clearTimeout(VC.callTimeout);
+      // Make sure ICE listener is active for caller side too
+      if(VC._currentCallId && VC.isCaller && !_vcIceChannel){
+        _vcListenForICE(VC._currentCallId);
+      }
       document.getElementById('vcConnecting').style.display = 'none';
       document.getElementById('vcQuality').style.display = 'flex';
       _vcStartTimer();
@@ -33523,6 +33861,21 @@ async function _vcFlipCamera(){
   } catch(e){ showToast('Не удалось переключить камеру','⚠️'); }
 }
 
+
+// ── Helpers to accept/decline using stored call data (avoids onclick escaping) ──
+function _vcAcceptStoredCall(){
+  const p = window._vcPendingCall;
+  if(!p){ showToast('Данные звонка потеряны','⚠️'); return; }
+  window._vcPendingCall = null;
+  _vcAcceptCall(p.from, p.callerName || 'Участник DTR', p.sdp || '', p.callId || '');
+}
+function _vcDeclineStoredCall(){
+  const p = window._vcPendingCall;
+  if(!p){ _vcDismissIncoming(); return; }
+  window._vcPendingCall = null;
+  _vcDeclineCall(p.callId || '', p.from || '');
+}
+
 function _vcEndCall(remote=false){
   // Stop timers
   clearInterval(VC.timer);
@@ -33534,12 +33887,16 @@ function _vcEndCall(remote=false){
   VC.localStream?.getTracks().forEach(t => t.stop());
   VC.screenStream?.getTracks().forEach(t => t.stop());
   VC.localStream = null; VC.screenStream = null; VC.remoteStream = null;
-  // Signal hangup to partner
-  if(!remote && VC.partnerUserId){
-    _vcSendSignal({ type: 'hangup', from: SB_USER?.id, to: VC.partnerUserId });
+  // Mark call ended in DB
+  if(VC._currentCallId && !remote){
+    sb?.from('calls').update({ status:'ended' }).eq('id', VC._currentCallId).then(()=>{});
   }
-  // Remove signaling channel
-  if(VC.sigChannel){ sb?.removeChannel(VC.sigChannel); VC.sigChannel = null; }
+  VC._currentCallId = null;
+  _vcCurrentCallId = null;
+  // Remove channels
+  if(VC.sigChannel){ try{ sb?.removeChannel(VC.sigChannel); }catch(e){} VC.sigChannel = null; }
+  if(_vcCallChannel){ try{ sb?.removeChannel(_vcCallChannel); }catch(e){} _vcCallChannel = null; }
+  if(_vcIceChannel){  try{ sb?.removeChannel(_vcIceChannel);  }catch(e){} _vcIceChannel = null; }
   // Reset state
   VC.connected = false; VC.micOn = true; VC.camOn = true; VC.screenOn = false;
   VC.partnerUserId = null; VC.seconds = 0; VC.isCaller = false;
