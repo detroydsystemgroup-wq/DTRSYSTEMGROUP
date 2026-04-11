@@ -1494,6 +1494,7 @@ body { transition:background .28s,color .28s; }
 .msg-conv-time{font-size:10px;color:var(--t3);flex-shrink:0;font-family:var(--font-mono);}
 .msg-conv-badge{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:linear-gradient(135deg,var(--gold),var(--gold-d));color:#09090B;font-size:9.5px;font-weight:800;font-family:var(--font-mono);display:flex;align-items:center;justify-content:center;animation:badgePop .3s cubic-bezier(.34,1.56,.64,1) both;}
 @keyframes badgePop{0%{transform:scale(0);opacity:0;}100%{transform:scale(1);opacity:1;}}
+.msg-conv-badge.muted{background:rgba(255,255,255,.1)!important;color:var(--t3)!important;}
 .msg-chat{display:flex;flex-direction:column;overflow:hidden;min-height:0;background:var(--bg);position:relative;}
 .msg-chat::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 20% 80%,rgba(245,200,66,.025) 0%,transparent 55%),radial-gradient(ellipse at 80% 20%,rgba(34,197,94,.015) 0%,transparent 55%);pointer-events:none;z-index:0;}
 .msg-chat-head{padding:12px 18px;border-bottom:0.5px solid rgba(255,255,255,.05);display:flex;align-items:center;gap:12px;background:rgba(9,9,11,.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);position:relative;z-index:5;flex-shrink:0;}
@@ -14606,18 +14607,18 @@ html[data-theme="light"] .nav-icon-btn:hover {
                   Сообщения
                 </div>
                 <div style="display:flex;gap:4px;">
-                  <button onclick="showToast('Открой профиль участника лиги и нажми «Написать»')"
+                  <button id="msgNewConvBtn" onclick="_msgShowNewConvModal()"
                     style="width:30px;height:30px;border-radius:9px;background:none;border:0.5px solid rgba(255,255,255,.07);color:var(--t3);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,color .15s,border-color .15s;"
                     onmouseover="this.style.background='rgba(245,200,66,.08)';this.style.color='var(--gold)';this.style.borderColor='rgba(245,200,66,.22)'"
                     onmouseout="this.style.background='none';this.style.color='var(--t3)';this.style.borderColor='rgba(255,255,255,.07)'"
-                    title="Новый диалог">
+                    title="Новый диалог — найди участника лиги">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
                   </button>
-                  <button onclick="showToast('Фильтр — скоро ✨')"
+                  <button id="msgFilterBtn" onclick="_msgToggleFilter(this)"
                     style="width:30px;height:30px;border-radius:9px;background:none;border:0.5px solid rgba(255,255,255,.07);color:var(--t3);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,color .15s;"
                     onmouseover="this.style.background='rgba(255,255,255,.04)';this.style.color='var(--t2)'"
-                    onmouseout="this.style.background='none';this.style.color='var(--t3)'"
-                    title="Фильтр">
+                    onmouseout="if(!this.dataset.active)this.style.background='none';if(!this.dataset.active)this.style.color='var(--t3)'"
+                    title="Фильтр: все / непрочитанные / заглушённые">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
                   </button>
                 </div>
@@ -16543,14 +16544,18 @@ function _doRenderAll(){
 
 function renderNav(){
   const avEl=document.getElementById('navAv');
-  if(P.avatarUrl){const cbUrl=P.avatarUrl.startsWith("data:")?P.avatarUrl:(P.avatarUrl);avEl.innerHTML=`<img src="${cbUrl}" style="width:26px;height:26px;object-fit:cover;border-radius:7px;display:block" onerror="this.parentNode.textContent='${P.avatar}'">`;}
-  else{avEl.innerHTML=P.avatar;}
+  if(P.avatarUrl){
+    const cbUrl=P.avatarUrl;
+    avEl.innerHTML=`<img src="${cbUrl}" style="width:26px;height:26px;object-fit:cover;border-radius:7px;display:block" onerror="this.style.display='none';this.parentNode.appendChild(Object.assign(document.createElement('span'),{textContent:'${P.avatar}'}))"><span style="display:none">${P.avatar}</span>`;
+  } else {
+    avEl.innerHTML=`<span>${P.avatar}</span>`;
+  }
   document.getElementById('navUname').textContent=P.name;
 }
 function renderHeader(){
   const avEl=document.getElementById('profAv');
   if(P.avatarUrl){
-    avEl.innerHTML=`<img src="${P.avatarUrl}" style="width:100%;height:100%;border-radius:10px;object-fit:cover" onerror="this.parentNode.textContent='${P.avatar}'">`;
+    avEl.innerHTML=`<img src="${P.avatarUrl}" style="width:100%;height:100%;border-radius:10px;object-fit:cover" onerror="this.style.display='none'">`;
   } else {
     avEl.textContent=P.avatar;
   }
@@ -18381,7 +18386,7 @@ function _buildArenaHTML(cats, results){
       const totalHrs = p.hrs > 0 ? (p.hrs>=100?Math.round(p.hrs):p.hrs.toFixed(1))+'ч' : null;
 
       const av = isMe
-        ? (P.avatarUrl ? `<img src="${P.avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:${isTop3?10:7}px" onerror="this.parentNode.textContent='${P.avatar}'">` : `<span style="font-size:${isTop3?19:15}px">${P.avatar}</span>`)
+        ? (P.avatarUrl ? `<img src="${P.avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:${isTop3?10:7}px" onerror="this.style.display='none'">` : `<span style="font-size:${isTop3?19:15}px">${P.avatar}</span>`)
         : (p.avUrl    ? `<img src="${p.avUrl}"    style="width:100%;height:100%;object-fit:cover;border-radius:${isTop3?10:7}px" onerror="this.parentNode.textContent='${p.av}'">` : `<span style="font-size:${isTop3?19:15}px">${p.av}</span>`);
 
       const nameColor = isMe ? cat.color : isTop3 ? pc.txt : 'var(--t1)';
@@ -19613,6 +19618,11 @@ function _upgradeStatus(msgId, newStatus, delay=0){
 function _renderConvList(convs){
   const el = document.getElementById('msgConvList');
   if(!el) return;
+  // Apply active filter
+  if(typeof _msgFilterMode !== 'undefined' && _msgFilterMode !== 'all'){
+    if(_msgFilterMode === 'unread') convs = (convs||[]).filter(cv => cv.unread > 0);
+    if(_msgFilterMode === 'muted')  convs = (convs||[]).filter(cv => _isMuted(cv.userId));
+  }
   if(!convs || convs.length === 0){
     el.innerHTML = `<div class="msg-empty">
       <div class="msg-empty-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
@@ -19625,8 +19635,8 @@ function _renderConvList(convs){
   }
   el.innerHTML = convs.map((cv,i) => {
     const avHtml = cv.avUrl
-      ? `<img src="${cv.avUrl}" class="img-cover" style="border-radius:13px;width:100%;height:100%;object-fit:cover" onerror="this.parentElement.textContent='${escAttr(cv.av||'🎯')}'">` 
-      : esc(cv.av || '🎯');
+      ? `<img src="${cv.avUrl}" class="img-cover" style="border-radius:13px;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='');"><span style="display:none;font-size:20px;">${escAttr(cv.av||'🎯')}</span>` 
+      : `<span style="font-size:20px;">${esc(cv.av || '🎯')}</span>`;
     const isUnread = cv.unread > 0;
     const isActive = cv.userId === activeConvUserId;
     const preview = cv.lastMsgMine ? `<span style="color:var(--t3)">Вы: </span>${esc((cv.lastMsg||'').slice(0,38))}` : esc((cv.lastMsg||'').slice(0,42));
@@ -19644,8 +19654,11 @@ function _renderConvList(convs){
         <div class="msg-conv-preview${isUnread?' unread-prev':''}">${preview}${(cv.lastMsg||'').length>42?'…':''}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">
-        <div class="msg-conv-time">${fmtMsgTime(cv.lastTime)}</div>
-        ${cv.unread>0?`<div class="msg-conv-badge">${cv.unread>9?'9+':cv.unread}</div>`:''}
+        <div style="display:flex;align-items:center;gap:4px;">
+          ${_isMuted(cv.userId)?'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Уведомления заглушены"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>':''}
+          <div class="msg-conv-time">${fmtMsgTime(cv.lastTime)}</div>
+        </div>
+        ${cv.unread>0?`<div class="msg-conv-badge${_isMuted(cv.userId)?' muted':''}">${cv.unread>9?'9+':cv.unread}</div>`:''}
       </div>
     </div>`;
   }).join('');
@@ -19700,6 +19713,8 @@ async function openConv(userId, name, av, avUrl){
     activeConvUserId = userId;
     _msgUnreadOffscreen = 0;
     _msgIsAtBottom = true;
+    // Cache partner avatar for message bubble rendering
+    _msgPartnerAvCache = { av: av || '👤', avUrl: avUrl || null };
 
     document.querySelectorAll('[data-conv-uid]').forEach(el=>{
       el.classList.toggle('active', el.dataset.convUid===userId);
@@ -19709,7 +19724,7 @@ async function openConv(userId, name, av, avUrl){
     if(!area) return;
 
     const avDisplay = avUrl
-      ? `<img src="${avUrl}" class="img-cover" style="border-radius:13px;width:100%;height:100%;object-fit:cover" onerror="this.parentElement.textContent='${escAttr(av||'🎯')}'">` 
+      ? `<img src="${avUrl}" class="img-cover" style="border-radius:13px;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">` 
       : esc(av||'🎯');
 
     area.innerHTML = `
@@ -19882,6 +19897,116 @@ function _msgHideTyping(){
 }
 
 // ── Chat header menu ──
+
+// ══════════════════════════════════════════════════════════════
+// MSG SIDEBAR BUTTONS — New Conv + Filter
+// ══════════════════════════════════════════════════════════════
+
+// ── Filter toggle: all / unread / muted ──
+let _msgFilterMode = 'all'; // 'all' | 'unread' | 'muted'
+function _msgToggleFilter(btn){
+  const modes = ['all','unread','muted'];
+  const labels = { all:'Все', unread:'Непрочитанные', muted:'Заглушённые' };
+  _msgFilterMode = modes[(modes.indexOf(_msgFilterMode)+1) % modes.length];
+  const isActive = _msgFilterMode !== 'all';
+  btn.dataset.active = isActive ? '1' : '';
+  btn.style.background = isActive ? 'rgba(245,200,66,.1)' : 'none';
+  btn.style.color = isActive ? 'var(--gold)' : 'var(--t3)';
+  btn.style.borderColor = isActive ? 'rgba(245,200,66,.3)' : 'rgba(255,255,255,.07)';
+  btn.title = `Фильтр: ${labels[_msgFilterMode]}`;
+  showToast('Фильтр: ' + labels[_msgFilterMode]);
+  // Re-render with filter
+  const cache = _convsCache || allConvsCache;
+  if(!cache) return;
+  let filtered = cache;
+  if(_msgFilterMode === 'unread') filtered = cache.filter(cv => cv.unread > 0);
+  if(_msgFilterMode === 'muted')  filtered = cache.filter(cv => _isMuted(cv.userId));
+  _renderConvList(filtered);
+}
+
+// ── New conversation — search users ──
+function _msgShowNewConvModal(){
+  document.getElementById('_msgNewConvModal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = '_msgNewConvModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .18s ease;';
+  modal.innerHTML = `
+    <div style="background:var(--card);border:0.5px solid var(--border);border-radius:18px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.6);overflow:hidden;animation:msgIn .22s cubic-bezier(.34,1.3,.64,1) both;">
+      <div style="padding:16px 18px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-family:var(--font-display);font-size:15px;font-weight:700;color:var(--t1);">Новый диалог</div>
+        <button onclick="document.getElementById('_msgNewConvModal').remove()" style="width:28px;height:28px;border-radius:8px;background:none;border:none;color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.color='var(--t1)'" onmouseout="this.style.color='var(--t3)'">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div style="padding:12px 18px;">
+        <div style="position:relative;">
+          <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t3);pointer-events:none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input id="_msgNewConvSearch" type="text" placeholder="Поиск участников лиги…"
+            style="width:100%;padding:9px 12px 9px 32px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.08);border-radius:12px;color:var(--t1);font-size:13px;font-family:var(--font-display);outline:none;box-sizing:border-box;transition:border-color .2s;"
+            onfocus="this.style.borderColor='rgba(245,200,66,.3)'"
+            onblur="this.style.borderColor='rgba(255,255,255,.08)'"
+            oninput="_msgSearchUsers(this.value)"
+            autocomplete="off">
+        </div>
+      </div>
+      <div id="_msgNewConvResults" style="max-height:300px;overflow-y:auto;padding:0 8px 12px;">
+        <div style="text-align:center;color:var(--t3);font-size:12px;padding:24px;">Введи имя для поиска</div>
+      </div>
+    </div>`;
+  modal.addEventListener('click', e=>{ if(e.target===modal) modal.remove(); });
+  document.body.appendChild(modal);
+  setTimeout(()=>document.getElementById('_msgNewConvSearch')?.focus(), 100);
+}
+
+let _msgSearchTimer = null;
+async function _msgSearchUsers(q){
+  const res = document.getElementById('_msgNewConvResults');
+  if(!res) return;
+  clearTimeout(_msgSearchTimer);
+  if(!q || q.trim().length < 1){
+    res.innerHTML = '<div style="text-align:center;color:var(--t3);font-size:12px;padding:24px;">Введи имя для поиска</div>';
+    return;
+  }
+  res.innerHTML = '<div style="text-align:center;color:var(--t3);font-size:12px;padding:16px;">Ищем…</div>';
+  _msgSearchTimer = setTimeout(async ()=>{
+    try {
+      const {data, error} = await sb.from('users')
+        .select('id,username,avatar,avatar_url')
+        .ilike('username', `%${q.trim()}%`)
+        .neq('id', SB_USER?.id)
+        .limit(15);
+      if(error || !data || data.length === 0){
+        res.innerHTML = '<div style="text-align:center;color:var(--t3);font-size:12px;padding:24px;">Никого не найдено</div>';
+        return;
+      }
+      res.innerHTML = data.map(u=>{
+        const avHtml = u.avatar_url
+          ? `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:11px;" onerror="this.style.display='none'">`
+          : `<span style="font-size:18px">${u.avatar||'👤'}</span>`;
+        return `
+          <div onclick="_msgStartConv('${u.id}','${escAttr(u.username||'?')}','${escAttr(u.avatar||'👤')}','${escAttr(u.avatar_url||'')}')"
+            style="display:flex;align-items:center;gap:10px;padding:10px 10px;border-radius:12px;cursor:pointer;transition:background .12s;"
+            onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background='none'">
+            <div style="width:38px;height:38px;border-radius:11px;background:rgba(245,200,66,.1);border:0.5px solid rgba(245,200,66,.15);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">${avHtml}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13.5px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(u.username||'?')}</div>
+              <div style="font-size:11px;color:var(--t3);">Участник DTR</div>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </div>`;
+      }).join('');
+    } catch(e){
+      res.innerHTML = '<div style="text-align:center;color:var(--red);font-size:12px;padding:16px;">Ошибка поиска</div>';
+    }
+  }, 300);
+}
+
+function _msgStartConv(userId, name, av, avUrl){
+  document.getElementById('_msgNewConvModal')?.remove();
+  showTab('messages');
+  setTimeout(()=> openConv(userId, name, av, avUrl), 100);
+}
+
 // ══ MUTE ════════════════════════════════════════════════════
 const _mutedChats = new Set(JSON.parse(localStorage.getItem('dtr_muted_chats')||'[]'));
 function _saveMuted(){ try{localStorage.setItem('dtr_muted_chats',JSON.stringify([..._mutedChats]));}catch(e){} }
@@ -20155,7 +20280,7 @@ async function loadMessages(partnerId){
 
       chunks.push(`
 <div class="msg-row${mine?' mine':' theirs'}" style="margin-top:${grouped?'2px':'10px'}">
-  ${!mine?`<div class="msg-av-micro${isLastInGroup?'':' ghost'}"></div>`:''}
+  ${!mine?`<div class="msg-av-micro${isLastInGroup?'':' ghost'}" style="background:none;border:none;overflow:hidden;">${isLastInGroup?_msgGetPartnerAvatar():'&nbsp;'}</div>`:''}
   <div class="msg-bubble${mine?' mine':' theirs'}" data-msg-id="${esc(msg.id)}" style="border-radius:${radius}"
     oncontextmenu="_msgShowBubbleCtx(event,this)"
     ondblclick="_showRxPopup(event,this)">
@@ -20200,14 +20325,45 @@ function _msgShowBubbleCtx(e, bub){
   if(isMine){
     items.push({sep:true});
     items.push({icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>', label:'Удалить', danger:true, action:()=>{
-      const row = bub.closest('.msg-row');
-      if(row){ row.style.transition='all .22s'; row.style.opacity='0'; row.style.transform='scale(.92)'; setTimeout(()=>row.remove(),220); showToast('Сообщение удалено'); }
+      _msgDeleteMsg(msgId, bub);
     }});
   }
   const menu = _msgGetCtxMenu(items, e.clientX, e.clientY);
   document.body.appendChild(menu);
   requestAnimationFrame(()=>menu.classList.add('open'));
   // Also show reaction popup on right-click
+}
+
+
+
+// ── Get partner avatar for message bubbles ──
+let _msgPartnerAvCache = { av: '👤', avUrl: null };
+function _msgGetPartnerAvatar(){
+  const { av, avUrl } = _msgPartnerAvCache;
+  if(avUrl) return `<img src="${avUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:9px;" onerror="this.parentNode.innerHTML='${av||'👤'}'">`;
+  return `<span style="font-size:13px;line-height:1;">${av||'👤'}</span>`;
+}
+
+// ── Delete single message (DB + DOM) ──
+async function _msgDeleteMsg(msgId, bub){
+  // Optimistic: animate out immediately
+  const row = bub?.closest('.msg-row');
+  if(row){
+    row.style.transition = 'all .22s ease';
+    row.style.opacity = '0';
+    row.style.transform = 'scale(.92)';
+    setTimeout(()=>row.remove(), 220);
+  }
+  showToast('Сообщение удалено');
+  // Delete from DB (only own messages)
+  if(!SB_USER || !msgId || msgId.startsWith('opt-')) return;
+  try {
+    await sb.from('messages').delete()
+      .eq('id', msgId)
+      .eq('from_user_id', SB_USER.id); // safety: only delete own
+  } catch(e){ console.warn('[DTR] Delete msg error:', e); }
+  // Refresh conversation preview
+  await loadConversations();
 }
 
 // ── Reaction popup (existing) ──
@@ -22409,7 +22565,7 @@ function appendMessage(msg, isMine) {
   div.style.marginTop = canGroup ? '2px' : '10px';
   div.dataset.msgId = msgId;
   div.innerHTML = `
-    ${!isMine?`<div class="msg-av-micro"></div>`:''}
+    ${!isMine?`<div class="msg-av-micro" style="background:none;border:none;overflow:hidden;">${_msgGetPartnerAvatar()}</div>`:''}
     <div class="msg-bubble${isMine?' mine':' theirs'}" data-msg-id="${esc(msgId)}" style="border-radius:${radius}"
       oncontextmenu="_msgShowBubbleCtx(event,this)"
       ondblclick="_showRxPopup(event,this)">
@@ -22450,6 +22606,10 @@ function appendMessage(msg, isMine) {
 // OPTIMISTIC UI — Send message (instant append + sync)
 // ══════════════════════════════════════════════════════════════
 async function sendMsg(toUserId) {
+  // Handle pending file attachment
+  if(typeof _msgPendingFile !== 'undefined' && _msgPendingFile){
+    await _msgSendFile(toUserId); return;
+  }
   const input = document.getElementById('msgInput');
   const text = input?.value?.trim();
   if (!text || !SB_USER) return;
@@ -34634,28 +34794,24 @@ function _msgClearPendingFile(){
 // ── Upload file to Supabase Storage ──
 async function _msgUploadFile(file, toUserId){
   if(!SB_USER) return null;
-  const ext   = file.name.split('.').pop();
-  const path  = `messages/${SB_USER.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-  const bucket = 'chat-files';
+  const ext  = (file.name.split('.').pop()||'bin').toLowerCase();
+  const name = file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+  const path = `chat/${SB_USER.id}/${Date.now()}_${name}`;
 
-  // Try uploading
-  const { error } = await sb.storage.from(bucket).upload(path, file, {
-    contentType: file.type,
-    upsert: false,
-  });
-  if(error){
-    console.error('[DTR] File upload error:', error);
-    // If bucket doesn't exist, try 'avatars' bucket as fallback path
-    if(error.message?.includes('Bucket not found') || error.statusCode === 404){
-      const { error: e2 } = await sb.storage.from('avatars').upload('chat/'+path, file, { contentType: file.type, upsert: false });
-      if(e2) throw e2;
-      const { data: d2 } = sb.storage.from('avatars').getPublicUrl('chat/'+path);
-      return { url: d2.publicUrl, name: file.name, size: file.size, type: file.type };
+  // Try chat-files bucket first, fallback to avatars
+  const buckets = ['chat-files', 'avatars'];
+  for(const bucket of buckets){
+    const { error } = await sb.storage.from(bucket).upload(path, file, {
+      contentType: file.type || 'application/octet-stream',
+      upsert: true,
+    });
+    if(!error){
+      const { data } = sb.storage.from(bucket).getPublicUrl(path);
+      return { url: data.publicUrl, name: file.name, size: file.size, type: file.type };
     }
-    throw error;
+    console.warn(`[DTR] Bucket ${bucket} failed:`, error.message);
   }
-  const { data } = sb.storage.from(bucket).getPublicUrl(path);
-  return { url: data.publicUrl, name: file.name, size: file.size, type: file.type };
+  throw new Error('Нет доступного хранилища. Создай бакет chat-files в Supabase → Storage.');
 }
 
 // ── Send file message ──
@@ -34854,22 +35010,22 @@ async function _msgSendVoice(blob, toUserId, duration){
 
   try {
     const ext  = blob.type.includes('ogg') ? 'ogg' : 'webm';
-    const path = `voice/${SB_USER.id}/${Date.now()}.${ext}`;
-    const bucket = 'chat-files';
+    const path = `chat/${SB_USER.id}/voice_${Date.now()}.${ext}`;
 
     let publicUrl;
-    const { error } = await sb.storage.from(bucket).upload(path, blob, { contentType: blob.type });
-    if(error){
-      if(error.message?.includes('Bucket not found') || error.statusCode === 404){
-        const { error: e2 } = await sb.storage.from('avatars').upload('voice/'+path, blob, { contentType: blob.type });
-        if(e2) throw e2;
-        const { data: d2 } = sb.storage.from('avatars').getPublicUrl('voice/'+path);
-        publicUrl = d2.publicUrl;
-      } else throw error;
-    } else {
-      const { data } = sb.storage.from(bucket).getPublicUrl(path);
-      publicUrl = data.publicUrl;
+    const buckets = ['chat-files', 'avatars'];
+    let uploaded = false;
+    for(const bucket of buckets){
+      const { error } = await sb.storage.from(bucket).upload(path, blob, { contentType: blob.type, upsert: true });
+      if(!error){
+        const { data } = sb.storage.from(bucket).getPublicUrl(path);
+        publicUrl = data.publicUrl;
+        uploaded = true;
+        break;
+      }
+      console.warn(`[DTR] Voice bucket ${bucket} failed:`, error.message);
     }
+    if(!uploaded) throw new Error('Нет доступного хранилища.');
 
     const { data: msg, error: msgErr } = await sb.from('messages').insert({
       from_user_id: SB_USER.id,
@@ -34890,12 +35046,7 @@ async function _msgSendVoice(blob, toUserId, duration){
   }
 }
 
-// ── Override sendMsg to handle pending file ──
-const _origSendMsg = sendMsg;
-async function sendMsg(toUserId){
-  if(_msgPendingFile){ await _msgSendFile(toUserId); return; }
-  await _origSendMsg(toUserId);
-}
+
 
 
 // ── Helpers to accept/decline using stored call data (avoids onclick escaping) ──
