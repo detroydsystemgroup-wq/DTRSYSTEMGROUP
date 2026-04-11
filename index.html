@@ -14931,12 +14931,14 @@ html[data-theme="light"] .nav-icon-btn:hover {
 </div>
 
 <div class="ov" id="achOv" onclick="olClick(event,'achOv')">
-  <div class="modal" style="max-width:320px;text-align:center">
-    <div style="font-size:48px;margin-bottom:8px" id="amIcon">🏆</div>
-    <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:5px" id="amName"></div>
-    <div style="font-size:13px;color:var(--t2);margin-bottom:12px;line-height:1.5" id="amDesc"></div>
-    <div style="font-size:13px;font-weight:600;margin-bottom:10px" id="amStat"></div>
-    <div style="height:4px;background:var(--card);border-radius:2px;overflow:hidden;margin-bottom:18px"><div style="height:100%;border-radius:2px;background:var(--blue);transition:width .5s" id="amBar"></div></div>
+  <div class="modal" style="max-width:340px;text-align:center;padding:28px 24px">
+    <div style="display:flex;justify-content:center;margin-bottom:16px">
+      <div id="amIcon" style="width:80px;height:80px;border-radius:22px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;margin:0 auto">🏆</div>
+    </div>
+    <div style="font-family:var(--font-display);font-size:20px;font-weight:800;margin-bottom:6px;letter-spacing:-.02em" id="amName"></div>
+    <div style="font-size:13px;color:var(--t2);margin-bottom:14px;line-height:1.55" id="amDesc"></div>
+    <div style="font-size:12px;font-weight:600;margin-bottom:12px" id="amStat"></div>
+    <div style="height:5px;background:var(--card);border-radius:3px;overflow:hidden;margin-bottom:20px"><div style="height:100%;border-radius:3px;background:var(--blue);transition:width .5s" id="amBar"></div></div>
     <button class="btn btn-g" style="width:100%" onclick="closeAch()">Закрыть</button>
   </div>
 </div>
@@ -19146,7 +19148,7 @@ async function openUserProfile(userId, name, av, avUrl){
       <div class="up-xp-bar up-anim-2">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
           <span style="font-size:12.5px;font-weight:700;color:${lvlColor};letter-spacing:-.01em">УР.${lvlInfo.lvl} · ${lvlInfo.name}</span>
-          <span style="font-size:10px;color:var(--t3);font-family:var(--font-mono)">ещё ${lvlInfo.xpLeft} ч</span>
+          <span style="font-size:10px;color:var(--t3);font-family:var(--font-mono)">ещё ${lvlInfo.xpLeft} XP</span>
         </div>
         <div style="height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;margin-bottom:7px">
           <div class="up-xp-fill-anim" data-pct="${lvlInfo.pct}"
@@ -19205,7 +19207,7 @@ async function openUserProfile(userId, name, av, avUrl){
             class="up-ach-item"
             style="width:42px;height:42px;border-radius:12px;background:${def.color||'#555'}15;border:0.5px solid ${def.color||'#555'}35;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;flex-shrink:0;transition:transform .22s cubic-bezier(.34,1.56,.64,1),box-shadow .2s"
             onmouseover="this.style.transform='scale(1.18)';this.style.boxShadow='0 4px 16px ${def.color||'#555'}44'"
-            onmouseout="this.style.transform='';this.style.boxShadow=''">${def.icon}</div>`).join('')}
+            onmouseout="this.style.transform='';this.style.boxShadow=''">${(()=>{if(typeof getBadgeSVG!=='function')return'★';const r=getBadgeSVG(def.icon||'star');const inn=r.replace(/<svg[^>]*>/,'').replace(/<\/svg>/,'');const hf=r.includes('fill="currentColor"');return'<svg width="20" height="20" viewBox="0 0 24 24" fill="'+(hf?'currentColor':'none')+'" stroke="'+(hf?'none':'currentColor')+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:'+def.color+'">'+inn+'</svg>';})()}</div>`).join('')}
       </div>`;
 
     bodyEl.innerHTML = kpiHTML + xpHTML + leagueHTML + achHTML;
@@ -30053,7 +30055,7 @@ function socEventHTML(ev){
         ${cardHead('получил достижение')}
         <div class="soc-card-body">
           <div class="soc-ach-hero">
-            <div class="soc-ach-icon">${ev.data.icon||'🏆'}</div>
+            <div class="soc-ach-icon" style="display:flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:14px;background:rgba(245,200,66,.12);border:1px solid rgba(245,200,66,.25);color:var(--gold);flex-shrink:0">${(()=>{const achDef2=(typeof ACH_DEF!=='undefined'?ACH_DEF:[]).find(a=>a.id===ev.data.id);const iconKey=achDef2?.icon||'star';const raw=typeof getBadgeSVG==='function'?getBadgeSVG(iconKey):'';if(!raw)return'🏆';const inner=raw.replace(/<svg[^>]*>/,'').replace(/<\/svg>/,'');const hf=raw.includes('fill="currentColor"');return'<svg width="28" height="28" viewBox="0 0 24 24" fill="'+(hf?'currentColor':'none')+'" stroke="'+(hf?'none':'currentColor')+'" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'+inner+'</svg>';})()}</div>
             <div>
               <div class="soc-ach-name">${esc(ev.data.name||'?')}</div>
               ${desc ? `<div class="soc-ach-desc">${esc(desc)}</div>` : ''}
