@@ -21263,9 +21263,179 @@ window.addEventListener('pagehide', () => {
 let msgRealtimeChannel = null;
 let usersRealtimeChannel = null;
 
+// ── Global incoming call listener ──
+// Must be subscribed BEFORE any call is made so offers arrive
+let _vcInboundChannel = null;
+
+function _vcInitInboundListener(){
+  if(!SB_USER || !sb) return;
+  if(_vcInboundChannel){ sb.removeChannel(_vcInboundChannel); }
+
+  // Each user listens on their own personal channel: vc_inbound_{userId}
+  // Caller sends offer directly to this channel
+  const chName = 'vc_inbound_' + SB_USER.id;
+  _vcInboundChannel = sb.channel(chName, { config:{ broadcast:{ self:false } } })
+    .on('broadcast', { event: 'vc_offer' }, ({ payload })=>{
+      if(!payload || payload.to !== SB_USER.id) return;
+      if(VC.pc){ 
+        // Already in a call — send busy
+        _vcSendDirect(payload.from, { type:'busy', from:SB_USER.id, to:payload.from });
+        return;
+      }
+      _vcShowIncomingCall(payload);
+    })
+    .on('broadcast', { event: 'vc_cancel' }, ({ payload })=>{
+      if(!payload || payload.to !== SB_USER.id) return;
+      _vcDismissIncoming();
+      showToast('Собеседник отменил звонок 📵');
+    })
+    .subscribe((status)=>{
+      console.log('[DTR] VC inbound channel:', status);
+    });
+}
+
+// Send directly to a user's inbound channel
+// Uses ephemeral channel: subscribe → send → cleanup
+function _vcSendDirect(toUserId, data){
+  if(!sb || !SB_USER) return;
+  const eventName = data.type === 'vc_offer' ? 'vc_offer' : 'vc_cancel';
+  const chName = 'vc_inbound_' + toUserId;
+  const ch = sb.channel(chName, { config:{ broadcast:{ self:false, ack:false } } });
+  let sent = false;
+
+  const cleanup = () => { try{ sb.removeChannel(ch); }catch(e){} };
+
+  ch.subscribe((status) => {
+    if(status === 'SUBSCRIBED' && !sent){
+      sent = true;
+      ch.send({ type:'broadcast', event: eventName, payload: data })
+        .then(()=>{ setTimeout(cleanup, 2000); })
+        .catch(()=>{ cleanup(); });
+    }
+    if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT'){
+      cleanup();
+    }
+  });
+
+  // Safety timeout: remove channel after 8s no matter what
+  setTimeout(cleanup, 8000);
+}
+
+// ── Incoming call UI ──
+function _vcShowIncomingCall(payload){
+  const existing = document.getElementById('_vcIncomingUI');
+  if(existing) existing.remove();
+
+  const callerName = payload.callerName || 'Участник DTR';
+  const callerAv   = payload.callerAv   || '👤';
+
+  const ui = document.createElement('div');
+  ui.id = '_vcIncomingUI';
+  ui.style.cssText = [
+    'position:fixed;bottom:24px;left:50%;transform:translateX(-50%)',
+    'background:rgba(16,16,20,.97);border:0.5px solid rgba(245,200,66,.2)',
+    'border-radius:20px;padding:20px 24px;z-index:99998',
+    'box-shadow:0 16px 64px rgba(0,0,0,.8);min-width:300px;max-width:380px',
+    'display:flex;flex-direction:column;align-items:center;gap:12px',
+    'animation:vcIncomingIn .35s cubic-bezier(.34,1.3,.64,1) both',
+    'font-family:var(--font-display,sans-serif);',
+  ].join(';');
+
+  ui.innerHTML = `
+    <style>
+      @keyframes vcIncomingIn{from{opacity:0;transform:translateX(-50%) translateY(24px) scale(.94)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
+      @keyframes vcPulseRing{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.6)}50%{box-shadow:0 0 0 12px rgba(34,197,94,0)}}
+    </style>
+    <!-- Caller info -->
+    <div style="display:flex;align-items:center;gap:14px;width:100%;">
+      <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,rgba(245,200,66,.18),rgba(245,200,66,.06));border:1px solid rgba(245,200,66,.25);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;">${callerAv}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:700;color:#F2F0E8;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${callerName}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.45);margin-top:2px;display:flex;align-items:center;gap:5px;">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+          Входящий видеозвонок
+        </div>
+      </div>
+    </div>
+    <!-- Buttons -->
+    <div style="display:flex;gap:16px;width:100%;justify-content:center;">
+      <!-- Decline -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <button onclick="_vcDeclineCall('${payload.from}')" style="width:56px;height:56px;border-radius:50%;background:#EF4444;border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .15s,background .15s;" onmouseover="this.style.transform='scale(1.08)';this.style.background='#f87171'" onmouseout="this.style.transform='scale(1)';this.style.background='#EF4444'">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07C9.44 16.29 7.71 14.56 6.31 12.59A19.79 19.79 0 0 1 3.24 3.95 2 2 0 0 1 5.22 1.77h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L9.2 9.68A16 16 0 0 0 12 12"/><line x1="23" y1="1" x2="1" y2="23"/></svg>
+        </button>
+        <span style="font-size:11px;color:rgba(255,255,255,.4);">Отклонить</span>
+      </div>
+      <!-- Accept -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <button onclick="_vcAcceptCall('${payload.from}','${callerName}',\`${payload.sdp||''}\`)" style="width:56px;height:56px;border-radius:50%;background:#22C55E;border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;animation:vcPulseRing 1.8s ease infinite;transition:transform .15s,background .15s;" onmouseover="this.style.transform='scale(1.08)';this.style.background='#4ade80'" onmouseout="this.style.transform='scale(1)';this.style.background='#22C55E'">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+        </button>
+        <span style="font-size:11px;color:rgba(255,255,255,.4);">Принять</span>
+      </div>
+    </div>`;
+
+  document.body.appendChild(ui);
+
+  // Auto-dismiss after 45s if not answered
+  VC._incomingPayload = payload;
+  VC._incomingTimeout = setTimeout(()=>{
+    _vcDismissIncoming();
+    // Notify caller we didn't answer
+    _vcSendDirect(payload.from, { type:'vc_cancel', from:SB_USER.id, to:payload.from, reason:'no_answer' });
+  }, 45000);
+}
+
+function _vcDismissIncoming(){
+  clearTimeout(VC._incomingTimeout);
+  VC._incomingPayload = null;
+  const ui = document.getElementById('_vcIncomingUI');
+  if(!ui) return;
+  ui.style.animation = 'none';
+  ui.style.transition = 'opacity .2s,transform .2s';
+  ui.style.opacity = '0';
+  ui.style.transform = 'translateX(-50%) translateY(16px) scale(.95)';
+  setTimeout(()=>ui.remove(), 220);
+}
+
+async function _vcAcceptCall(fromUserId, fromName, offerSdp){
+  _vcDismissIncoming();
+  VC.partnerUserId = fromUserId;
+  VC.partnerName   = fromName;
+  VC.isCaller      = false;
+
+  _vcShowOverlay(fromName);
+  _vcSetConnText('Подключаемся…', 'Принимаем звонок');
+
+  try {
+    await _vcGetLocalMedia();
+    // Setup two-way signaling using the symmetric channel
+    _vcSetupSignaling(fromUserId, false);
+    _vcCreatePC();
+    VC.localStream.getTracks().forEach(t => VC.pc.addTrack(t, VC.localStream));
+    await VC.pc.setRemoteDescription({ type:'offer', sdp: offerSdp });
+    const answer = await VC.pc.createAnswer();
+    await VC.pc.setLocalDescription(answer);
+    _vcSendSignal({ type:'answer', sdp: answer.sdp, from: SB_USER.id, to: fromUserId });
+  } catch(err){
+    console.error('Accept call error:', err);
+    _vcHandleMediaError(err);
+  }
+}
+
+function _vcDeclineCall(fromUserId){
+  _vcDismissIncoming();
+  _vcSendDirect(fromUserId, { type:'vc_cancel', from: SB_USER.id, to: fromUserId, reason:'declined' });
+  _vcSendSignal({ type:'declined', from: SB_USER.id, to: fromUserId });
+  showToast('Звонок отклонён');
+}
+
 function initRealtimeMessages() {
   if (!SB_USER) return;
   if (msgRealtimeChannel) { sb.removeChannel(msgRealtimeChannel); }
+
+  // Start listening for incoming video calls (personal channel, always-on)
+  _vcInitInboundListener();
 
   msgRealtimeChannel = sb.channel('dtr-messages')
     .on('postgres_changes', {
@@ -32952,6 +33122,8 @@ const VC = {
   callTimeout: null,  // auto-cancel timer
   ringTimer: null,    // countdown interval
   isCaller: false,    // are we the one who initiated
+  _incomingPayload: null,
+  _incomingTimeout: null,
 };
 
 const VC_ICE = {
@@ -32998,8 +33170,15 @@ async function _startVideoCall(userId, name){
     const offer = await VC.pc.createOffer({ offerToReceiveVideo: true, offerToReceiveAudio: true });
     await VC.pc.setLocalDescription(offer);
 
-    // Send offer via signaling
-    _vcSendSignal({ type: 'offer', sdp: offer.sdp, from: SB_USER.id, to: userId });
+    // Send offer to partner's personal inbound channel
+    _vcSendDirect(userId, {
+      type: 'vc_offer',
+      from: SB_USER.id,
+      to: userId,
+      sdp: offer.sdp,
+      callerName: SB_USER.user_metadata?.username || P?.username || 'Участник DTR',
+      callerAv: P?.avatar || '👤',
+    });
 
     // Auto-cancel after 45 seconds if no answer
     _vcStartRingTimeout(userId);
@@ -33057,6 +33236,9 @@ function _vcCancelCall(){
   clearTimeout(VC.callTimeout);
   // Send cancel signal to partner
   if(VC.partnerUserId && SB_USER){
+    // Send cancel to partner's personal inbound channel
+    _vcSendDirect(VC.partnerUserId, { type:'vc_cancel', from: SB_USER.id, to: VC.partnerUserId });
+    // Also signal via peer channel in case they already subscribed
     _vcSendSignal({ type: 'cancel', from: SB_USER.id, to: VC.partnerUserId });
   }
   _vcEndCall(false);
@@ -33120,6 +33302,12 @@ async function _vcHandleSignal(payload, isCaller){
       }
     } else if(payload.type === 'hangup'){
       _vcEndCall(true);
+    } else if(payload.type === 'busy'){
+      _vcEndCall(true);
+      showToast('Собеседник уже в звонке 📵');
+    } else if(payload.type === 'declined'){
+      _vcEndCall(true);
+      showToast('Звонок отклонён собеседником 📵');
     } else if(payload.type === 'cancel'){
       // Caller cancelled before we answered
       _vcEndCall(true);
