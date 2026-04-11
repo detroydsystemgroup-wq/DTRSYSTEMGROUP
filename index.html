@@ -13724,7 +13724,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
   background:var(--badge-color,rgba(255,255,255,.08));
   opacity:.9;z-index:2;
 }
-.dtr-badge-wrap:hover{transform:translateY(-8px) scale(1.035);box-shadow:0 16px 40px rgba(0,0,0,.6),0 0 0 1px var(--badge-color,rgba(255,255,255,.1)),inset 0 1px 0 rgba(255,255,255,.07);}
+.dtr-badge-wrap:hover{transform:translateY(-6px) scale(1.03);box-shadow:0 14px 36px rgba(0,0,0,.6),0 0 0 1px var(--badge-color,rgba(255,255,255,.1)),inset 0 1px 0 rgba(255,255,255,.07);}
 .dtr-badge-wrap.unlocked{
   background:linear-gradient(160deg,rgba(var(--badge-color-rgb,28,28,36),.12) 0%,rgba(14,14,20,.98) 50%);
   border-color:var(--badge-color,rgba(245,200,66,.4));
@@ -33470,10 +33470,9 @@ function closeSettings(){
   transform:translateZ(0);
   will-change:transform;
 }
-/* content-visibility: skip rendering off-screen cards */
+/* Badge grid — all badges visible, padding absorbs hover lift symmetrically */
 .ach-badge-grid{
-  content-visibility:auto;
-  contain-intrinsic-size:0 280px;
+  padding:14px 8px 8px;
 }
 /* Pause ALL animations when tab is not visible */
 .tc:not(.active) .dtr-badge::before{animation-play-state:paused!important;}
@@ -33483,15 +33482,22 @@ function closeSettings(){
   .dtr-badge::before{animation:none!important;}
   .dtr-badge-wrap::after{transition:none!important;}
 }
-/* Optimize locked cards — no GPU layers needed */
+/* Locked cards — no GPU layers needed, but no strict containment so they stay visible */
 .dtr-badge-wrap.locked{
   will-change:auto;
-  contain:strict;
+  contain:layout style;
 }
-/* Smooth scroll for achievements tab */
+/* Smooth scroll for achievements tab — allow overflow so hover doesn't clip */
 #tab-achievements{
   scroll-behavior:smooth;
   overflow-anchor:none;
+}
+/* Allow badge hover glow/transform to show above card boundaries */
+#tab-achievements .card{
+  overflow:visible;
+}
+#tab-achievements .cb{
+  overflow:visible;
 }
 
 .dtr-badge-wrap.anim-paused .dtr-badge::before{animation-play-state:paused!important;}
