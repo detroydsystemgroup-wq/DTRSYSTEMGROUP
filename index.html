@@ -791,11 +791,11 @@ input, button, select, textarea {
 
 /* best day card */
 .insight-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:0;margin-bottom:var(--sp-7);}
-/* Insight card — 1 в 1 с верхними cat-breakdown карточками */
+
+/* Insight card — redesigned epic style */
 .insight{
   background:var(--card);
   border:0.5px solid rgba(255,255,255,.08);
-  border-left:3px solid var(--ins-c,var(--gold));
   border-radius:14px;
   padding:16px;
   position:relative;
@@ -803,18 +803,31 @@ input, button, select, textarea {
   display:flex;
   flex-direction:column;
   gap:0;
-  transition:transform .18s cubic-bezier(.34,1.4,.64,1), box-shadow .2s;
+  transition:transform .22s cubic-bezier(.34,1.4,.64,1), box-shadow .22s;
+  box-shadow:0 2px 16px rgba(0,0,0,.4);
 }
-.insight::before{ content:none; }
+/* Accent glow corner */
+.insight::before{
+  content:'';
+  position:absolute;top:0;left:0;
+  width:60%;height:60%;
+  background:radial-gradient(ellipse at top left, rgba(var(--ins-rgb,245,200,66),.07) 0%, transparent 70%);
+  pointer-events:none;
+}
+/* Bottom accent line */
 .insight::after{
   content:'';
-  position:absolute;bottom:0;left:0;right:0;height:1px;
-  background:linear-gradient(90deg,transparent,var(--ins-c,var(--gold)) 44%,transparent);
-  opacity:.4;
+  position:absolute;bottom:0;left:10%;right:10%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(var(--ins-rgb,245,200,66),.5),transparent);
+  opacity:.6;
 }
-.insight:hover{transform:translateY(-2px);box-shadow:0 4px 20px rgba(0,0,0,.3);}
+.insight:hover{
+  transform:translateY(-4px);
+  box-shadow:0 12px 36px rgba(0,0,0,.5), 0 0 0 1px rgba(var(--ins-rgb,245,200,66),.12);
+  border-color:rgba(var(--ins-rgb,245,200,66),.2);
+}
 
-/* Header row: big icon + name + value */
+/* Header row */
 .insight-head{
   display:flex;align-items:center;gap:12px;margin-bottom:6px;
 }
@@ -824,50 +837,52 @@ input, button, select, textarea {
   flex-shrink:0;
   color:var(--ins-c,var(--gold));
   background:rgba(var(--ins-rgb,245,200,66),.1);
-  border:0.5px solid rgba(var(--ins-rgb,245,200,66),.2);
+  border:0.5px solid rgba(var(--ins-rgb,245,200,66),.25);
+  box-shadow:0 0 16px rgba(var(--ins-rgb,245,200,66),.1), inset 0 1px 0 rgba(255,255,255,.06);
 }
 .insight-icon-box svg{width:20px;height:20px;}
 .insight-lbl{
-  font-size:11px;font-weight:500;
-  color:var(--ins-c,var(--gold));
-  text-transform:uppercase;letter-spacing:.04em;
-  margin-bottom:3px;font-family:var(--font-display);
+  font-size:9.5px;font-weight:700;
+  color:rgba(var(--ins-rgb,245,200,66),.75);
+  text-transform:uppercase;letter-spacing:.1em;
+  margin-bottom:5px;font-family:var(--font-display);
 }
 .insight-val-row{
-  display:flex;align-items:baseline;gap:3px;
-  margin-bottom:2px;
+  display:flex;align-items:baseline;gap:4px;
+  margin-bottom:3px;
 }
 .insight-val{
   font-family:var(--font-mono) !important;
   font-size:24px !important;font-weight:400 !important;
-  line-height:1 !important;letter-spacing:-.02em !important;
+  line-height:1 !important;letter-spacing:-.04em !important;
   color:var(--t1) !important;text-shadow:none !important;
 }
 .insight-unit{
-  font-size:12px;color:var(--t3);
-  font-family:sans-serif;margin-left:2px;
+  font-size:11px;color:var(--t2);font-weight:400;
+  font-family:var(--font-mono);margin-left:1px;letter-spacing:-.02em;
 }
 .insight-sub{
-  font-size:10px;color:var(--t3);
-  margin-top:2px;margin-bottom:0;
+  font-size:10px;color:var(--t3);font-weight:500;
+  margin-top:3px;margin-bottom:0;letter-spacing:.01em;
 }
 /* Progress bar */
 .insight-bar-wrap{
   height:2px;background:rgba(255,255,255,.05);
-  border-radius:2px;overflow:hidden;margin:10px 0;
+  border-radius:2px;overflow:hidden;margin-bottom:10px;
 }
 .insight-bar-fill{
-  height:100%;border-radius:2px;
-  background:linear-gradient(90deg,rgba(var(--ins-rgb,245,200,66),.7),var(--ins-c,var(--gold)));
-  box-shadow:0 0 8px var(--ins-c,var(--gold));
-  transition:width 1.2s cubic-bezier(.4,0,.2,1);
+  height:100%;border-radius:3px;
+  background:linear-gradient(90deg,rgba(var(--ins-rgb,245,200,66),.5),var(--ins-c,var(--gold)));
+  box-shadow:0 0 10px rgba(var(--ins-rgb,245,200,66),.6);
+  transition:width 1.4s cubic-bezier(.4,0,.2,1);
 }
 /* Bottom stat row */
 .insight-foot{
   display:flex;justify-content:space-between;align-items:center;
-  margin-top:2px;
+  margin-top:0;padding-top:8px;
+  border-top:0.5px solid rgba(255,255,255,.05);
 }
-.insight-foot span{font-size:10px;color:var(--t3);}
+.insight-foot span{font-size:10px;color:var(--t3);font-weight:500;}
 
 /* ── CATS ── */
 .cats{display:flex;flex-direction:column;gap:9px;}
@@ -17281,7 +17296,7 @@ function renderDash(){
     const barHtml = barPct !== null ? `
       <div class="insight-bar-wrap">
         <div class="insight-bar-fill" style="width:${Math.min(100,Math.max(0,barPct))}%"></div>
-      </div>` : '<div style="height:10px"></div>';
+      </div>` : '<div style="height:14px"></div>';
     const footHtml = foot ? `<div class="insight-foot">${foot}</div>` : '';
     return `
       <div class="insight" style="--ins-c:${color};--ins-rgb:${rgb}">
@@ -17289,13 +17304,13 @@ function renderDash(){
           ${icon}
           <div style="flex:1;min-width:0">
             <div class="insight-lbl">${label}</div>
-            <div class="insight-val-row">
-              <span class="insight-val">${val}</span>
-              ${unit ? `<span class="insight-unit">${unit}</span>` : ''}
-            </div>
-            ${sub ? `<div class="insight-sub">${sub}</div>` : ''}
           </div>
         </div>
+        <div class="insight-val-row">
+          <span class="insight-val">${val}</span>
+          ${unit ? `<span class="insight-unit">${unit}</span>` : ''}
+        </div>
+        ${sub ? `<div class="insight-sub" style="margin-bottom:0">${sub}</div>` : ''}
         ${barHtml}
         ${footHtml}
       </div>`;
