@@ -19578,9 +19578,98 @@ let _msgCtxTarget = null;
 let _msgStatusTimers = {};
 let _msgTypingTimer = null;
 
+
+// ══ DB SETUP CHECK ══════════════════════════════════════════
+// Runs once when Messages tab opens — verifies schema, shows SQL if needed
+let _msgDbChecked = false;
+async function _msgCheckDb(){
+  if(_msgDbChecked || !SB_USER) return;
+  _msgDbChecked = true;
+  try {
+    // Quick probe: try inserting a test record with all columns
+    const probe = await sb.from('messages')
+      .select('id,from_user_id,to_user_id,content,content_type,read,created_at')
+      .limit(0);
+    
+    if(probe.error){
+      const code = probe.error.code;
+      const msg  = probe.error.message || '';
+      
+      if(code === '42703' || msg.includes('column') || msg.includes('content_type')){
+        // Missing columns — show ALTER TABLE SQL
+        _msgShowDbAlert('missing_columns');
+      } else if(code === '42501' || msg.includes('permission') || msg.includes('policy') || msg.includes('RLS')){
+        // RLS blocking reads
+        _msgShowDbAlert('rls_error');
+      } else if(code === 'PGRST116' || msg.includes('does not exist')){
+        // Table doesn't exist at all
+        _msgShowDbAlert('no_table');
+      }
+    }
+  } catch(e){ /* silent */ }
+}
+
+function _msgShowDbAlert(type){
+  const existing = document.getElementById('_msgDbAlert');
+  if(existing) return;
+  
+  const msgs = {
+    no_table: { title:'Таблица messages не найдена', sql:`-- Вставь в Supabase → SQL Editor:
+CREATE TABLE IF NOT EXISTS messages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  from_user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  to_user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  content text NOT NULL,
+  content_type text DEFAULT 'text',
+  read boolean DEFAULT false,
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "messages_all" ON messages FOR ALL USING (
+  auth.uid() = from_user_id OR auth.uid() = to_user_id
+) WITH CHECK (auth.uid() = from_user_id);` },
+    missing_columns: { title:'Нужно добавить колонки в messages', sql:`-- Вставь в Supabase → SQL Editor:
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS content_type text DEFAULT 'text';
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS read boolean DEFAULT false;` },
+    rls_error: { title:'RLS блокирует сообщения', sql:`-- Вставь в Supabase → SQL Editor:
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "messages_all" ON messages;
+CREATE POLICY "messages_all" ON messages FOR ALL USING (
+  auth.uid() = from_user_id OR auth.uid() = to_user_id
+) WITH CHECK (auth.uid() = from_user_id);` }
+  };
+  
+  const { title, sql } = msgs[type] || msgs['no_table'];
+  const alert = document.createElement('div');
+  alert.id = '_msgDbAlert';
+  alert.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(16,16,20,.98);border:0.5px solid rgba(239,68,68,.4);border-radius:14px;padding:16px 20px;z-index:9999;max-width:480px;width:calc(100% - 40px);box-shadow:0 8px 40px rgba(0,0,0,.7);font-family:var(--font-display);animation:msgIn .25s ease;';
+  alert.innerHTML = `
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px;">
+      <div>
+        <div style="font-size:13.5px;font-weight:700;color:var(--red);margin-bottom:4px;">⚠️ ${title}</div>
+        <div style="font-size:12px;color:var(--t3);">Скопируй SQL и выполни в Supabase → SQL Editor</div>
+      </div>
+      <button onclick="document.getElementById('_msgDbAlert').remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;flex-shrink:0;padding:2px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <pre id="_msgSqlBlock" style="background:rgba(0,0,0,.5);border:0.5px solid rgba(255,255,255,.08);border-radius:8px;padding:10px;font-size:11px;color:#4ADE80;font-family:'JetBrains Mono',monospace;overflow-x:auto;margin:0 0 10px;white-space:pre;line-height:1.5;">${sql}</pre>
+    <div style="display:flex;gap:8px;">
+      <button onclick="navigator.clipboard?.writeText(document.getElementById('_msgSqlBlock').textContent).then(()=>showToast('SQL скопирован ✓'))" style="flex:1;padding:8px;border-radius:9px;background:rgba(245,200,66,.12);border:0.5px solid rgba(245,200,66,.3);color:var(--gold);font-size:12px;font-weight:600;cursor:pointer;">
+        Копировать SQL
+      </button>
+      <a href="https://supabase.com/dashboard/project/jwqvlhmtjtpoxwncmpex/sql/new" target="_blank" style="flex:1;padding:8px;border-radius:9px;background:rgba(34,197,94,.12);border:0.5px solid rgba(34,197,94,.3);color:var(--green);font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:5px;">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        Открыть Supabase
+      </a>
+    </div>`;
+  document.body.appendChild(alert);
+}
+
 async function renderMsgTab(){
   if(_convsCache) _renderConvList(_convsCache);
   loadConversations();
+  _msgCheckDb(); // verify DB schema once
 }
 
 // ── Status icons (Telegram-style) ──
@@ -22530,12 +22619,18 @@ function appendMessage(msg, isMine) {
   div.className = `msg-row${isMine?' mine':' theirs'}`;
   div.style.marginTop = canGroup ? '2px' : '10px';
   div.dataset.msgId = msgId;
+
+  // Use msgContentHTML to render file/voice/image properly
+  const bodyHtml = (typeof msgContentHTML === 'function')
+    ? msgContentHTML({ content_type: msg.content_type || 'text', content: txt, from_user_id: msg.from_user_id })
+    : `<span>${esc(txt)}</span>`;
+
   div.innerHTML = `
     ${!isMine?`<div class="msg-av-micro" style="background:none;border:none;overflow:hidden;">${_msgGetPartnerAvatar()}</div>`:''}
     <div class="msg-bubble${isMine?' mine':' theirs'}" data-msg-id="${esc(msgId)}" style="border-radius:${radius}"
       oncontextmenu="_msgShowBubbleCtx(event,this)"
       ondblclick="_showRxPopup(event,this)">
-      <span>${esc(txt)}</span>
+      ${bodyHtml}
       <div class="msg-bubble-time">${timeStr}${ticks}</div>
       <div class="reaction-popup" id="rp-${esc(msgId)}">
         ${['❤️','🔥','👏','😂','🤔','👍'].map(e=>`<button class="r-pop-btn" onclick="_addRx('${esc(msgId)}','${e}');event.stopPropagation()" type="button">${e}</button>`).join('')}
@@ -22590,13 +22685,36 @@ async function sendMsg(toUserId) {
   appendMessage(optimisticMsg, true);
 
   try {
-    const { data, error } = await sb.from('messages').insert({
+    // Try full insert first, fallback to minimal if columns missing
+    let data, error;
+    const fullInsert = await sb.from('messages').insert({
       from_user_id: SB_USER.id,
       to_user_id: toUserId,
       content: text,
       content_type: 'text',
       read: false
     }).select('id').single();
+    
+    if(fullInsert.error){
+      const errMsg = fullInsert.error.message || '';
+      const errCode = fullInsert.error.code || '';
+      console.error('[DTR] sendMsg error:', errCode, errMsg);
+      
+      // Column missing (42703) → try without optional columns
+      if(errCode === '42703' || errMsg.includes('column') || errMsg.includes('content_type') || errMsg.includes('read')){
+        const minimal = await sb.from('messages').insert({
+          from_user_id: SB_USER.id,
+          to_user_id: toUserId,
+          content: text
+        }).select('id').single();
+        if(minimal.error) throw minimal.error;
+        data = minimal.data; error = null;
+      } else {
+        throw fullInsert.error;
+      }
+    } else {
+      data = fullInsert.data; error = null;
+    }
     if (error) throw error;
 
     // Swap optimistic id → real id and upgrade to 'sent' (1 tick)
@@ -22622,17 +22740,22 @@ async function sendMsg(toUserId) {
     }
     await loadConversations();
   } catch (err) {
-    // Error state with retry
+    console.error('[DTR] Message send failed:', err?.code, err?.message, err);
     const optBub=document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
     if(optBub){
       optBub.style.opacity='.5';
       const errEl=document.createElement('div');
       errEl.style.cssText='font-size:10px;color:var(--red);margin-top:4px;cursor:pointer;display:flex;align-items:center;gap:4px;';
-      errEl.innerHTML='<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Ошибка — нажми для повтора';
+      const hint = err?.code === '42501' ? 'Нет прав (RLS). Нажми для повтора' :
+                   err?.code === 'PGRST301' ? 'Ошибка авторизации' :
+                   err?.message?.includes('JWT') ? 'Сессия истекла — перезайди' :
+                   'Ошибка — нажми для повтора';
+      errEl.innerHTML=`<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> ${hint}`;
       errEl.onclick=()=>{ optBub.style.opacity='1'; errEl.remove(); sendMsg(toUserId); };
       optBub.appendChild(errEl);
     }
-    showToast('Сообщение не доставлено', '⚠️');
+    const detail = err?.message ? ` (${err.message.slice(0,60)})` : '';
+    showToast('Не доставлено' + detail, '⚠️');
   }
 }
 
@@ -34818,21 +34941,40 @@ async function _msgSendFile(toUserId){
       ? url
       : JSON.stringify({ url, name: result.name, size: result.size });
 
-    const { data, error } = await sb.from('messages').insert({
+    // Robust insert: try with content_type first, fallback without
+    let msgData;
+    const ins1 = await sb.from('messages').insert({
       from_user_id: SB_USER.id,
       to_user_id:   toUserId,
       content,
       content_type,
       read: false,
     }).select('id,created_at,content,content_type').single();
-    if(error) throw error;
+    
+    if(ins1.error){
+      console.warn('[DTR] File insert with content_type failed:', ins1.error.code, ins1.error.message);
+      if(ins1.error.code === '42703' || ins1.error.message?.includes('column')){
+        // Table missing columns — use text content with type prefix
+        const ins2 = await sb.from('messages').insert({
+          from_user_id: SB_USER.id,
+          to_user_id:   toUserId,
+          content: `[${content_type.toUpperCase()}] ${content}`,
+        }).select('id,created_at,content').single();
+        if(ins2.error) throw ins2.error;
+        msgData = { ...ins2.data, content_type };
+      } else {
+        throw ins1.error;
+      }
+    } else {
+      msgData = ins1.data;
+    }
 
-    appendMessage({ ...data, from_user_id: SB_USER.id }, true);
+    appendMessage({ ...msgData, from_user_id: SB_USER.id }, true);
     await loadConversations();
     showToast(isImage ? 'Фото отправлено 📸' : 'Файл отправлен 📎');
   } catch(err){
-    console.error('[DTR] Send file error:', err);
-    showToast('Ошибка отправки: ' + (err.message||'неизвестная ошибка'), '⚠️');
+    console.error('[DTR] Send file error:', err?.code, err?.message);
+    showToast('Ошибка отправки файла: ' + (err?.message||'').slice(0,80), '⚠️');
   } finally {
     if(sendBtn){ sendBtn.classList.remove('uploading'); }
   }
@@ -35024,21 +35166,39 @@ async function _msgSendVoice(blob, toUserId, duration){
       });
     }
 
-    const { data: msg, error: msgErr } = await sb.from('messages').insert({
+    // Robust voice insert
+    let voiceMsg;
+    const vins1 = await sb.from('messages').insert({
       from_user_id: SB_USER.id,
       to_user_id:   toUserId,
       content:      voiceUrl,
       content_type: 'voice',
       read: false,
     }).select('id,created_at,content,content_type').single();
-    if(msgErr) throw msgErr;
 
-    appendMessage({ ...msg, from_user_id: SB_USER.id }, true);
+    if(vins1.error){
+      console.warn('[DTR] Voice insert with content_type failed:', vins1.error.code);
+      if(vins1.error.code === '42703' || vins1.error.message?.includes('column')){
+        const vins2 = await sb.from('messages').insert({
+          from_user_id: SB_USER.id,
+          to_user_id:   toUserId,
+          content: voiceUrl,
+        }).select('id,created_at,content').single();
+        if(vins2.error) throw vins2.error;
+        voiceMsg = { ...vins2.data, content_type: 'voice' };
+      } else {
+        throw vins1.error;
+      }
+    } else {
+      voiceMsg = vins1.data;
+    }
+
+    appendMessage({ ...voiceMsg, from_user_id: SB_USER.id }, true);
     await loadConversations();
     showToast('Голосовое отправлено 🎤');
   } catch(err){
-    console.error('[DTR] Voice send error:', err);
-    showToast('Ошибка отправки голосового: ' + (err.message||''), '⚠️');
+    console.error('[DTR] Voice send error:', err?.code, err?.message);
+    showToast('Ошибка голосового: ' + (err?.message||'').slice(0,80), '⚠️');
   } finally {
     if(sendBtn){ sendBtn.classList.remove('uploading'); }
   }
