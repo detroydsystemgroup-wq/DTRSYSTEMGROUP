@@ -1494,6 +1494,8 @@ body { transition:background .28s,color .28s; }
 .msg-conv-time{font-size:10px;color:var(--t3);flex-shrink:0;font-family:var(--font-mono);}
 .msg-conv-badge{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:linear-gradient(135deg,var(--gold),var(--gold-d));color:#09090B;font-size:9.5px;font-weight:800;font-family:var(--font-mono);display:flex;align-items:center;justify-content:center;animation:badgePop .3s cubic-bezier(.34,1.56,.64,1) both;}
 @keyframes badgePop{0%{transform:scale(0);opacity:0;}100%{transform:scale(1);opacity:1;}}
+.msg-conv-badge.muted{background:var(--t4);color:var(--t2);}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
 .msg-chat{display:flex;flex-direction:column;overflow:hidden;min-height:0;background:var(--bg);position:relative;}
 .msg-chat::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 20% 80%,rgba(245,200,66,.025) 0%,transparent 55%),radial-gradient(ellipse at 80% 20%,rgba(34,197,94,.015) 0%,transparent 55%);pointer-events:none;z-index:0;}
 .msg-chat-head{padding:12px 18px;border-bottom:0.5px solid rgba(255,255,255,.05);display:flex;align-items:center;gap:12px;background:rgba(9,9,11,.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);position:relative;z-index:5;flex-shrink:0;}
@@ -19058,8 +19060,11 @@ function _renderConvList(convs){
         <div class="msg-conv-preview${isUnread?' unread-prev':''}">${preview}${(cv.lastMsg||'').length>42?'…':''}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">
-        <div class="msg-conv-time">${fmtMsgTime(cv.lastTime)}</div>
-        ${cv.unread>0?`<div class="msg-conv-badge">${cv.unread>9?'9+':cv.unread}</div>`:''}
+        <div style="display:flex;align-items:center;gap:5px;">
+          ${_isMuted(cv.userId)?'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>':''}
+          <div class="msg-conv-time">${fmtMsgTime(cv.lastTime)}</div>
+        </div>
+        ${cv.unread>0?`<div class="msg-conv-badge${_isMuted(cv.userId)?' muted':''}">${cv.unread>9?'9+':cv.unread}</div>`:''}
       </div>
     </div>`;
   }).join('');
@@ -19133,11 +19138,11 @@ async function openConv(userId, name, av, avUrl){
         </button>`:''}
         <div class="msg-chat-av" style="position:relative;cursor:pointer;" onclick="openUserProfile('${esc(userId)}','${escAttr(name)}','${escAttr(av||'')}','${escAttr(avUrl||'')}')">
           ${avDisplay}
-          <div id="msgOnlineDot" style="position:absolute;bottom:1px;right:1px;width:9px;height:9px;border-radius:50%;background:var(--green);border:2px solid var(--bg);"></div>
+          <div id="msgOnlineDot" style="position:absolute;bottom:1px;right:1px;width:9px;height:9px;border-radius:50%;background:var(--t3);border:2px solid var(--bg);transition:background .4s;"></div>
         </div>
         <div class="msg-chat-info" style="cursor:pointer;" onclick="openUserProfile('${esc(userId)}','${escAttr(name)}','${escAttr(av||'')}','${escAttr(avUrl||'')}')">
           <div class="msg-chat-name">${esc(name)}</div>
-          <div class="msg-chat-sub online-sub" id="msgChatSub">в сети</div>
+          <div class="msg-chat-sub" id="msgChatSub">проверяем статус…</div>
         </div>
         <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
           <button style="width:32px;height:32px;border-radius:9px;background:none;border:0.5px solid rgba(255,255,255,.07);color:var(--t3);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,color .15s;" onclick="showToast('Звонок — скоро')" onmouseover="this.style.background='rgba(245,200,66,.08)';this.style.color='var(--gold)'" onmouseout="this.style.background='none';this.style.color='var(--t3)'" title="Позвонить">
@@ -19202,6 +19207,8 @@ async function openConv(userId, name, av, avUrl){
     requestAnimationFrame(()=>{
       loadMessages(userId);
       loadConversations();
+      _msgCheckOnlineStatus(userId);
+      _startOnlinePolling(userId);
     });
   }catch(e){
     console.error('openConv:',e);
@@ -19267,16 +19274,276 @@ function _msgHideTyping(){
   sub.textContent = 'в сети';
 }
 
+// ── Muted chats storage ──
+const _mutedChats = new Set(JSON.parse(localStorage.getItem('dtr_muted_chats')||'[]'));
+function _saveMuted(){ try{ localStorage.setItem('dtr_muted_chats', JSON.stringify([..._mutedChats])); }catch(e){} }
+function _isMuted(uid){ return _mutedChats.has(uid); }
+
+// ── Online status checker ──
+async function _msgCheckOnlineStatus(userId){
+  if(!SB_USER) return;
+  try {
+    const cutoff = new Date(Date.now() - (75*1000)).toISOString();
+    const { data } = await sb.from('users').select('last_seen').eq('id', userId).single();
+    const dot = document.getElementById('msgOnlineDot');
+    const sub = document.getElementById('msgChatSub');
+    if(!data){ return; }
+    const lastSeen = data.last_seen ? new Date(data.last_seen) : null;
+    const isOnline = lastSeen && (Date.now() - lastSeen.getTime()) < 75000;
+    if(dot){
+      dot.style.background = isOnline ? 'var(--green)' : 'var(--t3)';
+    }
+    if(sub && !sub.innerHTML.includes('typing-dots')){
+      if(isOnline){
+        sub.className = 'msg-chat-sub online-sub';
+        sub.textContent = 'в сети';
+      } else {
+        sub.className = 'msg-chat-sub';
+        if(lastSeen){
+          const diffMin = Math.floor((Date.now() - lastSeen.getTime()) / 60000);
+          const diffHr  = Math.floor(diffMin / 60);
+          const diffDay = Math.floor(diffHr / 24);
+          let txt;
+          if(diffMin < 1) txt = 'был(а) только что';
+          else if(diffMin < 60) txt = `был(а) ${diffMin} мин назад`;
+          else if(diffHr < 24) txt = `был(а) ${diffHr} ч назад`;
+          else if(diffDay === 1) txt = 'был(а) вчера';
+          else txt = `был(а) ${lastSeen.toLocaleDateString('ru',{day:'numeric',month:'short'})}`;
+          sub.textContent = txt;
+        } else {
+          sub.textContent = 'не в сети';
+        }
+      }
+    }
+    // Update pip in conversation list too
+    const pip = document.querySelector(`.msg-conv[data-conv-uid="${userId}"] .msg-conv-unread-pip`);
+    // just the pip is for unread — online dot is separate; update avatar ring border
+    const ring = document.querySelector(`.msg-conv[data-conv-uid="${userId}"] .msg-conv-av-ring`);
+    if(ring) ring.style.borderColor = isOnline ? 'rgba(34,197,94,.4)' : 'rgba(245,200,66,.16)';
+  } catch(e){ /* silent */ }
+}
+
+// Poll online status every 30s while chat is open
+let _onlineCheckInterval = null;
+function _startOnlinePolling(userId){
+  clearInterval(_onlineCheckInterval);
+  _onlineCheckInterval = setInterval(()=>{ if(activeConvUserId===userId) _msgCheckOnlineStatus(userId); else clearInterval(_onlineCheckInterval); }, 30000);
+}
+
+// ── Search in chat ──
+let _msgSearchActive = false;
+function _msgOpenSearch(){
+  if(_msgSearchActive) return _msgCloseSearch();
+  _msgSearchActive = true;
+  const head = document.querySelector('.msg-chat-head');
+  if(!head) return;
+  // Insert search bar below header
+  const existing = document.getElementById('_msgSearchBar');
+  if(existing){ existing.remove(); _msgSearchActive=false; return; }
+  const bar = document.createElement('div');
+  bar.id = '_msgSearchBar';
+  bar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(9,9,11,.96);border-bottom:0.5px solid rgba(255,255,255,.06);position:relative;z-index:4;animation:msgIn .18s ease both;';
+  bar.innerHTML = `
+    <div style="position:relative;flex:1;">
+      <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t3);pointer-events:none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input id="_msgSearchInput" type="text" placeholder="Поиск в переписке…"
+        style="width:100%;padding:8px 36px 8px 32px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.08);border-radius:12px;color:var(--t1);font-size:13px;font-family:var(--font-display);outline:none;box-sizing:border-box;transition:border-color .2s;"
+        oninput="_msgDoSearch(this.value)"
+        onfocus="this.style.borderColor='rgba(245,200,66,.3)'"
+        onblur="this.style.borderColor='rgba(255,255,255,.08)'"
+        onkeydown="if(event.key==='Escape') _msgCloseSearch()">
+    </div>
+    <div id="_msgSearchCount" style="font-size:11px;color:var(--t3);font-family:var(--font-mono);white-space:nowrap;min-width:40px;text-align:center;"></div>
+    <button onclick="_msgSearchNav(-1)" style="width:26px;height:26px;border-radius:8px;background:none;border:0.5px solid rgba(255,255,255,.08);color:var(--t2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='none'">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+    </button>
+    <button onclick="_msgSearchNav(1)" style="width:26px;height:26px;border-radius:8px;background:none;border:0.5px solid rgba(255,255,255,.08);color:var(--t2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='none'">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <button onclick="_msgCloseSearch()" style="width:26px;height:26px;border-radius:8px;background:none;border:none;color:var(--t3);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:color .15s;" onmouseover="this.style.color='var(--t1)'" onmouseout="this.style.color='var(--t3)'">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>`;
+  // Insert after header
+  const chatView = head.closest('.msg-chat') || head.parentElement;
+  head.insertAdjacentElement('afterend', bar);
+  setTimeout(()=> document.getElementById('_msgSearchInput')?.focus(), 60);
+}
+
+function _msgCloseSearch(){
+  _msgSearchActive = false;
+  document.getElementById('_msgSearchBar')?.remove();
+  // Remove all highlights
+  document.querySelectorAll('#msgMessages .msg-bubble span').forEach(s=>{
+    s.innerHTML = s.textContent; // strip mark tags
+  });
+  document.querySelectorAll('#msgMessages .search-highlight-active, #msgMessages .search-highlight').forEach(m=>{
+    const parent = m.parentNode;
+    parent.replaceChild(document.createTextNode(m.textContent), m);
+    parent.normalize();
+  });
+}
+
+let _searchMatches = [];
+let _searchIdx = 0;
+function _msgDoSearch(q){
+  const cnt = document.getElementById('_msgSearchCount');
+  // Clear previous highlights
+  _msgClearSearchHighlights();
+  _searchMatches = [];
+  _searchIdx = 0;
+  if(!q || q.trim().length < 1){ if(cnt) cnt.textContent=''; return; }
+  const term = q.trim().toLowerCase();
+  const msgs = document.querySelectorAll('#msgMessages .msg-bubble');
+  msgs.forEach(bub=>{
+    const spanEl = bub.querySelector('span');
+    if(!spanEl) return;
+    const text = spanEl.textContent || '';
+    if(text.toLowerCase().includes(term)){
+      // Highlight all occurrences
+      const regex = new RegExp('(' + term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi');
+      spanEl.innerHTML = text.replace(regex, '<mark class="search-highlight" style="background:rgba(245,200,66,.35);color:var(--t1);border-radius:2px;padding:0 1px;">$1</mark>');
+      const marks = spanEl.querySelectorAll('.search-highlight');
+      marks.forEach(m => _searchMatches.push(m));
+    }
+  });
+  if(cnt) cnt.textContent = _searchMatches.length ? `1/${_searchMatches.length}` : '0';
+  if(_searchMatches.length) _msgSearchScrollTo(0);
+}
+
+function _msgClearSearchHighlights(){
+  document.querySelectorAll('#msgMessages .search-highlight, #msgMessages .search-highlight-active').forEach(m=>{
+    const t = document.createTextNode(m.textContent);
+    m.parentNode.replaceChild(t, m);
+  });
+  document.querySelectorAll('#msgMessages span').forEach(s=>s.normalize && s.normalize());
+}
+
+function _msgSearchNav(dir){
+  if(!_searchMatches.length) return;
+  _searchMatches[_searchIdx]?.classList.replace('search-highlight-active','search-highlight');
+  _searchIdx = (_searchIdx + dir + _searchMatches.length) % _searchMatches.length;
+  const cnt = document.getElementById('_msgSearchCount');
+  if(cnt) cnt.textContent = `${_searchIdx+1}/${_searchMatches.length}`;
+  _msgSearchScrollTo(_searchIdx);
+}
+
+function _msgSearchScrollTo(idx){
+  const el = _searchMatches[idx];
+  if(!el) return;
+  _searchMatches.forEach(m=>m.style.background='rgba(245,200,66,.28)');
+  el.style.background = 'rgba(245,200,66,.7)';
+  el.scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+// ── Clear history modal (Telegram-style) ──
+function _msgShowClearModal(userId){
+  const existing = document.getElementById('_msgClearModal');
+  if(existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = '_msgClearModal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .18s ease;';
+  overlay.innerHTML = `
+    <div style="background:var(--card);border:0.5px solid var(--border);border-radius:18px;padding:24px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,.6);animation:msgIn .22s cubic-bezier(.34,1.3,.64,1) both;">
+      <div style="font-family:var(--font-display);font-size:16px;font-weight:700;color:var(--t1);margin-bottom:6px;letter-spacing:-.02em;">Очистить историю</div>
+      <div style="font-size:13px;color:var(--t3);margin-bottom:20px;line-height:1.5;">Сообщения будут удалены без возможности восстановления</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+        <label style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:0.5px solid rgba(255,255,255,.08);cursor:pointer;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background='none'">
+          <input type="radio" name="clearScope" value="me" checked style="accent-color:var(--gold);width:16px;height:16px;cursor:pointer;">
+          <div>
+            <div style="font-size:13.5px;font-weight:600;color:var(--t1);">Только у меня</div>
+            <div style="font-size:11.5px;color:var(--t3);margin-top:2px;">Собеседник сохранит переписку</div>
+          </div>
+        </label>
+        <label style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:0.5px solid rgba(255,255,255,.08);cursor:pointer;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background='none'">
+          <input type="radio" name="clearScope" value="both" style="accent-color:var(--gold);width:16px;height:16px;cursor:pointer;">
+          <div>
+            <div style="font-size:13.5px;font-weight:600;color:var(--t1);">У обоих</div>
+            <div style="font-size:11.5px;color:var(--t3);margin-top:2px;">Удалит переписку у вас и у собеседника</div>
+          </div>
+        </label>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="document.getElementById('_msgClearModal').remove()" style="flex:1;padding:11px;border-radius:11px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.08);color:var(--t2);font-size:13px;font-weight:600;font-family:var(--font-display);cursor:pointer;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.09)'" onmouseout="this.style.background='rgba(255,255,255,.05)'">Отмена</button>
+        <button onclick="_msgExecuteClear('${userId}')" style="flex:1;padding:11px;border-radius:11px;background:rgba(239,68,68,.14);border:0.5px solid rgba(239,68,68,.3);color:var(--red);font-size:13px;font-weight:600;font-family:var(--font-display);cursor:pointer;transition:background .15s;" onmouseover="this.style.background='rgba(239,68,68,.22)'" onmouseout="this.style.background='rgba(239,68,68,.14)'">Очистить</button>
+      </div>
+    </div>`;
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+async function _msgExecuteClear(userId){
+  const overlay = document.getElementById('_msgClearModal');
+  const scope = overlay?.querySelector('input[name="clearScope"]:checked')?.value || 'me';
+  overlay?.remove();
+  if(!SB_USER) return;
+
+  try {
+    if(scope === 'me'){
+      // Delete only messages sent by me to this user
+      await sb.from('messages')
+        .delete()
+        .eq('from_user_id', SB_USER.id)
+        .eq('to_user_id', userId);
+    } else {
+      // Delete both directions
+      await sb.from('messages')
+        .delete()
+        .or(`and(from_user_id.eq.${SB_USER.id},to_user_id.eq.${userId}),and(from_user_id.eq.${userId},to_user_id.eq.${SB_USER.id})`);
+    }
+  } catch(e){ console.warn('clear history error:', e); }
+
+  // Clear UI
+  const el = document.getElementById('msgMessages');
+  if(el) el.innerHTML = `
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:32px;text-align:center;color:var(--t3);">
+      <div style="font-size:28px;opacity:.3">🗑️</div>
+      <div style="font-size:13px;font-weight:600;color:var(--t2);">История очищена</div>
+      <div style="font-size:12px;">Напишите первое сообщение</div>
+    </div>`;
+
+  // Update sidebar preview
+  if(_convsCache){
+    const cv = _convsCache.find(c=>c.userId===userId);
+    if(cv){ cv.lastMsg = 'История очищена'; cv.lastMsgMine = false; cv.lastTime = new Date().toISOString(); }
+    _renderConvList(_convsCache);
+  }
+
+  showToast(scope==='both' ? 'История удалена у обоих' : 'История очищена у вас', '🗑️');
+}
+
 // ── Chat header menu ──
 function _msgOpenMenu(e, userId){
   e.stopPropagation();
   _msgCloseCtx();
+  const isMuted = _isMuted(userId);
   const menu = _msgGetCtxMenu([
-    {icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>', label:'Поиск в чате', action:()=>showToast('Поиск — скоро 🔍')},
-    {icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>', label:'Заглушить уведомления', action:()=>showToast('Уведомления заглушены 🔕')},
+    {
+      icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>',
+      label:'Поиск в чате',
+      action: _msgOpenSearch
+    },
+    {
+      icon: isMuted
+        ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>'
+        : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>',
+      label: isMuted ? 'Включить уведомления' : 'Заглушить уведомления',
+      action: ()=>{
+        if(_mutedChats.has(userId)){ _mutedChats.delete(userId); showToast('Уведомления включены 🔔'); }
+        else { _mutedChats.add(userId); showToast('Уведомления заглушены 🔕'); }
+        _saveMuted();
+        // Update mute icon in conv list
+        _renderConvList(_convsCache || allConvsCache || []);
+      }
+    },
     {sep:true},
-    {icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>', label:'Очистить историю', action:()=>{const el=document.getElementById('msgMessages');if(el)el.innerHTML='';showToast('История очищена');}, danger:true},
-  ], e.clientX - 160, e.clientY + 4);
+    {
+      icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+      label:'Очистить историю',
+      action: ()=>_msgShowClearModal(userId),
+      danger:true
+    },
+  ], e.clientX - 168, e.clientY + 4);
   document.body.appendChild(menu);
   requestAnimationFrame(()=>menu.classList.add('open'));
 }
@@ -21124,6 +21391,8 @@ function initRealtimeMessages() {
           _msgHideTyping();
           appendMessage(payload.new, false);
         }, 600 + Math.random()*400);
+        // Update online status since they just sent a message
+        setTimeout(()=>_msgCheckOnlineStatus(activeConvUserId), 200);
         sb.from('messages').update({read:true}).eq('id', payload.new.id).then(() => {
           [_convsCache, allConvsCache].forEach(cache => {
             if(!cache) return;
