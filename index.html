@@ -16186,8 +16186,9 @@ async function saveSession(catId,secs){
     const thBefore = (P.categories.find(c=>c.id===catId)?.hours||0) - secs/3600;
     const thAfter  = P.categories.find(c=>c.id===catId)?.hours||0;
     if(typeof getLevelInfo==='function' && typeof window.socOnLevelUp==='function'){
-      // Use hours-based for before (no achievements at that moment), full XP for after
-      const lvlBefore = getLevelInfo(thBefore - secs/3600 < 0 ? 0 : thBefore - secs/3600).lvl;
+      // Compare full XP before vs after this session (subtract session XP + per-session bonus)
+      const xpBefore = Math.max(0, calcTotalXP(P) - Math.floor(secs/3600*50) - 8);
+      const lvlBefore = levelFromXP(xpBefore);
       const lvlAfter  = getMyLevelInfo().lvl;
       if(lvlAfter > lvlBefore){
         const info = getMyLevelInfo();
@@ -16561,9 +16562,8 @@ function renderHeader(){
   const mAch=document.getElementById('mAch'); if(mAch) mAch.style.display='none';
   const mSess=document.getElementById('mSess'); if(mSess) mSess.style.display='none';
   const mStreak=document.getElementById('mStreak'); if(mStreak) mStreak.style.display='none';
-  // Apply level info
-  const th=totalHrs();
-  const info=getLevelInfo(th);
+  // Apply level info — use getMyLevelInfo() (includes achievement XP) so it matches the XP bar
+  const info=getMyLevelInfo();
   const titleEl=document.getElementById('profTitle');
   if(titleEl){
     titleEl.textContent=`Ур. ${info.lvl} · ${info.name}`;
@@ -23238,9 +23238,10 @@ function calcTotalXP(profile){
   if(!profile)return 0;
   let xp=0;
   const totalH=(profile.sessions||[]).reduce((a,s)=>a+s.dur/3600,0);
-  xp+=Math.floor(totalH*100);                                    // 100 XP/hour
-  xp+=Math.floor((profile.totalSessions||0)*15);                  // 15 XP/session
-  xp+=(profile.streak||0)*5;                                     // 5 XP/streak day
+  xp+=Math.floor(totalH*50);                                     // 50 XP/hour (balanced growth)
+  xp+=Math.floor((profile.totalSessions||0)*8);                  // 8 XP/session
+  const streak=profile.streak||0;
+  xp+=streak*3+Math.floor(streak/7)*20;                          // 3 XP/day + 20 bonus per week streak
   (profile.achievements||[]).filter(a=>a.unlocked).forEach(ua=>{
     const def=ACH_DEF.find(d=>d.id===ua.id);
     if(def)xp+=def.xp||0;
@@ -23256,7 +23257,7 @@ const LEVEL_BORDER_ANIM=LEVEL_TIER_ANIM;
 
 // ── Уровень по часам (для других игроков: арена, лиги, соц. карточки) ──
 function getLevelInfo(totalHours){
-  return _lvlFromXP(Math.floor((parseFloat(totalHours)||0)*100));
+  return _lvlFromXP(Math.floor((parseFloat(totalHours)||0)*50));
 }
 // ── Уровень текущего игрока (с бонусами за достижения) ──
 function getMyLevelInfo(){
@@ -34141,10 +34142,10 @@ async function _rptBuild(){
     deltaHTML=' <span style="font-size:9px;font-weight:700;color:'+dColor+'">'+(delta>=0?'↑':'↓')+Math.abs(delta).toFixed(0)+'% к прошлому</span>';
   }catch(e){}
 
-  /* 4. Level */
+  /* 4. Level — use full XP (includes achievements) to match profile display */
   var lvlName='Новичок',lvlNum=1,lvlColor='#F5C842';
   try{
-    var lvlInfo=getLevelInfo(totalAllTime);
+    var lvlInfo=getMyLevelInfo();
     lvlNum=lvlInfo.lvl; lvlName=lvlInfo.name;
     lvlColor=(lvlInfo.color&&!lvlInfo.color.includes('gradient'))?lvlInfo.color:'#F5C842';
   }catch(e){}
