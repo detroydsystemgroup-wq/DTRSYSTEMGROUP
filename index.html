@@ -19625,18 +19625,36 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at timestamptz DEFAULT now()
 );
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "messages_all" ON messages FOR ALL USING (
-  auth.uid() = from_user_id OR auth.uid() = to_user_id
-) WITH CHECK (auth.uid() = from_user_id);` },
+DROP POLICY IF EXISTS "messages_select" ON messages;
+DROP POLICY IF EXISTS "messages_insert" ON messages;
+DROP POLICY IF EXISTS "messages_delete" ON messages;
+DROP POLICY IF EXISTS "messages_update" ON messages;
+CREATE POLICY "messages_select" ON messages FOR SELECT USING (auth.uid() = from_user_id OR auth.uid() = to_user_id);
+CREATE POLICY "messages_insert" ON messages FOR INSERT WITH CHECK (auth.uid() = from_user_id);
+CREATE POLICY "messages_delete" ON messages FOR DELETE USING (auth.uid() = from_user_id);
+CREATE POLICY "messages_update" ON messages FOR UPDATE USING (auth.uid() = to_user_id OR auth.uid() = from_user_id) WITH CHECK (auth.uid() = to_user_id OR auth.uid() = from_user_id);` },
     missing_columns: { title:'Нужно добавить колонки в messages', sql:`-- Вставь в Supabase → SQL Editor:
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS content_type text DEFAULT 'text';
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS read boolean DEFAULT false;` },
     rls_error: { title:'RLS блокирует сообщения', sql:`-- Вставь в Supabase → SQL Editor:
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "messages_all" ON messages;
-CREATE POLICY "messages_all" ON messages FOR ALL USING (
-  auth.uid() = from_user_id OR auth.uid() = to_user_id
-) WITH CHECK (auth.uid() = from_user_id);` }
+DROP POLICY IF EXISTS "messages_select" ON messages;
+DROP POLICY IF EXISTS "messages_insert" ON messages;
+DROP POLICY IF EXISTS "messages_delete" ON messages;
+-- SELECT: видишь свои и входящие
+CREATE POLICY "messages_select" ON messages FOR SELECT
+USING (auth.uid() = from_user_id OR auth.uid() = to_user_id);
+-- INSERT: только от своего имени
+CREATE POLICY "messages_insert" ON messages FOR INSERT
+WITH CHECK (auth.uid() = from_user_id);
+-- DELETE: только свои исходящие
+CREATE POLICY "messages_delete" ON messages FOR DELETE
+USING (auth.uid() = from_user_id);
+-- UPDATE: только входящие (для пометки read=true)
+CREATE POLICY "messages_update" ON messages FOR UPDATE
+USING (auth.uid() = to_user_id OR auth.uid() = from_user_id)
+WITH CHECK (auth.uid() = to_user_id OR auth.uid() = from_user_id);` }
   };
   
   const { title, sql } = msgs[type] || msgs['no_table'];
@@ -19878,7 +19896,7 @@ async function openConv(userId, name, av, avUrl){
           aria-label="Отправить/Голос" type="button"
           onmousedown="_msgMicStartHold(event,'${esc(userId)}')"
           onmouseup="_msgMicStopHold(event)"
-          onmouseleave="_msgMicCancel()"
+          onmouseleave="_msgMicLeave()"
           ontouchstart="_msgMicStartHold(event,'${esc(userId)}')"
           ontouchend="_msgMicStopHold(event)"
           ontouchcancel="_msgMicCancel()">
@@ -19927,18 +19945,21 @@ function _msgToggleSendBtn(val){
   const mic = document.getElementById('msgSendIconMic');
   const arrow = document.getElementById('msgSendIconArrow');
   if(!btn) return;
-  if((val||'').trim().length > 0){
+  // Always remove uploading state when toggling
+  btn.classList.remove('uploading');
+  if(mic) mic.style.animation = '';
+  if((val||'').trim().length > 0 || _msgPendingFile){
     btn.style.background = 'linear-gradient(145deg,var(--gold-d),var(--gold))';
     btn.style.boxShadow = '0 3px 14px rgba(245,200,66,.32)';
     btn.style.color = '#09090B';
-    if(mic) mic.style.display='none';
-    if(arrow) arrow.style.display='';
+    if(mic) mic.style.display = 'none';
+    if(arrow) arrow.style.display = '';
   } else {
     btn.style.background = 'var(--card)';
     btn.style.boxShadow = 'none';
     btn.style.color = 'var(--t2)';
-    if(mic) mic.style.display='';
-    if(arrow) arrow.style.display='none';
+    if(mic) mic.style.display = '';
+    if(arrow) arrow.style.display = 'none';
   }
 }
 
@@ -22823,20 +22844,54 @@ async function sendMsg(toUserId) {
     await loadConversations();
   } catch (err) {
     console.error('[DTR] Message send failed:', err?.code, err?.message, err);
+    
+    // RLS error: try to refresh Supabase session and retry automatically
+    if(err?.code === '42501' || err?.message?.includes('permission denied') || err?.message?.includes('RLS')){
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        if(session){
+          // Session valid — RLS policy issue. Try once more with fresh headers
+          await sb.auth.refreshSession();
+          // Auto-retry
+          const retryInsert = await sb.from('messages').insert({
+            from_user_id: SB_USER.id,
+            to_user_id: toUserId,
+            content: text,
+            content_type: 'text',
+            read: false
+          }).select('id').single();
+          if(!retryInsert.error && retryInsert.data?.id){
+            // Success on retry — update optimistic message
+            const optBub = document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
+            if(optBub) optBub.dataset.msgId = retryInsert.data.id;
+            const optRow = document.querySelector(`.msg-row[data-msg-id="${optId}"]`);
+            if(optRow) optRow.dataset.msgId = retryInsert.data.id;
+            const ticks = optBub?.querySelector('.msg-ticks');
+            if(ticks){ ticks.innerHTML = _statusSVG('sent'); ticks.dataset.status = 'sent'; }
+            await loadConversations();
+            return; // success
+          }
+        }
+      } catch(retryErr){ console.warn('[DTR] Retry failed:', retryErr); }
+    }
+    
     const optBub=document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
     if(optBub){
       optBub.style.opacity='.5';
       const errEl=document.createElement('div');
       errEl.style.cssText='font-size:10px;color:var(--red);margin-top:4px;cursor:pointer;display:flex;align-items:center;gap:4px;';
-      const hint = err?.code === '42501' ? 'Нет прав (RLS). Нажми для повтора' :
-                   err?.code === 'PGRST301' ? 'Ошибка авторизации' :
-                   err?.message?.includes('JWT') ? 'Сессия истекла — перезайди' :
-                   'Ошибка — нажми для повтора';
+      const code = err?.code || '';
+      const msg  = err?.message || '';
+      const hint = code === '42501'              ? 'Нет прав (RLS) — нажми для повтора' :
+                   code === 'PGRST301'           ? 'Ошибка авторизации — перезайди' :
+                   msg.includes('JWT')           ? 'Сессия истекла — перезайди' :
+                   msg.includes('network')       ? 'Нет соединения — нажми для повтора' :
+                                                   'Ошибка — нажми для повтора';
       errEl.innerHTML=`<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> ${hint}`;
       errEl.onclick=()=>{ optBub.style.opacity='1'; errEl.remove(); sendMsg(toUserId); };
       optBub.appendChild(errEl);
     }
-    const detail = err?.message ? ` (${err.message.slice(0,60)})` : '';
+    const detail = err?.message ? ` (${err.message.slice(0,50)})` : '';
     showToast('Не доставлено' + detail, '⚠️');
   }
 }
@@ -35063,8 +35118,19 @@ async function _msgSendFile(toUserId){
     console.error('[DTR] Send file error:', err?.code, err?.message);
     showToast('Ошибка: ' + (err?.message||'неизвестная ошибка').slice(0,100), '⚠️');
   } finally {
-    if(sendBtn){ sendBtn.classList.remove('uploading'); }
+    // Force remove uploading state and reset button
+    if(sendBtn){
+      sendBtn.classList.remove('uploading');
+      sendBtn.style.background = '';
+      sendBtn.style.boxShadow = '';
+      sendBtn.style.color = '';
+      const mic = sendBtn.querySelector('#msgSendIconMic,svg:first-child');
+      if(mic) mic.style.animation = '';
+    }
     if(attachBtn) attachBtn.disabled = false;
+    // Re-sync button state
+    const inp = document.getElementById('msgInput');
+    _msgToggleSendBtn(inp?.value || '');
   }
 }
 
@@ -35105,28 +35171,50 @@ function _msgMicStartHold(e, toUserId){
   MIC_STATE.toUserId = toUserId;
   clearTimeout(MIC_STATE.holdTimeout);
 
-  // Check if in text mode (arrow visible) — then don't start voice hold
+  // Text mode → don't intercept
   const arrow = document.getElementById('msgSendIconArrow');
   if(arrow && arrow.style.display !== 'none') return;
-  // Check if file pending — don't override
+  // File pending → don't intercept
   if(_msgPendingFile && _msgPendingFile.file) return;
 
   e.preventDefault();
+
+  // Visual feedback: button turns amber while holding
+  const btn = document.getElementById('msgSendBtn');
+  if(btn){ btn.style.background = 'rgba(245,200,66,.15)'; btn.style.transform = 'scale(0.95)'; }
+
   MIC_STATE.holdTimeout = setTimeout(()=>{
     _micHoldActive = true;
+    if(btn){ btn.style.transform = 'scale(1.05)'; btn.style.background = 'var(--red)'; }
     _msgStartRecording(toUserId);
   }, MIC_HOLD_MS);
 }
 
 function _msgMicStopHold(e){
   clearTimeout(MIC_STATE.holdTimeout);
+  // Reset button visual
+  const btn = document.getElementById('msgSendBtn');
+  if(btn && !MIC_STATE.isRecording){
+    btn.style.transform = '';
+    btn.style.background = '';
+  }
   if(MIC_STATE.isRecording){
-    e.preventDefault();
-    _micHoldActive = true; // prevent click from firing send
+    if(e) e.preventDefault();
+    _micHoldActive = true;
     _msgStopRecording(false);
-    // Reset hold flag after click event has had chance to fire
+    if(btn){ btn.style.transform = ''; btn.style.background = ''; }
     setTimeout(()=>{ _micHoldActive = false; }, 300);
   }
+}
+
+// mouseleave: only cancel if NOT yet recording (cancel the pending hold)
+function _msgMicLeave(){
+  if(!MIC_STATE.isRecording){
+    clearTimeout(MIC_STATE.holdTimeout);
+    const btn = document.getElementById('msgSendBtn');
+    if(btn){ btn.style.transform = ''; btn.style.background = ''; }
+  }
+  // If already recording, mouseleave does nothing — continue recording
 }
 
 // Legacy aliases
@@ -35135,6 +35223,8 @@ function _msgMicStop(e){ _msgMicStopHold(e); }
 
 function _msgMicCancel(){
   clearTimeout(MIC_STATE.holdTimeout);
+  const btn = document.getElementById('msgSendBtn');
+  if(btn){ btn.style.transform = ''; btn.style.background = ''; }
   if(MIC_STATE.isRecording) _msgStopRecording(true);
   _micHoldActive = false;
 }
@@ -35321,7 +35411,14 @@ async function _msgSendVoice(blob, toUserId, duration){
     console.error('[DTR] Voice send error:', err?.code, err?.message);
     showToast('Ошибка голосового: ' + (err?.message||'').slice(0,80), '⚠️');
   } finally {
-    if(sendBtn){ sendBtn.classList.remove('uploading'); }
+    if(sendBtn){
+      sendBtn.classList.remove('uploading');
+      sendBtn.style.background = '';
+      sendBtn.style.boxShadow = '';
+      sendBtn.style.color = '';
+    }
+    const inp = document.getElementById('msgInput');
+    _msgToggleSendBtn(inp?.value || '');
   }
 }
 
