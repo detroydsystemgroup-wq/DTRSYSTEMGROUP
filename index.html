@@ -13640,6 +13640,59 @@ html[data-theme="light"] .nav-icon-btn:hover {
 .msg-chat-typing-dots span:nth-child(3){animation-delay:.4s;}
 .msg-bubble-time{clear:both;}
 
+/* ── File & Voice attachments ── */
+.msg-file-bubble{display:flex;align-items:center;gap:10px;min-width:180px;max-width:260px;}
+.msg-file-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;background:rgba(255,255,255,.06);}
+.msg-file-info{flex:1;min-width:0;}
+.msg-file-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;}
+.msg-file-size{font-size:10.5px;opacity:.55;font-family:var(--font-mono);}
+.msg-file-dl{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.1);border:none;color:inherit;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background .15s;}
+.msg-file-dl:hover{background:rgba(255,255,255,.2);}
+
+/* Voice message */
+.msg-voice-bubble{display:flex;align-items:center;gap:8px;min-width:200px;}
+.msg-voice-play{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.12);border:none;color:inherit;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background .15s;}
+.msg-voice-play:hover{background:rgba(255,255,255,.22);}
+.msg-voice-play.playing{background:var(--gold);color:#09090B;}
+.msg-voice-waveform{flex:1;height:28px;display:flex;align-items:center;gap:1.5px;overflow:hidden;}
+.msg-voice-waveform span{background:rgba(255,255,255,.4);border-radius:2px;flex-shrink:0;transition:background .2s;}
+.msg-voice-waveform.playing span{background:var(--gold);}
+.msg-voice-dur{font-size:10.5px;opacity:.55;font-family:var(--font-mono);white-space:nowrap;}
+
+/* File preview bar */
+#msgFilePreviewBar{display:flex;align-items:center;gap:10px;}
+.msg-preview-thumb{width:36px;height:36px;border-radius:8px;object-fit:cover;flex-shrink:0;}
+.msg-preview-info{flex:1;min-width:0;}
+.msg-preview-name{font-size:12.5px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.msg-preview-size{font-size:11px;color:var(--t3);font-family:var(--font-mono);}
+.msg-preview-remove{width:24px;height:24px;border-radius:50%;background:rgba(239,68,68,.15);border:none;color:var(--red);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s;}
+.msg-preview-remove:hover{background:rgba(239,68,68,.3);}
+
+/* Voice recording overlay */
+#msgVoiceRecUI{display:none;position:absolute;inset:0;background:rgba(9,9,11,.97);z-index:20;align-items:center;justify-content:space-between;padding:0 14px;gap:12px;animation:fadeIn .15s ease;}
+#msgVoiceRecUI.active{display:flex;}
+.vc-rec-dot{width:10px;height:10px;border-radius:50%;background:var(--red);animation:recBlink 1s ease infinite;flex-shrink:0;}
+@keyframes recBlink{0%,100%{opacity:1}50%{opacity:.3}}
+.vc-rec-time{font-size:16px;font-weight:700;font-family:var(--font-mono);color:var(--t1);letter-spacing:.04em;min-width:44px;}
+.vc-rec-waveform{flex:1;height:32px;display:flex;align-items:center;gap:2px;overflow:hidden;}
+.vc-rec-waveform span{background:var(--gold);border-radius:2px;flex-shrink:0;transition:height .05s;}
+.vc-rec-cancel{background:none;border:0.5px solid rgba(239,68,68,.35);color:var(--red);border-radius:10px;padding:6px 12px;font-size:12px;font-weight:600;font-family:var(--font-display);cursor:pointer;transition:background .15s;}
+.vc-rec-cancel:hover{background:rgba(239,68,68,.12);}
+.vc-rec-send{background:var(--gold);border:none;color:#09090B;border-radius:10px;padding:6px 14px;font-size:12px;font-weight:700;font-family:var(--font-display);cursor:pointer;transition:background .15s;}
+.vc-rec-send:hover{background:var(--gold-l);}
+
+/* Upload progress on send button */
+.msg-send.uploading{background:linear-gradient(145deg,var(--gold-d),var(--gold));color:#09090B;}
+.msg-send.uploading svg{animation:spin .8s linear infinite;}
+
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+#_msgCtxMenu.open{opacity:1!important;transform:scale(1)!important;}
+.msg-chat-typing-dots{display:inline-flex;gap:2px;align-items:center;}
+.msg-chat-typing-dots span{width:4px;height:4px;background:var(--green);border-radius:50%;animation:tBounce 1.4s ease infinite;}
+.msg-chat-typing-dots span:nth-child(2){animation-delay:.2s;}
+.msg-chat-typing-dots span:nth-child(3){animation-delay:.4s;}
+.msg-bubble-time{clear:both;}
+
 </style>
   <link rel="manifest" id="pwaManifest">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23080808'/%3E%3Cpolygon points='58,10 38,52 52,52 42,90 62,46 46,46' fill='%23F5C842'/%3E%3C/svg%3E">
@@ -19316,8 +19369,23 @@ async function openConv(userId, name, av, avUrl){
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
         <span id="msgScrollBadge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--gold);color:#09090B;font-size:9px;font-weight:800;font-family:var(--font-mono);padding:1px 4px;border-radius:8px;min-width:16px;text-align:center;line-height:1.4;"></span>
       </button>
+      <!-- Hidden file input — accept all allowed types, 2MB limit enforced in JS -->
+      <input type="file" id="msgFileInput" style="display:none"
+        accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv"
+        onchange="_msgFileSelected(this,'${esc(userId)}')">
+
+      <!-- File preview bar (shown when file selected) -->
+      <div id="msgFilePreviewBar" style="display:none;padding:8px 14px;background:rgba(245,200,66,.06);border-top:0.5px solid rgba(245,200,66,.15);border-bottom:0.5px solid rgba(255,255,255,.04);flex-shrink:0;"></div>
+
+      <!-- Voice recording overlay (shown during recording) -->
+      <div id="msgVoiceRecUI"><!-- rendered by JS --></div>
       <div class="msg-input-area">
-        <button style="width:36px;height:36px;border-radius:50%;background:none;border:none;color:var(--t3);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:color .15s;" onclick="showToast('Прикрепить файл')" onmouseover="this.style.color='var(--t2)'" onmouseout="this.style.color='var(--t3)'" type="button">
+        <!-- Attach button -->
+        <button id="msgAttachBtn" style="width:36px;height:36px;border-radius:50%;background:none;border:none;color:var(--t3);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:color .15s,transform .15s;"
+          onclick="document.getElementById('msgFileInput').click()"
+          onmouseover="this.style.color='var(--gold)';this.style.transform='scale(1.1)'"
+          onmouseout="this.style.color='var(--t3)';this.style.transform='scale(1)'"
+          type="button" title="Прикрепить файл (до 2 МБ)">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
         </button>
         <div class="msg-input-wrap" id="msgInputWrap">
@@ -19329,7 +19397,15 @@ async function openConv(userId, name, av, avUrl){
             aria-label="Написать сообщение"></textarea>
           <button class="msg-emoji-btn" onclick="_toggleMsgEmoji()" type="button" title="Emoji">😊</button>
         </div>
-        <button class="msg-send" id="msgSendBtn" onclick="sendMsg('${esc(userId)}')" aria-label="Отправить" type="button">
+        <!-- Send / Mic button -->
+        <button class="msg-send" id="msgSendBtn"
+          onclick="sendMsg('${esc(userId)}')"
+          onmousedown="_msgMicStart(event,'${esc(userId)}')"
+          onmouseup="_msgMicStop(event)"
+          onmouseleave="_msgMicCancel()"
+          ontouchstart="_msgMicStart(event,'${esc(userId)}')"
+          ontouchend="_msgMicStop(event)"
+          aria-label="Отправить" type="button">
           <svg id="msgSendIconMic" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
           <svg id="msgSendIconArrow" style="display:none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
@@ -19338,6 +19414,11 @@ async function openConv(userId, name, av, avUrl){
     // Send btn starts in mic mode
     const sendBtn = area.querySelector('#msgSendBtn');
     if(sendBtn){ sendBtn.style.background='var(--card)'; sendBtn.style.boxShadow='none'; sendBtn.style.color='var(--t2)'; }
+    // Clear any pending file from previous conversation
+    _msgClearPendingFile();
+    // Reset voice UI
+    const vcUI = document.getElementById('msgVoiceRecUI');
+    if(vcUI){ vcUI.classList.remove('active'); }
 
     // Scroll tracker
     const scrollEl = document.getElementById('msgMessages');
@@ -19684,10 +19765,7 @@ async function loadMessages(partnerId){
       lastSender=msg.from_user_id; lastTs=d.getTime();
 
       const ct = msg.content_type||'text', txt=msg.content||'';
-      let body;
-      if(ct==='image') body=`<img src="${txt}" style="max-width:220px;border-radius:10px;display:block;cursor:pointer" onclick="window.open('${txt}','_blank')">`;
-      else if(ct==='voice') body=`<div style="display:flex;align-items:center;gap:8px"><span>🎤</span><audio controls style="max-width:180px;height:30px"><source src="${txt}"></audio></div>`;
-      else body=`<span>${esc(txt).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener" style="color:inherit;opacity:.8;text-decoration:underline">$1</a>')}</span>`;
+      let body = msgContentHTML({ content_type: ct, content: txt, from_user_id: msg.from_user_id });
 
       const timeStr = d.toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
       // Telegram-style bubble radius: last in group gets the pointed corner
@@ -21813,13 +21891,98 @@ function initRealtimeMessages() {
 }
 
 function msgContentHTML(msg) {
-  const ct = msg.content_type || 'text';
+  const ct  = msg.content_type || 'text';
   const txt = msg.content || '';
-  if (ct === 'image') return `<img src="${txt}" style="max-width:220px;border-radius:10px;display:block;margin-bottom:2px" onclick="window.open('${txt}','_blank')">`;
-  if (ct === 'video') return `<video controls style="max-width:220px;border-radius:10px"><source src="${txt}"></video>`;
-  if (ct === 'voice') return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0"><span>🎤</span><audio controls style="max-width:180px;height:32px"><source src="${txt}"></audio></div>`;
-  if (ct === 'file') return `<div style="display:flex;align-items:center;gap:6px;padding:4px;background:rgba(0,0,0,.1);border-radius:6px;font-size:12px"><span>📄</span><span style="word-break:break-word">${txt}</span></div>`;
-  return `<span>${txt.replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" style="color:inherit;text-decoration:underline">$1</a>')}</span>`;
+  const isMine = msg.from_user_id === SB_USER?.id;
+
+  if(ct === 'image'){
+    return `<img src="${txt}" style="max-width:240px;max-height:200px;border-radius:12px;display:block;margin-bottom:2px;cursor:pointer;object-fit:cover;" onclick="window.open('${txt}','_blank')" loading="lazy">`;
+  }
+
+  if(ct === 'voice'){
+    const vid = 'v_'+Math.random().toString(36).slice(2);
+    // Generate fake waveform bars (visual only, real audio plays on click)
+    const bars = Array.from({length:30},(_,i)=>{
+      const h = 4 + Math.round(Math.abs(Math.sin(i*0.7))*20);
+      return `<span style="width:3px;height:${h}px;display:inline-block;background:rgba(255,255,255,.4);border-radius:2px;flex-shrink:0;"></span>`;
+    }).join('');
+    return `
+      <audio id="${vid}" src="${txt}" preload="none" style="display:none"></audio>
+      <div class="msg-voice-bubble">
+        <button class="msg-voice-play" id="${vid}_btn" onclick="_msgVoiceToggle('${vid}')" title="Воспроизвести">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" id="${vid}_ico"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </button>
+        <div class="msg-voice-waveform" id="${vid}_wave">${bars}</div>
+        <span class="msg-voice-dur" id="${vid}_dur">0:00</span>
+      </div>`;
+  }
+
+  if(ct === 'file'){
+    let meta = { name: txt, size: 0, url: txt };
+    try { meta = JSON.parse(txt); } catch(e){}
+    const icon = _msgFileIcon('application/octet-stream', meta.name || 'file');
+    const sizeStr = meta.size ? _msgFmtSize(meta.size) : '';
+    return `
+      <div class="msg-file-bubble">
+        <div class="msg-file-icon">${icon}</div>
+        <div class="msg-file-info">
+          <div class="msg-file-name" title="${(meta.name||'').replace(/"/g,'')}">${meta.name||'Файл'}</div>
+          <div class="msg-file-size">${sizeStr}</div>
+        </div>
+        <a href="${meta.url||txt}" target="_blank" download class="msg-file-dl" title="Скачать">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </a>
+      </div>`;
+  }
+
+  // text with URL linkify
+  return `<span>${txt.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener" style="color:inherit;opacity:.8;text-decoration:underline">$1</a>')}</span>`;
+}
+
+// ── Voice playback toggle ──
+function _msgVoiceToggle(vid){
+  const audio = document.getElementById(vid);
+  const btn   = document.getElementById(vid+'_btn');
+  const ico   = document.getElementById(vid+'_ico');
+  const wave  = document.getElementById(vid+'_wave');
+  const dur   = document.getElementById(vid+'_dur');
+  if(!audio) return;
+
+  // Pause any other playing voice messages
+  document.querySelectorAll('audio.dtr-playing').forEach(a=>{
+    if(a.id !== vid){ a.pause(); a.classList.remove('dtr-playing'); _msgVoiceResetUI(a.id); }
+  });
+
+  if(audio.paused){
+    audio.play().then(()=>{
+      audio.classList.add('dtr-playing');
+      btn?.classList.add('playing');
+      wave?.classList.add('playing');
+      if(ico) ico.innerHTML = '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>';
+    }).catch(()=>{});
+    audio.ontimeupdate = ()=>{
+      const s = Math.floor(audio.currentTime);
+      if(dur) dur.textContent = Math.floor(s/60)+':'+(s%60).toString().padStart(2,'0');
+    };
+    audio.onended = ()=>{
+      audio.classList.remove('dtr-playing');
+      _msgVoiceResetUI(vid);
+      if(dur) dur.textContent = '0:00';
+    };
+  } else {
+    audio.pause();
+    audio.classList.remove('dtr-playing');
+    _msgVoiceResetUI(vid);
+  }
+}
+
+function _msgVoiceResetUI(vid){
+  const btn  = document.getElementById(vid+'_btn');
+  const ico  = document.getElementById(vid+'_ico');
+  const wave = document.getElementById(vid+'_wave');
+  if(btn)  btn.classList.remove('playing');
+  if(wave) wave.classList.remove('playing');
+  if(ico)  ico.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
 }
 
 // ── Append single message (Telegram grouping model) ──
@@ -33859,6 +34022,358 @@ async function _vcFlipCamera(){
     const btn = document.getElementById('vcFlipBtn');
     if(btn){ btn.style.transform='rotate(180deg)'; setTimeout(()=>btn.style.transform='',500); }
   } catch(e){ showToast('Не удалось переключить камеру','⚠️'); }
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// DTR MESSAGES — File Attachments & Voice Messages
+// ══════════════════════════════════════════════════════════════
+
+const MSG_FILE_LIMIT = 2 * 1024 * 1024; // 2 MB
+const MSG_VOICE_LIMIT_SEC = 60;          // 1 minute
+
+// ── File type → icon + label ──
+function _msgFileIcon(mime, name){
+  const ext = (name||'').split('.').pop().toLowerCase();
+  if(mime.startsWith('image/'))                          return '🖼️';
+  if(mime==='application/pdf' || ext==='pdf')            return '📄';
+  if(mime.includes('word') || ext==='doc'||ext==='docx') return '📝';
+  if(mime.includes('excel')||mime.includes('sheet')||ext==='xls'||ext==='xlsx'||ext==='csv') return '📊';
+  if(mime.startsWith('text/'))                           return '📃';
+  return '📎';
+}
+
+function _msgFmtSize(bytes){
+  if(bytes < 1024) return bytes + ' Б';
+  if(bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' КБ';
+  return (bytes/1024/1024).toFixed(2) + ' МБ';
+}
+
+// ── Current pending file ──
+let _msgPendingFile = null;
+
+// ── File selected from input ──
+function _msgFileSelected(input, toUserId){
+  const file = input.files[0];
+  input.value = ''; // reset so same file can be re-selected
+  if(!file) return;
+
+  // Size check
+  if(file.size > MSG_FILE_LIMIT){
+    showToast(`Файл слишком большой: ${_msgFmtSize(file.size)}. Лимит — 2 МБ`, '⚠️');
+    return;
+  }
+
+  _msgPendingFile = { file, toUserId };
+  _msgShowFilePreview(file);
+}
+
+function _msgShowFilePreview(file){
+  const bar = document.getElementById('msgFilePreviewBar');
+  if(!bar) return;
+  const isImage = file.type.startsWith('image/');
+  const icon = _msgFileIcon(file.type, file.name);
+
+  let thumbHtml = isImage
+    ? `<img class="msg-preview-thumb" id="msgPreviewThumb" src="" alt="">`
+    : `<div style="width:36px;height:36px;border-radius:8px;background:rgba(245,200,66,.1);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">${icon}</div>`;
+
+  bar.style.display = 'flex';
+  bar.innerHTML = `
+    ${thumbHtml}
+    <div class="msg-preview-info">
+      <div class="msg-preview-name">${file.name}</div>
+      <div class="msg-preview-size">${_msgFmtSize(file.size)}</div>
+    </div>
+    <button class="msg-preview-remove" onclick="_msgClearPendingFile()" title="Убрать">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>`;
+
+  if(isImage){
+    const reader = new FileReader();
+    reader.onload = e => {
+      const thumb = document.getElementById('msgPreviewThumb');
+      if(thumb) thumb.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // Switch send button to send mode
+  _msgToggleSendBtn('x');
+}
+
+function _msgClearPendingFile(){
+  _msgPendingFile = null;
+  const bar = document.getElementById('msgFilePreviewBar');
+  if(bar){ bar.style.display='none'; bar.innerHTML=''; }
+  const inp = document.getElementById('msgInput');
+  _msgToggleSendBtn(inp?.value || '');
+}
+
+// ── Upload file to Supabase Storage ──
+async function _msgUploadFile(file, toUserId){
+  if(!SB_USER) return null;
+  const ext   = file.name.split('.').pop();
+  const path  = `messages/${SB_USER.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  const bucket = 'chat-files';
+
+  // Try uploading
+  const { error } = await sb.storage.from(bucket).upload(path, file, {
+    contentType: file.type,
+    upsert: false,
+  });
+  if(error){
+    console.error('[DTR] File upload error:', error);
+    // If bucket doesn't exist, try 'avatars' bucket as fallback path
+    if(error.message?.includes('Bucket not found') || error.statusCode === 404){
+      const { error: e2 } = await sb.storage.from('avatars').upload('chat/'+path, file, { contentType: file.type, upsert: false });
+      if(e2) throw e2;
+      const { data: d2 } = sb.storage.from('avatars').getPublicUrl('chat/'+path);
+      return { url: d2.publicUrl, name: file.name, size: file.size, type: file.type };
+    }
+    throw error;
+  }
+  const { data } = sb.storage.from(bucket).getPublicUrl(path);
+  return { url: data.publicUrl, name: file.name, size: file.size, type: file.type };
+}
+
+// ── Send file message ──
+async function _msgSendFile(toUserId){
+  if(!_msgPendingFile) return;
+  const { file } = _msgPendingFile;
+  _msgClearPendingFile();
+
+  const sendBtn = document.getElementById('msgSendBtn');
+  if(sendBtn){ sendBtn.classList.add('uploading'); }
+
+  try {
+    const result = await _msgUploadFile(file, toUserId);
+    if(!result) throw new Error('Upload returned null');
+
+    const isImage = file.type.startsWith('image/');
+    const payload = JSON.stringify({ url: result.url, name: result.name, size: result.size });
+    const content_type = isImage ? 'image' : 'file';
+
+    const { data, error } = await sb.from('messages').insert({
+      from_user_id: SB_USER.id,
+      to_user_id:   toUserId,
+      content:      isImage ? result.url : payload,
+      content_type,
+      read: false,
+    }).select('id,created_at,content,content_type').single();
+    if(error) throw error;
+
+    appendMessage({ ...data, from_user_id: SB_USER.id }, true);
+    await loadConversations();
+  } catch(err){
+    console.error('[DTR] Send file error:', err);
+    showToast('Не удалось отправить файл. Проверь настройки Storage в Supabase.', '⚠️');
+  } finally {
+    if(sendBtn){ sendBtn.classList.remove('uploading'); }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VOICE MESSAGES — MediaRecorder API
+// ═══════════════════════════════════════════════════════════════
+const MIC_STATE = {
+  recorder: null,
+  stream: null,
+  chunks: [],
+  startTime: 0,
+  timer: null,
+  analyser: null,
+  animFrame: null,
+  toUserId: null,
+  isRecording: false,
+  holdTimeout: null,
+};
+
+// Long-press threshold (ms) to start voice recording
+const MIC_HOLD_MS = 350;
+
+function _msgMicStart(e, toUserId){
+  // Only start voice if send button is in MIC mode (no text typed)
+  const arrow = document.getElementById('msgSendIconArrow');
+  if(arrow && arrow.style.display !== 'none') return; // text mode → normal click/send
+
+  e.preventDefault();
+  MIC_STATE.toUserId = toUserId;
+  MIC_STATE.holdTimeout = setTimeout(()=> _msgStartRecording(toUserId), MIC_HOLD_MS);
+}
+
+function _msgMicStop(e){
+  clearTimeout(MIC_STATE.holdTimeout);
+  if(MIC_STATE.isRecording) _msgStopRecording(false);
+}
+
+function _msgMicCancel(){
+  clearTimeout(MIC_STATE.holdTimeout);
+  if(MIC_STATE.isRecording) _msgStopRecording(true);
+}
+
+async function _msgStartRecording(toUserId){
+  try {
+    MIC_STATE.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch(e){
+    showToast('Нет доступа к микрофону. Разреши в браузере.', '🎤');
+    return;
+  }
+
+  // Set up analyser for waveform animation
+  const ctx = new AudioContext();
+  const src = ctx.createMediaStreamSource(MIC_STATE.stream);
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 64;
+  src.connect(analyser);
+  MIC_STATE.analyser = analyser;
+
+  const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+    ? 'audio/webm;codecs=opus'
+    : MediaRecorder.isTypeSupported('audio/webm')
+    ? 'audio/webm'
+    : 'audio/ogg';
+
+  MIC_STATE.recorder = new MediaRecorder(MIC_STATE.stream, { mimeType });
+  MIC_STATE.chunks   = [];
+  MIC_STATE.recorder.ondataavailable = e => { if(e.data.size>0) MIC_STATE.chunks.push(e.data); };
+  MIC_STATE.recorder.start(100);
+  MIC_STATE.startTime = Date.now();
+  MIC_STATE.isRecording = true;
+
+  // Show recording UI
+  _msgShowRecUI(toUserId);
+
+  // Waveform animation
+  _msgAnimateWaveform();
+
+  // Auto-stop at 60s
+  MIC_STATE.limitTimeout = setTimeout(()=>{
+    if(MIC_STATE.isRecording){ _msgStopRecording(false); showToast('Голосовое ограничено 1 минутой', '🎤'); }
+  }, MSG_VOICE_LIMIT_SEC * 1000);
+}
+
+function _msgShowRecUI(toUserId){
+  let ui = document.getElementById('msgVoiceRecUI');
+  if(!ui){
+    const area = document.querySelector('.msg-input-area');
+    if(!area) return;
+    ui = document.createElement('div');
+    ui.id = 'msgVoiceRecUI';
+    // Waveform bars
+    const bars = Array.from({length:28},()=>'<span style="width:3px;height:8px;display:inline-block;"></span>').join('');
+    ui.innerHTML = `
+      <div class="vc-rec-dot"></div>
+      <div class="vc-rec-time" id="msgRecTimer">0:00</div>
+      <div class="vc-rec-waveform" id="msgRecWave">${bars}</div>
+      <button class="vc-rec-cancel" onclick="_msgStopRecording(true)">Отменить</button>
+      <button class="vc-rec-send" onclick="_msgStopRecording(false)">Отправить</button>`;
+    area.parentElement?.insertBefore(ui, area);
+  }
+  ui.classList.add('active');
+
+  // Timer
+  MIC_STATE.timer = setInterval(()=>{
+    const sec = Math.floor((Date.now()-MIC_STATE.startTime)/1000);
+    const el = document.getElementById('msgRecTimer');
+    if(el) el.textContent = Math.floor(sec/60)+':'+(sec%60).toString().padStart(2,'0');
+  }, 500);
+}
+
+function _msgAnimateWaveform(){
+  if(!MIC_STATE.analyser) return;
+  const bars = document.querySelectorAll('#msgRecWave span');
+  const buf = new Uint8Array(MIC_STATE.analyser.frequencyBinCount);
+  function draw(){
+    if(!MIC_STATE.isRecording) return;
+    MIC_STATE.analyser.getByteFrequencyData(buf);
+    bars.forEach((b,i)=>{
+      const v = buf[i] || 0;
+      const h = Math.max(4, Math.round(v/255*28));
+      b.style.height = h+'px';
+    });
+    MIC_STATE.animFrame = requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+function _msgStopRecording(cancel){
+  if(!MIC_STATE.isRecording) return;
+  MIC_STATE.isRecording = false;
+  clearInterval(MIC_STATE.timer);
+  clearTimeout(MIC_STATE.limitTimeout);
+  cancelAnimationFrame(MIC_STATE.animFrame);
+
+  // Hide UI
+  const ui = document.getElementById('msgVoiceRecUI');
+  if(ui){ ui.classList.remove('active'); }
+
+  if(MIC_STATE.recorder && MIC_STATE.recorder.state !== 'inactive'){
+    MIC_STATE.recorder.onstop = ()=>{
+      MIC_STATE.stream?.getTracks().forEach(t=>t.stop());
+      if(!cancel && MIC_STATE.chunks.length > 0){
+        const duration = (Date.now()-MIC_STATE.startTime)/1000;
+        if(duration < 0.5){ showToast('Слишком короткое сообщение', '🎤'); return; }
+        const blob = new Blob(MIC_STATE.chunks, { type: MIC_STATE.recorder.mimeType });
+        _msgSendVoice(blob, MIC_STATE.toUserId, duration);
+      }
+      MIC_STATE.chunks = []; MIC_STATE.recorder = null; MIC_STATE.stream = null;
+    };
+    MIC_STATE.recorder.stop();
+  } else {
+    MIC_STATE.stream?.getTracks().forEach(t=>t.stop());
+    MIC_STATE.chunks = []; MIC_STATE.recorder = null; MIC_STATE.stream = null;
+  }
+}
+
+async function _msgSendVoice(blob, toUserId, duration){
+  if(!SB_USER) return;
+  const sendBtn = document.getElementById('msgSendBtn');
+  if(sendBtn){ sendBtn.classList.add('uploading'); }
+
+  try {
+    const ext  = blob.type.includes('ogg') ? 'ogg' : 'webm';
+    const path = `voice/${SB_USER.id}/${Date.now()}.${ext}`;
+    const bucket = 'chat-files';
+
+    let publicUrl;
+    const { error } = await sb.storage.from(bucket).upload(path, blob, { contentType: blob.type });
+    if(error){
+      if(error.message?.includes('Bucket not found') || error.statusCode === 404){
+        const { error: e2 } = await sb.storage.from('avatars').upload('voice/'+path, blob, { contentType: blob.type });
+        if(e2) throw e2;
+        const { data: d2 } = sb.storage.from('avatars').getPublicUrl('voice/'+path);
+        publicUrl = d2.publicUrl;
+      } else throw error;
+    } else {
+      const { data } = sb.storage.from(bucket).getPublicUrl(path);
+      publicUrl = data.publicUrl;
+    }
+
+    const { data: msg, error: msgErr } = await sb.from('messages').insert({
+      from_user_id: SB_USER.id,
+      to_user_id:   toUserId,
+      content:      publicUrl,
+      content_type: 'voice',
+      read: false,
+    }).select('id,created_at,content,content_type').single();
+    if(msgErr) throw msgErr;
+
+    appendMessage({ ...msg, from_user_id: SB_USER.id }, true);
+    await loadConversations();
+  } catch(err){
+    console.error('[DTR] Voice send error:', err);
+    showToast('Не удалось отправить голосовое. Проверь Storage в Supabase.', '⚠️');
+  } finally {
+    if(sendBtn){ sendBtn.classList.remove('uploading'); }
+  }
+}
+
+// ── Override sendMsg to handle pending file ──
+const _origSendMsg = sendMsg;
+async function sendMsg(toUserId){
+  if(_msgPendingFile){ await _msgSendFile(toUserId); return; }
+  await _origSendMsg(toUserId);
 }
 
 
