@@ -13766,6 +13766,29 @@ html[data-theme="light"] .nav-icon-btn:hover {
 .vc-conn-text { font-size: 15px; font-weight: 600; }
 .vc-conn-sub { font-size: 12px; color: rgba(255,255,255,.4); }
 
+/* Pulsing rings for ringing state */
+.vc-ring {
+  position: absolute; border-radius: 22px;
+  border: 2px solid rgba(245,200,66,.4);
+  animation: vcRingPulse 2s ease-out infinite;
+  pointer-events: none; z-index: 1;
+}
+.vc-ring-1 { inset: -12px; animation-delay: 0s; }
+.vc-ring-2 { inset: -24px; animation-delay: .4s; }
+.vc-ring-3 { inset: -36px; animation-delay: .8s; }
+@keyframes vcRingPulse {
+  0%   { opacity: .6; transform: scale(.92); }
+  60%  { opacity: .15; }
+  100% { opacity: 0; transform: scale(1.08); }
+}
+
+/* Cancel button bounce-in */
+@keyframes vcCancelIn {
+  0%   { transform: scale(0) rotate(-20deg); opacity: 0; }
+  70%  { transform: scale(1.12) rotate(4deg); }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+
 /* Mobile responsive */
 @media (max-width: 600px) {
   #vcLocalVideo { width: 100px; height: 72px; bottom: 110px; right: 12px; }
@@ -32808,9 +32831,28 @@ document.addEventListener('keydown',function(e){
 
     <!-- Connecting overlay -->
     <div class="vc-connecting-overlay" id="vcConnecting">
-      <div class="vc-spinner"></div>
+      <!-- Ringing avatar (shown during outgoing call wait) -->
+      <div id="vcRingingWrap" style="display:none;flex-direction:column;align-items:center;gap:0;margin-bottom:8px;">
+        <div style="position:relative;width:96px;height:96px;margin-bottom:4px;">
+          <!-- Pulsing rings -->
+          <div class="vc-ring vc-ring-1"></div>
+          <div class="vc-ring vc-ring-2"></div>
+          <div class="vc-ring vc-ring-3"></div>
+          <!-- Avatar -->
+          <div id="vcCallerAvatar" style="position:absolute;inset:0;border-radius:22px;background:linear-gradient(135deg,rgba(245,200,66,.2),rgba(245,200,66,.06));border:1.5px solid rgba(245,200,66,.3);display:flex;align-items:center;justify-content:center;font-size:38px;overflow:hidden;z-index:2;">👤</div>
+        </div>
+      </div>
+      <!-- Spinner (shown when getting camera / reconnecting) -->
+      <div id="vcSpinnerWrap"><div class="vc-spinner"></div></div>
       <div class="vc-conn-text" id="vcConnText">Подключение…</div>
       <div class="vc-conn-sub" id="vcConnSub">Ожидаем ответа</div>
+      <!-- Countdown timer -->
+      <div id="vcRingTimer" style="display:none;font-size:12px;color:rgba(255,255,255,.3);font-family:'JetBrains Mono',monospace;margin-top:2px;"></div>
+      <!-- Cancel button (Telegram-style) -->
+      <button id="vcCancelBtn" onclick="_vcCancelCall()" style="display:none;margin-top:28px;width:64px;height:64px;border-radius:50%;background:#EF4444;border:none;color:#fff;cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 4px 24px rgba(239,68,68,.5);transition:transform .15s,background .15s;" onmouseover="this.style.background='#f87171';this.style.transform='scale(1.08)'" onmouseout="this.style.background='#EF4444';this.style.transform='scale(1)'">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07C9.44 16.29 7.71 14.56 6.31 12.59A19.79 19.79 0 0 1 3.24 3.95 2 2 0 0 1 5.22 1.77h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L9.2 9.68A16 16 0 0 0 12 12"/><line x1="23" y1="1" x2="1" y2="23"/></svg>
+      </button>
+      <div id="vcCancelLabel" style="display:none;margin-top:10px;font-size:11px;color:rgba(255,255,255,.45);letter-spacing:.02em;">Отменить</div>
     </div>
 
     <!-- No-camera placeholder for remote -->
@@ -32907,6 +32949,9 @@ const VC = {
   facingMode: 'user', // 'user' | 'environment'
   connected: false,
   minimized: false,
+  callTimeout: null,  // auto-cancel timer
+  ringTimer: null,    // countdown interval
+  isCaller: false,    // are we the one who initiated
 };
 
 const VC_ICE = {
@@ -32927,6 +32972,7 @@ async function _startVideoCall(userId, name){
 
   VC.partnerUserId = userId;
   VC.partnerName = name;
+  VC.isCaller = true;
 
   // Show overlay
   _vcShowOverlay(name);
@@ -32935,7 +32981,9 @@ async function _startVideoCall(userId, name){
   try {
     // Get local media
     await _vcGetLocalMedia();
-    _vcSetConnText('Вызываем ' + name + '…', 'Ожидаем ответа собеседника');
+
+    // Switch to "ringing" state
+    _vcShowRinging(name);
 
     // Setup signaling channel
     _vcSetupSignaling(userId, true);
@@ -32953,10 +33001,66 @@ async function _startVideoCall(userId, name){
     // Send offer via signaling
     _vcSendSignal({ type: 'offer', sdp: offer.sdp, from: SB_USER.id, to: userId });
 
+    // Auto-cancel after 45 seconds if no answer
+    _vcStartRingTimeout(userId);
+
   } catch(err) {
     console.error('Video call error:', err);
     _vcHandleMediaError(err);
   }
+}
+
+// ── Show ringing state (outgoing call waiting) ──
+function _vcShowRinging(name){
+  // Hide spinner, show ringing avatar
+  const spinnerWrap = document.getElementById('vcSpinnerWrap');
+  const ringingWrap = document.getElementById('vcRingingWrap');
+  const cancelBtn   = document.getElementById('vcCancelBtn');
+  const cancelLabel = document.getElementById('vcCancelLabel');
+  const ringTimer   = document.getElementById('vcRingTimer');
+
+  if(spinnerWrap) spinnerWrap.style.display = 'none';
+  if(ringingWrap){ ringingWrap.style.display = 'flex'; }
+  if(cancelBtn){
+    cancelBtn.style.display = 'flex';
+    cancelBtn.style.animation = 'vcCancelIn .4s cubic-bezier(.34,1.56,.64,1) both';
+  }
+  if(cancelLabel) cancelLabel.style.display = 'block';
+  if(ringTimer)   ringTimer.style.display = 'block';
+
+  _vcSetConnText('Вызываем ' + name + '…', 'Ожидаем ответа собеседника');
+}
+
+// ── Start ring countdown (45 sec auto-cancel) ──
+function _vcStartRingTimeout(userId){
+  let remaining = 45;
+  const ringTimer = document.getElementById('vcRingTimer');
+
+  clearInterval(VC.ringTimer);
+  clearTimeout(VC.callTimeout);
+
+  // Countdown every second
+  VC.ringTimer = setInterval(()=>{
+    remaining--;
+    if(ringTimer) ringTimer.textContent = remaining + ' сек';
+    if(remaining <= 0){
+      clearInterval(VC.ringTimer);
+      _vcCancelCall();
+    }
+  }, 1000);
+  if(ringTimer) ringTimer.textContent = remaining + ' сек';
+}
+
+// ── Cancel outgoing call (before answer) ──
+function _vcCancelCall(){
+  clearInterval(VC.ringTimer);
+  clearTimeout(VC.callTimeout);
+  // Send cancel signal to partner
+  if(VC.partnerUserId && SB_USER){
+    _vcSendSignal({ type: 'cancel', from: SB_USER.id, to: VC.partnerUserId });
+  }
+  _vcEndCall(false);
+  showToast('Звонок отменён');
 }
 
 // ── Get local camera/mic ──
@@ -33016,6 +33120,10 @@ async function _vcHandleSignal(payload, isCaller){
       }
     } else if(payload.type === 'hangup'){
       _vcEndCall(true);
+    } else if(payload.type === 'cancel'){
+      // Caller cancelled before we answered
+      _vcEndCall(true);
+      showToast('Собеседник отменил звонок 📵');
     } else if(payload.type === 'cam_off'){
       _vcShowRemoteNoCam(true);
     } else if(payload.type === 'cam_on'){
@@ -33045,6 +33153,9 @@ function _vcCreatePC(){
     const state = VC.pc?.connectionState;
     if(state === 'connected'){
       VC.connected = true;
+      // Clear ringing state
+      clearInterval(VC.ringTimer);
+      clearTimeout(VC.callTimeout);
       document.getElementById('vcConnecting').style.display = 'none';
       document.getElementById('vcQuality').style.display = 'flex';
       _vcStartTimer();
@@ -33158,8 +33269,10 @@ async function _vcFlipCamera(){
 }
 
 function _vcEndCall(remote=false){
-  // Stop timer
+  // Stop timers
   clearInterval(VC.timer);
+  clearInterval(VC.ringTimer);
+  clearTimeout(VC.callTimeout);
   // Close PC
   if(VC.pc){ VC.pc.close(); VC.pc = null; }
   // Stop streams
@@ -33174,7 +33287,7 @@ function _vcEndCall(remote=false){
   if(VC.sigChannel){ sb?.removeChannel(VC.sigChannel); VC.sigChannel = null; }
   // Reset state
   VC.connected = false; VC.micOn = true; VC.camOn = true; VC.screenOn = false;
-  VC.partnerUserId = null; VC.seconds = 0;
+  VC.partnerUserId = null; VC.seconds = 0; VC.isCaller = false;
   // Hide overlay
   const overlay = document.getElementById('dtrVideoCallOverlay');
   if(overlay) overlay.classList.remove('active');
@@ -33183,7 +33296,17 @@ function _vcEndCall(remote=false){
     const el=document.getElementById(id);
     if(el){ el.srcObject=null; el.style.display='none'; }
   });
-  // Reset connecting overlay
+  // Reset connecting overlay to spinner state (for next call)
+  const spinnerWrap = document.getElementById('vcSpinnerWrap');
+  const ringingWrap = document.getElementById('vcRingingWrap');
+  const cancelBtn   = document.getElementById('vcCancelBtn');
+  const cancelLabel = document.getElementById('vcCancelLabel');
+  const ringTimer   = document.getElementById('vcRingTimer');
+  if(spinnerWrap) spinnerWrap.style.display = 'block';
+  if(ringingWrap) ringingWrap.style.display = 'none';
+  if(cancelBtn)   cancelBtn.style.display = 'none';
+  if(cancelLabel) cancelLabel.style.display = 'none';
+  if(ringTimer)   ringTimer.style.display = 'none';
   document.getElementById('vcConnecting').style.display = 'flex';
   document.getElementById('vcQuality').style.display = 'none';
   document.getElementById('vcShareBadge').style.display = 'none';
@@ -33223,6 +33346,17 @@ function _vcShowOverlay(name){
   document.getElementById('vcPartnerName').textContent = name;
   document.getElementById('vcRemoteName').textContent = name;
   document.getElementById('vcDuration').textContent = '00:00';
+  // Reset to spinner state (ringing UI shown after camera access granted)
+  const spinnerWrap = document.getElementById('vcSpinnerWrap');
+  const ringingWrap = document.getElementById('vcRingingWrap');
+  const cancelBtn   = document.getElementById('vcCancelBtn');
+  const cancelLabel = document.getElementById('vcCancelLabel');
+  const ringTimer   = document.getElementById('vcRingTimer');
+  if(spinnerWrap) spinnerWrap.style.display = 'block';
+  if(ringingWrap) ringingWrap.style.display = 'none';
+  if(cancelBtn)   cancelBtn.style.display = 'none';
+  if(cancelLabel) cancelLabel.style.display = 'none';
+  if(ringTimer)   ringTimer.style.display = 'none';
   document.getElementById('vcConnecting').style.display = 'flex';
   // Hide mini pip if exists
   document.getElementById('_vcMiniPip')?.remove();
