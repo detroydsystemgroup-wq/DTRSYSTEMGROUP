@@ -13712,34 +13712,125 @@ html[data-theme="light"] .nav-icon-btn:hover {
 @keyframes toastSlideIn{0%{transform:translateX(120%) scale(.8);opacity:0}100%{transform:translateX(0) scale(1);opacity:1}}
 @keyframes levelUpPop{0%{transform:translate(-50%,-50%) scale(0);opacity:0}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
 @keyframes sparkleFly{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--tx),var(--ty)) scale(0);opacity:0}}
-.dtr-badge-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 12px 14px;border-radius:18px;background:var(--card-bg);border:0.5px solid rgba(255,255,255,.07);cursor:pointer;position:relative;overflow:hidden;transition:transform .22s cubic-bezier(.34,1.56,.64,1),border-color .2s,box-shadow .2s;}
-.dtr-badge-wrap::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--badge-color,rgba(255,255,255,.1));opacity:.7;border-radius:18px 18px 0 0;}
-.dtr-badge-wrap:hover{transform:translateY(-6px) scale(1.04);}
-.dtr-badge-wrap.unlocked{border-color:var(--badge-color,rgba(245,200,66,.35));}
-.dtr-badge-wrap.locked{opacity:.6;}
-.dtr-badge-wrap.locked:hover{opacity:.85;}
-.dtr-badge{width:68px;height:68px;border-radius:18px;display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0;background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.08);transition:box-shadow .3s;}
-.dtr-badge svg{width:34px;height:34px;transition:transform .3s;}
-.dtr-badge-wrap:hover .dtr-badge svg{transform:scale(1.15);}
-.aura-fire .dtr-badge{animation:auraFire 2s ease infinite;}
-.aura-ice .dtr-badge{animation:auraIce 2.2s ease infinite;}
-.aura-gold .dtr-badge{animation:auraGold 1.8s ease infinite;}
-.aura-electric .dtr-badge{animation:auraElec 1.4s ease infinite;}
-.aura-cosmic .dtr-badge{animation:auraCosmic 2s ease infinite;}
-.aura-toxic .dtr-badge{animation:auraToxic 2.1s ease infinite;}
-.aura-blood .dtr-badge{animation:auraBlood 1.6s ease infinite;}
-.aura-divine .dtr-badge{animation:auraDivine 1.5s ease infinite;}
-.aura-rainbow .dtr-badge{animation:auraRainbow 2s linear infinite;}
-.aura-void .dtr-badge{animation:auraVoid 2.5s ease infinite;}
-.aura-blue .dtr-badge{animation:auraBlue 2.4s ease infinite;}
-.dtr-badge-wrap.locked .dtr-badge{animation:none!important;box-shadow:none!important;}
-.dtr-rarity{font-size:7.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:2px 7px;border-radius:8px;background:rgba(0,0,0,.5);border:0.5px solid var(--badge-color,rgba(255,255,255,.1));color:var(--badge-color,var(--t3));position:absolute;top:7px;right:7px;}
-.dtr-unlocked-check{position:absolute;top:7px;left:7px;width:17px;height:17px;border-radius:50%;background:var(--badge-color,var(--green));display:flex;align-items:center;justify-content:center;font-size:9px;color:#000;font-weight:900;box-shadow:0 0 8px var(--badge-color,rgba(34,197,94,.6));}
-.dtr-xp{font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--gold);opacity:.85;letter-spacing:.02em;}
-.dtr-badge-name{font-family:var(--font-display);font-size:11px;font-weight:700;color:var(--t1);text-align:center;letter-spacing:-.01em;line-height:1.25;max-width:100px;}
-.dtr-badge-wrap.unlocked .dtr-badge-name{color:var(--badge-color,var(--t1));}
-.dtr-badge-desc{font-size:9.5px;color:var(--t3);text-align:center;line-height:1.4;max-width:100px;}
-.ach-badge-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-top:8px;}
+.dtr-badge-wrap{
+  display:flex;flex-direction:column;align-items:center;gap:0;
+  padding:0;border-radius:20px;
+  background:linear-gradient(160deg,rgba(28,28,36,.95) 0%,rgba(14,14,20,.98) 100%);
+  border:1px solid rgba(255,255,255,.07);
+  cursor:pointer;position:relative;overflow:hidden;
+  transition:transform .25s cubic-bezier(.34,1.56,.64,1),box-shadow .25s;
+  box-shadow:0 4px 20px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.05);
+}
+/* Shine sweep on hover */
+.dtr-badge-wrap::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.04) 50%,transparent 70%);
+  transform:translateX(-100%);transition:transform .5s ease;pointer-events:none;
+}
+.dtr-badge-wrap:hover::after{transform:translateX(100%);}
+/* Top glow bar */
+.dtr-badge-wrap::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:var(--badge-color,rgba(255,255,255,.08));
+  opacity:.9;z-index:2;
+}
+.dtr-badge-wrap:hover{transform:translateY(-8px) scale(1.035);box-shadow:0 16px 40px rgba(0,0,0,.6),0 0 0 1px var(--badge-color,rgba(255,255,255,.1)),inset 0 1px 0 rgba(255,255,255,.07);}
+.dtr-badge-wrap.unlocked{
+  background:linear-gradient(160deg,rgba(var(--badge-color-rgb,28,28,36),.12) 0%,rgba(14,14,20,.98) 50%);
+  border-color:var(--badge-color,rgba(245,200,66,.4));
+  box-shadow:0 4px 24px rgba(0,0,0,.5),0 0 20px var(--badge-glow,rgba(245,200,66,.08)),inset 0 1px 0 rgba(255,255,255,.06);
+}
+.dtr-badge-wrap.unlocked:hover{box-shadow:0 16px 40px rgba(0,0,0,.6),0 0 35px var(--badge-glow,rgba(245,200,66,.2)),0 0 0 1px var(--badge-color,rgba(245,200,66,.5)),inset 0 1px 0 rgba(255,255,255,.08);}
+.dtr-badge-wrap.locked{opacity:.55;filter:saturate(.3);}
+.dtr-badge-wrap.locked:hover{opacity:.8;filter:saturate(.5);}
+/* Icon area — upper section of card */
+.dtr-badge-icon-area{
+  width:100%;display:flex;align-items:center;justify-content:center;
+  padding:22px 0 18px;position:relative;
+  background:linear-gradient(180deg,rgba(255,255,255,.025) 0%,transparent 100%);
+}
+.dtr-badge{
+  width:64px;height:64px;border-radius:18px;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;flex-shrink:0;
+  background:radial-gradient(circle at 35% 35%,rgba(255,255,255,.08) 0%,rgba(255,255,255,.02) 100%);
+  border:1px solid rgba(255,255,255,.1);
+  transition:box-shadow .3s,transform .3s;
+}
+.dtr-badge svg{width:32px;height:32px;transition:transform .3s cubic-bezier(.34,1.56,.64,1);}
+.dtr-badge-wrap:hover .dtr-badge{transform:scale(1.08);}
+.dtr-badge-wrap:hover .dtr-badge svg{transform:scale(1.12) rotate(-5deg);}
+/* Aura animations — applied to icon area background glow */
+.aura-fire .dtr-badge{animation:auraFire 2s ease infinite;border-color:rgba(239,68,68,.3);background:radial-gradient(circle at 35% 35%,rgba(239,68,68,.15),rgba(249,115,22,.05));}
+.aura-ice .dtr-badge{animation:auraIce 2.2s ease infinite;border-color:rgba(6,182,212,.3);background:radial-gradient(circle at 35% 35%,rgba(6,182,212,.15),rgba(59,130,246,.05));}
+.aura-gold .dtr-badge{animation:auraGold 1.8s ease infinite;border-color:rgba(245,200,66,.3);background:radial-gradient(circle at 35% 35%,rgba(245,200,66,.15),rgba(253,230,138,.05));}
+.aura-electric .dtr-badge{animation:auraElec 1.4s ease infinite;border-color:rgba(139,92,246,.3);background:radial-gradient(circle at 35% 35%,rgba(139,92,246,.15),rgba(99,102,241,.05));}
+.aura-cosmic .dtr-badge{animation:auraCosmic 2s ease infinite;border-color:rgba(168,85,247,.3);background:radial-gradient(circle at 35% 35%,rgba(168,85,247,.18),rgba(109,40,217,.06));}
+.aura-toxic .dtr-badge{animation:auraToxic 2.1s ease infinite;border-color:rgba(34,197,94,.3);background:radial-gradient(circle at 35% 35%,rgba(34,197,94,.15),rgba(74,222,128,.05));}
+.aura-blood .dtr-badge{animation:auraBlood 1.6s ease infinite;border-color:rgba(220,38,38,.3);background:radial-gradient(circle at 35% 35%,rgba(220,38,38,.18),rgba(239,68,68,.05));}
+.aura-divine .dtr-badge{animation:auraDivine 1.5s ease infinite;border-color:rgba(245,200,66,.4);background:radial-gradient(circle at 35% 35%,rgba(253,230,138,.2),rgba(245,200,66,.08));}
+.aura-rainbow .dtr-badge{animation:auraRainbow 2s linear infinite;border-color:rgba(255,255,255,.3);background:radial-gradient(circle at 35% 35%,rgba(255,255,255,.1),rgba(168,85,247,.06));}
+.aura-void .dtr-badge{animation:auraVoid 2.5s ease infinite;border-color:rgba(100,80,200,.3);background:radial-gradient(circle at 35% 35%,rgba(100,80,200,.18),rgba(30,30,60,.1));}
+.aura-blue .dtr-badge{animation:auraBlue 2.4s ease infinite;border-color:rgba(96,165,250,.3);background:radial-gradient(circle at 35% 35%,rgba(96,165,250,.15),rgba(59,130,246,.05));}
+.dtr-badge-wrap.locked .dtr-badge{animation:none!important;box-shadow:none!important;background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.06);}
+/* Bottom info area */
+.dtr-badge-info{
+  width:100%;padding:10px 12px 14px;display:flex;flex-direction:column;align-items:center;gap:5px;
+  border-top:1px solid rgba(255,255,255,.04);
+  background:linear-gradient(0deg,rgba(0,0,0,.2) 0%,transparent 100%);
+}
+/* Rarity chip */
+.dtr-rarity{
+  font-size:7px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;
+  padding:3px 8px;border-radius:20px;
+  background:var(--badge-rarity-bg,rgba(255,255,255,.06));
+  border:0.5px solid var(--badge-color,rgba(255,255,255,.1));
+  color:var(--badge-color,var(--t3));
+  position:absolute;top:8px;left:50%;transform:translateX(-50%);
+  white-space:nowrap;z-index:3;
+  box-shadow:0 2px 8px rgba(0,0,0,.3);
+}
+.dtr-rarity.mythic-rarity{
+  background:linear-gradient(90deg,rgba(239,68,68,.15),rgba(168,85,247,.15),rgba(59,130,246,.15));
+  border-color:rgba(255,255,255,.2);
+  animation:auraRainbow 3s linear infinite;
+}
+/* Unlocked check */
+.dtr-unlocked-check{
+  position:absolute;top:8px;right:8px;
+  width:18px;height:18px;border-radius:50%;
+  background:var(--badge-color,var(--green));
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;color:#000;font-weight:900;z-index:3;
+  box-shadow:0 0 10px var(--badge-color,rgba(34,197,94,.6)),0 2px 6px rgba(0,0,0,.4);
+}
+/* XP pill */
+.dtr-xp{
+  font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.04em;
+  padding:2px 8px;border-radius:10px;
+  background:rgba(245,200,66,.1);border:0.5px solid rgba(245,200,66,.25);
+  color:var(--gold);display:inline-flex;align-items:center;gap:3px;
+}
+/* Name */
+.dtr-badge-name{
+  font-family:var(--font-display);font-size:11.5px;font-weight:800;
+  color:var(--t1);text-align:center;letter-spacing:-.02em;line-height:1.2;
+  max-width:110px;
+}
+.dtr-badge-wrap.unlocked .dtr-badge-name{color:var(--badge-color,var(--t1));text-shadow:0 0 20px var(--badge-glow,rgba(245,200,66,.3));}
+/* Desc */
+.dtr-badge-desc{font-size:9px;color:var(--t3);text-align:center;line-height:1.45;max-width:105px;}
+/* Progress bar */
+.dtr-prog-bar{width:88%;height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;margin-top:2px;}
+.dtr-prog-fill{height:100%;border-radius:2px;background:var(--badge-color,var(--gold));transition:width .8s ease;}
+.dtr-prog-lbl{font-size:8.5px;color:var(--t3);margin-top:2px;letter-spacing:.01em;}
+/* Locked overlay icon */
+.dtr-lock-ico{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  pointer-events:none;
+}
+.dtr-lock-ico svg{width:28px;height:28px;color:rgba(255,255,255,.12);}
+.ach-badge-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));x,1fr));gap:10px;margin-top:8px;}
 .ach-cat-hdr2{display:flex;align-items:center;gap:10px;margin:24px 0 10px;padding-bottom:10px;border-bottom:0.5px solid rgba(255,255,255,.06);}
 .ach-cat-hdr2-icon{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .ach-cat-hdr2-icon svg{width:16px;height:16px;}
@@ -17672,22 +17763,41 @@ function renderAchFull(){
     const prog=!ul?achProgress(def):null;
     const progPct=prog?Math.min(100,Math.round((prog.cur/prog.max)*100)):0;
     const auraClass=ul?`aura-${def.aura||'blue'}`:'';
-    // Extract inner SVG content and wrap with correct color
     const svgInner=rawSVG.replace(/<svg[^>]*>/,'').replace(/<\/svg>/,'');
     const hasFill=rawSVG.includes('fill="currentColor"');
-    return `<div class="dtr-badge-wrap ${ul?'unlocked':'locked'} ${auraClass}" style="--badge-color:${ul?def.color:'rgba(255,255,255,.1)'}" onclick="openAch('${def.id}')">
-      ${ul?`<div class="dtr-unlocked-check" style="background:${def.color};box-shadow:0 0 8px ${def.color}88">✓</div>`:''}
-      <div class="dtr-rarity" style="color:${ul?rc:'var(--t3)'};border-color:${ul?rc+'44':'rgba(255,255,255,.08)'}">${ul?rl:'???'}</div>
-      <div class="dtr-badge" style="background:${ul?def.color+'18':'rgba(255,255,255,.04)'};border-color:${ul?def.color+'33':'rgba(255,255,255,.08)'};color:${ul?def.color:'var(--t3)'}">
-        <svg width="34" height="34" viewBox="0 0 24 24" fill="${hasFill?'currentColor':'none'}" stroke="${hasFill?'none':'currentColor'}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${svgInner}</svg>
+    const iconColor=ul?def.color:'rgba(255,255,255,.18)';
+    const isMythic=rarity==='mythic';
+    const glowColor=ul?def.color+'33':'transparent';
+    return `<div class="dtr-badge-wrap ${ul?'unlocked':'locked'} ${auraClass}"
+      style="--badge-color:${ul?def.color:'rgba(255,255,255,.1)'};--badge-glow:${glowColor}"
+      onclick="openAch('${def.id}')">
+      ${ul?`<div class="dtr-unlocked-check">✓</div>`:''}
+      <div class="dtr-rarity ${isMythic&&ul?'mythic-rarity':''}"
+        style="color:${ul?rc:'rgba(255,255,255,.2)'};border-color:${ul?rc+'55':'rgba(255,255,255,.07)'};background:${ul?rc+'12':'rgba(255,255,255,.04)'}">
+        ${ul?rl:'???'}
       </div>
-      <div class="dtr-badge-name">${isSecret?'???':def.name}</div>
-      ${ul?`<div class="dtr-xp">+${(def.xp||0).toLocaleString('ru')} XP</div>`
-         :prog?`<div style="width:90%;height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden"><div style="height:100%;width:${progPct}%;background:${def.color||'var(--gold)'};border-radius:2px;transition:width .8s ease"></div></div><div style="font-size:9px;color:var(--t3);margin-top:1px">${prog.cur}/${prog.max}</div>`:''}
-      <div class="dtr-badge-desc">${isSecret?'Тайное достижение':def.desc.slice(0,50)+(def.desc.length>50?'…':'')}</div>
+      <div class="dtr-badge-icon-area">
+        <div class="dtr-badge" style="color:${iconColor}">
+          <svg width="32" height="32" viewBox="0 0 24 24"
+            fill="${hasFill?'currentColor':'none'}"
+            stroke="${hasFill?'none':'currentColor'}"
+            stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            ${svgInner}
+          </svg>
+        </div>
+        ${!ul?`<div class="dtr-lock-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>`:''}
+      </div>
+      <div class="dtr-badge-info">
+        <div class="dtr-badge-name">${isSecret?'???':def.name}</div>
+        ${ul
+          ?`<div class="dtr-xp">+${(def.xp||0).toLocaleString('ru')} XP</div>`
+          :(prog&&prog.max>0
+            ?`<div class="dtr-prog-bar"><div class="dtr-prog-fill" style="width:${progPct}%;background:${def.color||'var(--gold)'}"></div></div><div class="dtr-prog-lbl">${prog.cur} / ${prog.max}</div>`
+            :'')}
+        <div class="dtr-badge-desc">${isSecret?'Тайное достижение':def.desc.slice(0,48)+(def.desc.length>48?'…':'')}</div>
+      </div>
     </div>`;
   }
-
   const sections=Object.entries(ACH_CATS).map(([catKey,catMeta])=>{
     const defs=ACH_DEF.filter(d=>d.cat===catKey);
     const catUnl=defs.filter(d=>P.achievements.find(a=>a.id===d.id&&a.unlocked)).length;
@@ -33324,6 +33434,19 @@ function closeSettings(){
 }
 /* Tier color in profile XP bar */
 .xp-level { background: linear-gradient(90deg, var(--gold-d), var(--gold), var(--gold-l)); -webkit-background-clip: text; background-clip: text; }
+
+
+/* Premium card shimmer keyframe */
+@keyframes cardShimmer{0%{background-position:-200% center}100%{background-position:200% center}}
+/* Locked badge pattern */
+.dtr-lock-ico{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:2;}
+.dtr-lock-ico svg{width:26px;height:26px;color:rgba(255,255,255,.1);}
+/* dtr-badge-icon-area if not present */
+.dtr-badge-icon-area{width:100%;display:flex;align-items:center;justify-content:center;padding:22px 0 16px;position:relative;}
+.dtr-badge-info{width:100%;padding:10px 12px 14px;display:flex;flex-direction:column;align-items:center;gap:5px;border-top:1px solid rgba(255,255,255,.04);}
+.dtr-prog-bar{width:88%;height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;margin-top:1px;}
+.dtr-prog-fill{height:100%;border-radius:2px;transition:width .8s ease;}
+.dtr-prog-lbl{font-size:8.5px;color:var(--t3);letter-spacing:.01em;}
 
 </style>
 
