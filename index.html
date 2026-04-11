@@ -16195,10 +16195,11 @@ async function saveSession(catId,secs){
     const thBefore = (P.categories.find(c=>c.id===catId)?.hours||0) - secs/3600;
     const thAfter  = P.categories.find(c=>c.id===catId)?.hours||0;
     if(typeof getLevelInfo==='function' && typeof window.socOnLevelUp==='function'){
-      const lvlBefore = getLevelInfo(thBefore - secs/3600 < 0 ? 0 : thBefore).lvl;
-      const lvlAfter  = getLevelInfo(P.sessions.reduce((a,s)=>a+s.dur/3600,0)).lvl;
+      // Use hours-based for before (no achievements at that moment), full XP for after
+      const lvlBefore = getLevelInfo(thBefore - secs/3600 < 0 ? 0 : thBefore - secs/3600).lvl;
+      const lvlAfter  = getMyLevelInfo().lvl;
       if(lvlAfter > lvlBefore){
-        const info = getLevelInfo(P.sessions.reduce((a,s)=>a+s.dur/3600,0));
+        const info = getMyLevelInfo();
         setTimeout(()=>window.socOnLevelUp(info.lvl, info.name), 800);
       }
     }
@@ -22806,7 +22807,7 @@ function calcXP(totalHours){return Math.floor(totalHours*100);}
 function calcLevel(xp){return levelFromXP(xp);}
 
 function renderXP(){
-  const info=getLevelInfo(totalHrs());
+  const info=getMyLevelInfo();
   const el2=document.getElementById('xpLevel');
   const pts=document.getElementById('xpPts');
   const fill=document.getElementById('xpFill');
