@@ -779,96 +779,84 @@ input, button, select, textarea {
 .sc-day-lbl{font-size:10px;color:var(--t3);margin-bottom:6px;}
 
 /* best day card */
-.insight-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;}
-/* Apple-aligned insight card */
+.insight-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:0;margin-bottom:var(--sp-7);}
+/* Insight card — 1 в 1 с верхними cat-breakdown карточками */
 .insight{
   background:var(--card);
-  border:0.5px solid var(--border);
+  border:0.5px solid rgba(255,255,255,.08);
+  border-left:3px solid var(--ins-c,var(--gold));
   border-radius:14px;
   padding:16px;
-  text-align:left;
   position:relative;
   overflow:hidden;
   display:flex;
   flex-direction:column;
-  gap:10px;
+  gap:0;
+  transition:transform .18s cubic-bezier(.34,1.4,.64,1), box-shadow .2s;
 }
-/* Accent top bar via custom property */
-.insight::before{
+.insight::before{ content:none; }
+.insight::after{
   content:'';
-  position:absolute;top:0;left:0;right:0;height:2px;
-  background:var(--ins-c, var(--gold));
-  opacity:.65;
-  border-radius:14px 14px 0 0;
+  position:absolute;bottom:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--ins-c,var(--gold)) 44%,transparent);
+  opacity:.4;
 }
-/* Header row: icon box + label */
+.insight:hover{transform:translateY(-2px);box-shadow:0 4px 20px rgba(0,0,0,.3);}
+
+/* Header row: big icon + name + value */
 .insight-head{
-  display:flex;
-  align-items:center;
-  gap:10px;
+  display:flex;align-items:center;gap:12px;margin-bottom:6px;
 }
 .insight-icon-box{
-  width:36px;height:36px;
-  border-radius:10px;
+  width:42px;height:42px;border-radius:12px;
   display:inline-flex;align-items:center;justify-content:center;
   flex-shrink:0;
-  color:var(--ins-c, var(--gold));
-  background:none;
-  border:none;
+  color:var(--ins-c,var(--gold));
+  background:rgba(var(--ins-rgb,245,200,66),.1);
+  border:0.5px solid rgba(var(--ins-rgb,245,200,66),.2);
 }
+.insight-icon-box svg{width:20px;height:20px;}
 .insight-lbl{
-  font-size:9.5px;
-  font-weight:700;
-  letter-spacing:.09em;
-  text-transform:uppercase;
-  color:var(--t2);
-  line-height:1.3;
+  font-size:11px;font-weight:500;
+  color:var(--ins-c,var(--gold));
+  text-transform:uppercase;letter-spacing:.04em;
+  margin-bottom:3px;font-family:var(--font-display);
 }
-/* Value row */
 .insight-val-row{
-  display:flex;
-  align-items:baseline;
-  gap:4px;
+  display:flex;align-items:baseline;gap:3px;
+  margin-bottom:2px;
 }
 .insight-val{
   font-family:var(--font-mono) !important;
-  font-size:26px !important;
-  font-weight:400 !important;
-  letter-spacing:-.03em !important;
-  line-height:1 !important;
-  color:var(--t1) !important;
-  margin-bottom:0 !important;
+  font-size:24px !important;font-weight:400 !important;
+  line-height:1 !important;letter-spacing:-.02em !important;
+  color:var(--t1) !important;text-shadow:none !important;
 }
 .insight-unit{
-  font-family:var(--font-mono);
-  font-size:13px;
-  font-weight:400;
-  color:var(--t2);
-  letter-spacing:-.01em;
-  margin-bottom:1px;
+  font-size:12px;color:var(--t3);
+  font-family:sans-serif;margin-left:2px;
 }
-/* Secondary label */
 .insight-sub{
-  font-size:11px;
-  font-weight:500;
-  letter-spacing:-.005em;
-  color:var(--ins-c, var(--t2));
-  opacity:.8;
+  font-size:10px;color:var(--t3);
+  margin-top:2px;margin-bottom:0;
 }
 /* Progress bar */
 .insight-bar-wrap{
-  height:2px;
-  background:rgba(255,255,255,.06);
-  border-radius:2px;
-  overflow:hidden;
-  margin-top:2px;
+  height:2px;background:rgba(255,255,255,.05);
+  border-radius:2px;overflow:hidden;margin:10px 0;
 }
 .insight-bar-fill{
-  height:100%;
-  border-radius:2px;
-  background:var(--ins-c, var(--gold));
-  transition:width 1.1s cubic-bezier(.4,0,.2,1);
+  height:100%;border-radius:2px;
+  background:linear-gradient(90deg,rgba(var(--ins-rgb,245,200,66),.7),var(--ins-c,var(--gold)));
+  box-shadow:0 0 8px var(--ins-c,var(--gold));
+  transition:width 1.2s cubic-bezier(.4,0,.2,1);
 }
+/* Bottom stat row */
+.insight-foot{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-top:2px;
+}
+.insight-foot span{font-size:10px;color:var(--t3);}
 
 /* ── CATS ── */
 .cats{display:flex;flex-direction:column;gap:9px;}
@@ -17276,23 +17264,27 @@ function renderDash(){
   const svgFlame  = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`;
 
   // Card builder — all params explicit, no inline guesswork
-  const insCard = ({color, rgb, icon, label, val, unit='', sub='', barPct=null}) => {
+  const insCard = ({color, rgb, icon, label, val, unit='', sub='', barPct=null, foot=null}) => {
     const barHtml = barPct !== null ? `
       <div class="insight-bar-wrap">
-        <div class="insight-bar-fill" style="width:${barPct}%"></div>
-      </div>` : '';
+        <div class="insight-bar-fill" style="width:${Math.min(100,Math.max(0,barPct))}%"></div>
+      </div>` : '<div style="height:10px"></div>';
+    const footHtml = foot ? `<div class="insight-foot">${foot}</div>` : '';
     return `
       <div class="insight" style="--ins-c:${color};--ins-rgb:${rgb}">
         <div class="insight-head">
-          <div class="insight-icon-box">${icon}</div>
-          <div class="insight-lbl">${label}</div>
+          ${icon}
+          <div style="flex:1;min-width:0">
+            <div class="insight-lbl">${label}</div>
+            <div class="insight-val-row">
+              <span class="insight-val">${val}</span>
+              ${unit ? `<span class="insight-unit">${unit}</span>` : ''}
+            </div>
+            ${sub ? `<div class="insight-sub">${sub}</div>` : ''}
+          </div>
         </div>
-        <div class="insight-val-row">
-          <span class="insight-val">${val}</span>
-          ${unit ? `<span class="insight-unit">${unit}</span>` : ''}
-        </div>
-        ${sub ? `<div class="insight-sub">${sub}</div>` : ''}
         ${barHtml}
+        ${footHtml}
       </div>`;
   };
 
@@ -17305,38 +17297,58 @@ function renderDash(){
   // Best cat SVG (use category icon if available, else fallback book)
   const bestCatSvg = bestCat ? (ICONS[bestCat.id] || svgBook) : svgBook;
   const bestCatColor = bestCat?.color || 'var(--green)';
-  const bestCatRgb   = bestCat ? '34,197,94' : '34,197,94';
+  const _bestCatRgbMap = {read:'96,165,250',lang:'251,191,36',code:'192,132,252',trading:'247,147,26',cooking:'255,107,107',intellect:'167,139,250'};
+  const bestCatRgb = bestCat ? (_bestCatRgbMap[bestCat.id] || '34,197,94') : '34,197,94';
+
+  // Считаем сессии за период для нижней строки карточек
+  const _cut = isWeek ? weekStart : getMonthStart();
+  const _periodSess = P.sessions.filter(s => sessTs(s) >= _cut);
+  const _bestCatSessCount = bestCat ? _periodSess.filter(s => s.cat === bestCat.id).length : 0;
+  const _totalSessCount = _periodSess.length;
+  const _bestCatTotalHrs = bestCat ? (P.categories.find(c=>c.id===bestCat.id)?.hours||0) : 0;
+  const _bestCatTotalLbl = _bestCatTotalHrs < 10 ? _bestCatTotalHrs.toFixed(1) : Math.round(_bestCatTotalHrs);
+  const _maxStreak = Math.max(P.streak, 1);
+
+  // Иконки — те же функции что у верхних карточек
+  // goalColor — CSS var, нужен hex для iconBox (фон строится как color+'1a')
+  const _goalHex = avgGoalPct >= 80 ? '#22C55E' : avgGoalPct >= 50 ? '#F5C842' : '#F97316';
+  const iconGoal  = iconBox('zap',   _goalHex,   42, 12);
+  const iconCat   = bestCat ? catIconBox(bestCat.id, bestCat.color, 42) : iconBox('timer', '#A8A8B0', 42, 12);
+  const iconFlame = iconBox('flame', '#F97316',   42, 12);
 
   insightEl.innerHTML =
     insCard({
       color: goalColor,
       rgb: avgGoalPct >= 80 ? '34,197,94' : avgGoalPct >= 50 ? '245,192,48' : '249,115,22',
-      icon: svgTarget,
+      icon: iconGoal,
       label: 'Достижение цели',
       val: avgGoalPct,
       unit: '%',
-      sub: `${goalStatusText} · ${goalPlanText}`,
+      sub: isWeek ? 'За неделю' : 'За месяц',
       barPct: avgGoalPct,
+      foot: `<span><span style="color:${goalColor};font-weight:700">${goalStatusText}</span></span><span>план <span style="color:var(--t2);font-weight:600">${goalPlanText.replace('план ','')}</span></span>`
     }) +
     insCard({
       color: bestCatColor,
-      rgb: '34,197,94',
-      icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${bestCat ? (bestCat.id==='read'?'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>':bestCat.id==='lang'?'<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>':bestCat.id==='code'?'<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>':bestCat.id==='trading'?'<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>':'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>') : '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>'}</svg>`,
+      rgb: bestCatRgb,
+      icon: iconCat,
       label: bestCat ? bestCat.name : 'Топ категория',
       val: bestCatH.toFixed(1),
       unit: 'ч',
-      sub: isWeek ? 'За неделю' : 'За месяц',
+      sub: isWeek ? 'за неделю' : 'за месяц',
       barPct: bestCatPct,
+      foot: `<span><span style="color:${bestCatColor};font-weight:700">${_bestCatSessCount}</span> сессий</span><span>всего <span style="color:var(--t2);font-weight:600">${_bestCatTotalLbl} ч</span></span>`
     }) +
     insCard({
       color: 'var(--orange)',
       rgb: '249,115,22',
-      icon: svgFlame,
+      icon: iconFlame,
       label: 'Дисциплина',
       val: P.streak,
       unit: '',
-      sub: P.streak === 1 ? '1 день подряд' :
-           P.streak <= 4 ? `${P.streak} дня подряд` : `${P.streak} дней подряд`,
+      sub: P.streak === 1 ? 'день подряд' : P.streak <= 4 ? 'дня подряд' : 'дней подряд',
+      barPct: Math.min(100, Math.round(P.streak / Math.max(_maxStreak, 30) * 100)),
+      foot: `<span><span style="color:var(--orange);font-weight:700">${_totalSessCount}</span> сессий</span><span>макс. стрик <span style="color:var(--t2);font-weight:600">${_maxStreak} дн</span></span>`
     });
   }catch(e){console.error('renderDash:',e);}
 }
@@ -18610,13 +18622,13 @@ function _buildArenaHTML(cats, results){
             const aboveVal = aboveMe ? getArenaValue(aboveMe, arenaMode) : null;
             const gapAbove = (aboveVal !== null && myVal !== null) ? Math.max(0, aboveVal - myVal) : null;
             const aboveName = aboveMe ? (aboveMe.name.length > 9 ? aboveMe.name.slice(0,9)+'…' : aboveMe.name) : null;
-            const gapAboveStr = gapAbove !== null ? (arenaMode==='streak' ? '+'+Math.ceil(gapAbove)+' дн' : '+'+(gapAbove<0.1?'<0.1':gapAbove.toFixed(1))+' ч') : null;
+            const gapAboveStr = gapAbove !== null ? (arenaMode==='streak' ? '+'+Math.ceil(gapAbove)+' дн' : (gapAbove < 1/60 ? '+1 мин' : gapAbove < 0.1 ? '+'+Math.round(gapAbove*60)+' мин' : '+'+gapAbove.toFixed(1)+' ч')) : null;
 
             // Card 3: Leader gap (only if I'm not already #1 or #2)
             const leaderVal = leader ? getArenaValue(leader, arenaMode) : null;
             const gapLeader = (leaderVal !== null && myVal !== null && myRank > 1) ? Math.max(0, leaderVal - myVal) : null;
             const leaderName = leader ? (leader.name.length > 9 ? leader.name.slice(0,9)+'…' : leader.name) : null;
-            const gapLeaderStr = gapLeader !== null ? (arenaMode==='streak' ? '+'+Math.ceil(gapLeader)+' дн' : '+'+(gapLeader<0.1?'<0.1':gapLeader.toFixed(1))+' ч') : null;
+            const gapLeaderStr = gapLeader !== null ? (arenaMode==='streak' ? '+'+Math.ceil(gapLeader)+' дн' : (gapLeader < 1/60 ? '+1 мин' : gapLeader < 0.1 ? '+'+Math.round(gapLeader*60)+' мин' : '+'+gapLeader.toFixed(1)+' ч')) : null;
 
             // Card 4: Total participants stat
             const totalWeekAll = rawPlayers.reduce((a,p)=>a+(p.weekHrs||0),0);
@@ -18624,6 +18636,15 @@ function _buildArenaHTML(cats, results){
             // ── Smart stat cards ────────────────────────────────────────
             // fmtH: short format for hours value
             const fmtH = (v) => arenaMode==='streak' ? v+' дн' : (v>=100?Math.round(v):v.toFixed(1))+' ч';
+            // fmtGap: форматирует разрыв — маленькие значения показывает в минутах, а не в '<0.1'
+            const fmtGap = (v) => {
+              if(arenaMode==='streak') return '+'+Math.ceil(v)+' дн';
+              if(v <= 0) return '0 мин';
+              if(v < 1/60) return '+1 мин';          // меньше 1 минуты → показываем 1 мин
+              if(v < 0.1) return '+'+Math.round(v*60)+' мин'; // 1–5 мин → показываем минуты
+              if(v >= 100) return '+'+Math.round(v)+' ч';
+              return '+'+v.toFixed(1)+' ч';
+            };
 
             // Card 1 — МОИ ЧАСЫ: моё значение + мой ранг
             const c1html = `<div style="padding:13px 16px;border-radius:12px;
@@ -18668,7 +18689,7 @@ function _buildArenaHTML(cats, results){
                   <div id="arenaLiveGapAbove" data-gap="${gapAbove||0}"
                     style="font-family:var(--font-mono);font-size:22px;font-weight:400;
                     color:#4ADE80;letter-spacing:-.03em;line-height:1">
-                    +${arenaMode==='streak'?Math.ceil(gapAbove)+' дн':(gapAbove<0.1?'<0.1':gapAbove.toFixed(1))+' ч'}
+                    ${fmtGap(gapAbove||0)}
                   </div>
                 </div>
                 <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:5px">
@@ -18690,7 +18711,7 @@ function _buildArenaHTML(cats, results){
                     color:#FFD60A;opacity:.7;margin-bottom:8px">Твой отрыв от #2</div>
                   <div style="font-family:var(--font-mono);font-size:22px;font-weight:400;
                     color:#FFD60A;letter-spacing:-.03em;line-height:1">
-                    +${arenaMode==='streak'?Math.ceil(lead)+' дн':(lead<0.1?'<0.1':lead.toFixed(1))+' ч'}
+                    ${fmtGap(lead)}
                   </div>
                   <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:5px">
                     ${closest ? 'За тобой · '+closest.name : 'Никого нет'}
@@ -18705,7 +18726,7 @@ function _buildArenaHTML(cats, results){
                   <div id="arenaLiveGapLeader" data-gap="${gapLeader||0}"
                     style="font-family:var(--font-mono);font-size:22px;font-weight:400;
                     color:#FFD60A;letter-spacing:-.03em;line-height:1">
-                    ${gapLeader!==null?(arenaMode==='streak'?'+'+Math.ceil(gapLeader)+' дн':'+'+((gapLeader<0.1?'<0.1':gapLeader.toFixed(1)))+' ч'):'—'}
+                    ${gapLeader!==null ? fmtGap(gapLeader) : '—'}
                   </div>
                 </div>
                 <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:5px">
@@ -18814,15 +18835,22 @@ function _buildArenaHTML(cats, results){
       myCard.textContent = live.toFixed(2)+' ч';
       // Gap to player above (hours only — streak not live-updated)
       if(arenaMode!=='streak'){
+        const _fmtLiveGap = (g) => {
+          if(g <= 0) return '0 мин';
+          if(g < 1/60) return '+1 мин';
+          if(g < 0.1) return '+'+Math.round(g*60)+' мин';
+          if(g >= 100) return '+'+Math.round(g)+' ч';
+          return '+'+g.toFixed(1)+' ч';
+        };
         const gapEl1 = document.getElementById('arenaLiveGapAbove');
         if(gapEl1){
           const g0 = parseFloat(gapEl1.dataset.gap);
-          if(!isNaN(g0) && g0 > 0){ const g=g0-(elapsed/3600); gapEl1.textContent = g>0?'+'+(g<0.1?'<0.1':g.toFixed(1))+' ч':'🏆 Обогнал!'; }
+          if(!isNaN(g0) && g0 > 0){ const g=g0-(elapsed/3600); gapEl1.textContent = g>0?_fmtLiveGap(g):'🏆 Обогнал!'; }
         }
         const gapEl2 = document.getElementById('arenaLiveGapLeader');
         if(gapEl2){
           const g0 = parseFloat(gapEl2.dataset.gap);
-          if(!isNaN(g0) && g0 > 0){ const g=g0-(elapsed/3600); gapEl2.textContent = g>0?'+'+(g<0.1?'<0.1':g.toFixed(1))+' ч':'🏆 Лидер!'; }
+          if(!isNaN(g0) && g0 > 0){ const g=g0-(elapsed/3600); gapEl2.textContent = g>0?_fmtLiveGap(g):'🏆 Лидер!'; }
         }
       }
     }, 1000);
@@ -18869,7 +18897,7 @@ async function renderLgMini(){
         const rs = rankStyle(rank);
         const isTop = rank<=3 && rank!=='?';
         return `
-        <div class="lgm-row ${isTop?'lgm-top':''}" onclick="scrollToMyRank(${i})" style="--cat-c:${c.color}">
+        <div class="lgm-row ${isTop?'lgm-top':''}" onclick="scrollToMyRank(${i},'week','${c.id}')" style="--cat-c:${c.color}">
           <div class="lgm-cat-icon">${catIconBox(c.id,c.color,34)}</div>
           <div class="lgm-info">
             <div class="lgm-name">${c.name}</div>
@@ -18913,7 +18941,7 @@ async function renderLgMiniStreak(cats, results){
       const rs = rankStyle(rank);
       const isTop = rank<=3 && rank!=='?';
       return `
-      <div class="lgm-row ${isTop?'lgm-top':''}" onclick="scrollToMyRank(${i})" style="--cat-c:#F97316">
+      <div class="lgm-row ${isTop?'lgm-top':''}" onclick="scrollToMyRank(${i},'streak','${c.id}')" style="--cat-c:#F97316">
         <div class="lgm-cat-icon">${catIconBox(c.id,'#F97316',34)}</div>
         <div class="lgm-info">
           <div class="lgm-name">${c.name}</div>
@@ -18931,38 +18959,54 @@ async function renderLgMiniStreak(cats, results){
 // leagueHero removed — stubs to prevent errors
 
 /* ── Scroll to my rank in arena ─────────────────────────────── */
-function scrollToMyRank(catIdx) {
+function scrollToMyRank(catIdx, mode, catId) {
+  // 1. Переключаем вкладку на Арену
   showTab('leagues');
-  // Ждём рендера арены, потом находим свою строку
+
+  // 2. Если передан режим — переключаем арену (week / streak / hours и т.д.)
+  if(mode && mode !== arenaMode){
+    arenaMode = mode;
+    // Синхронизируем активную кнопку режима
+    document.querySelectorAll('.a-ctrl-btn[data-mode]').forEach(b => {
+      b.classList.toggle('active', b.dataset.mode === mode);
+    });
+  }
+
+  // 3. Если передан catId — переключаем лигу дропдауна
+  if(catId){
+    arenaLeagueFilter = catId;
+    const cat = activeCats().find(c => c.id === catId);
+    if(cat) _updateArenaDropLabel(cat);
+  }
+
+  // 4. Перерисовываем арену с новым режимом/лигой
+  renderLeagues();
+
+  // 5. Ждём рендера, потом скроллим к своей строке
   const _scroll = (attempts) => {
     const cards = document.querySelectorAll('.arena-card');
-    const card = cards[catIdx];
+    const card = cards[0]; // после selectLeague всегда одна карточка
     if (!card) {
-      if (attempts > 0) setTimeout(() => _scroll(attempts - 1), 120);
+      if (attempts > 0) setTimeout(() => _scroll(attempts - 1), 150);
       return;
     }
-    // Ищем свою строку по data-isme
     const myRow = card.querySelector('[data-isme="true"]');
     const target = myRow || card;
-
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-    // Мигание-подсветка
     if (myRow) {
       myRow.style.transition = 'background .2s ease';
       const orig = myRow.style.background;
       let n = 0;
       const flash = () => {
         if (n++ > 3) { myRow.style.background = orig; return; }
-        myRow.style.background = n % 2
-          ? 'rgba(245,200,66,.18)'
-          : orig;
+        myRow.style.background = n % 2 ? 'rgba(245,200,66,.18)' : orig;
         setTimeout(flash, 280);
       };
       setTimeout(flash, 200);
     }
   };
-  setTimeout(() => _scroll(8), 180);
+  setTimeout(() => _scroll(10), 300);
 }
 async function showLeagueHero(){ return; }
 function _markHeroSeen(){}
@@ -23390,14 +23434,14 @@ function renderRecords(){
   el.innerHTML =
     recCard(
       'var(--blue)',
-      iconBox('zap','var(--blue)',44,12),
+      iconBox('zap','#1a9fff',44,12),
       'Лучшая сессия',
       bestSess > 0 ? fmtD(bestSess) : '—',
       bestSess > 0 ? 'Личный рекорд' : 'Нет данных'
     ) +
     recCard(
       'var(--orange)',
-      iconBox('flame','var(--orange)',44,12),
+      iconBox('flame','#F97316',44,12),
       'Лучшая неделя',
       bestWeek > 0 ? bestWeek.toFixed(1) + ' ч' : '—',
       bestWeek > 0 ? `${(Math.round(bestWeek/7*10)/10).toFixed(1)} ч/день` : 'Нет данных'
@@ -23406,7 +23450,7 @@ function renderRecords(){
       topCat?.color || 'var(--purple)',
       topCat
         ? catIconBox(topCat.id, topCat.color, 44)
-        : iconBox('trophy','var(--purple)',44,12),
+        : iconBox('trophy','#A855F7',44,12),
       'Топ категория',
       topCat
         ? (topCat.hours < 10 ? topCat.hours.toFixed(1) : Math.round(topCat.hours)) + ' ч'
