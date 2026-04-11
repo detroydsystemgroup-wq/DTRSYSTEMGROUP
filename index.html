@@ -653,13 +653,24 @@ input, button, select, textarea {
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .ph-title{
-  display:inline-flex;align-items:center;gap:6px;
-  font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
-  padding:4px 11px;border-radius:20px;
-  background:rgba(245,200,66,.08);
-  color:var(--gold);border:0.5px solid rgba(245,200,66,.22);
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;
+  padding:5px 14px 5px 10px;border-radius:20px;
+  background:linear-gradient(135deg,rgba(245,200,66,.13) 0%,rgba(245,200,66,.05) 100%);
+  color:var(--gold);
+  border:0.5px solid rgba(245,200,66,.35);
+  box-shadow:0 0 14px rgba(245,200,66,.12),inset 0 1px 0 rgba(245,200,66,.15);
   margin-bottom:10px;
+  position:relative;overflow:hidden;
+  text-shadow:0 0 18px rgba(245,200,66,.5);
 }
+.ph-title::before{
+  content:'';position:absolute;left:-40%;top:0;width:30%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent);
+  animation:titleShimmer 3.5s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes titleShimmer{0%{left:-40%}100%{left:140%}}
 .ph-meta{display:flex;gap:5px;flex-wrap:nowrap;align-items:center;margin-top:6px;overflow:hidden;}
 .mi{
   font-size:11px;color:var(--t2);
@@ -14224,15 +14235,15 @@ html[data-theme="light"] .nav-icon-btn:hover {
         <div class="ph-name" id="profName"></div>
         <div class="ph-title" id="profTitle">⚡ Новичок</div>
         <!-- XP bar inline — Apple style -->
-        <div style="margin-top:7px;max-width:280px">
-          <div style="height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-bottom:5px;position:relative">
-            <div id="xpFill" style="height:100%;background:linear-gradient(90deg,#C89F28,#F5C842,#FDE68A);border-radius:2px;width:0%;transition:width 1.4s cubic-bezier(.4,0,.2,1);position:relative">
-              <div style="position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:shimmerSweep 2.5s ease-in-out infinite"></div>
+        <div style="margin-top:8px;max-width:300px">
+          <div style="height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;margin-bottom:6px;position:relative;box-shadow:inset 0 1px 2px rgba(0,0,0,.4)">
+            <div id="xpFill" style="height:100%;background:linear-gradient(90deg,#A07820,#F5C842,#FDE68A,#F5C842);background-size:200% 100%;border-radius:3px;width:0%;transition:width 1.4s cubic-bezier(.4,0,.2,1);position:relative;box-shadow:0 0 8px rgba(245,200,66,.5)">
+              <div style="position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:shimmerSweep 2.5s ease-in-out infinite"></div>
             </div>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center">
-            <span id="xpLevel" style="font-size:10px;font-weight:700;letter-spacing:.04em;color:var(--gold)">Ур. 1 · Новичок</span>
-            <span id="xpPts" style="font-size:10px;color:var(--t2)">ещё 5 ч до Ур. 2</span>
+            <span id="xpLevel" style="font-size:10px;font-weight:800;letter-spacing:.05em;color:var(--gold);text-shadow:0 0 12px rgba(245,200,66,.4)">Ур. 1 · Новичок</span>
+            <span id="xpPts" style="font-size:10px;color:var(--t2);font-weight:500">ещё 5 ч до Ур. 2</span>
           </div>
         </div>
         <!-- hidden meta (values set by renderHeader, stat bar shows them) -->
@@ -16566,12 +16577,14 @@ function renderHeader(){
   const info=getMyLevelInfo();
   const titleEl=document.getElementById('profTitle');
   if(titleEl){
-    titleEl.textContent=`Ур. ${info.lvl} · ${info.name}`;
     const tc = info.color.includes('gradient') ? 'var(--gold)' : info.color;
+    const tcGlow = tc.replace('var(--gold)','rgba(245,200,66,1)');
+    titleEl.innerHTML = `<svg width="9" height="9" viewBox="0 0 24 24" fill="${tc}" stroke="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>УР.${info.lvl} · ${info.name}`;
     titleEl.style.color = tc;
-    titleEl.style.borderColor = tc.replace(')',',0.5)').replace('var(--gold)','rgba(245,200,66,.5)');
-    titleEl.style.background = 'transparent';
-    titleEl.style.boxShadow = 'none';
+    titleEl.style.borderColor = tc + '55';
+    titleEl.style.background = `linear-gradient(135deg,${tc}18 0%,${tc}06 100%)`;
+    titleEl.style.boxShadow = `0 0 16px ${tc}22,inset 0 1px 0 ${tc}20`;
+    titleEl.style.textShadow = `0 0 20px ${tc}88`;
   }
   // Update stat bar — set values immediately (no flicker) then animate
   const _thRaw = totalHrs();
@@ -23164,7 +23177,7 @@ const LEVEL_NAMES_GROUPS=[
   ['Воин','Боец','Защитник','Страж','Ратник','Дружинник','Витязь','Мечник','Щитоносец','Лучник'],
   ['Мастер','Умелец','Знаток','Специалист','Профи','Эксперт','Техник','Виртуоз','Аналитик','Стратег'],
   ['Чемпион','Победитель','Первый','Лидер','Флагман','Авангард','Командир','Капитан','Офицер','Генерал'],
-  ['Легенда','Миф','Сага','Эпос','Летопись','Хроника','Анналы','Предание','Элита','Монолит'],
+  ['Легенда','Миф','Сага','Эпос','Летопись','Хроника','Реликвия','Предание','Элита','Монолит'],
   ['Алмаз','Сапфир','Рубин','Изумруд','Аметист','Топаз','Жемчуг','Янтарь','Кварц','Обсидиан'],
   ['Дракон','Феникс','Левиафан','Химера','Василиск','Симург','Гриф','Единорог','Цербер','Тифон'],
   ['Звезда','Созвездие','Галактика','Туманность','Квазар','Пульсар','Нейтрон','Антимир','Тёмная Звезда','Чёрная Дыра'],
