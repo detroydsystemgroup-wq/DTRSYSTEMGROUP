@@ -1525,7 +1525,7 @@ body { transition:background .28s,color .28s; }
 .msg-bubble:active{transform:scale(.985);}
 .msg-bubble.mine{background:linear-gradient(145deg,#1d3826,#1e3d28);color:var(--t1);border-radius:17px 17px 4px 17px;border:0.5px solid rgba(34,197,94,.18);box-shadow:0 2px 12px rgba(0,0,0,.3);}
 .msg-bubble.theirs{background:rgba(22,22,26,.97);color:var(--t1);border-radius:17px 17px 17px 4px;border:0.5px solid rgba(255,255,255,.07);box-shadow:0 2px 10px rgba(0,0,0,.28);}
-.msg-bubble-time{font-size:10px;opacity:.5;margin-top:4px;text-align:right;font-family:var(--font-mono);display:flex;align-items:center;justify-content:flex-end;gap:4px;float:right;margin-left:8px;margin-bottom:-2px;}
+.msg-bubble-time{font-size:10px;opacity:.55;margin-top:5px;text-align:right;font-family:var(--font-mono);display:flex;align-items:center;justify-content:flex-end;gap:3px;padding-top:2px;line-height:1;}
 .msg-ticks{display:inline-flex;align-items:center;color:var(--cyan);}
 .msg-bubble.new-msg{animation:newMsgPop .5s cubic-bezier(.34,1.4,.64,1) both;}
 @keyframes newMsgPop{0%{transform:scale(.9);opacity:0;}100%{transform:scale(1);opacity:1;}}
@@ -13639,7 +13639,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
 .msg-chat-typing-dots span{width:4px;height:4px;background:var(--green);border-radius:50%;animation:tBounce 1.4s ease infinite;}
 .msg-chat-typing-dots span:nth-child(2){animation-delay:.2s;}
 .msg-chat-typing-dots span:nth-child(3){animation-delay:.4s;}
-.msg-bubble-time{clear:both;}
+/* removed duplicate */
 
 /* ── File & Voice attachments ── */
 .msg-file-bubble{display:flex;align-items:center;gap:10px;min-width:180px;max-width:260px;}
@@ -13692,7 +13692,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
 .msg-chat-typing-dots span{width:4px;height:4px;background:var(--green);border-radius:50%;animation:tBounce 1.4s ease infinite;}
 .msg-chat-typing-dots span:nth-child(2){animation-delay:.2s;}
 .msg-chat-typing-dots span:nth-child(3){animation-delay:.4s;}
-.msg-bubble-time{clear:both;}
+/* removed duplicate */
 
 /* ═══════════════════════════════════════════════════
    DTR ACHIEVEMENT SYSTEM v2 — LEGENDARY EDITION
@@ -19794,6 +19794,9 @@ async function openConv(userId, name, av, avUrl){
     _msgUnreadOffscreen = 0;
     _msgIsAtBottom = true;
     _msgPartnerAvCache = { av: av || '👤', avUrl: avUrl || null };
+    // Check real online status immediately, then poll
+    _msgCheckOnlineStatus(userId);
+    _startOnlinePolling(userId);
 
     document.querySelectorAll('[data-conv-uid]').forEach(el=>{
       el.classList.toggle('active', el.dataset.convUid===userId);
@@ -19817,7 +19820,7 @@ async function openConv(userId, name, av, avUrl){
         </div>
         <div class="msg-chat-info" style="cursor:pointer;" onclick="openUserProfile('${esc(userId)}','${escAttr(name)}','${escAttr(av||'')}','${escAttr(avUrl||'')}')">
           <div class="msg-chat-name">${esc(name)}</div>
-          <div class="msg-chat-sub online-sub" id="msgChatSub">в сети</div>
+          <div class="msg-chat-sub" id="msgChatSub" style="color:var(--t3)">…</div>
         </div>
         <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
           <button id="msgVideoCamBtn" style="width:32px;height:32px;border-radius:9px;background:none;border:0.5px solid rgba(255,255,255,.07);color:var(--t3);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,color .15s;" onclick="_startVideoCall('${esc(userId)}','${escAttr(name)}')" onmouseover="this.style.background='rgba(34,197,94,.1)';this.style.color='var(--green)'" onmouseout="this.style.background='none';this.style.color='var(--t3)'" title="Видеозвонок">
@@ -19869,15 +19872,16 @@ async function openConv(userId, name, av, avUrl){
             aria-label="Написать сообщение"></textarea>
           <button class="msg-emoji-btn" onclick="_toggleMsgEmoji()" type="button" title="Emoji">😊</button>
         </div>
-        <!-- Send / Mic button -->
+        <!-- Send button (text mode) + Mic button (voice mode) -->
         <button class="msg-send" id="msgSendBtn"
-          onclick="sendMsg('${esc(userId)}')"
-          onmousedown="_msgMicStart(event,'${esc(userId)}')"
-          onmouseup="_msgMicStop(event)"
+          onclick="_msgSendBtnClick('${esc(userId)}')"
+          aria-label="Отправить/Голос" type="button"
+          onmousedown="_msgMicStartHold(event,'${esc(userId)}')"
+          onmouseup="_msgMicStopHold(event)"
           onmouseleave="_msgMicCancel()"
-          ontouchstart="_msgMicStart(event,'${esc(userId)}')"
-          ontouchend="_msgMicStop(event)"
-          aria-label="Отправить" type="button">
+          ontouchstart="_msgMicStartHold(event,'${esc(userId)}')"
+          ontouchend="_msgMicStopHold(event)"
+          ontouchcancel="_msgMicCancel()">
           <svg id="msgSendIconMic" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
           <svg id="msgSendIconArrow" style="display:none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
@@ -20199,19 +20203,52 @@ async function _msgExecuteClear(userId){
   if(!SB_USER) return;
   try {
     if(scope==='me'){
-      await sb.from('messages').delete().eq('from_user_id',SB_USER.id).eq('to_user_id',userId);
+      // Delete only MY sent messages to this partner
+      await sb.from('messages').delete()
+        .eq('from_user_id', SB_USER.id)
+        .eq('to_user_id', userId);
     } else {
-      await sb.from('messages').delete().or(`and(from_user_id.eq.${SB_USER.id},to_user_id.eq.${userId}),and(from_user_id.eq.${userId},to_user_id.eq.${SB_USER.id})`);
+      await sb.from('messages').delete()
+        .or(`and(from_user_id.eq.${SB_USER.id},to_user_id.eq.${userId}),and(from_user_id.eq.${userId},to_user_id.eq.${SB_USER.id})`);
     }
   } catch(e){ console.warn('clear history error:',e); }
+
+  // Clear the messages display
   const el = document.getElementById('msgMessages');
   if(el) el.innerHTML = `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:32px;text-align:center;color:var(--t3);"><div style="font-size:28px;opacity:.3">🗑️</div><div style="font-size:13px;font-weight:600;color:var(--t2);">История очищена</div><div style="font-size:12px;">Напишите первое сообщение</div></div>`;
-  if(_convsCache){
-    const cv=_convsCache.find(c=>c.userId===userId);
-    if(cv){cv.lastMsg='История очищена';cv.lastMsgMine=false;cv.lastTime=new Date().toISOString();}
-    _renderConvList(_convsCache);
+
+  // Update cache WITHOUT removing partner from list (bug 5 fix)
+  // Partner should stay in sidebar after "delete only mine"
+  if(_convsCache || allConvsCache){
+    const cache = _convsCache || allConvsCache;
+    const cv = cache.find(cv => cv.userId === userId);
+    if(cv){
+      cv.lastMsg = 'История очищена';
+      cv.lastMsgMine = true;
+      cv.lastTime = new Date().toISOString();
+      cv.unread = 0;
+    } else if(scope === 'me'){
+      // Re-add partner to keep them visible after clearing
+      const { data: partner } = await sb.from('users').select('id,username,avatar,avatar_url').eq('id', userId).single().catch(()=>({data:null}));
+      if(partner){
+        const newCv = {
+          userId: partner.id,
+          name: partner.username || '?',
+          av: partner.avatar || '🎯',
+          avUrl: partner.avatar_url || null,
+          lastMsg: 'История очищена',
+          lastMsgMine: true,
+          lastTime: new Date().toISOString(),
+          unread: 0,
+        };
+        cache.unshift(newCv);
+        _convsCache = cache;
+        allConvsCache = cache;
+      }
+    }
+    _renderConvList(cache);
   }
-  showToast(scope==='both'?'История удалена у обоих':'История очищена у вас','🗑️');
+  showToast(scope==='both' ? 'История удалена у обоих' : 'История очищена у вас', '🗑️');
 }
 
 // ══ CHAT HEADER MENU ════════════════════════════════════════
@@ -20413,6 +20450,51 @@ async function _msgDeleteMsg(msgId, bub){
   await loadConversations();
 }
 
+
+
+// ── Real online status check ──
+async function _msgCheckOnlineStatus(userId){
+  if(!SB_USER) return;
+  try {
+    const { data } = await sb.from('users').select('last_seen').eq('id', userId).single();
+    const dot = document.getElementById('msgOnlineDot');
+    const sub = document.getElementById('msgChatSub');
+    if(!data) return;
+    const lastSeen = data.last_seen ? new Date(data.last_seen) : null;
+    const isOnline = lastSeen && (Date.now() - lastSeen.getTime()) < 75000;
+    if(dot) dot.style.background = isOnline ? 'var(--green)' : 'var(--t3)';
+    if(sub && !sub.innerHTML.includes('typing-dots')){
+      if(isOnline){
+        sub.className = 'msg-chat-sub online-sub';
+        sub.textContent = 'в сети';
+      } else {
+        sub.className = 'msg-chat-sub';
+        sub.style.color = 'var(--t3)';
+        if(lastSeen){
+          const diffMin = Math.floor((Date.now()-lastSeen.getTime())/60000);
+          const diffHr  = Math.floor(diffMin/60);
+          const diffDay = Math.floor(diffHr/24);
+          sub.textContent = diffMin<1 ? 'был(а) только что' :
+                            diffMin<60 ? `был(а) ${diffMin} мин назад` :
+                            diffHr<24  ? `был(а) ${diffHr} ч назад` :
+                            diffDay===1 ? 'был(а) вчера' :
+                            `был(а) ${lastSeen.toLocaleDateString('ru',{day:'numeric',month:'short'})}`;
+        } else {
+          sub.textContent = 'не в сети';
+        }
+      }
+    }
+  } catch(e){ /* silent */ }
+}
+
+let _onlineCheckInterval = null;
+function _startOnlinePolling(userId){
+  clearInterval(_onlineCheckInterval);
+  _onlineCheckInterval = setInterval(()=>{
+    if(activeConvUserId===userId) _msgCheckOnlineStatus(userId);
+    else clearInterval(_onlineCheckInterval);
+  }, 30000);
+}
 
 let _msgPartnerAvCache = { av: '👤', avUrl: null };
 function _msgGetPartnerAvatar(){
@@ -22667,8 +22749,8 @@ function appendMessage(msg, isMine) {
 // OPTIMISTIC UI — Send message (instant append + sync)
 // ══════════════════════════════════════════════════════════════
 async function sendMsg(toUserId) {
-  // Handle pending file/voice attachment
-  if(typeof _msgPendingFile !== 'undefined' && _msgPendingFile){
+  // Handle pending file first — file preview is showing
+  if(typeof _msgPendingFile !== 'undefined' && _msgPendingFile && _msgPendingFile.file){
     await _msgSendFile(toUserId); return;
   }
   const input = document.getElementById('msgInput');
@@ -34921,11 +35003,14 @@ async function _msgUploadFile(file){
 // ── Send file message ──
 async function _msgSendFile(toUserId){
   if(!_msgPendingFile) return;
-  const { file } = _msgPendingFile;
-  _msgClearPendingFile();
+  const { file } = _msgPendingFile; // capture file FIRST
+  // Don't clear preview yet — user needs to see it's sending
 
   const sendBtn = document.getElementById('msgSendBtn');
   if(sendBtn){ sendBtn.classList.add('uploading'); }
+  // Disable attach button during upload
+  const attachBtn = document.getElementById('msgAttachBtn');
+  if(attachBtn) attachBtn.disabled = true;
 
   try {
     const result = await _msgUploadFile(file);
@@ -34969,14 +35054,17 @@ async function _msgSendFile(toUserId){
       msgData = ins1.data;
     }
 
+    // Clear preview AFTER successful send
+    _msgClearPendingFile();
     appendMessage({ ...msgData, from_user_id: SB_USER.id }, true);
     await loadConversations();
     showToast(isImage ? 'Фото отправлено 📸' : 'Файл отправлен 📎');
   } catch(err){
     console.error('[DTR] Send file error:', err?.code, err?.message);
-    showToast('Ошибка отправки файла: ' + (err?.message||'').slice(0,80), '⚠️');
+    showToast('Ошибка: ' + (err?.message||'неизвестная ошибка').slice(0,100), '⚠️');
   } finally {
     if(sendBtn){ sendBtn.classList.remove('uploading'); }
+    if(attachBtn) attachBtn.disabled = false;
   }
 }
 
@@ -34999,24 +35087,56 @@ const MIC_STATE = {
 // Long-press threshold (ms) to start voice recording
 const MIC_HOLD_MS = 350;
 
-function _msgMicStart(e, toUserId){
-  // Only start voice if send button is in MIC mode (no text typed)
+// ── Smart send button: click = send text, hold = record voice ──
+let _micHoldActive = false;
+
+function _msgSendBtnClick(toUserId){
+  // If voice is recording — this click fires after touchend, ignore
+  if(MIC_STATE.isRecording) return;
+  if(_micHoldActive) return; // was a hold, not a click
+  // If file pending — send file
+  if(_msgPendingFile && _msgPendingFile.file){ _msgSendFile(toUserId); return; }
+  // Normal text send
+  sendMsg(toUserId);
+}
+
+function _msgMicStartHold(e, toUserId){
+  _micHoldActive = false;
+  MIC_STATE.toUserId = toUserId;
+  clearTimeout(MIC_STATE.holdTimeout);
+
+  // Check if in text mode (arrow visible) — then don't start voice hold
   const arrow = document.getElementById('msgSendIconArrow');
-  if(arrow && arrow.style.display !== 'none') return; // text mode → normal click/send
+  if(arrow && arrow.style.display !== 'none') return;
+  // Check if file pending — don't override
+  if(_msgPendingFile && _msgPendingFile.file) return;
 
   e.preventDefault();
-  MIC_STATE.toUserId = toUserId;
-  MIC_STATE.holdTimeout = setTimeout(()=> _msgStartRecording(toUserId), MIC_HOLD_MS);
+  MIC_STATE.holdTimeout = setTimeout(()=>{
+    _micHoldActive = true;
+    _msgStartRecording(toUserId);
+  }, MIC_HOLD_MS);
 }
 
-function _msgMicStop(e){
+function _msgMicStopHold(e){
   clearTimeout(MIC_STATE.holdTimeout);
-  if(MIC_STATE.isRecording) _msgStopRecording(false);
+  if(MIC_STATE.isRecording){
+    e.preventDefault();
+    _micHoldActive = true; // prevent click from firing send
+    _msgStopRecording(false);
+    // Reset hold flag after click event has had chance to fire
+    setTimeout(()=>{ _micHoldActive = false; }, 300);
+  }
 }
+
+// Legacy aliases
+function _msgMicStart(e, toUserId){ _msgMicStartHold(e, toUserId); }
+function _msgMicStop(e){ _msgMicStopHold(e); }
 
 function _msgMicCancel(){
   clearTimeout(MIC_STATE.holdTimeout);
   if(MIC_STATE.isRecording) _msgStopRecording(true);
+  _micHoldActive = false;
 }
 
 async function _msgStartRecording(toUserId){
@@ -35063,19 +35183,20 @@ async function _msgStartRecording(toUserId){
 function _msgShowRecUI(toUserId){
   let ui = document.getElementById('msgVoiceRecUI');
   if(!ui){
-    const area = document.querySelector('.msg-input-area');
-    if(!area) return;
+    // Find the chat body to insert before input area
+    const inputArea = document.querySelector('#msgChatArea .msg-input-area');
+    const parent = inputArea?.parentElement;
+    if(!parent) return;
     ui = document.createElement('div');
     ui.id = 'msgVoiceRecUI';
-    // Waveform bars
-    const bars = Array.from({length:28},()=>'<span style="width:3px;height:8px;display:inline-block;"></span>').join('');
+    const bars = Array.from({length:30},()=>'<span style="width:3px;height:8px;display:inline-block;flex-shrink:0;"></span>').join('');
     ui.innerHTML = `
       <div class="vc-rec-dot"></div>
       <div class="vc-rec-time" id="msgRecTimer">0:00</div>
-      <div class="vc-rec-waveform" id="msgRecWave">${bars}</div>
+      <div class="vc-rec-waveform" id="msgRecWave" style="flex:1;display:flex;align-items:center;gap:2px;overflow:hidden;">${bars}</div>
       <button class="vc-rec-cancel" onclick="_msgStopRecording(true)">Отменить</button>
       <button class="vc-rec-send" onclick="_msgStopRecording(false)">Отправить</button>`;
-    area.parentElement?.insertBefore(ui, area);
+    parent.insertBefore(ui, inputArea);
   }
   ui.classList.add('active');
 
