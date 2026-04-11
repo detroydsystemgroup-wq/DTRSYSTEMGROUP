@@ -22789,19 +22789,25 @@ const LEVEL_COLORS=LEVEL_TIER_COLORS.flat();
 const LEVEL_FRAMES=LEVEL_TIER_FRAMES;
 const LEVEL_BORDER_ANIM=LEVEL_TIER_ANIM;
 
-function getLevelInfo(totalHoursOrXP){
-  // Support old (hours) call signature, but always use full XP from P if available
-  const xp = (typeof P!=='undefined'&&P) ? calcTotalXP(P) : Math.floor((totalHoursOrXP||0)*100);
+// ── Уровень по часам (для других игроков: арена, лиги, соц. карточки) ──
+function getLevelInfo(totalHours){
+  return _lvlFromXP(Math.floor((parseFloat(totalHours)||0)*100));
+}
+// ── Уровень текущего игрока (с бонусами за достижения) ──
+function getMyLevelInfo(){
+  const xp=(typeof P!=='undefined'&&P)?calcTotalXP(P):0;
+  return _lvlFromXP(xp);
+}
+// ── Внутренняя функция: объект уровня из XP ──
+function _lvlFromXP(xp){
   const lvl=levelFromXP(xp);
   const data=LEVEL_DATA[Math.min(lvl-1,149)];
   const curXP=xpForLevel(lvl);
   const nextXP=xpForLevel(Math.min(lvl+1,150));
   const pct=lvl>=150?100:Math.min(100,Math.round(((xp-curXP)/(nextXP-curXP))*100));
   const xpLeft=Math.max(0,nextXP-xp);
-  return {
-    lvl,name:data.name,color:data.color,frame:data.frame,
-    anim:data.anim,tier:data.tier,pct,xpLeft,curXP,nextXP,totalXP:xp,
-  };
+  return{lvl,name:data.name,color:data.color,frame:data.frame,
+    anim:data.anim,tier:data.tier,pct,xpLeft,curXP,nextXP,totalXP:xp};
 }
 function calcXP(totalHours){return Math.floor(totalHours*100);}
 function calcLevel(xp){return levelFromXP(xp);}
