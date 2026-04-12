@@ -25457,47 +25457,45 @@ function initNotifications() {
 
 
 // ══════════════════════════════════════════════════════════════
-// БАЗА ЗНАНИЙ v4 — Premium Knowledge Management System
+// ══════════════════════════════════════════════════════════════
+// DTR БАЗА ЗНАНИЙ v6 — Premium Knowledge Management System
+// Architecture: Sidebar tree + Note list + Editor/Reader
 // ══════════════════════════════════════════════════════════════
 
 const KB_KEY = 'dtr_kb_v3';
 let _kb3 = {};
 let _kbS = {
   cat: null, folder: null, note: null,
-  edit: false, search: '', collapsed: {}, sort: 'updated',
-  viewMode: 'list', // 'list' | 'grid'
+  mode: 'home',      // 'home' | 'cat' | 'folder' | 'editor' | 'reader'
+  edit: false,
+  search: '',
+  sort: 'updated',
   focusMode: false,
-  tocOpen: false,
-  filterTag: null,
-  font: 'inter', // текущий шрифт редактора
+  readFont: 'nunito',
+  readSize: 16,
+  readLine: 1.8,
+  readTheme: 'dark',
+  sidebarCollapsed: {},
 };
 let _kbSaveTimer = null;
+let _kbDBSaveTimer = null;
+let _kbDBReady = false;
+let _kbSel = null;
 
 // ── Data helpers ──────────────────────────────────────────────
 function _kbLoad3() {
   try { _kb3 = JSON.parse(localStorage.getItem(KB_KEY)||'{}'); } catch(e) { _kb3={}; }
-  // Ensure all categories exist and have valid structure
   ALL_CATS.forEach(c=>{
     if(!_kb3[c.id]) _kb3[c.id]={folders:[]};
     if(!_kb3[c.id].folders) _kb3[c.id].folders=[];
-    // Sanitize folders: ensure notes array and required fields exist
-    _kb3[c.id].folders=_kb3[c.id].folders.filter(f=>f&&f.id&&f.title);
-    _kb3[c.id].folders.forEach(f=>{
-      if(!f.notes) f.notes=[];
-      f.notes=f.notes.filter(n=>n&&n.id); // remove corrupted notes
-    });
+    _kb3[c.id].folders = _kb3[c.id].folders.filter(f=>f&&f.id&&f.title);
+    _kb3[c.id].folders.forEach(f=>{ if(!f.notes) f.notes=[]; f.notes=f.notes.filter(n=>n&&n.id); });
   });
 }
 function _kbSave3() {
   localStorage.setItem(KB_KEY, JSON.stringify(_kb3));
   _kbSaveToDB();
 }
-
-// ── Supabase sync ─────────────────────────────────────────────
-let _kbDBSaveTimer = null;
-let _kbDBReady = false; // true after first Supabase load completes
-
-// Merge remote KB into local: note with higher updatedAt wins
 function _kbMergeRemote(remote) {
   if (!remote || typeof remote !== 'object') return;
   ALL_CATS.forEach(c => {
@@ -25505,150 +25503,63 @@ function _kbMergeRemote(remote) {
     if (!_kb3[c.id]) _kb3[c.id] = { folders: [] };
     (remote[c.id].folders || []).forEach(remF => {
       const locF = _kb3[c.id].folders.find(f => f.id === remF.id);
-      if (!locF) {
-        _kb3[c.id].folders.push(remF);
-      } else {
-        // Update folder title if remote is newer
-        if((remF.updatedAt||0) > (locF.updatedAt||0)) {
-          locF.title = remF.title || locF.title;
-        }
-        // Ensure notes array exists
+      if (!locF) { _kb3[c.id].folders.push(remF); }
+      else {
+        if((remF.updatedAt||0) > (locF.updatedAt||0)) locF.title = remF.title || locF.title;
         if(!locF.notes) locF.notes = [];
-        // Merge notes
         (remF.notes || []).forEach(remN => {
-          if(!remN || !remN.id) return; // skip corrupted entries
+          if(!remN || !remN.id) return;
           const locN = locF.notes.find(n => n.id === remN.id);
-          if (!locN) {
-            locF.notes.push(remN);
-          } else if ((remN.updatedAt||0) > (locN.updatedAt||0)) {
-            Object.assign(locN, remN);
-          }
+          if (!locN) locF.notes.push(remN);
+          else if ((remN.updatedAt||0) > (locN.updatedAt||0)) Object.assign(locN, remN);
         });
       }
     });
-    // Ensure all existing folders have notes array
     (_kb3[c.id].folders||[]).forEach(f => { if(!f.notes) f.notes=[]; });
   });
 }
-
 async function _kbLoadFromDB() {
   if (!SB_USER || SB_USER.isDemoUser) { _kbDBReady = true; return; }
   try {
-    const { data, error } = await sb.from('user_knowledge_base')
-      .select('data').eq('user_id', SB_USER.id).maybeSingle();
-    if (error) { console.warn('KB DB load error:', error); _kbDBReady = true; return; }
+    const { data, error } = await sb.from('user_knowledge_base').select('data').eq('user_id', SB_USER.id).maybeSingle();
+    if (error) { _kbDBReady = true; return; }
     if (data?.data) {
       const before = JSON.stringify(_kb3);
       _kbMergeRemote(data.data);
       const after = JSON.stringify(_kb3);
       localStorage.setItem(KB_KEY, after);
-      // Only re-render if data actually changed
       if (before !== after) {
         const kbTab = document.getElementById('tab-knowledge');
-        if (kbTab && kbTab.classList.contains('active')) _kbRS();
+        if (kbTab && kbTab.classList.contains('active')) renderKnowledgeBase();
       }
     }
-  } catch(e) { console.warn('KB load from DB failed:', e); }
+  } catch(e) {}
   finally { _kbDBReady = true; }
 }
-
 function _kbSaveToDB() {
   if (!SB_USER || SB_USER.isDemoUser) return;
   clearTimeout(_kbDBSaveTimer);
   _kbDBSaveTimer = setTimeout(async () => {
     try {
-      const { error } = await sb.from('user_knowledge_base').upsert(
+      await sb.from('user_knowledge_base').upsert(
         { user_id: SB_USER.id, data: _kb3, updated_at: new Date().toISOString() },
         { onConflict: 'user_id' }
       );
-      if (error) console.warn('KB DB save error:', error);
-    } catch(e) { console.warn('KB save to DB failed:', e); }
-  }, 1500); // debounce 1.5s
-}
-function _kbCatD(id) { return _kb3[id]||{folders:[]}; }
-function _kbGetFolder(cid,fid) { return _kbCatD(cid).folders.find(f=>f.id===fid); }
-function _kbGetNote(cid,fid,nid) { return _kbGetFolder(cid,fid)?.notes.find(n=>n.id===nid); }
-function _kbAllNotes() {
-  const a=[];
-  ALL_CATS.forEach(c=>_kbCatD(c.id).folders.forEach(f=>
-    f.notes.forEach(n=>a.push({...n,catId:c.id,folderId:f.id,folderTitle:f.title,catColor:c.color,catIcon:c.icon,catName:c.name}))
-  ));
-  return a;
-}
-function _kbPinned() { return _kbAllNotes().filter(n=>n.pinned); }
-function _kbRecent(lim=6) { return _kbAllNotes().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).slice(0,lim); }
-function _kbCatNC(cid) { return _kbCatD(cid).folders.reduce((a,f)=>a+f.notes.length,0); }
-function _kbUID() { return '_'+Math.random().toString(36).substr(2,9); }
-function _kbEsc2(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function _kbStrip(s) { return String(s||'').replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim(); }
-function _kbWC(html) { 
-  if(!html) return 0;
-  const t=_kbStrip(html); 
-  return t?t.split(/\s+/).filter(Boolean).length:0; 
-}
-function _kbTotalWords() { return _kbAllNotes().reduce((a,n)=>a+_kbWC(n.body||''),0); }
-function _kbUpdatedToday() {
-  const today=new Date(); today.setHours(0,0,0,0);
-  return _kbAllNotes().filter(n=>n.updatedAt && new Date(n.updatedAt)>=today).length;
-}
-function _kbAllTags() {
-  const tags=new Set();
-  _kbAllNotes().forEach(n=>(n.tags||[]).forEach(t=>tags.add(t)));
-  return [...tags];
-}
-function _kbD(ts) {
-  if(!ts) return '';
-  const diff=Date.now()-ts;
-  if(diff<60000) return 'только что';
-  if(diff<3600000) return Math.floor(diff/60000)+' мин';
-  if(diff<86400000) return Math.floor(diff/3600000)+' ч';
-  if(diff<604800000) return Math.floor(diff/86400000)+' дн';
-  return new Date(ts).toLocaleDateString('ru',{day:'numeric',month:'short'});
-}
-function _kbSortNotes(notes) {
-  return [...notes].sort((a,b)=>{
-    if(_kbS.sort==='title') return (a.title||'').localeCompare(b.title||'','ru');
-    if(_kbS.sort==='created') return (b.createdAt||0)-(a.createdAt||0);
-    return (b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0);
-  });
-}
-function _kbExtractTOC(html) {
-  const div=document.createElement('div');
-  div.innerHTML=html;
-  const items=[];
-  div.querySelectorAll('h1,h2,h3').forEach((el,i)=>{
-    items.push({level:parseInt(el.tagName[1]),text:el.textContent.trim(),idx:i});
-  });
-  return items;
-}
-function _kbHighlight(text, q) {
-  if(!q) return _kbEsc2(text);
-  const safe=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-  return _kbEsc2(text).replace(new RegExp(safe,'gi'),m=>`<mark class="k3srch-hl">${m}</mark>`);
+    } catch(e) {}
+  }, 1500);
 }
 
-// ══════════════════════════════════════════════════════════════
-// RENDER ENTRY POINT
-// ══════════════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════════════
-// БАЗА ЗНАНИЙ v5 — Obsidian-style Knowledge Management
-// Architecture: sidebar + adaptive main area
-// State: _kbS → _kbRender() → DOM (one-way, synchronous)
-// ══════════════════════════════════════════════════════════════
-
-// ── Utility helpers ───────────────────────────────────────────
+// ── Utilities ─────────────────────────────────────────────────
 function _kbUID(){ return '_'+Math.random().toString(36).substr(2,9); }
 function _kbEsc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function _kbStrip(s){ return String(s||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim(); }
-function _kbWC(html){ return _kbStrip(html).split(/\s+/).filter(Boolean).length; }
+function _kbWC(html){ const t=_kbStrip(html); return t?t.split(/\s+/).filter(Boolean).length:0; }
+function _kbRT(wc){ return Math.max(1,Math.ceil(wc/200)); }
 function _kbTimeAgo(ts){
   if(!ts) return '';
   const d=Date.now()-ts, m=Math.floor(d/60000), h=Math.floor(d/3600000), dy=Math.floor(d/86400000);
-  if(m<1) return 'только что';
-  if(m<60) return m+' мин';
-  if(h<24) return h+' ч';
-  if(dy<7) return dy+' дн';
-  return new Date(ts).toLocaleDateString('ru',{day:'numeric',month:'short'});
+  if(m<1) return 'только что'; if(m<60) return m+' мин'; if(h<24) return h+' ч';
+  if(dy<7) return dy+' дн'; return new Date(ts).toLocaleDateString('ru',{day:'numeric',month:'short'});
 }
 function _kbGetFolder(cid,fid){ return (_kb3[cid]?.folders||[]).find(f=>f.id===fid); }
 function _kbGetNote(cid,fid,nid){ return _kbGetFolder(cid,fid)?.notes?.find(n=>n.id===nid); }
@@ -25665,1029 +25576,2019 @@ function _kbSortNotes(notes){
   if(_kbS.sort==='created') return [...notes].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   return [...notes].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
 }
-
-// ── Saved selection (toolbar doesn't steal focus) ─────────────
-let _kbSel=null;
 function _kbSaveSel(){ const s=window.getSelection(); if(s&&s.rangeCount) _kbSel=s.getRangeAt(0).cloneRange(); }
 function _kbRestSel(){ if(!_kbSel) return; try{ const s=window.getSelection(); s.removeAllRanges(); s.addRange(_kbSel); }catch(e){} }
 
 // ══════════════════════════════════════════════════════════════
-// MAIN RENDER — single entry point, always synchronous
+// MAIN ENTRY POINT
 // ══════════════════════════════════════════════════════════════
 function renderKnowledgeBase(){
   _kbLoad3();
-  const root=document.getElementById('kb-root');
+  const root = document.getElementById('kb-root');
   if(!root) return;
 
+  // Load fonts once
+  if(!document.getElementById('kb6fonts')){
+    const lk = document.createElement('link');
+    lk.id = 'kb6fonts'; lk.rel = 'stylesheet';
+    lk.href = 'https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400;0,600;1,400&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,300;1,8..60,400&family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Serif:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap';
+    document.head.appendChild(lk);
+  }
+
   // Inject CSS once
-  if(!document.getElementById('kb5css')){
-    const s=document.createElement('style');
-    s.id='kb5css';
-    s.textContent=`
-/* ── Layout ── */
-#kb5{display:flex;height:calc(100vh - 178px);min-height:500px;border-radius:16px;overflow:hidden;border:0.5px solid var(--border);background:var(--bg);font-family:var(--font-body);}
-/* ── Sidebar ── */
-#kb5sb{width:260px;flex-shrink:0;display:flex;flex-direction:column;border-right:0.5px solid var(--border);background:var(--panel);overflow:hidden;}
-#kb5sbh{padding:12px 10px 8px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;}
-#kb5srchw{display:flex;align-items:center;gap:7px;padding:0 10px;height:34px;background:rgba(255,255,255,.05);border:0.5px solid var(--border);border-radius:10px;}
-#kb5srch{flex:1;background:none;border:none;outline:none;font-size:12.5px;color:var(--t1);font-family:inherit;}
-#kb5srch::placeholder{color:var(--t3);}
-#kb5sbi{flex:1;overflow-y:auto;padding:2px 6px 16px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent;}
-#kb5sbi::-webkit-scrollbar{width:3px;}
-#kb5sbi::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:2px;}
-/* Sidebar items */
-.kb5-cat-btn{display:flex;align-items:center;gap:7px;width:100%;padding:5px 8px;border-radius:8px;background:none;border:none;color:var(--t2);font-size:12.5px;font-weight:600;cursor:pointer;text-align:left;transition:background .12s,color .12s;font-family:inherit;}
-.kb5-cat-btn:hover{background:rgba(255,255,255,.05);color:var(--t1);}
-.kb5-cat-btn.active{background:rgba(255,255,255,.07);color:var(--t1);}
-.kb5-cat-icon{width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.kb5-cat-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.kb5-cat-count{font-size:10px;font-family:var(--font-mono);color:var(--t3);padding:1px 5px;border-radius:10px;background:rgba(255,255,255,.06);flex-shrink:0;}
-.kb5-chev{transition:transform .18s;flex-shrink:0;color:var(--t3);}
-.kb5-chev.open{transform:rotate(90deg);}
-.kb5-folder-btn{display:flex;align-items:center;gap:6px;width:100%;padding:4px 8px 4px 28px;border-radius:7px;background:none;border:none;color:var(--t3);font-size:12px;font-weight:500;cursor:pointer;text-align:left;transition:background .12s,color .12s;font-family:inherit;}
-.kb5-folder-btn:hover{background:rgba(255,255,255,.04);color:var(--t2);}
-.kb5-folder-btn.active{background:rgba(245,200,66,.1);color:var(--gold);border-left:2px solid var(--gold);padding-left:26px;}
-.kb5-folder-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.kb5-folder-count{font-size:10px;font-family:var(--font-mono);color:var(--t3);}
-.kb5-add-folder{display:flex;align-items:center;gap:5px;padding:3px 8px 3px 28px;color:var(--t3);font-size:11px;cursor:pointer;border-radius:6px;transition:color .12s,background .12s;width:100%;border:none;background:none;font-family:inherit;text-align:left;}
-.kb5-add-folder:hover{color:var(--t2);background:rgba(255,255,255,.03);}
-.kb5-divider{height:0.5px;background:var(--border);margin:6px 4px;}
-.kb5-lbl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);padding:10px 8px 3px;}
-.kb5-note-btn{display:flex;align-items:center;gap:6px;width:100%;padding:4px 8px 4px 10px;border-radius:7px;background:none;border:none;color:var(--t3);font-size:11.5px;cursor:pointer;text-align:left;transition:background .12s,color .12s;font-family:inherit;}
-.kb5-note-btn:hover{background:rgba(255,255,255,.04);color:var(--t2);}
-.kb5-note-btn.active{background:rgba(255,255,255,.06);color:var(--t1);}
-/* ── Main area ── */
-#kb5main{flex:1;display:flex;overflow:hidden;min-width:0;}
-/* ── Note list panel ── */
-#kb5nl{width:260px;flex-shrink:0;border-right:0.5px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
-#kb5nlh{padding:12px 14px 8px;flex-shrink:0;border-bottom:0.5px solid var(--border);}
-#kb5nlb{flex:1;overflow-y:auto;padding:4px 6px 16px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent;}
-#kb5nlb::-webkit-scrollbar{width:3px;}
-#kb5nlb::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:2px;}
-/* Note cards in list */
-.kb5-nc{padding:9px 10px;border-radius:9px;cursor:pointer;transition:background .12s;margin-bottom:2px;}
-.kb5-nc:hover{background:rgba(255,255,255,.05);}
-.kb5-nc.active{background:rgba(255,255,255,.08);}
-.kb5-nc-title{font-size:13px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:2px;}
-.kb5-nc-prev{font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:3px;}
-.kb5-nc-meta{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--t3);}
-/* ── Editor pane ── */
-#kb5ed{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
-#kb5tb{display:flex;flex-wrap:wrap;gap:2px;padding:6px 12px;background:rgba(16,16,20,.95);backdrop-filter:blur(20px);border-bottom:0.5px solid rgba(255,255,255,.06);flex-shrink:0;align-items:center;}
-#kb5edh{padding:14px 26px 0;flex-shrink:0;}
-#kb5title{width:100%;background:none;border:none;outline:none;font-size:22px;font-weight:800;color:var(--t1);font-family:inherit;letter-spacing:-.03em;padding:0;}
-#kb5title::placeholder{color:var(--t3);}
-#kb5edbc{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 26px 40px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent;}
-#kb5edbc::-webkit-scrollbar{width:4px;}
-#kb5edbc::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px;}
-#kb5area{outline:none;min-height:200px;font-size:15px;line-height:1.8;color:var(--t1);caret-color:var(--gold);}
-#kb5area:empty::before{content:attr(data-ph);color:var(--t3);pointer-events:none;}
-#kb5st{display:flex;align-items:center;gap:8px;padding:5px 20px;background:var(--panel);border-top:0.5px solid var(--border);font-size:10.5px;color:var(--t3);flex-shrink:0;}
-/* Editor formatting */
-#kb5area h1{font-size:26px;font-weight:800;margin:24px 0 10px;letter-spacing:-.04em;line-height:1.2;color:var(--t1);}
-#kb5area h2{font-size:20px;font-weight:700;margin:20px 0 9px;letter-spacing:-.025em;line-height:1.3;color:var(--t1);}
-#kb5area h3{font-size:16px;font-weight:650;margin:16px 0 8px;letter-spacing:-.015em;line-height:1.4;color:var(--t1);}
-#kb5area p{margin:0 0 10px;}
-#kb5area blockquote{border-left:3px solid var(--gold);padding:10px 18px;margin:14px 0;background:rgba(245,200,66,.04);border-radius:0 10px 10px 0;color:var(--t2);font-style:italic;font-size:14.5px;line-height:1.75;}
-#kb5area pre{background:rgba(0,0,0,.25);border-radius:10px;padding:16px 18px;margin:14px 0;overflow-x:auto;font-family:var(--font-mono);font-size:13px;}
-#kb5area code{font-family:var(--font-mono);font-size:.82em;background:rgba(128,128,128,.15);padding:2px 6px;border-radius:4px;}
-#kb5area ul,#kb5area ol{margin:0 0 10px 22px;padding:0;}
-#kb5area li{margin-bottom:3px;}
-#kb5area a{color:var(--gold);text-decoration:underline;text-decoration-color:rgba(245,200,66,.35);}
-#kb5area hr{border:none;border-top:0.5px solid var(--border);margin:20px 0;}
-#kb5area table{border-collapse:collapse;margin:14px 0;width:100%;}
-#kb5area td,#kb5area th{border:0.5px solid var(--border);padding:8px 12px;text-align:left;font-size:13.5px;}
-#kb5area th{background:rgba(255,255,255,.04);font-weight:600;}
-/* Todo */
-.kb5-todo{display:flex;align-items:center;gap:9px;margin:3px 0;padding:4px 6px;border-radius:8px;transition:background .12s;user-select:text;}
-.kb5-todo:hover{background:rgba(255,255,255,.03);}
-.kb5-chk{width:18px;height:18px;min-width:18px;border-radius:5px;border:1.5px solid rgba(255,255,255,.22);background:transparent;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all .18s;flex-shrink:0;}
-.kb5-todo.done .kb5-chk{background:var(--gold);border-color:var(--gold);}
-.kb5-todo.done .kb5-txt{opacity:.45;text-decoration:line-through;}
-.kb5-txt{flex:1;outline:none;min-width:0;font-style:normal !important;}
-/* Toolbar buttons */
-.kb5-tb{height:28px;min-width:28px;padding:0 7px;border-radius:7px;background:none;border:none;color:var(--t2);font-size:12px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-family:inherit;transition:background .12s,color .12s;}
-.kb5-tb:hover{background:rgba(255,255,255,.08);color:var(--t1);}
-.kb5-tb.active{background:rgba(245,200,66,.12);color:var(--gold);}
-.kb5-tbsep{width:0.5px;height:18px;background:rgba(255,255,255,.08);margin:0 2px;flex-shrink:0;}
-/* Style dropdown */
-.kb5-dd{position:relative;}
-.kb5-ddbtn{height:28px;padding:0 10px;border-radius:7px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.08);color:var(--t2);font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-family:inherit;transition:background .12s;}
-.kb5-ddbtn:hover{background:rgba(255,255,255,.09);}
-.kb5-ddlist{position:absolute;top:calc(100% + 6px);left:0;background:rgba(12,12,18,.92);border:0.5px solid rgba(255,255,255,.12);border-radius:14px;padding:6px;min-width:190px;z-index:9999;animation:kb5drop .15s cubic-bezier(.34,1.15,.64,1) both;backdrop-filter:blur(40px) saturate(180%);-webkit-backdrop-filter:blur(40px) saturate(180%);box-shadow:0 24px 64px rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.08);}
-@keyframes kb5drop{from{opacity:0;transform:translateY(-6px) scale(.97)}to{opacity:1;transform:none}}
-.kb5-ddopt{display:flex;align-items:center;gap:9px;padding:8px 12px;border-radius:9px;cursor:pointer;color:var(--t1);font-size:13px;transition:background .1s;}
-.kb5-ddopt:hover{background:rgba(255,255,255,.07);}
-.kb5-ddopt-ico{width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:5px;background:rgba(255,255,255,.06);font-size:10px;font-weight:700;flex-shrink:0;}
-.kb5-ddsep{height:0.5px;background:rgba(255,255,255,.06);margin:4px 6px;}
-/* Home */
-#kb5home{flex:1;overflow-y:auto;padding:24px 28px;}
-.kb5-stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:22px;}
-.kb5-stat{border-radius:12px;padding:14px;border:0.5px solid var(--border);background:rgba(255,255,255,.03);}
-.kb5-stat-n{font-size:24px;font-weight:800;font-family:var(--font-mono);letter-spacing:-.03em;}
-.kb5-stat-l{font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-top:2px;}
-.kb5-cat-card{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.03);border:0.5px solid var(--border);cursor:pointer;transition:all .18s;}
-.kb5-cat-card:hover{background:rgba(255,255,255,.06);transform:translateY(-2px);}
-.kb5-cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:22px;}
-.kb5-recent-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;cursor:pointer;transition:background .12s;}
-.kb5-recent-row:hover{background:rgba(255,255,255,.05);}
-/* Modal */
-#kb5ov{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:9000;border-radius:16px;}
-#kb5ov.on{display:flex;}
-#kb5modal{background:var(--card);border:0.5px solid var(--border);border-radius:18px;padding:22px;min-width:320px;max-width:480px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.7);}
-/* Empty states */
-.kb5-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;color:var(--t3);text-align:center;gap:8px;}
-.kb5-empty-ico{font-size:32px;margin-bottom:4px;}
-.kb5-empty-ttl{font-size:15px;font-weight:700;color:var(--t2);}
-/* Buttons */
-.kb5-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .18s;}
-.kb5-btn-gold{background:linear-gradient(90deg,var(--gold-d),var(--gold));color:#09090B;}
-.kb5-btn-gold:hover{opacity:.9;transform:translateY(-1px);}
-.kb5-btn-ghost{background:rgba(255,255,255,.06);border:0.5px solid var(--border);color:var(--t2);}
-.kb5-btn-ghost:hover{background:rgba(255,255,255,.1);color:var(--t1);}
-.kb5-btn-danger{background:rgba(239,68,68,.1);border:0.5px solid rgba(239,68,68,.2);color:var(--red);}
-.kb5-btn-danger:hover{background:rgba(239,68,68,.18);}
-/* Input */
-.kb5-inp{width:100%;padding:9px 12px;border-radius:9px;background:var(--card);border:0.5px solid var(--border);color:var(--t1);font-size:13px;outline:none;font-family:inherit;box-sizing:border-box;}
-.kb5-inp:focus{border-color:rgba(245,200,66,.4);}
-/* Tag */
-.kb5-tag{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:600;}
-/* Sort chips */
-.kb5-chip{padding:4px 10px;border-radius:20px;border:0.5px solid var(--border);background:none;color:var(--t3);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .12s;}
-.kb5-chip.active{background:rgba(245,200,66,.1);border-color:rgba(245,200,66,.3);color:var(--gold);}
-/* Animations */
-@keyframes kb5in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-.kb5-anim{animation:kb5in .2s ease both;}
-/* Status bar */
-.kb5-sv{font-size:11px;color:var(--t3);}
-.kb5-sv.saving{color:var(--gold);}
-.kb5-sv.saved{color:#22C55E;}
-`;
+  if(!document.getElementById('kb6css')){
+    const s = document.createElement('style');
+    s.id = 'kb6css';
+    s.textContent = _kbCSS();
     document.head.appendChild(s);
   }
 
-  // Build shell (only once)
-  if(!document.getElementById('kb5')){
-    root.innerHTML=`
-<div id="kb5" style="position:relative;">
-  <!-- Sidebar -->
-  <nav id="kb5sb">
-    <div id="kb5sbh">
-      <div id="kb5srchw">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--t3);flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input id="kb5srch" type="text" placeholder="Поиск заметок..." autocomplete="off" oninput="_kbSearch(this.value)">
-        <svg id="kb5srch-x" onclick="_kbSearchClear()" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--t3);cursor:pointer;display:none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </div>
-      <button class="kb5-btn kb5-btn-gold" onclick="_kbNewNote()" style="width:100%;justify-content:center;padding:7px 12px;">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Новая заметка
-      </button>
-    </div>
-    <div id="kb5sbi"></div>
-  </nav>
-  <!-- Main -->
-  <div id="kb5main">
-    <div id="kb5home" style="display:none"></div>
-    <div id="kb5nl" style="display:none">
-      <div id="kb5nlh"></div>
-      <div id="kb5nlb"></div>
-    </div>
-    <div id="kb5ed" style="display:none">
-      <div id="kb5tb"></div>
-      <div id="kb5edh">
-        <input id="kb5title" type="text" placeholder="Заголовок..." autocomplete="off">
-      </div>
-      <div id="kb5edbc">
-        <div id="kb5area" contenteditable="true" data-ph="Начни писать... (Markdown поддерживается)"></div>
-      </div>
-      <div id="kb5st">
-        <span id="kb5sv" class="kb5-sv"></span>
-        <span style="flex:1"></span>
-        <span id="kb5wc" style="font-family:var(--font-mono);font-size:10px;color:var(--t3)"></span>
-        <span style="color:var(--border)">·</span>
-        <span id="kb5tags" style="display:flex;gap:4px;flex-wrap:wrap;align-items:center"></span>
-        <button class="kb5-tb" onclick="_kbAddTagPrompt()" title="Добавить тег" style="height:20px;font-size:10px;padding:0 6px;color:var(--t3)">+ тег</button>
-      </div>
-    </div>
-  </div>
-  <!-- Modal overlay -->
-  <div id="kb5ov" onclick="if(event.target===this)_kbCloseMod()">
-    <div id="kb5modal"></div>
-  </div>
-</div>`;
-
-    // Toolbar mousedown — prevent focus/selection steal
-    document.addEventListener('mousedown', e=>{
-      const tb=document.getElementById('kb5tb');
-      if(tb&&tb.contains(e.target)){
-        const t=e.target.tagName;
-        if(t!=='INPUT'&&t!=='SELECT'&&t!=='TEXTAREA'){
-          _kbSaveSel(); e.preventDefault();
-        }
-      }
-    }, true);
-  }
-
-  _kbRenderSidebar();
-  _kbRenderMain();
+  root.innerHTML = _kbBuildShell();
+  _kbBindEvents();
+  _kbRenderAll();
 }
 
-// ── Sidebar ───────────────────────────────────────────────────
-function _kbRenderSidebar(){
-  const sb=document.getElementById('kb5sbi'); if(!sb) return;
-  const q=(_kbS.search||'').toLowerCase();
+// ══════════════════════════════════════════════════════════════
+// CSS
+// ══════════════════════════════════════════════════════════════
+function _kbCSS(){ return `
+/* ── KB6 Root ── */
+#kb6 {
+  display: flex; height: calc(100vh - 170px); min-height: 560px;
+  border-radius: 18px; overflow: hidden;
+  border: 0.5px solid rgba(255,255,255,.07);
+  background: #080810;
+  font-family: 'Inter', var(--font-body), sans-serif;
+  position: relative;
+}
+/* ── Sidebar ── */
+#kb6sb {
+  width: 248px; flex-shrink: 0; display: flex; flex-direction: column;
+  border-right: 0.5px solid rgba(255,255,255,.06);
+  background: rgba(8,8,14,.98);
+  overflow: hidden; transition: width .3s cubic-bezier(.4,0,.2,1);
+  position: relative; z-index: 10;
+}
+#kb6sb.collapsed { width: 52px; }
+#kb6sb-top {
+  padding: 14px 10px 10px; flex-shrink: 0;
+  border-bottom: 0.5px solid rgba(255,255,255,.05);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.kb6-logo {
+  display: flex; align-items: center; gap: 9px;
+  padding: 0 2px; overflow: hidden;
+}
+.kb6-logo-ico {
+  width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(245,200,66,.18), rgba(245,200,66,.06));
+  border: 0.5px solid rgba(245,200,66,.25);
+  display: flex; align-items: center; justify-content: center;
+}
+.kb6-logo-txt {
+  font-size: 13px; font-weight: 800; letter-spacing: -.02em;
+  color: var(--t1); white-space: nowrap; opacity: 1;
+  transition: opacity .2s;
+}
+#kb6sb.collapsed .kb6-logo-txt,
+#kb6sb.collapsed .kb6-sbq,
+#kb6sb.collapsed .kb6-new-note-btn { opacity: 0; pointer-events: none; }
+#kb6sb.collapsed .kb6-cat-name,
+#kb6sb.collapsed .kb6-cat-count,
+#kb6sb.collapsed .kb6-chev,
+#kb6sb.collapsed .kb6-folder-wrap,
+#kb6sb.collapsed .kb6-sbq { display: none; }
+.kb6-new-note-btn {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  width: 100%; padding: 8px 12px; border-radius: 10px;
+  background: rgba(245,200,66,.1); border: 0.5px solid rgba(245,200,66,.22);
+  color: var(--gold); font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: all .18s; font-family: inherit; white-space: nowrap;
+  letter-spacing: .01em;
+}
+.kb6-new-note-btn:hover {
+  background: rgba(245,200,66,.18); border-color: rgba(245,200,66,.4);
+  transform: translateY(-1px); box-shadow: 0 4px 14px rgba(245,200,66,.18);
+}
+/* Search */
+.kb6-sbq {
+  display: flex; align-items: center; gap: 7px;
+  padding: 0 10px; height: 32px;
+  background: rgba(255,255,255,.05); border: 0.5px solid rgba(255,255,255,.08);
+  border-radius: 9px; transition: border-color .18s, background .18s;
+}
+.kb6-sbq:focus-within {
+  border-color: rgba(245,200,66,.3); background: rgba(245,200,66,.04);
+}
+.kb6-sbq input {
+  flex: 1; background: none; border: none; outline: none;
+  font-size: 12px; color: var(--t1); font-family: inherit;
+}
+.kb6-sbq input::placeholder { color: var(--t3); }
+/* Sidebar scroll area */
+#kb6-sb-scroll {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  padding: 6px 6px 20px;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.07) transparent;
+}
+#kb6-sb-scroll::-webkit-scrollbar { width: 3px; }
+#kb6-sb-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); border-radius: 2px; }
+/* Category items */
+.kb6-cat-row {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: 6px 8px; border-radius: 9px;
+  background: none; border: none; color: var(--t2);
+  font-size: 12.5px; font-weight: 600; cursor: pointer;
+  text-align: left; transition: background .12s, color .12s;
+  font-family: inherit; position: relative;
+}
+.kb6-cat-row:hover { background: rgba(255,255,255,.05); color: var(--t1); }
+.kb6-cat-row.active { background: rgba(255,255,255,.07); color: var(--t1); }
+.kb6-cat-ico {
+  width: 22px; height: 22px; border-radius: 7px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.kb6-cat-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kb6-cat-count {
+  font-size: 9.5px; font-family: var(--font-mono);
+  color: var(--t3); background: rgba(255,255,255,.06);
+  padding: 1px 5px; border-radius: 8px; flex-shrink: 0;
+}
+.kb6-chev {
+  transition: transform .22s cubic-bezier(.34,1.2,.64,1); flex-shrink: 0; color: var(--t3);
+}
+.kb6-chev.open { transform: rotate(90deg); }
+/* Folder items */
+.kb6-folder-wrap { overflow: hidden; }
+.kb6-folder-row {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: 5px 8px 5px 28px; border-radius: 8px;
+  background: none; border: none; color: var(--t3);
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  text-align: left; transition: background .12s, color .12s, border-color .12s;
+  font-family: inherit; border-left: 2px solid transparent;
+}
+.kb6-folder-row:hover { background: rgba(255,255,255,.04); color: var(--t2); }
+.kb6-folder-row.active {
+  background: rgba(245,200,66,.08); color: var(--gold);
+  border-left-color: var(--gold); padding-left: 26px;
+}
+.kb6-folder-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kb6-folder-count { font-size: 9.5px; font-family: var(--font-mono); color: var(--t3); flex-shrink: 0; }
+.kb6-add-folder-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 3px 8px 4px 28px; color: var(--t3); font-size: 11px;
+  cursor: pointer; border-radius: 6px; transition: color .12s, background .12s;
+  width: 100%; border: none; background: none; font-family: inherit; text-align: left;
+}
+.kb6-add-folder-btn:hover { color: var(--gold); background: rgba(245,200,66,.04); }
+.kb6-sb-divider { height: 0.5px; background: rgba(255,255,255,.05); margin: 6px 4px; }
+.kb6-sb-lbl {
+  font-size: 9px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .1em; color: var(--t3); padding: 10px 8px 4px;
+}
+/* Pinned notes in sidebar */
+.kb6-pin-row {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: 4px 8px; border-radius: 7px;
+  background: none; border: none; color: var(--t3);
+  font-size: 11.5px; cursor: pointer; text-align: left;
+  transition: background .12s, color .12s; font-family: inherit;
+}
+.kb6-pin-row:hover { background: rgba(255,255,255,.04); color: var(--t2); }
+.kb6-pin-row.active { color: var(--t1); background: rgba(255,255,255,.06); }
+/* Sidebar collapse button */
+.kb6-sb-collapse {
+  position: absolute; bottom: 14px; right: 10px;
+  width: 26px; height: 26px; border-radius: 7px;
+  background: rgba(255,255,255,.06); border: 0.5px solid rgba(255,255,255,.1);
+  color: var(--t3); cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all .18s; z-index: 5;
+}
+.kb6-sb-collapse:hover { color: var(--t1); background: rgba(255,255,255,.1); }
 
-  // Search mode
+/* ── Note List Panel ── */
+#kb6nl {
+  width: 272px; flex-shrink: 0; display: flex; flex-direction: column;
+  border-right: 0.5px solid rgba(255,255,255,.06);
+  background: rgba(10,10,16,.97); overflow: hidden;
+  transition: width .3s cubic-bezier(.4,0,.2,1);
+}
+#kb6nl-head {
+  padding: 14px 16px 10px; flex-shrink: 0;
+  border-bottom: 0.5px solid rgba(255,255,255,.05);
+}
+.kb6-nl-title {
+  font-size: 14px; font-weight: 800; color: var(--t1);
+  letter-spacing: -.025em; margin-bottom: 8px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.kb6-nl-meta {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.kb6-nl-sort {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 10.5px; color: var(--t3); font-weight: 600;
+}
+.kb6-nl-sort-btn {
+  padding: 2px 7px; border-radius: 6px; border: none;
+  background: transparent; color: var(--t3); font-size: 10.5px;
+  cursor: pointer; font-family: inherit; font-weight: 600;
+  transition: color .12s, background .12s;
+}
+.kb6-nl-sort-btn:hover { color: var(--t1); background: rgba(255,255,255,.06); }
+.kb6-nl-sort-btn.active { color: var(--gold); }
+.kb6-nl-add {
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  height: 28px; padding: 0 10px; border-radius: 8px;
+  background: rgba(245,200,66,.1); border: 0.5px solid rgba(245,200,66,.2);
+  color: var(--gold); font-size: 11px; font-weight: 700; cursor: pointer;
+  font-family: inherit; transition: all .15s; white-space: nowrap;
+}
+.kb6-nl-add:hover { background: rgba(245,200,66,.18); transform: translateY(-1px); }
+#kb6nl-scroll {
+  flex: 1; overflow-y: auto; padding: 6px 8px 20px;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.07) transparent;
+}
+#kb6nl-scroll::-webkit-scrollbar { width: 3px; }
+#kb6nl-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); border-radius: 2px; }
+/* Note cards */
+.kb6-nc {
+  padding: 10px 12px; border-radius: 11px; cursor: pointer;
+  transition: background .12s, border-color .15s; margin-bottom: 3px;
+  border: 0.5px solid transparent; position: relative;
+}
+.kb6-nc:hover { background: rgba(255,255,255,.045); border-color: rgba(255,255,255,.07); }
+.kb6-nc.active {
+  background: rgba(255,255,255,.07); border-color: rgba(245,200,66,.18);
+  box-shadow: 0 0 0 0.5px rgba(245,200,66,.08);
+}
+.kb6-nc-title {
+  font-size: 13px; font-weight: 700; color: var(--t1);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  margin-bottom: 3px; letter-spacing: -.01em;
+}
+.kb6-nc-prev {
+  font-size: 11px; color: var(--t3); line-height: 1.4;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; margin-bottom: 6px;
+}
+.kb6-nc-meta {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.kb6-nc-time { font-size: 10px; color: var(--t3); }
+.kb6-nc-pin {
+  width: 14px; height: 14px; color: var(--gold);
+  display: flex; align-items: center; justify-content: center;
+}
+.kb6-nc-tag {
+  font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 6px;
+  background: rgba(245,200,66,.1); color: var(--gold); letter-spacing: .02em;
+}
+.kb6-nc-wc { font-size: 10px; color: var(--t3); margin-left: auto; }
+
+/* ── Editor / Main Pane ── */
+#kb6ed {
+  flex: 1; display: flex; flex-direction: column;
+  overflow: hidden; min-width: 0; position: relative;
+  background: #07070C;
+}
+/* Toolbar */
+#kb6tb {
+  display: flex; align-items: center; gap: 2px; flex-wrap: nowrap;
+  padding: 6px 14px; background: rgba(10,10,16,.96);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-bottom: 0.5px solid rgba(255,255,255,.06);
+  flex-shrink: 0; overflow-x: auto; scrollbar-width: none;
+  transition: transform .3s cubic-bezier(.4,0,.2,1), opacity .3s;
+}
+#kb6tb::-webkit-scrollbar { display: none; }
+.kb6-tb-btn {
+  height: 28px; min-width: 28px; padding: 0 7px;
+  border-radius: 7px; background: none; border: none;
+  color: var(--t2); font-size: 12px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: inherit; transition: background .12s, color .12s;
+  flex-shrink: 0; gap: 4px; white-space: nowrap;
+}
+.kb6-tb-btn:hover { background: rgba(255,255,255,.08); color: var(--t1); }
+.kb6-tb-btn.active { background: rgba(245,200,66,.12); color: var(--gold); }
+.kb6-tb-sep {
+  width: 0.5px; height: 18px; background: rgba(255,255,255,.08);
+  margin: 0 3px; flex-shrink: 0;
+}
+/* Font dropdown */
+.kb6-font-dd {
+  position: relative; flex-shrink: 0;
+}
+.kb6-font-dd-btn {
+  height: 28px; padding: 0 10px; border-radius: 7px;
+  background: rgba(255,255,255,.05); border: 0.5px solid rgba(255,255,255,.08);
+  color: var(--t2); font-size: 11.5px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: inherit; transition: background .12s;
+}
+.kb6-font-dd-btn:hover { background: rgba(255,255,255,.09); color: var(--t1); }
+.kb6-dd-panel {
+  position: absolute; top: calc(100% + 8px); left: 0;
+  background: rgba(10,10,18,.96); border: 0.5px solid rgba(255,255,255,.12);
+  border-radius: 14px; padding: 6px; min-width: 200px;
+  z-index: 9999; box-shadow: 0 24px 64px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.07);
+  backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
+  animation: kb6dd .16s cubic-bezier(.34,1.15,.64,1) both;
+}
+@keyframes kb6dd { from{opacity:0;transform:translateY(-6px) scale(.97)} to{opacity:1;transform:none} }
+.kb6-dd-opt {
+  display: flex; align-items: center; gap: 9px; padding: 8px 12px;
+  border-radius: 9px; cursor: pointer; color: var(--t1);
+  font-size: 13px; transition: background .1s;
+}
+.kb6-dd-opt:hover { background: rgba(255,255,255,.07); }
+.kb6-dd-opt.active { color: var(--gold); }
+.kb6-dd-sep { height: 0.5px; background: rgba(255,255,255,.06); margin: 4px 6px; }
+/* Heading dropdown */
+.kb6-hdrop {
+  position: absolute; top: calc(100% + 8px); left: 0;
+  background: rgba(10,10,18,.96); border: 0.5px solid rgba(255,255,255,.12);
+  border-radius: 14px; padding: 6px; min-width: 180px;
+  z-index: 9999; box-shadow: 0 24px 64px rgba(0,0,0,.8);
+  backdrop-filter: blur(40px); animation: kb6dd .16s cubic-bezier(.34,1.15,.64,1) both;
+}
+/* Editor header */
+#kb6-ed-head {
+  padding: 20px 30px 0; flex-shrink: 0;
+}
+#kb6etitle {
+  width: 100%; background: none; border: none; outline: none;
+  font-size: 26px; font-weight: 800; color: var(--t1); font-family: inherit;
+  letter-spacing: -.04em; padding: 0; line-height: 1.2;
+}
+#kb6etitle::placeholder { color: rgba(255,255,255,.12); }
+.kb6-ed-tags {
+  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+  margin-top: 8px; margin-bottom: 0;
+}
+.kb6-tag-pill {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 8px;
+  background: rgba(255,255,255,.06); border: 0.5px solid rgba(255,255,255,.1);
+  color: var(--t2); cursor: pointer; transition: all .15s;
+}
+.kb6-tag-pill:hover { color: var(--red); border-color: rgba(239,68,68,.3); }
+.kb6-tag-add {
+  font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 8px;
+  background: none; border: 0.5px solid rgba(255,255,255,.08);
+  color: var(--t3); cursor: pointer; transition: all .15s; font-family: inherit;
+}
+.kb6-tag-add:hover { color: var(--gold); border-color: rgba(245,200,66,.3); }
+/* Editor scroll area */
+#kb6-ed-scroll {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  padding: 16px 30px 60px;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.07) transparent;
+}
+#kb6-ed-scroll::-webkit-scrollbar { width: 4px; }
+#kb6-ed-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 2px; }
+/* Content editable area */
+#kb6area {
+  outline: none; min-height: 240px; color: var(--t1);
+  caret-color: var(--gold); line-height: 1.8; font-size: 15px;
+  font-family: inherit; transition: font-family .3s, font-size .3s;
+}
+#kb6area:empty::before {
+  content: attr(data-ph); color: rgba(255,255,255,.14); pointer-events: none;
+}
+/* Rich text formatting */
+#kb6area h1 { font-size: 28px; font-weight: 800; margin: 26px 0 10px; letter-spacing: -.045em; line-height: 1.15; color: var(--t1); }
+#kb6area h2 { font-size: 22px; font-weight: 700; margin: 22px 0 9px; letter-spacing: -.03em; line-height: 1.25; color: var(--t1); }
+#kb6area h3 { font-size: 18px; font-weight: 650; margin: 18px 0 8px; letter-spacing: -.02em; line-height: 1.35; color: var(--t1); }
+#kb6area p { margin: 0 0 10px; }
+#kb6area blockquote {
+  border-left: 3px solid var(--gold); padding: 12px 20px; margin: 16px 0;
+  background: linear-gradient(90deg, rgba(245,200,66,.05), transparent);
+  border-radius: 0 12px 12px 0; color: var(--t2);
+  font-style: italic; font-size: 15px; line-height: 1.75;
+}
+#kb6area pre {
+  background: rgba(0,0,0,.35); border-radius: 12px; padding: 18px 20px; margin: 16px 0;
+  overflow-x: auto; font-family: var(--font-mono); font-size: 13px;
+  border: 0.5px solid rgba(255,255,255,.08); line-height: 1.6;
+}
+#kb6area code {
+  font-family: var(--font-mono); font-size: .83em;
+  background: rgba(128,128,128,.15); padding: 2px 6px; border-radius: 5px;
+}
+#kb6area ul { margin: 0 0 10px 0; padding: 0 0 0 4px; list-style: none; }
+#kb6area ul li::before {
+  content: '✦'; color: var(--gold); font-size: 10px;
+  margin-right: 8px; line-height: 1;
+}
+#kb6area ul li { display: flex; align-items: baseline; gap: 0; margin-bottom: 4px; }
+#kb6area ol { margin: 0 0 10px 24px; padding: 0; }
+#kb6area ol li { margin-bottom: 4px; padding-left: 4px; }
+#kb6area a { color: var(--gold); text-decoration: underline; text-decoration-color: rgba(245,200,66,.35); }
+#kb6area hr { border: none; border-top: 0.5px solid rgba(255,255,255,.1); margin: 22px 0; }
+/* Checklist */
+.kb6-todo {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin: 4px 0; padding: 4px 6px; border-radius: 9px;
+  transition: background .12s; user-select: text;
+}
+.kb6-todo:hover { background: rgba(255,255,255,.03); }
+.kb6-chk {
+  width: 18px; height: 18px; min-width: 18px; border-radius: 5px;
+  border: 1.5px solid rgba(255,255,255,.22); background: transparent;
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  transition: all .2s cubic-bezier(.34,1.56,.64,1); flex-shrink: 0; margin-top: 3px;
+}
+.kb6-todo.done .kb6-chk {
+  background: var(--gold); border-color: var(--gold);
+  box-shadow: 0 0 10px rgba(245,200,66,.35);
+}
+.kb6-todo.done .kb6-txt { opacity: .45; text-decoration: line-through; }
+.kb6-txt { flex: 1; outline: none; min-width: 0; }
+/* Status bar */
+#kb6st {
+  display: flex; align-items: center; gap: 10px; padding: 5px 20px;
+  background: rgba(8,8,14,.96); border-top: 0.5px solid rgba(255,255,255,.05);
+  font-size: 10.5px; color: var(--t3); flex-shrink: 0; gap: 12px;
+}
+#kb6st .kb6-st-sep { width: 0.5px; height: 10px; background: rgba(255,255,255,.08); }
+.kb6-save-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green); display: inline-block; flex-shrink: 0;
+  transition: background .3s, box-shadow .3s;
+}
+.kb6-save-dot.saving { background: var(--gold); box-shadow: 0 0 6px rgba(245,200,66,.6); animation: kb6pulse 1s ease infinite; }
+@keyframes kb6pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* ── Note action menu ── */
+#kb6-note-menu {
+  position: absolute; z-index: 9999;
+  background: rgba(12,12,18,.97); border: 0.5px solid rgba(255,255,255,.12);
+  border-radius: 14px; padding: 6px; min-width: 190px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.07);
+  backdrop-filter: blur(40px); animation: kb6dd .15s cubic-bezier(.34,1.2,.64,1) both;
+}
+.kb6-menu-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 14px;
+  border-radius: 9px; cursor: pointer; color: var(--t1);
+  font-size: 13px; transition: background .1s; font-family: inherit;
+  width: 100%; border: none; background: none; text-align: left;
+}
+.kb6-menu-item:hover { background: rgba(255,255,255,.07); }
+.kb6-menu-item.danger { color: var(--red); }
+.kb6-menu-item.danger:hover { background: rgba(239,68,68,.08); }
+.kb6-menu-sep { height: 0.5px; background: rgba(255,255,255,.06); margin: 4px 6px; }
+
+/* ── Home Dashboard ── */
+#kb6home {
+  flex: 1; overflow-y: auto; padding: 28px 32px;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.07) transparent;
+}
+#kb6home::-webkit-scrollbar { width: 4px; }
+#kb6home::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 2px; }
+.kb6-stat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 28px; }
+.kb6-stat {
+  border-radius: 14px; padding: 16px 18px;
+  border: 0.5px solid rgba(255,255,255,.07);
+  background: rgba(255,255,255,.03);
+  transition: transform .18s, border-color .18s;
+}
+.kb6-stat:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.12); }
+.kb6-stat-n { font-size: 28px; font-weight: 400; font-family: var(--font-mono); letter-spacing: -.04em; line-height: 1; }
+.kb6-stat-l { font-size: 10px; color: var(--t3); font-weight: 700; text-transform: uppercase; letter-spacing: .07em; margin-top: 4px; }
+.kb6-sec-lbl {
+  font-size: 10px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .1em; color: var(--t3); margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.kb6-sec-lbl::before {
+  content: ''; display: inline-block; width: 3px; height: 11px;
+  border-radius: 2px; background: var(--gold); opacity: .6; flex-shrink: 0;
+}
+.kb6-cat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 28px; }
+.kb6-cat-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  padding: 14px 16px; border-radius: 14px;
+  background: rgba(255,255,255,.03); border: 0.5px solid rgba(255,255,255,.07);
+  cursor: pointer; transition: all .2s cubic-bezier(.34,1.2,.64,1);
+}
+.kb6-cat-card:hover { background: rgba(255,255,255,.06); transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+.kb6-cat-card-ico { width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.kb6-cat-card-name { font-size: 13px; font-weight: 700; color: var(--t1); letter-spacing: -.015em; }
+.kb6-cat-card-meta { font-size: 10.5px; color: var(--t3); }
+.kb6-recent-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; margin-bottom: 28px; }
+.kb6-recent-card {
+  padding: 14px 16px; border-radius: 14px;
+  background: rgba(255,255,255,.03); border: 0.5px solid rgba(255,255,255,.07);
+  cursor: pointer; transition: all .18s; overflow: hidden;
+}
+.kb6-recent-card:hover { background: rgba(255,255,255,.06); transform: translateY(-2px); border-color: rgba(255,255,255,.12); }
+.kb6-recent-cat {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .07em; margin-bottom: 6px;
+}
+.kb6-recent-title { font-size: 14px; font-weight: 700; color: var(--t1); letter-spacing: -.02em; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kb6-recent-prev { font-size: 11px; color: var(--t3); line-height: 1.45; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; margin-bottom: 8px; }
+.kb6-recent-time { font-size: 10px; color: var(--t3); }
+.kb6-pin-grid { display: flex; flex-direction: column; gap: 4px; margin-bottom: 28px; }
+.kb6-pin-card {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  border-radius: 11px; background: rgba(255,255,255,.03);
+  border: 0.5px solid rgba(255,255,255,.07); cursor: pointer; transition: all .15s;
+}
+.kb6-pin-card:hover { background: rgba(255,255,255,.06); border-color: rgba(245,200,66,.18); }
+
+/* ── Focus Mode ── */
+#kb6 .kb6-focus-on { pointer-events: none; opacity: 0; max-height: 0; overflow: hidden; }
+#kb6.focus-mode #kb6sb,
+#kb6.focus-mode #kb6nl,
+#kb6.focus-mode #kb6home { display: none !important; }
+#kb6.focus-mode { background: #06060B; }
+#kb6.focus-mode #kb6-ed-scroll { padding: 24px 15% 80px; }
+#kb6.focus-mode #kb6etitle { font-size: 32px; }
+#kb6.focus-mode #kb6area { font-size: 17px; line-height: 2; }
+#kb6.focus-mode #kb6tb { display: none; }
+#kb6.focus-mode #kb6-ed-head { padding: 40px 15% 0; }
+#kb6-focus-exit {
+  position: fixed; top: 16px; right: 16px; z-index: 99999;
+  display: none; align-items: center; gap: 7px; padding: 6px 14px;
+  background: rgba(255,255,255,.08); border: 0.5px solid rgba(255,255,255,.14);
+  border-radius: 20px; color: var(--t2); font-size: 11px; font-weight: 700;
+  cursor: pointer; font-family: inherit; transition: all .18s;
+}
+#kb6-focus-exit:hover { color: var(--t1); background: rgba(255,255,255,.14); }
+body.kb6-focus-active #kb6-focus-exit { display: flex; }
+body.kb6-focus-active { overflow: hidden; }
+
+/* ── Reading Mode ── */
+#kb6reader {
+  position: absolute; inset: 0; z-index: 100;
+  display: none; flex-direction: column; overflow: hidden;
+  background: #07070C;
+  animation: kb6fadeIn .3s ease both;
+}
+@keyframes kb6fadeIn { from{opacity:0} to{opacity:1} }
+#kb6reader.on { display: flex; }
+/* Read progress bar */
+#kb6-read-prog {
+  position: absolute; top: 0; left: 0; height: 3px; z-index: 10;
+  background: linear-gradient(90deg, var(--gold-d), var(--gold), var(--gold-l));
+  box-shadow: 0 0 10px rgba(245,200,66,.5);
+  transition: width .15s ease; border-radius: 0 3px 3px 0;
+}
+/* Reader toolbar */
+#kb6-rd-tb {
+  display: flex; align-items: center; gap: 8px; padding: 12px 24px;
+  background: rgba(8,8,14,.96); border-bottom: 0.5px solid rgba(255,255,255,.06);
+  flex-shrink: 0; backdrop-filter: blur(20px);
+}
+.kb6-rd-ctrl {
+  display: flex; align-items: center; gap: 4px;
+  padding: 5px 10px; border-radius: 9px;
+  background: rgba(255,255,255,.05); border: 0.5px solid rgba(255,255,255,.09);
+  font-size: 12px; color: var(--t2); cursor: pointer; transition: all .15s;
+  font-family: inherit;
+}
+.kb6-rd-ctrl:hover { background: rgba(255,255,255,.09); color: var(--t1); }
+.kb6-rd-ctrl.active { background: rgba(245,200,66,.1); border-color: rgba(245,200,66,.28); color: var(--gold); }
+.kb6-rd-divider { width: 0.5px; height: 18px; background: rgba(255,255,255,.08); margin: 0 4px; }
+.kb6-rd-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--t3); flex-shrink: 0; }
+/* Reader body */
+#kb6-rd-body {
+  flex: 1; overflow-y: auto; padding: 0;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.07) transparent;
+}
+#kb6-rd-body::-webkit-scrollbar { width: 4px; }
+#kb6-rd-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 2px; }
+#kb6-rd-content {
+  max-width: 700px; margin: 0 auto; padding: 48px 32px 80px;
+  transition: font-family .3s, font-size .3s, line-height .3s;
+}
+/* Reader themes */
+#kb6reader.theme-dark { background: #06060B; }
+#kb6reader.theme-dark #kb6-rd-content { color: rgba(242,240,232,.88); }
+#kb6reader.theme-dark #kb6-rd-tb { background: rgba(6,6,10,.97); }
+#kb6reader.theme-sepia { background: #1A1408; }
+#kb6reader.theme-sepia #kb6-rd-content { color: #E8D9C0; }
+#kb6reader.theme-sepia #kb6-rd-tb { background: rgba(20,16,8,.97); }
+#kb6reader.theme-sepia #kb6-read-prog { background: linear-gradient(90deg, #C89F28, #F5C842, #FDE68A); }
+#kb6reader.theme-light { background: #F8F7F2; }
+#kb6reader.theme-light #kb6-rd-content { color: #1A1A1E; }
+#kb6reader.theme-light #kb6-rd-tb { background: rgba(250,249,244,.97); border-color: rgba(0,0,0,.08); }
+#kb6reader.theme-light .kb6-rd-ctrl { background: rgba(0,0,0,.05); border-color: rgba(0,0,0,.1); color: #444; }
+#kb6reader.theme-light .kb6-rd-ctrl:hover { background: rgba(0,0,0,.09); color: #111; }
+#kb6reader.theme-light #kb6-rd-body::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); }
+/* Reader title */
+#kb6-rd-title {
+  font-size: 34px; font-weight: 800; letter-spacing: -.045em; line-height: 1.15;
+  margin-bottom: 16px;
+}
+#kb6-rd-meta { display: flex; align-items: center; gap: 14px; margin-bottom: 32px; flex-wrap: wrap; }
+#kb6-rd-meta span { font-size: 12px; opacity: .5; }
+#kb6-rd-sep { width: 60px; height: 2px; background: var(--gold); border-radius: 2px; opacity: .6; margin: 0; }
+/* Reader content formatting */
+#kb6-rd-content h1 { font-size: 2em; font-weight: 800; margin: 1.5em 0 .5em; letter-spacing: -.03em; line-height: 1.2; }
+#kb6-rd-content h2 { font-size: 1.5em; font-weight: 700; margin: 1.3em 0 .45em; letter-spacing: -.02em; line-height: 1.3; }
+#kb6-rd-content h3 { font-size: 1.2em; font-weight: 650; margin: 1.1em 0 .4em; letter-spacing: -.015em; }
+#kb6-rd-content p { margin: 0 0 1em; }
+#kb6-rd-content blockquote {
+  border-left: 3px solid var(--gold); padding: 12px 20px; margin: 1.4em 0;
+  opacity: .85; font-style: italic;
+  background: rgba(245,200,66,.04); border-radius: 0 10px 10px 0;
+}
+#kb6-rd-content ul { margin: 0 0 1em 0; padding: 0; list-style: none; }
+#kb6-rd-content ul li { display: flex; align-items: baseline; gap: 8px; margin-bottom: .4em; }
+#kb6-rd-content ul li::before { content: '✦'; color: var(--gold); font-size: .65em; flex-shrink: 0; }
+#kb6-rd-content ol { margin: 0 0 1em 1.5em; }
+#kb6-rd-content ol li { margin-bottom: .4em; }
+#kb6-rd-content a { color: var(--gold); }
+#kb6-rd-content code { font-family: var(--font-mono); font-size: .82em; background: rgba(128,128,128,.12); padding: 2px 6px; border-radius: 4px; }
+#kb6-rd-content pre { background: rgba(0,0,0,.25); border-radius: 10px; padding: 16px 18px; overflow-x: auto; font-family: var(--font-mono); font-size: .82em; margin: 1em 0; border: 0.5px solid rgba(255,255,255,.07); }
+/* Reader metrics bar */
+#kb6-rd-metrics {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px; padding: 8px 18px;
+  background: rgba(12,12,18,.95); border: 0.5px solid rgba(255,255,255,.1);
+  border-radius: 20px; font-size: 11.5px; color: var(--t3); font-weight: 500;
+  backdrop-filter: blur(20px); box-shadow: 0 8px 32px rgba(0,0,0,.5);
+  z-index: 200; animation: kb6slideUp .3s cubic-bezier(.34,1.2,.64,1) both;
+  white-space: nowrap;
+}
+@keyframes kb6slideUp { from{opacity:0;transform:translateX(-50%) translateY(20px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+#kb6-rd-metrics .sep { width: 0.5px; height: 12px; background: rgba(255,255,255,.12); }
+#kb6-rd-metrics .pct { color: var(--gold); font-weight: 700; }
+
+/* ── Modal ── */
+#kb6ov {
+  position: absolute; inset: 0; background: rgba(0,0,0,.65);
+  backdrop-filter: blur(6px); display: none; align-items: center;
+  justify-content: center; z-index: 9000; border-radius: 18px;
+}
+#kb6ov.on { display: flex; }
+#kb6modal {
+  background: rgba(12,12,20,.98); border: 0.5px solid rgba(255,255,255,.1);
+  border-radius: 20px; padding: 24px; min-width: 340px; max-width: 500px; width: 90%;
+  box-shadow: 0 28px 80px rgba(0,0,0,.8);
+  animation: kb6springIn .28s cubic-bezier(.34,1.4,.64,1) both;
+}
+@keyframes kb6springIn { from{opacity:0;transform:scale(.9) translateY(16px)} to{opacity:1;transform:none} }
+.kb6-modal-title {
+  font-size: 18px; font-weight: 800; color: var(--t1);
+  letter-spacing: -.03em; margin-bottom: 16px;
+}
+.kb6-modal-inp {
+  width: 100%; padding: 11px 14px; background: rgba(255,255,255,.06);
+  border: 0.5px solid rgba(255,255,255,.1); border-radius: 11px;
+  color: var(--t1); font-size: 14px; outline: none; font-family: inherit;
+  transition: border-color .18s;
+}
+.kb6-modal-inp:focus { border-color: rgba(245,200,66,.4); }
+.kb6-modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+.kb6-btn {
+  padding: 10px 18px; border-radius: 11px; font-size: 13px; font-weight: 700;
+  cursor: pointer; border: none; font-family: inherit; transition: all .18s;
+}
+.kb6-btn-gold { background: linear-gradient(135deg, var(--gold), #FFCC30); color: #07060A; }
+.kb6-btn-gold:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(245,200,66,.35); }
+.kb6-btn-ghost { background: rgba(255,255,255,.06); color: var(--t2); border: 0.5px solid rgba(255,255,255,.1); }
+.kb6-btn-ghost:hover { background: rgba(255,255,255,.1); color: var(--t1); }
+.kb6-btn-danger { background: rgba(239,68,68,.12); color: var(--red); border: 0.5px solid rgba(239,68,68,.25); }
+.kb6-btn-danger:hover { background: rgba(239,68,68,.22); }
+/* Empty state */
+.kb6-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 48px 24px; color: var(--t3); text-align: center; gap: 10px; height: 100%;
+}
+.kb6-empty-ico { width: 52px; height: 52px; border-radius: 16px; background: rgba(255,255,255,.04); border: 0.5px solid rgba(255,255,255,.07); display: flex; align-items: center; justify-content: center; margin-bottom: 4px; }
+.kb6-empty-ttl { font-size: 15px; font-weight: 700; color: var(--t2); letter-spacing: -.02em; }
+.kb6-empty-sub { font-size: 12px; max-width: 200px; line-height: 1.5; }
+/* Animations */
+.kb6-anim { animation: kb6fadeUp .22s ease both; }
+@keyframes kb6fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+.kb6-anim2 { animation: kb6fadeUp .22s ease both; }
+/* Highlight */
+.k6hl { background: rgba(245,200,66,.3); color: var(--t1); border-radius: 2px; }
+/* Cat header in folder view */
+.kb6-folder-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; background: rgba(255,255,255,.02);
+  border-bottom: 0.5px solid rgba(255,255,255,.05); flex-shrink: 0;
+}
+/* Breadcrumb */
+.kb6-bread { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--t3); overflow: hidden; }
+.kb6-bread-sep { opacity: .4; }
+.kb6-bread span { cursor: pointer; transition: color .12s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kb6-bread span:hover { color: var(--gold); }
+/* Responsive grid for small cats list */
+@media(max-width:900px){
+  .kb6-cat-grid { grid-template-columns: repeat(2,1fr); }
+  .kb6-recent-grid { grid-template-columns: 1fr; }
+}
+/* Selection in note list */
+.kb6-nc-right {
+  display: flex; align-items: center; gap: 5px; position: absolute; right: 8px; top: 10px;
+  opacity: 0; transition: opacity .12s;
+}
+.kb6-nc:hover .kb6-nc-right { opacity: 1; }
+.kb6-nc-act-btn {
+  width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.07); border: none; color: var(--t3); cursor: pointer;
+  transition: all .12s;
+}
+.kb6-nc-act-btn:hover { color: var(--t1); background: rgba(255,255,255,.14); }
+
+/* ── Star bullets fix — ::before needs non-flex context ── */
+#kb6area ul li {
+  display: list-item; list-style: none;
+  padding-left: 1.4em; position: relative; margin-bottom: 4px;
+}
+#kb6area ul li::before {
+  content: '✦'; color: var(--gold); font-size: 9px;
+  position: absolute; left: 0; top: .28em;
+}
+#kb6-rd-content ul li {
+  display: list-item; list-style: none;
+  padding-left: 1.4em; position: relative; margin-bottom: .4em;
+}
+#kb6-rd-content ul li::before {
+  content: '✦'; color: var(--gold); font-size: 9px;
+  position: absolute; left: 0; top: .28em;
+}
+
+/* ── Editor smooth font transition ── */
+#kb6area { transition: font-family .25s ease, font-size .2s ease; }
+
+/* ── Light theme overrides ── */
+[data-theme="light"] #kb6 { background: #F2F1EC; border-color: rgba(0,0,0,.08); }
+[data-theme="light"] #kb6sb { background: rgba(244,242,236,.98); border-right-color: rgba(0,0,0,.07); }
+[data-theme="light"] #kb6nl { background: rgba(247,245,240,.97); border-right-color: rgba(0,0,0,.07); }
+[data-theme="light"] #kb6ed, [data-theme="light"] #kb6-editor { background: #FAFAF7; }
+[data-theme="light"] #kb6tb { background: rgba(248,246,240,.97); border-bottom-color: rgba(0,0,0,.07); }
+[data-theme="light"] .kb6-cat-row { color: #555; }
+[data-theme="light"] .kb6-cat-row:hover, [data-theme="light"] .kb6-cat-row.active { background: rgba(0,0,0,.05); color: #111; }
+[data-theme="light"] .kb6-folder-row { color: #888; }
+[data-theme="light"] .kb6-folder-row:hover { color: #444; background: rgba(0,0,0,.04); }
+[data-theme="light"] .kb6-folder-row.active { background: rgba(200,159,40,.1); color: #8a6800; border-left-color: #c89f28; }
+[data-theme="light"] .kb6-nc:hover { background: rgba(0,0,0,.04); border-color: rgba(0,0,0,.07); }
+[data-theme="light"] .kb6-nc.active { background: rgba(0,0,0,.06); border-color: rgba(200,159,40,.2); }
+[data-theme="light"] .kb6-tb-btn { color: #666; }
+[data-theme="light"] .kb6-tb-btn:hover { background: rgba(0,0,0,.06); color: #111; }
+[data-theme="light"] #kb6etitle { color: #111; }
+[data-theme="light"] #kb6area { color: #111; caret-color: #a07820; }
+[data-theme="light"] #kb6area blockquote { background: rgba(200,159,40,.06); color: #555; }
+[data-theme="light"] #kb6area h1,[data-theme="light"] #kb6area h2,[data-theme="light"] #kb6area h3 { color: #111; }
+[data-theme="light"] .kb6-stat { background: rgba(255,255,255,.8); border-color: rgba(0,0,0,.08); }
+[data-theme="light"] .kb6-stat-l { color: #888; }
+[data-theme="light"] .kb6-cat-card { background: rgba(255,255,255,.8); border-color: rgba(0,0,0,.07); }
+[data-theme="light"] .kb6-cat-card:hover { background: rgba(255,255,255,1); }
+[data-theme="light"] .kb6-cat-card-name { color: #111; }
+[data-theme="light"] .kb6-cat-card-meta { color: #888; }
+[data-theme="light"] .kb6-recent-card { background: rgba(255,255,255,.8); border-color: rgba(0,0,0,.07); }
+[data-theme="light"] .kb6-recent-title { color: #111; }
+[data-theme="light"] .kb6-recent-prev { color: #888; }
+[data-theme="light"] .kb6-recent-time { color: #aaa; }
+[data-theme="light"] .kb6-pin-card { background: rgba(255,255,255,.8); border-color: rgba(0,0,0,.07); }
+[data-theme="light"] .kb6-logo-txt { color: #111; }
+[data-theme="light"] .kb6-new-note-btn { background: rgba(200,159,40,.1); border-color: rgba(200,159,40,.25); color: #8a6800; }
+[data-theme="light"] .kb6-sbq { background: rgba(0,0,0,.05); border-color: rgba(0,0,0,.09); }
+[data-theme="light"] .kb6-sbq input { color: #111; }
+[data-theme="light"] .kb6-sbq input::placeholder { color: #bbb; }
+[data-theme="light"] .kb6-sb-lbl { color: #aaa; }
+[data-theme="light"] .kb6-sb-divider { background: rgba(0,0,0,.07); }
+[data-theme="light"] .kb6-add-folder-btn { color: #aaa; }
+[data-theme="light"] .kb6-add-folder-btn:hover { color: #8a6800; background: rgba(200,159,40,.06); }
+[data-theme="light"] .kb6-pin-row { color: #888; }
+[data-theme="light"] .kb6-pin-row:hover { color: #444; background: rgba(0,0,0,.04); }
+[data-theme="light"] .kb6-pin-row.active { color: #111; background: rgba(0,0,0,.05); }
+[data-theme="light"] .kb6-sb-collapse { background: rgba(0,0,0,.05); border-color: rgba(0,0,0,.1); color: #888; }
+[data-theme="light"] #kb6st { background: rgba(244,242,236,.97); border-top-color: rgba(0,0,0,.07); color: #aaa; }
+[data-theme="light"] .kb6-nc-title { color: #111; }
+[data-theme="light"] .kb6-nc-prev, [data-theme="light"] .kb6-nc-time, [data-theme="light"] .kb6-nc-wc { color: #aaa; }
+[data-theme="light"] .kb6-nl-title { color: #111; }
+[data-theme="light"] .kb6-nl-sort-btn { color: #aaa; }
+[data-theme="light"] .kb6-nl-sort-btn:hover { color: #333; background: rgba(0,0,0,.06); }
+[data-theme="light"] .kb6-nl-sort-btn.active { color: #8a6800; }
+[data-theme="light"] .kb6-nl-add { background: rgba(200,159,40,.1); border-color: rgba(200,159,40,.22); color: #8a6800; }
+[data-theme="light"] .kb6-nl-add:hover { background: rgba(200,159,40,.2); }
+[data-theme="light"] .kb6-tag-pill { background: rgba(0,0,0,.05); border-color: rgba(0,0,0,.1); color: #555; }
+[data-theme="light"] .kb6-tag-add { border-color: rgba(0,0,0,.1); color: #aaa; }
+[data-theme="light"] .kb6-font-dd-btn { background: rgba(0,0,0,.05); border-color: rgba(0,0,0,.09); color: #555; }
+[data-theme="light"] .kb6-font-dd-btn:hover { background: rgba(0,0,0,.09); color: #111; }
+[data-theme="light"] .kb6-dd-panel, [data-theme="light"] .kb6-hdrop { background: rgba(255,255,255,.97); border-color: rgba(0,0,0,.1); }
+[data-theme="light"] .kb6-dd-opt { color: #111; }
+[data-theme="light"] .kb6-dd-opt:hover { background: rgba(0,0,0,.05); }
+[data-theme="light"] #kb6modal { background: rgba(255,255,255,.99); border-color: rgba(0,0,0,.1); }
+[data-theme="light"] .kb6-modal-title { color: #111; }
+[data-theme="light"] .kb6-modal-inp { background: rgba(0,0,0,.04); border-color: rgba(0,0,0,.1); color: #111; }
+[data-theme="light"] .kb6-modal-inp::placeholder { color: #bbb; }
+[data-theme="light"] .kb6-btn-ghost { background: rgba(0,0,0,.05); color: #444; border-color: rgba(0,0,0,.1); }
+[data-theme="light"] .kb6-btn-ghost:hover { background: rgba(0,0,0,.09); color: #111; }
+[data-theme="light"] #kb6-note-menu { background: rgba(255,255,255,.98); border-color: rgba(0,0,0,.1); box-shadow: 0 12px 36px rgba(0,0,0,.15); }
+[data-theme="light"] .kb6-menu-item { color: #111; }
+[data-theme="light"] .kb6-menu-item:hover { background: rgba(0,0,0,.05); }
+[data-theme="light"] .kb6-menu-sep { background: rgba(0,0,0,.07); }
+[data-theme="light"] .kb6-sec-lbl { color: #aaa; }
+[data-theme="light"] .kb6-sec-lbl::before { opacity: .5; }
+[data-theme="light"] #kb6home { color: #111; }
+[data-theme="light"] .kb6-empty-ttl { color: #444; }
+[data-theme="light"] .kb6-empty-sub { color: #aaa; }
+[data-theme="light"] .kb6-empty-ico { background: rgba(0,0,0,.04); border-color: rgba(0,0,0,.08); }
+[data-theme="light"] #kb6-rd-metrics { background: rgba(255,255,255,.95); border-color: rgba(0,0,0,.1); color: #666; box-shadow: 0 4px 20px rgba(0,0,0,.1); }
+[data-theme="light"] #kb6-rd-metrics .sep { background: rgba(0,0,0,.12); }
+[data-theme="light"] .kb6-bread span { color: #aaa; }
+[data-theme="light"] .kb6-bread span:hover { color: #8a6800; }
+[data-theme="light"] .kb6-bread-sep { color: #ccc; }
+`;}
+
+// ══════════════════════════════════════════════════════════════
+// HTML SHELL
+// ══════════════════════════════════════════════════════════════
+function _kbBuildShell(){ return `
+<div id="kb6">
+  <!-- Sidebar -->
+  <div id="kb6sb">
+    <div id="kb6sb-top">
+      <div class="kb6-logo">
+        <div class="kb6-logo-ico">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          </svg>
+        </div>
+        <span class="kb6-logo-txt">База знаний</span>
+      </div>
+      <button class="kb6-new-note-btn" onclick="_kb6NewNote()">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Новая заметка
+      </button>
+      <div class="kb6-sbq">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" opacity=".4"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="kb6-search" placeholder="Поиск заметок..." oninput="_kb6Search(this.value)" autocomplete="off">
+        <button id="kb6-search-clr" onclick="_kb6SearchClear()" style="display:none;background:none;border:none;color:var(--t3);cursor:pointer;padding:0;line-height:1">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div id="kb6-sb-scroll"></div>
+    <button class="kb6-sb-collapse" onclick="_kb6TogSidebar()" title="Свернуть">
+      <svg id="kb6-sb-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+  </div>
+  <!-- Note list panel -->
+  <div id="kb6nl" style="display:none">
+    <div id="kb6nl-head">
+      <div class="kb6-bread" id="kb6-bread"></div>
+      <div style="height:6px"></div>
+      <div class="kb6-nl-title" id="kb6-nl-title"></div>
+      <div class="kb6-nl-meta">
+        <div class="kb6-nl-sort" id="kb6-nl-sort">
+          <button class="kb6-nl-sort-btn active" id="kb6s-upd" onclick="_kb6Sort('updated')">Изменены</button>
+          <button class="kb6-nl-sort-btn" id="kb6s-cre" onclick="_kb6Sort('created')">Созданы</button>
+          <button class="kb6-nl-sort-btn" id="kb6s-ttl" onclick="_kb6Sort('title')">А-Я</button>
+        </div>
+        <button class="kb6-nl-add" onclick="_kb6CreateNoteInFolder()">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Новая
+        </button>
+      </div>
+    </div>
+    <div id="kb6nl-scroll"></div>
+  </div>
+  <!-- Main area -->
+  <div id="kb6ed" style="display:flex">
+    <!-- Home dashboard -->
+    <div id="kb6home" style="display:block"></div>
+    <!-- Editor -->
+    <div id="kb6-editor" style="display:none;flex:1;flex-direction:column;overflow:hidden">
+      <div id="kb6tb"></div>
+      <div id="kb6-ed-head">
+        <input id="kb6etitle" placeholder="Название заметки..." oninput="_kb6TitleInput()">
+        <div class="kb6-ed-tags" id="kb6-ed-tags"></div>
+      </div>
+      <div id="kb6-ed-scroll">
+        <div id="kb6area" contenteditable="true"
+          data-ph="Начни писать... (/ для команд, @ для упоминаний)"
+          oninput="_kb6EdInput()"
+          onkeydown="_kb6EdKey(event)"
+          onmouseup="_kb6SaveSel()"
+          onkeyup="_kb6SaveSel()">
+        </div>
+      </div>
+      <div id="kb6st">
+        <div class="kb6-save-dot" id="kb6-save-dot"></div>
+        <span id="kb6-st-save">Сохранено</span>
+        <div class="kb6-st-sep"></div>
+        <span id="kb6-st-wc">0 слов</span>
+        <div class="kb6-st-sep"></div>
+        <span id="kb6-st-rt">~0 мин чтения</span>
+        <div style="flex:1"></div>
+        <button onclick="_kb6TogReader()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:10.5px;font-family:inherit;display:flex;align-items:center;gap:5px;padding:0;transition:color .15s" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color='var(--t3)'">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          Читать
+        </button>
+      </div>
+    </div>
+    <!-- Empty state when no note selected -->
+    <div id="kb6-no-note" style="display:none;flex:1;align-items:center;justify-content:center">
+      <div class="kb6-empty">
+        <div class="kb6-empty-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".4"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+        <div class="kb6-empty-ttl">Выбери заметку</div>
+        <div class="kb6-empty-sub">Выбери заметку из списка или создай новую</div>
+      </div>
+    </div>
+  </div>
+  <!-- Reading Mode overlay -->
+  <div id="kb6reader" class="theme-dark">
+    <div id="kb6-read-prog"></div>
+    <div id="kb6-rd-tb">
+      <button onclick="_kb6TogReader()" style="display:flex;align-items:center;gap:7px;padding:5px 12px;border-radius:9px;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.1);color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;flex-shrink:0" onmouseover="this.style.color='var(--t1)'" onmouseout="this.style.color='var(--t2)'">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        Выйти
+      </button>
+      <div class="kb6-rd-divider"></div>
+      <span class="kb6-rd-label">Тема</span>
+      <button class="kb6-rd-ctrl" onclick="_kb6RdTheme('dark')" id="kb6-rdt-dark">🌑 Тёмная</button>
+      <button class="kb6-rd-ctrl" onclick="_kb6RdTheme('sepia')" id="kb6-rdt-sepia">📜 Сепия</button>
+      <button class="kb6-rd-ctrl" onclick="_kb6RdTheme('light')" id="kb6-rdt-light">☀️ Светлая</button>
+      <div class="kb6-rd-divider"></div>
+      <span class="kb6-rd-label">Шрифт</span>
+      <div style="position:relative">
+        <button class="kb6-rd-ctrl" onclick="_kb6TogDD('kb6-rdfont-dd')" id="kb6-rdfont-btn">
+          <span id="kb6-rdfont-lbl">Nunito</span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div id="kb6-rdfont-dd" class="kb6-dd-panel" style="display:none;top:auto;bottom:calc(100% + 8px)">
+          ${_kb6Fonts().map(f=>`<div class="kb6-dd-opt" onclick="_kb6RdFont('${f.id}')" style="font-family:'${f.family}',sans-serif">${f.name}</div>`).join('')}
+        </div>
+      </div>
+      <div class="kb6-rd-divider"></div>
+      <span class="kb6-rd-label">Размер</span>
+      <button class="kb6-rd-ctrl" onclick="_kb6RdSize(-1)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+      <span id="kb6-rdsz" style="font-size:11.5px;color:var(--t3);font-family:var(--font-mono);min-width:32px;text-align:center">16px</span>
+      <button class="kb6-rd-ctrl" onclick="_kb6RdSize(1)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+      <div class="kb6-rd-divider"></div>
+      <span class="kb6-rd-label">Интервал</span>
+      <button class="kb6-rd-ctrl" onclick="_kb6RdLine(-.1)">↑↓</button>
+      <span id="kb6-rdlh" style="font-size:11.5px;color:var(--t3);font-family:var(--font-mono);min-width:28px;text-align:center">1.8</span>
+      <button class="kb6-rd-ctrl" onclick="_kb6RdLine(.1)">↑↓↑</button>
+    </div>
+    <div id="kb6-rd-body">
+      <div id="kb6-rd-content">
+        <div id="kb6-rd-title"></div>
+        <div id="kb6-rd-meta"></div>
+        <div id="kb6-rd-sep" style="width:60px;height:2px;background:var(--gold);border-radius:2px;opacity:.6;margin-bottom:32px"></div>
+        <div id="kb6-rd-text"></div>
+      </div>
+    </div>
+    <div id="kb6-rd-metrics">
+      <span id="kb6-rd-wc">0 слов</span>
+      <span class="sep"></span>
+      <span id="kb6-rd-rt">~0 мин</span>
+      <span class="sep"></span>
+      <span class="pct" id="kb6-rd-pct">0%</span>
+    </div>
+  </div>
+  <!-- Note context menu -->
+  <div id="kb6-note-menu" style="display:none"></div>
+  <!-- Modal overlay -->
+  <div id="kb6ov"><div id="kb6modal"></div></div>
+</div>
+<!-- Focus exit button (outside kb6) -->
+<button id="kb6-focus-exit" onclick="_kb6ExitFocus()">
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+  Выйти из фокуса
+</button>
+`;}
+
+// ══════════════════════════════════════════════════════════════
+// FONT DEFINITIONS
+// ══════════════════════════════════════════════════════════════
+function _kb6Fonts(){ return [
+  {id:'nunito',     family:'Nunito',           name:'Nunito'},
+  {id:'inter',      family:'Inter',            name:'Inter'},
+  {id:'playfair',   family:'Playfair Display', name:'Playfair Display'},
+  {id:'lora',       family:'Lora',             name:'Lora'},
+  {id:'merriweather',family:'Merriweather',    name:'Merriweather'},
+  {id:'source',     family:'Source Serif 4',   name:'Source Serif'},
+  {id:'space',      family:'Space Grotesk',    name:'Space Grotesk'},
+  {id:'dm',         family:'DM Sans',          name:'DM Sans'},
+  {id:'libre',      family:'Libre Baskerville',name:'Libre Baskerville'},
+  {id:'crimson',    family:'Crimson Text',     name:'Crimson Text'},
+];}
+function _kb6FontById(id){ return _kb6Fonts().find(f=>f.id===id)||_kb6Fonts()[0]; }
+
+// ══════════════════════════════════════════════════════════════
+// BIND EVENTS
+// ══════════════════════════════════════════════════════════════
+function _kbBindEvents(){
+  // Close dropdowns on outside click
+  document.addEventListener('click', e=>{
+    if(!e.target.closest('#kb6-note-menu') && !e.target.closest('[data-kb-menu]')){
+      const m=document.getElementById('kb6-note-menu');
+      if(m) m.style.display='none';
+    }
+    document.querySelectorAll('.kb6-dd-panel').forEach(dd=>{
+      if(!dd.parentElement?.contains(e.target) && !e.target.closest('[onclick*="kb6TogDD"]')) dd.style.display='none';
+    });
+  });
+  // Reader scroll → progress
+  const rdBody = document.getElementById('kb6-rd-body');
+  if(rdBody) rdBody.addEventListener('scroll', _kb6UpdateReadProg);
+  // Apply saved font to editor
+  _kb6ApplyEditorFont();
+}
+
+// ══════════════════════════════════════════════════════════════
+// RENDER ALL
+// ══════════════════════════════════════════════════════════════
+function _kbRenderAll(){
+  _kb6RenderSidebar();
+  _kb6RenderMain();
+}
+function _kbRS(){ try{ _kb6RenderSidebar(); }catch(e){} }
+function _kbRED(){ try{ _kb6RenderMain(); }catch(e){} }
+function _kbRNL(){ try{ _kb6RenderNoteList(); }catch(e){} }
+function _kbFlush3(){ _kb6AutoSave(); }
+function _kbSSV(){ _kb6SaveStatus('saved'); }
+function _kbCM(){ _kb6CloseModal(); }
+function _kbON(cid,fid,nid){ _kb6OpenNote(cid,fid,nid); }
+function _kbSF(cid,fid){ _kb6OpenFolder(cid,fid); }
+function _kbGoAll(){ _kb6GoHome(); }
+function _kbTogTOC(){}
+function _kbShortcuts(){}
+function _kbNewNoteQuick(){ _kb6NewNote(); }
+function _kbNF(cid){ _kb6NewFolder(cid); }
+function _kbNN(){ _kb6NewNote(); }
+function _kbTogFocus(){ _kb6TogFocus(); }
+
+// ══════════════════════════════════════════════════════════════
+// SIDEBAR RENDER
+// ══════════════════════════════════════════════════════════════
+function _kb6RenderSidebar(){
+  const sb = document.getElementById('kb6-sb-scroll');
+  if(!sb) return;
+  const q = _kbS.search.toLowerCase().trim();
+  let h = '';
+
+  // Search results
   if(q){
-    const results=_kbAllNotes().filter(n=>
-      (n.title||'').toLowerCase().includes(q)||
-      _kbStrip(n.body||'').toLowerCase().includes(q)||
-      (n.tags||[]).some(t=>t.toLowerCase().includes(q))
-    );
-    let h=`<div class="kb5-lbl">Результаты (${results.length})</div>`;
-    if(!results.length) h+=`<div style="padding:12px 8px;font-size:12px;color:var(--t3)">Ничего не найдено</div>`;
-    results.forEach(n=>{
-      h+=`<button class="kb5-note-btn${_kbS.note===n.id?' active':''}" onclick="_kbOpenNote('${n.catId}','${n.folderId}','${n.id}')">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;color:var(--t3)"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    const all = _kbAllNotes().filter(n=>(n.title||'').toLowerCase().includes(q)||(n.body||'').toLowerCase().includes(q));
+    h += `<div class="kb6-sb-lbl">Результаты: ${all.length}</div>`;
+    if(!all.length) h += `<div style="padding:12px 8px;font-size:12px;color:var(--t3)">Ничего не найдено</div>`;
+    all.slice(0,20).forEach(n=>{
+      h += `<button class="kb6-pin-row${_kbS.note===n.id?' active':''}" onclick="_kb6OpenNote('${n.catId}','${n.folderId}','${n.id}')">
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="${n.catColor}" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/></svg>
         <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc(n.title||'Без названия')}</span>
-        <span style="font-size:9px;color:var(--t3);flex-shrink:0">${n.catName}</span>
       </button>`;
     });
-    sb.innerHTML=h; return;
+    sb.innerHTML = h; return;
   }
 
-  let h='';
-  h+=`<button class="kb5-cat-btn${!_kbS.cat?' active':''}" onclick="_kbGoHome()" style="margin-bottom:2px">
-    <span class="kb5-cat-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
-    <span class="kb5-cat-name">Обзор</span>
-  </button>`;
-  h+=`<div class="kb5-lbl">Категории</div>`;
-
+  // Categories tree
   ALL_CATS.forEach(c=>{
-    const d=_kb3[c.id]||{folders:[]};
-    const folders=d.folders||[];
-    const nc=_kbCatCount(c.id);
-    const isOpen=!_kbS.collapsed[c.id];
-    const isCatActive=_kbS.cat===c.id;
-    const catIcon=(typeof ICONS!=='undefined'&&ICONS[c.id])? getCatSVG(c.id,14) : '';
-
-    h+=`<div>
-      <button class="kb5-cat-btn${isCatActive?' active':''}" onclick="_kbTogCat('${c.id}')" style="${isCatActive?`border-left:2px solid ${c.color};padding-left:6px;`:''}" >
-        <span class="kb5-cat-icon" style="color:${c.color}">${catIcon}</span>
-        <span class="kb5-cat-name">${_kbEsc(c.name)}</span>
-        ${nc?`<span class="kb5-cat-count">${nc}</span>`:''}
-        <svg class="kb5-chev${isOpen?' open':''}" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+    if(!_kbS.sidebarCollapsed) _kbS.sidebarCollapsed={};
+    const isOpen = !_kbS.sidebarCollapsed[c.id];
+    const folders = _kb3[c.id]?.folders||[];
+    const cnt = _kbCatCount(c.id);
+    const isCatActive = _kbS.cat===c.id;
+    const ico = (typeof getCatSVG!=='undefined') ? getCatSVG(c.id,14) : c.icon;
+    h += `<div style="margin-bottom:2px">
+      <button class="kb6-cat-row${isCatActive?' active':''}" onclick="_kb6TogCat('${c.id}')">
+        <div class="kb6-cat-ico" style="background:${c.color}18">${ico}</div>
+        <span class="kb6-cat-name">${_kbEsc(c.name)}</span>
+        ${cnt?`<span class="kb6-cat-count">${cnt}</span>`:''}
+        <svg class="kb6-chev${isOpen?' open':''}" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
-      ${isOpen?`<div>
+      <div class="kb6-folder-wrap" id="kb6-fw-${c.id}" style="display:${isOpen?'block':'none'}">
         ${folders.map(f=>{
-          const isFActive=_kbS.folder===f.id&&_kbS.cat===c.id;
-          return `<button class="kb5-folder-btn${isFActive?' active':''}" onclick="_kbOpenFolder('${c.id}','${f.id}')">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="${isFActive?'var(--gold)':'currentColor'}" stroke-width="2" style="flex-shrink:0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-            <span class="kb5-folder-name">${_kbEsc(f.title)}</span>
-            <span class="kb5-folder-count">${(f.notes||[]).length}</span>
+          const isFA = _kbS.cat===c.id && _kbS.folder===f.id;
+          return `<button class="kb6-folder-row${isFA?' active':''}" onclick="_kb6OpenFolder('${c.id}','${f.id}')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="${isFA?'rgba(245,200,66,.2)':'rgba(255,255,255,.06)'}" stroke="${isFA?'var(--gold)':'rgba(255,255,255,.3)'}" stroke-width="1.8" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <span class="kb6-folder-name">${_kbEsc(f.title)}</span>
+            <span class="kb6-folder-count">${f.notes?.length||0}</span>
           </button>`;
         }).join('')}
-        <button class="kb5-add-folder" onclick="_kbNewFolder('${c.id}')">
+        <button class="kb6-add-folder-btn" onclick="_kb6NewFolder('${c.id}')">
           <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Новая папка
         </button>
-      </div>`:``}
+      </div>
     </div>`;
   });
 
   // Pinned notes
-  const pins=_kbAllNotes().filter(n=>n.pinned);
+  const pins = _kbAllNotes().filter(n=>n.pinned);
   if(pins.length){
-    h+=`<div class="kb5-divider"></div><div class="kb5-lbl">📌 Закреплённые</div>`;
-    pins.slice(0,6).forEach(n=>{
-      h+=`<button class="kb5-note-btn${_kbS.note===n.id?' active':''}" onclick="_kbOpenNote('${n.catId}','${n.folderId}','${n.id}')">
-        <svg width="9" height="9" viewBox="0 0 24 24" fill="${n.catColor}" stroke="${n.catColor}" stroke-width="1" style="flex-shrink:0"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/></svg>
+    h += `<div class="kb6-sb-divider"></div><div class="kb6-sb-lbl">📌 Закреплённые</div>`;
+    pins.slice(0,8).forEach(n=>{
+      h += `<button class="kb6-pin-row${_kbS.note===n.id?' active':''}" onclick="_kb6OpenNote('${n.catId}','${n.folderId}','${n.id}')">
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="${n.catColor}" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/></svg>
         <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc(n.title||'Без названия')}</span>
       </button>`;
     });
   }
 
-  sb.innerHTML=h;
+  sb.innerHTML = h;
 }
 
-// ── Main area dispatcher ──────────────────────────────────────
-function _kbRenderMain(){
-  const home=document.getElementById('kb5home');
-  const nl=document.getElementById('kb5nl');
-  const ed=document.getElementById('kb5ed');
-  if(!home||!nl||!ed) return;
+// ══════════════════════════════════════════════════════════════
+// MAIN AREA
+// ══════════════════════════════════════════════════════════════
+function _kb6RenderMain(){
+  const home = document.getElementById('kb6home');
+  const nl   = document.getElementById('kb6nl');
+  const edwr = document.getElementById('kb6-editor');
+  const noN  = document.getElementById('kb6-no-note');
+  if(!home||!nl||!edwr||!noN) return;
 
-  // Determine view
-  if(!_kbS.cat){
-    home.style.display='block'; nl.style.display='none'; ed.style.display='none';
-    _kbRenderHome(home); return;
+  if(!_kbS.cat || !_kbS.folder){
+    home.style.display = 'block';
+    nl.style.display = 'none';
+    edwr.style.display = 'none'; edwr.style.flexDirection='';
+    noN.style.display = 'none';
+    if(!_kbS.cat) _kb6RenderHome(home);
+    else _kb6RenderCatHome(home);
+    return;
   }
-  if(_kbS.cat&&!_kbS.folder){
-    home.style.display='block'; nl.style.display='none'; ed.style.display='none';
-    _kbRenderCatHome(home); return;
-  }
-  // Folder selected
-  home.style.display='none'; nl.style.display='flex'; nl.style.flexDirection='column';
+
+  home.style.display = 'none';
+  nl.style.display = 'flex'; nl.style.flexDirection = 'column';
+  _kb6RenderNoteList();
+
   if(_kbS.note){
-    ed.style.display='flex'; ed.style.flexDirection='column';
-    _kbRenderNoteList();
-    _kbRenderEditor();
+    edwr.style.display = 'flex'; edwr.style.flexDirection = 'column';
+    noN.style.display = 'none';
+    _kb6RenderEditor();
   } else {
-    ed.style.display='none';
-    _kbRenderNoteList();
+    edwr.style.display = 'none'; edwr.style.flexDirection = '';
+    noN.style.display = 'flex'; noN.style.flexDirection = 'column';
   }
 }
 
 // ── Home dashboard ────────────────────────────────────────────
-function _kbRenderHome(cont){
-  const allN=_kbAllNotes();
-  const tw=_kbTotalWords();
-  const td=new Date().toISOString().slice(0,10);
-  const todayN=allN.filter(n=>n.updatedAt&&new Date(n.updatedAt).toISOString().slice(0,10)===td).length;
-  const allF=ALL_CATS.reduce((a,c)=>a+(_kb3[c.id]?.folders||[]).length,0);
-  const recent=_kbSortNotes(allN).slice(0,8);
-  const pins=allN.filter(n=>n.pinned).slice(0,4);
+function _kb6RenderHome(cont){
+  const all = _kbAllNotes();
+  const tw = _kbTotalWords();
+  const td = new Date().toISOString().slice(0,10);
+  const todayN = all.filter(n=>n.updatedAt && new Date(n.updatedAt).toISOString().slice(0,10)===td).length;
+  const allF = ALL_CATS.reduce((a,c)=>a+(_kb3[c.id]?.folders||[]).length, 0);
+  const recent = _kbSortNotes(all).slice(0, 8);
+  const pins = all.filter(n=>n.pinned).slice(0,6);
 
-  cont.innerHTML=`<div class="kb5-anim">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+  cont.innerHTML = `<div class="kb6-anim" id="kb6home">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px">
       <div>
-        <div style="font-size:22px;font-weight:800;letter-spacing:-.04em;color:var(--t1)">База знаний</div>
-        <div style="font-size:12px;color:var(--t3);margin-top:2px">Твоё персональное хранилище знаний</div>
+        <div style="font-size:26px;font-weight:800;letter-spacing:-.045em;color:var(--t1);margin-bottom:4px">База знаний</div>
+        <div style="font-size:12.5px;color:var(--t3)">Твоё персональное пространство для роста</div>
       </div>
-      <button class="kb5-btn kb5-btn-gold" onclick="_kbNewNote()">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <button class="kb6-btn kb6-btn-gold" onclick="_kb6NewNote()" style="display:flex;align-items:center;gap:7px">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Новая заметка
       </button>
     </div>
-    <div class="kb5-stat-grid">
-      <div class="kb5-stat"><div class="kb5-stat-n" style="color:var(--gold)">${allN.length}</div><div class="kb5-stat-l">Заметок</div></div>
-      <div class="kb5-stat"><div class="kb5-stat-n" style="color:var(--blue)">${allF}</div><div class="kb5-stat-l">Папок</div></div>
-      <div class="kb5-stat"><div class="kb5-stat-n" style="color:var(--purple)">${tw>999?Math.round(tw/1000)+'к':tw}</div><div class="kb5-stat-l">Слов</div></div>
-      <div class="kb5-stat"><div class="kb5-stat-n" style="color:var(--green)">${todayN}</div><div class="kb5-stat-l">Сегодня</div></div>
+    <div class="kb6-stat-grid">
+      <div class="kb6-stat"><div class="kb6-stat-n" style="color:var(--gold)">${all.length}</div><div class="kb6-stat-l">Заметок</div></div>
+      <div class="kb6-stat"><div class="kb6-stat-n" style="color:var(--blue)">${allF}</div><div class="kb6-stat-l">Папок</div></div>
+      <div class="kb6-stat"><div class="kb6-stat-n" style="color:var(--purple)">${tw>999?Math.round(tw/1000)+'к':tw}</div><div class="kb6-stat-l">Слов</div></div>
+      <div class="kb6-stat"><div class="kb6-stat-n" style="color:var(--green)">${todayN}</div><div class="kb6-stat-l">Сегодня</div></div>
     </div>
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:10px">Категории</div>
-    <div class="kb5-cat-grid" style="margin-bottom:22px">
+    <div class="kb6-sec-lbl" style="margin-bottom:12px">Категории</div>
+    <div class="kb6-cat-grid">
       ${ALL_CATS.map(c=>{
-        const nc=_kbCatCount(c.id);
-        const nf=(_kb3[c.id]?.folders||[]).length;
-        const ico=(typeof ICONS!=='undefined'&&ICONS[c.id])? getCatSVG(c.id,18) : '';
-        return `<div class="kb5-cat-card" onclick="_kbTogCat('${c.id}')" style="border-color:${c.color}20">
-          <div style="width:36px;height:36px;border-radius:10px;background:${c.color}18;display:flex;align-items:center;justify-content:center;color:${c.color};flex-shrink:0">${ico}</div>
-          <div style="min-width:0">
-            <div style="font-size:13px;font-weight:700;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc(c.name)}</div>
-            <div style="font-size:10.5px;color:var(--t3)">${nc} зам · ${nf} пап</div>
+        const nc=_kbCatCount(c.id), nf=(_kb3[c.id]?.folders||[]).length;
+        const ico=(typeof getCatSVG!=='undefined')?getCatSVG(c.id,18):c.icon;
+        return `<div class="kb6-cat-card" onclick="_kb6TogCat('${c.id}')" style="border-color:${c.color}25">
+          <div class="kb6-cat-card-ico" style="background:${c.color}15">${ico}</div>
+          <div>
+            <div class="kb6-cat-card-name">${_kbEsc(c.name)}</div>
+            <div class="kb6-cat-card-meta">${nc} зам · ${nf} пап</div>
           </div>
         </div>`;
       }).join('')}
     </div>
-    ${pins.length?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px">📌 Закреплённые</div>
-    <div style="margin-bottom:20px">
-      ${pins.map(n=>`<div class="kb5-recent-row" onclick="_kbOpenNote('${n.catId}','${n.folderId}','${n.id}')">
+    ${pins.length?`<div class="kb6-sec-lbl">📌 Закреплённые</div>
+    <div class="kb6-pin-grid" style="margin-bottom:28px">
+      ${pins.map(n=>`<div class="kb6-pin-card" onclick="_kb6OpenNote('${n.catId}','${n.folderId}','${n.id}')">
         <div style="width:8px;height:8px;border-radius:50%;background:${n.catColor};flex-shrink:0"></div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc(n.title||'Без названия')}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc(n.title||'Без названия')}</div>
           <div style="font-size:10.5px;color:var(--t3)">${n.catName} · ${n.folderTitle}</div>
         </div>
-        <div style="font-size:10px;color:var(--t3);flex-shrink:0">${_kbTimeAgo(n.updatedAt)}</div>
+        <div style="font-size:10.5px;color:var(--t3);flex-shrink:0">${_kbTimeAgo(n.updatedAt)}</div>
       </div>`).join('')}
-    </div>`:''}
-    ${recent.length?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px">Последние заметки</div>
-    ${recent.map(n=>`<div class="kb5-recent-row" onclick="_kbOpenNote('${n.catId}','${n.folderId}','${n.id}')">
-      <div style="width:8px;height:8px;border-radius:50%;background:${n.catColor};flex-shrink:0"></div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc(n.title||'Без названия')}</div>
-        <div style="font-size:10.5px;color:var(--t3)">${n.catName} · ${n.folderTitle} · ${_kbWC(n.body||'')} сл</div>
-      </div>
-      <div style="font-size:10px;color:var(--t3);flex-shrink:0">${_kbTimeAgo(n.updatedAt)}</div>
-    </div>`).join('')}`:''}
+    </div>`:``}
+    ${recent.length?`<div class="kb6-sec-lbl">Недавние</div>
+    <div class="kb6-recent-grid">
+      ${recent.map(n=>`<div class="kb6-recent-card" onclick="_kb6OpenNote('${n.catId}','${n.folderId}','${n.id}')">
+        <div class="kb6-recent-cat" style="color:${n.catColor}">
+          <svg width="7" height="7" viewBox="0 0 24 24" fill="${n.catColor}"><circle cx="12" cy="12" r="10"/></svg>
+          ${_kbEsc(n.catName)}
+        </div>
+        <div class="kb6-recent-title">${_kbEsc(n.title||'Без названия')}</div>
+        <div class="kb6-recent-prev">${_kbEsc(_kbStrip(n.body||'').slice(0,80))}</div>
+        <div class="kb6-recent-time">${_kbTimeAgo(n.updatedAt)} · ${_kbWC(n.body||'')} слов</div>
+      </div>`).join('')}
+    </div>`:``}
+    ${!all.length?`<div class="kb6-empty" style="margin-top:20px">
+      <div class="kb6-empty-ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".35"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+      <div class="kb6-empty-ttl">База знаний пуста</div>
+      <div class="kb6-empty-sub">Создай первую заметку и начни копить знания</div>
+      <button class="kb6-btn kb6-btn-gold" onclick="_kb6NewNote()" style="margin-top:4px">Создать заметку</button>
+    </div>`:``}
   </div>`;
 }
 
 // ── Category home ─────────────────────────────────────────────
-function _kbRenderCatHome(cont){
-  const c=ALL_CATS.find(x=>x.id===_kbS.cat); if(!c){_kbGoHome();return;}
-  const d=_kb3[c.id]||{folders:[]};
-  const folders=d.folders||[];
-  const allN=folders.flatMap(f=>(f.notes||[]).map(n=>({...n,catId:c.id,folderId:f.id,folderTitle:f.title,catColor:c.color})));
-  const recent=_kbSortNotes(allN).slice(0,6);
-  const ico=(typeof ICONS!=='undefined'&&ICONS[c.id])? getCatSVG(c.id,22) : '';
-
-  cont.innerHTML=`<div class="kb5-anim">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:18px;flex-wrap:wrap">
-      <button onclick="_kbGoHome()" style="background:none;border:none;color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px;">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-        База знаний
-      </button>
-      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-      <span style="font-size:12px;font-weight:600;color:var(--t2)">${_kbEsc(c.name)}</span>
-    </div>
-    <div style="display:flex;align-items:center;gap:14px;padding:20px;border-radius:16px;background:linear-gradient(135deg,${c.color}14,transparent);border:0.5px solid ${c.color}22;margin-bottom:20px">
-      <div style="width:48px;height:48px;border-radius:14px;background:${c.color}20;display:flex;align-items:center;justify-content:center;color:${c.color}">${ico}</div>
+function _kb6RenderCatHome(cont){
+  if(!_kbS.cat) return;
+  const c = ALL_CATS.find(x=>x.id===_kbS.cat);
+  if(!c) return;
+  const folders = _kb3[c.id]?.folders||[];
+  cont.innerHTML = `<div class="kb6-anim" style="padding:28px 32px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+      <div style="width:48px;height:48px;border-radius:14px;background:${c.color}18;display:flex;align-items:center;justify-content:center">${typeof getCatSVG!=='undefined'?getCatSVG(c.id,24):c.icon}</div>
       <div>
-        <div style="font-size:20px;font-weight:800;letter-spacing:-.03em;color:var(--t1)">${_kbEsc(c.name)}</div>
-        <div style="font-size:12px;color:var(--t3);margin-top:2px">${allN.length} заметок · ${folders.length} папок</div>
+        <div style="font-size:22px;font-weight:800;letter-spacing:-.035em;color:var(--t1)">${_kbEsc(c.name)}</div>
+        <div style="font-size:12px;color:var(--t3);margin-top:2px">${c.desc||''}</div>
       </div>
-      <div style="margin-left:auto;display:flex;gap:8px">
-        <button class="kb5-btn kb5-btn-ghost" onclick="_kbNewFolder('${c.id}')">+ Папка</button>
-        <button class="kb5-btn kb5-btn-gold" onclick="_kbNewNote()">+ Заметка</button>
-      </div>
+      <button class="kb6-btn kb6-btn-gold" onclick="_kb6NewFolder('${c.id}')" style="margin-left:auto;display:flex;align-items:center;gap:6px">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Новая папка
+      </button>
     </div>
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:10px">Папки</div>
-    ${folders.length?`<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:20px">
-      ${folders.map(f=>`<div onclick="_kbOpenFolder('${c.id}','${f.id}')" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.03);border:0.5px solid var(--border);cursor:pointer;transition:all .15s" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='rgba(255,255,255,.03)'">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${c.color}" stroke-width="2" style="flex-shrink:0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        <div style="min-width:0">
-          <div style="font-size:13px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc(f.title)}</div>
-          <div style="font-size:10.5px;color:var(--t3)">${(f.notes||[]).length} заметок</div>
+    ${!folders.length?`<div class="kb6-empty">
+      <div class="kb6-empty-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".35"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
+      <div class="kb6-empty-ttl">Нет папок</div>
+      <div class="kb6-empty-sub">Создай первую папку для организации знаний</div>
+    </div>`:
+    `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      ${folders.map(f=>`<div style="padding:16px 18px;border-radius:14px;background:rgba(255,255,255,.03);border:0.5px solid rgba(255,255,255,.07);cursor:pointer;transition:all .18s" onclick="_kb6OpenFolder('${c.id}','${f.id}')" onmouseover="this.style.background='rgba(255,255,255,.06)';this.style.transform='translateY(-2px)'" onmouseout="this.style.background='rgba(255,255,255,.03)';this.style.transform=''">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="${c.color}20" stroke="${c.color}" stroke-width="1.6" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          <div style="font-size:13.5px;font-weight:700;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc(f.title)}</div>
         </div>
+        <div style="font-size:11px;color:var(--t3)">${f.notes?.length||0} заметок</div>
       </div>`).join('')}
-    </div>`:`<div class="kb5-empty"><div class="kb5-empty-ico">📁</div><div class="kb5-empty-ttl">Нет папок</div><button class="kb5-btn kb5-btn-ghost" style="margin-top:8px" onclick="_kbNewFolder('${c.id}')">Создать папку</button></div>`}
-    ${recent.length?`<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:8px">Последние</div>
-    ${recent.map(n=>`<div class="kb5-recent-row" onclick="_kbOpenNote('${n.catId}','${n.folderId}','${n.id}')">
-      <div style="width:6px;height:6px;border-radius:50%;background:${c.color};flex-shrink:0"></div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc(n.title||'Без названия')}</div>
-        <div style="font-size:10.5px;color:var(--t3)">${n.folderTitle}</div>
-      </div>
-      <div style="font-size:10px;color:var(--t3)">${_kbTimeAgo(n.updatedAt)}</div>
-    </div>`).join('')}`:''}
+    </div>`}
   </div>`;
 }
 
 // ── Note list ─────────────────────────────────────────────────
-function _kbRenderNoteList(){
-  const hdr=document.getElementById('kb5nlh');
-  const body=document.getElementById('kb5nlb');
-  if(!hdr||!body) return;
-  const c=ALL_CATS.find(x=>x.id===_kbS.cat);
-  const f=_kbGetFolder(_kbS.cat,_kbS.folder);
-  if(!c||!f){_kbGoHome();return;}
-  const notes=_kbSortNotes((f.notes||[]).map(n=>({...n,catId:_kbS.cat,folderId:_kbS.folder,catColor:c.color,catIcon:c.icon,catName:c.name})));
+function _kb6RenderNoteList(){
+  const scroll = document.getElementById('kb6nl-scroll');
+  const title  = document.getElementById('kb6-nl-title');
+  const bread  = document.getElementById('kb6-bread');
+  if(!scroll) return;
 
-  hdr.innerHTML=`
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
-      <button onclick="_kbGoHome()" style="background:none;border:none;color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit">Обзор</button>
-      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-      <button onclick="_kbTogCat('${c.id}')" style="background:none;border:none;color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit;color:${c.color}">${_kbEsc(c.name)}</button>
-      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-      <span style="font-size:11px;font-weight:600;color:var(--t2)">${_kbEsc(f.title)}</span>
-    </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
-      <span style="font-size:10.5px;color:var(--t3)">${notes.length} заметок</span>
-      <div style="display:flex;gap:3px">
-        <button class="kb5-chip${_kbS.sort==='updated'?' active':''}" onclick="_kbSetSort('updated')">Дате</button>
-        <button class="kb5-chip${_kbS.sort==='title'?' active':''}" onclick="_kbSetSort('title')">А–Я</button>
-      </div>
-    </div>
-    <button class="kb5-btn kb5-btn-gold" onclick="_kbNewNote()" style="width:100%;justify-content:center;margin-top:8px;padding:6px 10px;font-size:12px">
-      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Новая заметка
-    </button>`;
+  const f = _kbGetFolder(_kbS.cat, _kbS.folder);
+  const c = ALL_CATS.find(x=>x.id===_kbS.cat);
+  if(!f || !c){ scroll.innerHTML=''; return; }
 
+  if(title) title.textContent = f.title;
+  if(bread) bread.innerHTML = `
+    <span onclick="_kb6GoHome()">Главная</span>
+    <span class="kb6-bread-sep">›</span>
+    <span onclick="_kb6TogCat('${c.id}')">${_kbEsc(c.name)}</span>
+    <span class="kb6-bread-sep">›</span>
+    <span style="color:var(--t2)">${_kbEsc(f.title)}</span>`;
+
+  // Sort buttons
+  ['upd','cre','ttl'].forEach(k=>{
+    const btn = document.getElementById('kb6s-'+k);
+    const sortMap = {upd:'updated',cre:'created',ttl:'title'};
+    if(btn) btn.className = 'kb6-nl-sort-btn'+(_kbS.sort===sortMap[k]?' active':'');
+  });
+
+  const notes = _kbSortNotes(f.notes||[]);
   if(!notes.length){
-    body.innerHTML=`<div class="kb5-empty"><div class="kb5-empty-ico">✍️</div><div class="kb5-empty-ttl">Папка пуста</div><div style="font-size:12px;color:var(--t3)">Создай первую заметку</div></div>`;
+    scroll.innerHTML=`<div class="kb6-empty"><div class="kb6-empty-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".35"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="kb6-empty-ttl">Нет заметок</div><div class="kb6-empty-sub">Создай первую заметку</div></div>`;
     return;
   }
 
-  body.innerHTML=notes.map(n=>{
-    const prev=_kbStrip(n.body||'').slice(0,80);
-    const isActive=_kbS.note===n.id;
-    return `<div class="kb5-nc${isActive?' active':''}" onclick="_kbOpenNote('${n.catId}','${n.folderId}','${n.id}')">
-      <div class="kb5-nc-title">${n.pinned?'📌 ':''}<span style="border-bottom:1.5px solid ${isActive?c.color:'transparent'}">${_kbEsc(n.title||'Без названия')}</span></div>
-      ${prev?`<div class="kb5-nc-prev">${_kbEsc(prev)}${prev.length>=80?'…':''}</div>`:''}
-      <div class="kb5-nc-meta">
-        <span>${_kbTimeAgo(n.updatedAt||n.createdAt)}</span>
-        ${(n.tags||[]).slice(0,2).map(t=>`<span class="kb5-tag" style="background:${c.color}18;color:${c.color}">#${_kbEsc(t)}</span>`).join('')}
-        <span style="margin-left:auto">${_kbWC(n.body||'')} сл</span>
+  const q = _kbS.search.toLowerCase();
+  scroll.innerHTML = `<div class="kb6-anim">` + notes.filter(n=>!q||(n.title||'').toLowerCase().includes(q)||(n.body||'').toLowerCase().includes(q)).map(n=>{
+    const prev = _kbStrip(n.body||'').slice(0,80);
+    const isA = _kbS.note===n.id;
+    const wc = _kbWC(n.body||'');
+    return `<div class="kb6-nc${isA?' active':''}" onclick="_kb6OpenNote('${c.id}','${f.id}','${n.id}')" oncontextmenu="event.preventDefault();_kb6NoteCtxMenu(event,'${c.id}','${f.id}','${n.id}')">
+      <div style="display:flex;align-items:flex-start;gap:8px">
+        <div style="flex:1;min-width:0">
+          <div class="kb6-nc-title">${q?_kbHighlight(n.title||'Без названия',q):_kbEsc(n.title||'Без названия')}</div>
+          ${prev?`<div class="kb6-nc-prev">${_kbEsc(prev)}</div>`:''}
+        </div>
+        <div class="kb6-nc-right">
+          <button class="kb6-nc-act-btn" onclick="event.stopPropagation();_kb6NoteCtxMenu(event,'${c.id}','${f.id}','${n.id}')" title="Действия">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="kb6-nc-meta">
+        ${n.pinned?`<div class="kb6-nc-pin"><svg width="10" height="10" viewBox="0 0 24 24" fill="var(--gold)" stroke="none"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/></svg></div>`:''}
+        <span class="kb6-nc-time">${_kbTimeAgo(n.updatedAt||n.createdAt)}</span>
+        ${(n.tags||[]).length?`<span class="kb6-nc-tag">${_kbEsc(n.tags[0])}</span>`:''}
+        <span class="kb6-nc-wc">${wc} сл</span>
       </div>
     </div>`;
-  }).join('');
+  }).join('') + `</div>`;
+}
+function _kbHighlight(text,q){
+  if(!q) return _kbEsc(text);
+  const safe=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  return _kbEsc(text).replace(new RegExp(safe,'gi'),m=>`<mark class="k6hl">${m}</mark>`);
 }
 
 // ── Editor ────────────────────────────────────────────────────
-function _kbRenderEditor(){
-  const tb=document.getElementById('kb5tb');
-  const title=document.getElementById('kb5title');
-  const area=document.getElementById('kb5area');
-  const wc=document.getElementById('kb5wc');
-  const tags=document.getElementById('kb5tags');
-  if(!tb||!title||!area) return;
+function _kb6RenderEditor(){
+  const n = _kb6CurNote();
+  if(!n){ _kbS.note=null; _kb6RenderMain(); return; }
 
-  const c=ALL_CATS.find(x=>x.id===_kbS.cat);
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);
-  if(!n){ _kbS.note=null; _kbRenderMain(); return; }
+  // Title
+  const tEl = document.getElementById('kb6etitle');
+  if(tEl && tEl !== document.activeElement) tEl.value = n.title||'';
 
-  // Only rebuild toolbar once
-  if(!tb.dataset.built){
-    tb.dataset.built='1';
-    tb.innerHTML=`
-      <div class="kb5-dd" id="kb5styledd">
-        <button class="kb5-ddbtn" onclick="_kbTogDD('kb5styleList')" id="kb5styleBtn">
-          <span id="kb5styleLbl">Стиль</span>
-          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        <div class="kb5-ddlist" id="kb5styleList" style="display:none">
-          <div class="kb5-ddopt" onclick="_kbFmtBlock('p','Абзац')"><div class="kb5-ddopt-ico" style="font-size:11px;color:var(--t2)">¶</div><span>Абзац</span></div>
-          <div class="kb5-ddsep"></div>
-          <div class="kb5-ddopt" onclick="_kbFmtBlock('h1','H1')"><div class="kb5-ddopt-ico" style="font-weight:800;font-size:12px">H1</div><span style="font-size:17px;font-weight:800;letter-spacing:-.03em">Заголовок 1</span></div>
-          <div class="kb5-ddopt" onclick="_kbFmtBlock('h2','H2')"><div class="kb5-ddopt-ico" style="font-weight:700;font-size:11px">H2</div><span style="font-size:15px;font-weight:700">Заголовок 2</span></div>
-          <div class="kb5-ddopt" onclick="_kbFmtBlock('h3','H3')"><div class="kb5-ddopt-ico" style="font-weight:700;font-size:10px;color:var(--t2)">H3</div><span style="font-size:13.5px;font-weight:650">Заголовок 3</span></div>
-          <div class="kb5-ddsep"></div>
-          <div class="kb5-ddopt" onclick="_kbFmtBlock('blockquote','Цитата')"><div class="kb5-ddopt-ico" style="color:var(--gold);font-size:14px">"</div><span style="font-style:italic;color:var(--t2)">Цитата</span></div>
-          <div class="kb5-ddopt" onclick="_kbFmtBlock('pre','Код')"><div class="kb5-ddopt-ico" style="font-family:monospace;font-size:8px;color:var(--gold-l)">&lt;/&gt;</div><span style="font-family:monospace;font-size:12px">Код-блок</span></div>
-        </div>
+  // Area
+  const area = document.getElementById('kb6area');
+  if(area && area !== document.activeElement) area.innerHTML = n.body||'';
+
+  // Tags
+  _kb6RenderTags();
+  // Toolbar
+  _kb6RenderToolbar();
+  // Status
+  _kb6UpdateStatus();
+  // Apply font
+  _kb6ApplyEditorFont();
+}
+
+function _kb6CurNote(){
+  if(!_kbS.cat||!_kbS.folder||!_kbS.note) return null;
+  return _kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);
+}
+
+function _kb6RenderTags(){
+  const n = _kb6CurNote(); if(!n) return;
+  const el = document.getElementById('kb6-ed-tags'); if(!el) return;
+  el.innerHTML = (n.tags||[]).map(t=>`<span class="kb6-tag-pill" onclick="_kb6RemTag('${_kbEsc(t)}')">${_kbEsc(t)} <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>`).join('')
+    + `<button class="kb6-tag-add" onclick="_kb6AddTag()">+ Тег</button>`;
+}
+
+function _kb6RenderToolbar(){
+  const tb = document.getElementById('kb6tb'); if(!tb) return;
+  const curFont = _kbS.editorFont||'inter';
+  const cf = _kb6FontById(curFont);
+  tb.innerHTML = `
+    <!-- Heading dropdown -->
+    <div class="kb6-font-dd">
+      <button class="kb6-font-dd-btn" onclick="_kb6TogDD('kb6-hdrop')" style="min-width:80px">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+        Стиль
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div id="kb6-hdrop" class="kb6-hdrop" style="display:none">
+        ${[
+          ['Обычный текст','<p>','kb6-tb-para',null],
+          ['Заголовок 1','H1','kb6-tb-h1','font-size:22px;font-weight:800'],
+          ['Заголовок 2','H2','kb6-tb-h2','font-size:18px;font-weight:700'],
+          ['Заголовок 3','H3','kb6-tb-h3','font-size:15px;font-weight:600'],
+        ].map(([n,ic,cls,st])=>`<div class="kb6-dd-opt" style="${st||''}" onclick="_kb6FmtBlock('${ic.replace(/'/g,'\\\'')}')">${n}</div>`).join('')}
       </div>
-      <div class="kb5-tbsep"></div>
-      <button class="kb5-tb" onclick="_kbFmt('bold')" title="Жирный Ctrl+B"><b>B</b></button>
-      <button class="kb5-tb" onclick="_kbFmt('italic')" title="Курсив Ctrl+I"><i style="font-style:italic">I</i></button>
-      <button class="kb5-tb" onclick="_kbFmt('underline')" title="Подчёркн. Ctrl+U"><u>U</u></button>
-      <button class="kb5-tb" onclick="_kbFmt('strikeThrough')" title="Зачёркн."><s style="font-size:11px">S</s></button>
-      <div class="kb5-tbsep"></div>
-      <button class="kb5-tb" onclick="_kbFmt('insertUnorderedList')" title="Маркированный список">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
+    </div>
+    <div class="kb6-tb-sep"></div>
+    <!-- Font picker -->
+    <div class="kb6-font-dd">
+      <button class="kb6-font-dd-btn" onclick="_kb6TogDD('kb6-font-panel')" title="Шрифт редактора">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+        <span style="font-family:'${cf.family}',sans-serif">${cf.name}</span>
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
       </button>
-      <button class="kb5-tb" onclick="_kbFmt('insertOrderedList')" title="Нумерованный список">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h1v4"/><path d="M4 10h2"/></svg>
-      </button>
-      <button class="kb5-tb" onclick="_kbInsTodo()" title="Чеклист">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="4" height="4" rx="1"/><rect x="3" y="14" width="4" height="4" rx="1" fill="currentColor" stroke="none"/><line x1="10" y1="7" x2="21" y2="7"/><line x1="10" y1="16" x2="21" y2="16"/></svg>
-      </button>
-      <div class="kb5-tbsep"></div>
-      <button class="kb5-tb" onclick="_kbFmt('undo')" title="Отменить Ctrl+Z">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
-      </button>
-      <button class="kb5-tb" onclick="_kbFmt('redo')" title="Повторить Ctrl+Y">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>
-      </button>
-      <button class="kb5-tb" onclick="_kbFmt('removeFormat')" style="font-size:10px;color:var(--t3);padding:0 7px;width:auto" title="Убрать форматирование">✕ Формат</button>
-      <div class="kb5-tbsep"></div>
-      <button class="kb5-tb" onclick="_kbTogPin()" id="kb5pinBtn" title="Закрепить">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="${n.pinned?'var(--gold)':'none'}" stroke="${n.pinned?'var(--gold)':'currentColor'}" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/></svg>
-      </button>
-      <button class="kb5-tb" onclick="_kbNoteMenu()" title="Действия с заметкой">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
-      </button>`;
-  }
-
-  // Update pin button without rebuilding toolbar
-  const pinBtn=document.getElementById('kb5pinBtn');
-  if(pinBtn){ const svg=pinBtn.querySelector('svg'); if(svg){ svg.setAttribute('fill',n.pinned?'var(--gold)':'none'); svg.setAttribute('stroke',n.pinned?'var(--gold)':'currentColor'); } }
-
-  // Populate title
-  if(document.activeElement!==title) title.value=n.title||'';
-
-  // Populate editor body only if not focused (avoid cursor jump)
-  if(document.activeElement!==area){
-    area.innerHTML=n.body||'';
-    // Restore todo checkboxes state
-    area.querySelectorAll('.kb5-todo').forEach(lbl=>{
-      if(lbl.classList.contains('done')){
-        const cb=lbl.querySelector('input[type=checkbox]');
-        if(cb) cb.checked=true;
-      }
-    });
-  }
-
-  // Status bar
-  if(wc) wc.textContent=`${_kbWC(n.body||'')} слов · ~${Math.max(1,Math.ceil(_kbWC(n.body||'')/200))} мин`;
-  if(tags){
-    const col=c?c.color:'var(--gold)';
-    tags.innerHTML=(n.tags||[]).map(t=>`<span class="kb5-tag" style="background:${col}18;color:${col}">#${_kbEsc(t)}<span onclick="_kbRemTag('${_kbEsc(t)}')" style="cursor:pointer;opacity:.5;margin-left:2px">×</span></span>`).join('');
-  }
-
-  // Attach editor events (once)
-  if(!area.dataset.evts){
-    area.dataset.evts='1';
-    area.addEventListener('input', _kbEdInput);
-    area.addEventListener('keydown', _kbEdKey);
-    area.addEventListener('mouseup', _kbSaveSel);
-    area.addEventListener('keyup', _kbSaveSel);
-    title.addEventListener('input', _kbTitleInput);
-  }
+      <div id="kb6-font-panel" class="kb6-dd-panel" style="display:none">
+        ${_kb6Fonts().map(f=>`<div class="kb6-dd-opt${curFont===f.id?' active':''}" onclick="_kb6SetEdFont('${f.id}')" style="font-family:'${f.family}',sans-serif">${f.name}</div>`).join('')}
+      </div>
+    </div>
+    <div class="kb6-tb-sep"></div>
+    <!-- Formatting -->
+    <button class="kb6-tb-btn" onclick="_kbFmt('bold')" title="Жирный (Ctrl+B)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg></button>
+    <button class="kb6-tb-btn" onclick="_kbFmt('italic')" title="Курсив (Ctrl+I)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg></button>
+    <button class="kb6-tb-btn" onclick="_kbFmt('underline')" title="Подчёркивание (Ctrl+U)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"/><line x1="4" y1="21" x2="20" y2="21"/></svg></button>
+    <button class="kb6-tb-btn" onclick="_kbFmt('strikeThrough')" title="Зачёркнутый"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="4" y1="12" x2="20" y2="12"/><path d="M17.5 5C17.5 5 15.5 3 12 3S6.5 4.5 6.5 7c0 3.5 10 3.5 10 7s-2 4-4.5 4-4.5-2-4.5-2"/></svg></button>
+    <div class="kb6-tb-sep"></div>
+    <button class="kb6-tb-btn" onclick="_kb6InsCode()" title="Код"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button>
+    <button class="kb6-tb-btn" onclick="_kb6InsQuote()" title="Цитата"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/></svg></button>
+    <button class="kb6-tb-btn" onclick="_kb6InsLink()" title="Ссылка (Ctrl+K)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
+    <div class="kb6-tb-sep"></div>
+    <button class="kb6-tb-btn" onclick="_kb6InsBullet()" title="Список (★)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
+    <button class="kb6-tb-btn" onclick="_kb6InsOL()" title="Нумерованный список"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg></button>
+    <button class="kb6-tb-btn" onclick="_kb6InsTodo()" title="Чеклист"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="5" width="6" height="6" rx="1"/><polyline points="5 8 7 10 9 6"/><line x1="13" y1="8" x2="21" y2="8"/><rect x="3" y="13" width="6" height="6" rx="1"/><line x1="13" y1="16" x2="21" y2="16"/></svg></button>
+    <div class="kb6-tb-sep"></div>
+    <!-- Actions -->
+    <button class="kb6-tb-btn" onclick="_kb6TogPin()" title="Закрепить">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="${_kb6CurNote()?.pinned?'var(--gold)':'none'}" stroke="${_kb6CurNote()?.pinned?'var(--gold)':'currentColor'}" stroke-width="2" stroke-linecap="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/></svg>
+    </button>
+    <button class="kb6-tb-btn" onclick="_kb6TogFocus()" title="Режим фокуса"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
+    <button class="kb6-tb-btn" onclick="_kb6TogReader()" title="Режим чтения"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+    <button class="kb6-tb-btn" onclick="_kb6NoteMenu()" title="Ещё"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+  `;
 }
 
 // ══════════════════════════════════════════════════════════════
-// NAVIGATION ACTIONS
+// NAVIGATION
 // ══════════════════════════════════════════════════════════════
-function _kbGoHome(){
-  _kbAutoSave();
+function _kb6GoHome(){
   _kbS.cat=null; _kbS.folder=null; _kbS.note=null;
-  _kbS.search='';
-  const si=document.getElementById('kb5srch'); if(si) si.value='';
-  const sx=document.getElementById('kb5srch-x'); if(sx) sx.style.display='none';
-  renderKnowledgeBase();
+  _kbRenderAll();
 }
-function _kbTogCat(cid){
-  _kbAutoSave();
+function _kb6TogCat(cid){
+  if(!_kbS.sidebarCollapsed) _kbS.sidebarCollapsed={};
   if(_kbS.cat===cid){
-    _kbS.collapsed[cid]=!_kbS.collapsed[cid];
-  } else {
-    _kbS.cat=cid; _kbS.collapsed[cid]=false;
-    _kbS.folder=null; _kbS.note=null;
+    _kbS.sidebarCollapsed[cid] = !_kbS.sidebarCollapsed[cid];
+    _kb6RenderSidebar();
+    // Toggle folder DOM directly
+    const fw=document.getElementById('kb6-fw-'+cid);
+    if(fw) fw.style.display = _kbS.sidebarCollapsed[cid]?'none':'block';
+    return;
   }
-  _kbLoad3();
-  renderKnowledgeBase();
+  _kbS.cat=cid; _kbS.folder=null; _kbS.note=null;
+  _kbS.sidebarCollapsed[cid]=false;
+  _kbRenderAll();
 }
-function _kbOpenFolder(cid,fid){
-  _kbAutoSave();
+function _kb6OpenFolder(cid,fid){
   _kbS.cat=cid; _kbS.folder=fid; _kbS.note=null;
-  _kbS.collapsed[cid]=false;
-  _kbLoad3();
-  // Reset toolbar built flag so it rebuilds for new note
-  const tb=document.getElementById('kb5tb'); if(tb) delete tb.dataset.built;
-  const area=document.getElementById('kb5area'); if(area) delete area.dataset.evts;
-  renderKnowledgeBase();
+  _kbRenderAll();
 }
-function _kbOpenNote(cid,fid,nid){
-  _kbAutoSave();
+function _kb6OpenNote(cid,fid,nid){
+  _kb6AutoSave();
   _kbS.cat=cid; _kbS.folder=fid; _kbS.note=nid;
-  _kbS.collapsed[cid]=false;
-  _kbLoad3();
-  // Force editor refresh
-  const area=document.getElementById('kb5area'); if(area) { area.innerHTML=''; delete area.dataset.evts; }
-  const tb=document.getElementById('kb5tb'); if(tb) delete tb.dataset.built;
-  renderKnowledgeBase();
-  setTimeout(()=>{ document.getElementById('kb5area')?.focus(); }, 50);
+  const home=document.getElementById('kb6home');
+  const nl=document.getElementById('kb6nl');
+  const edwr=document.getElementById('kb6-editor');
+  const noN=document.getElementById('kb6-no-note');
+  if(home) home.style.display='none';
+  if(nl){ nl.style.display='flex'; nl.style.flexDirection='column'; }
+  if(edwr){ edwr.style.display='flex'; edwr.style.flexDirection='column'; }
+  if(noN) noN.style.display='none';
+  _kb6RenderNoteList();
+  _kb6RenderEditor();
+  _kb6RenderSidebar();
 }
-function _kbSetSort(s){ _kbS.sort=s; _kbRenderNoteList(); }
-function _kbSearch(v){
-  _kbS.search=v.trim();
-  const sx=document.getElementById('kb5srch-x');
-  if(sx) sx.style.display=v?'block':'none';
-  _kbRenderSidebar();
+function _kb6TogSidebar(){
+  const sb=document.getElementById('kb6sb');
+  const chev=document.getElementById('kb6-sb-chev');
+  if(!sb) return;
+  const isCollapsed = sb.classList.toggle('collapsed');
+  if(chev) chev.style.transform = isCollapsed?'rotate(180deg)':'';
 }
-function _kbSearchClear(){
+function _kb6Sort(s){
+  _kbS.sort=s;
+  _kb6RenderNoteList();
+}
+function _kb6Search(v){
+  _kbS.search=v;
+  const clr=document.getElementById('kb6-search-clr');
+  if(clr) clr.style.display=v?'block':'none';
+  _kb6RenderSidebar();
+  if(_kbS.folder) _kb6RenderNoteList();
+}
+function _kb6SearchClear(){
   _kbS.search='';
-  const si=document.getElementById('kb5srch'); if(si) si.value='';
-  const sx=document.getElementById('kb5srch-x'); if(sx) sx.style.display='none';
-  _kbRenderSidebar();
+  const inp=document.getElementById('kb6-search');
+  if(inp) inp.value='';
+  const clr=document.getElementById('kb6-search-clr');
+  if(clr) clr.style.display='none';
+  _kb6RenderSidebar();
+  if(_kbS.folder) _kb6RenderNoteList();
 }
 
 // ══════════════════════════════════════════════════════════════
-// EDITOR ACTIONS
+// EDITOR LOGIC
 // ══════════════════════════════════════════════════════════════
-let _kbAutoSaveT=null;
-function _kbAutoSave(){
-  clearTimeout(_kbAutoSaveT);
-  const area=document.getElementById('kb5area');
-  const title=document.getElementById('kb5title');
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);
-  if(!n) return;
+function _kb6EdInput(){
+  _kb6UpdateStatus();
+  _kb6SaveStatus('saving');
+  clearTimeout(_kbSaveTimer);
+  _kbSaveTimer = setTimeout(()=>{
+    _kb6AutoSave();
+    _kb6SaveStatus('saved');
+    _kb6RenderNoteList();
+    _kb6RenderSidebar();
+  }, 800);
+}
+function _kb6TitleInput(){
+  const n=_kb6CurNote(); if(!n) return;
+  const el=document.getElementById('kb6etitle'); if(!el) return;
+  n.title=el.value; n.updatedAt=Date.now();
+  _kbSave3();
+  _kb6RenderNoteList(); _kb6RenderSidebar(); _kb6SaveStatus('saved');
+}
+function _kb6UpdateStatus(){
+  const area=document.getElementById('kb6area'); if(!area) return;
+  const wc=_kbWC(area.innerHTML);
+  const wcel=document.getElementById('kb6-st-wc');
+  const rtel=document.getElementById('kb6-st-rt');
+  if(wcel) wcel.textContent=wc+' слов';
+  if(rtel) rtel.textContent='~'+_kbRT(wc)+' мин чтения';
+}
+function _kb6SaveStatus(s){
+  const dot=document.getElementById('kb6-save-dot');
+  const lbl=document.getElementById('kb6-st-save');
+  if(!dot||!lbl) return;
+  if(s==='saving'){
+    dot.className='kb6-save-dot saving';
+    lbl.textContent='Сохраняю...';
+  } else {
+    dot.className='kb6-save-dot';
+    lbl.textContent='Сохранено';
+  }
+}
+function _kb6AutoSave(){
+  const n=_kb6CurNote(); if(!n) return;
+  const area=document.getElementById('kb6area');
+  const title=document.getElementById('kb6etitle');
   if(area) n.body=area.innerHTML;
-  if(title) n.title=title.value.trim()||'Без названия';
+  if(title) n.title=title.value||n.title;
   n.updatedAt=Date.now();
   _kbSave3();
 }
-function _kbEdInput(){
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note); if(!n) return;
-  const area=document.getElementById('kb5area');
-  _kbSSV5('saving');
-  clearTimeout(_kbAutoSaveT);
-  _kbAutoSaveT=setTimeout(()=>{
-    if(area) n.body=area.innerHTML;
-    n.updatedAt=Date.now(); _kbSave3();
-    const wc=document.getElementById('kb5wc');
-    if(wc) wc.textContent=`${_kbWC(area?area.innerHTML:'')} слов · ~${Math.max(1,Math.ceil(_kbWC(area?area.innerHTML:'')/200))} мин`;
-    // Update note list silently (just re-render note list cards)
-    _kbRenderNoteList();
-    // Update sidebar recent
-    _kbRenderSidebar();
-    _kbSSV5('saved');
-  }, 800);
+function _kb6SaveSel(){
+  const s=window.getSelection();
+  if(s&&s.rangeCount) _kbSel=s.getRangeAt(0).cloneRange();
 }
-function _kbTitleInput(){
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note); if(!n) return;
-  const ti=document.getElementById('kb5title');
-  clearTimeout(_kbAutoSaveT);
-  _kbAutoSaveT=setTimeout(()=>{
-    if(ti) n.title=ti.value.trim()||'Без названия';
-    n.updatedAt=Date.now(); _kbSave3();
-    _kbRenderNoteList(); _kbRenderSidebar(); _kbSSV5('saved');
-  },600);
-}
-function _kbSSV5(s){
-  const el=document.getElementById('kb5sv'); if(!el) return;
-  if(s==='saving'){ el.textContent='● Сохранение…'; el.className='kb5-sv saving'; }
-  else if(s==='saved'){ el.textContent='✓ Сохранено'; el.className='kb5-sv saved'; setTimeout(()=>{ if(el.className==='kb5-sv saved'){ el.textContent=''; el.className='kb5-sv'; } },2000); }
-  else { el.textContent=''; el.className='kb5-sv'; }
-}
+// _kbRestSel defined above (line 25580)
 
-// ── Toolbar commands ──────────────────────────────────────────
+// ── Formatting commands ───────────────────────────────────────
 function _kbFmt(cmd,val){
-  const ea=document.getElementById('kb5area'); if(!ea) return;
-  if(document.activeElement!==ea){ ea.focus(); _kbRestSel(); }
-  document.execCommand(cmd,false,val||null);
-  _kbSel=null;
-}
-function _kbFmtBlock(tag,label){
   _kbRestSel();
-  const ea=document.getElementById('kb5area'); if(!ea) return;
-  ea.focus();
-  document.execCommand('formatBlock',false,tag);
-  const lbl=document.getElementById('kb5styleLbl'); if(lbl) lbl.textContent=label;
-  _kbCloseDD('kb5styleList'); _kbSel=null;
+  document.execCommand(cmd,false,val||null);
+  document.getElementById('kb6area')?.focus();
+  _kb6EdInput();
 }
-function _kbTogDD(id){
-  _kbSaveSel();
-  document.querySelectorAll('.kb5-ddlist').forEach(d=>{ if(d.id!==id) d.style.display='none'; });
+function _kb6FmtBlock(tag){
+  _kbRestSel();
+  if(tag==='<p>') document.execCommand('formatBlock',false,'p');
+  else document.execCommand('formatBlock',false,tag);
+  document.getElementById('kb6area')?.focus();
+  _kb6EdInput();
+  // Close dropdown
+  const d=document.getElementById('kb6-hdrop');
+  if(d) d.style.display='none';
+}
+function _kb6InsCode(){
+  _kbRestSel();
+  const sel=window.getSelection();
+  if(sel&&sel.toString()){
+    document.execCommand('insertHTML',false,`<code>${_kbEsc(sel.toString())}</code>`);
+  } else {
+    document.execCommand('insertHTML',false,`<pre><code>// код</code></pre>`);
+  }
+  document.getElementById('kb6area')?.focus();
+  _kb6EdInput();
+}
+function _kb6InsQuote(){
+  _kbRestSel();
+  document.execCommand('insertHTML',false,`<blockquote contenteditable="true">Цитата...</blockquote>`);
+  document.getElementById('kb6area')?.focus();
+  _kb6EdInput();
+}
+function _kb6InsLink(){
+  _kbRestSel();
+  const url=prompt('Введи URL:');
+  if(url){ _kbFmt('createLink',url); }
+}
+function _kb6InsBullet(){
+  _kbRestSel();
+  document.execCommand('insertHTML',false,`<ul><li>Пункт</li></ul>`);
+  document.getElementById('kb6area')?.focus();
+  _kb6EdInput();
+}
+function _kb6InsOL(){
+  _kbRestSel();
+  document.execCommand('insertHTML',false,`<ol><li>Пункт</li></ol>`);
+  document.getElementById('kb6area')?.focus();
+  _kb6EdInput();
+}
+function _kb6InsTodo(){
+  _kbRestSel();
+  const id='td'+Math.random().toString(36).slice(2,8);
+  document.execCommand('insertHTML',false,`<div class="kb6-todo" id="${id}"><div class="kb6-chk" onclick="_kb6TogCheck('${id}')"></div><div class="kb6-txt" contenteditable="true">Задача</div></div>`);
+  document.getElementById('kb6area')?.focus();
+  _kb6EdInput();
+}
+function _kb6TogCheck(id){
   const el=document.getElementById(id); if(!el) return;
-  el.style.display=el.style.display==='none'?'block':'none';
+  el.classList.toggle('done');
+  const chk=el.querySelector('.kb6-chk');
+  if(chk) chk.innerHTML=el.classList.contains('done')?`<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--bg)" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>`:'';
+  _kb6EdInput();
 }
-function _kbCloseDD(id){ const el=document.getElementById(id); if(el) el.style.display='none'; }
-document.addEventListener('click',e=>{
-  if(!e.target.closest('.kb5-dd')){
-    document.querySelectorAll('.kb5-ddlist').forEach(d=>d.style.display='none');
-  }
-});
 
-// ── Insert todo ───────────────────────────────────────────────
-function _kbInsTodo(){
-  const ea=document.getElementById('kb5area'); if(!ea) return;
-  ea.focus();
-  const id='t'+Date.now();
-  document.execCommand('insertHTML',false,
-    `<div class="kb5-todo" contenteditable="false"><span class="kb5-chk" onclick="window._kbChk(this)"></span><span class="kb5-txt" id="${id}" contenteditable="true"> </span></div>`);
-  setTimeout(()=>{ const sp=document.getElementById(id); if(sp){ sp.focus(); placeCursorEnd(sp); } },20);
-  _kbEdInput();
-}
-window._kbChk=function(chk){
-  const todo=chk.closest('.kb5-todo'); if(!todo) return;
-  todo.classList.toggle('done');
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);
-  if(n){ const ea=document.getElementById('kb5area'); if(ea){ n.body=ea.innerHTML; n.updatedAt=Date.now(); _kbSave3(); } }
-};
-function placeCursorEnd(el){ const r=document.createRange(); r.selectNodeContents(el); r.collapse(false); const s=window.getSelection(); s.removeAllRanges(); s.addRange(r); }
-
-// ── Keyboard handler ──────────────────────────────────────────
-function _kbEdKey(e){
-  const cm=e.ctrlKey||e.metaKey;
-  if(cm&&e.key==='s'){ e.preventDefault(); _kbAutoSave(); _kbSSV5('saved'); return; }
-  if(cm&&e.key==='b'){ e.preventDefault(); _kbFmt('bold'); return; }
-  if(cm&&e.key==='i'){ e.preventDefault(); _kbFmt('italic'); return; }
-  if(cm&&e.key==='u'){ e.preventDefault(); _kbFmt('underline'); return; }
-  if(cm&&e.key==='a'){ e.preventDefault(); const ea=document.getElementById('kb5area'); if(ea){ const r=document.createRange(); r.selectNodeContents(ea); const s=window.getSelection(); s.removeAllRanges(); s.addRange(r); } return; }
-  if(e.key==='Tab'){ e.preventDefault(); document.execCommand('insertText',false,'    '); return; }
-
-  if(e.key==='Enter'){
-    const sel=window.getSelection();
-    if(!sel||!sel.rangeCount) return;
-    const rng=sel.getRangeAt(0);
-    const node=rng.startContainer;
-    const el=node.nodeType===3?node.parentElement:node;
-
-    // Exit todo on Enter in empty todo span
-    const todoSpan=el&&typeof el.closest==='function'?el.closest('.kb5-txt'):null;
-    if(todoSpan){
-      e.preventDefault();
-      const todo=todoSpan.closest('.kb5-todo');
-      if(!todoSpan.textContent.trim()&&todo){
-        todo.remove();
-      } else {
-        // New todo below
-        const id='t'+Date.now();
-        const newTodo=document.createElement('div');
-        newTodo.className='kb5-todo'; newTodo.contentEditable='false';
-        newTodo.innerHTML=`<span class="kb5-chk" onclick="window._kbChk(this)"></span><span class="kb5-txt" id="${id}" contenteditable="true"> </span>`;
-        if(todo&&todo.nextSibling) todo.parentNode.insertBefore(newTodo,todo.nextSibling);
-        else document.getElementById('kb5area')?.appendChild(newTodo);
-        setTimeout(()=>{ const sp=document.getElementById(id); if(sp){ sp.focus(); placeCursorEnd(sp); } },10);
-      }
-      _kbEdInput(); return;
-    }
-
-    // Exit blockquote / list on empty line
-    const bq=el&&typeof el.closest==='function'?el.closest('blockquote'):null;
-    const li=el&&typeof el.closest==='function'?el.closest('li'):null;
-
-    if(bq&&(node.textContent||'').trim()===''){
-      e.preventDefault();
-      const last=bq.lastChild;
-      if(last&&(last.nodeName==='BR'||(last.nodeType===3&&!last.textContent.trim()))) bq.removeChild(last);
-      const p=document.createElement('p'); p.innerHTML='<br>';
-      if(bq.nextSibling) bq.parentNode.insertBefore(p,bq.nextSibling); else bq.parentNode.appendChild(p);
-      const r=document.createRange(); r.setStart(p,0); r.collapse(true);
-      sel.removeAllRanges(); sel.addRange(r);
-      _kbEdInput(); return;
-    }
-    if(li&&!(li.textContent||'').trim()){
-      e.preventDefault();
-      const lst=li.closest('ul')||li.closest('ol');
-      li.remove();
-      if(lst&&!lst.querySelector('li')) lst.remove();
-      document.execCommand('insertHTML',false,'<p><br></p>');
-      _kbEdInput(); return;
-    }
-  }
-
-  if(e.key==='Backspace'){
-    const sel=window.getSelection();
-    if(sel&&sel.rangeCount){
-      const rng=sel.getRangeAt(0);
-      const el=(rng.startContainer.nodeType===3?rng.startContainer.parentElement:rng.startContainer);
-      const todoSpan=el&&typeof el.closest==='function'?el.closest('.kb5-txt'):null;
-      if(todoSpan&&rng.startOffset<=1&&todoSpan.textContent.trim()===''){
-        e.preventDefault();
-        todoSpan.closest('.kb5-todo')?.remove();
-        _kbEdInput(); return;
-      }
-    }
+// ── Keyboard shortcuts ────────────────────────────────────────
+function _kb6EdKey(e){
+  if(e.ctrlKey||e.metaKey){
+    if(e.key==='b'){ e.preventDefault(); _kbFmt('bold'); }
+    if(e.key==='i'){ e.preventDefault(); _kbFmt('italic'); }
+    if(e.key==='u'){ e.preventDefault(); _kbFmt('underline'); }
+    if(e.key==='k'){ e.preventDefault(); _kb6InsLink(); }
+    if(e.key==='Enter'){ e.preventDefault(); _kb6TogFocus(); }
   }
 }
 
-// ── Note operations ───────────────────────────────────────────
-function _kbNewNote(){
-  if(!_kbS.cat){
-    // Ask which cat/folder
-    _kbSM(`<div style="font-size:15px;font-weight:800;color:var(--t1);margin-bottom:14px">Новая заметка</div>
-      <div style="font-size:12px;color:var(--t3);margin-bottom:10px">Выбери категорию и папку</div>
-      <select id="kb5nc-cat" class="kb5-inp" style="margin-bottom:8px" onchange="_kbNewNoteCatChange(this.value)">
-        ${ALL_CATS.map(c=>`<option value="${c.id}">${c.icon} ${_kbEsc(c.name)}</option>`).join('')}
-      </select>
-      <select id="kb5nc-fold" class="kb5-inp" style="margin-bottom:14px"></select>
-      <div style="display:flex;gap:8px">
-        <button class="kb5-btn kb5-btn-ghost" style="flex:1;justify-content:center" onclick="_kbCloseMod()">Отмена</button>
-        <button class="kb5-btn kb5-btn-gold" style="flex:1;justify-content:center" onclick="_kbNewNoteConfirm()">Создать</button>
-      </div>`);
-    _kbNewNoteCatChange(ALL_CATS[0]?.id);
+// ── Font management ───────────────────────────────────────────
+function _kb6SetEdFont(id){
+  _kbS.editorFont=id;
+  _kb6ApplyEditorFont();
+  _kb6RenderToolbar();
+  const d=document.getElementById('kb6-font-panel');
+  if(d) d.style.display='none';
+}
+function _kb6ApplyEditorFont(){
+  const area=document.getElementById('kb6area'); if(!area) return;
+  const f=_kb6FontById(_kbS.editorFont||'inter');
+  area.style.fontFamily=`'${f.family}',sans-serif`;
+}
+
+// ── Dropdown toggle ───────────────────────────────────────────
+function _kb6TogDD(id){
+  const el=document.getElementById(id); if(!el) return;
+  const isHidden=el.style.display==='none'||!el.style.display;
+  document.querySelectorAll('.kb6-dd-panel,.kb6-hdrop').forEach(d=>d.style.display='none');
+  el.style.display=isHidden?'block':'none';
+}
+
+// ══════════════════════════════════════════════════════════════
+// FOCUS MODE
+// ══════════════════════════════════════════════════════════════
+function _kb6TogFocus(){
+  const kb=document.getElementById('kb6');
+  if(!kb) return;
+  _kbS.focusMode=!_kbS.focusMode;
+  kb.classList.toggle('focus-mode',_kbS.focusMode);
+  document.body.classList.toggle('kb6-focus-active',_kbS.focusMode);
+  document.getElementById('kb6area')?.focus();
+}
+function _kb6ExitFocus(){
+  _kbS.focusMode=false;
+  document.getElementById('kb6')?.classList.remove('focus-mode');
+  document.body.classList.remove('kb6-focus-active');
+}
+
+// ══════════════════════════════════════════════════════════════
+// READING MODE
+// ══════════════════════════════════════════════════════════════
+function _kb6TogReader(){
+  const rd=document.getElementById('kb6reader'); if(!rd) return;
+  const isOn=rd.classList.toggle('on');
+  if(isOn){ _kb6PopulateReader(); _kb6UpdateReadProg(); }
+}
+function _kb6PopulateReader(){
+  const n=_kb6CurNote(); if(!n) return;
+  const titleEl=document.getElementById('kb6-rd-title');
+  const metaEl=document.getElementById('kb6-rd-meta');
+  const textEl=document.getElementById('kb6-rd-text');
+  const wc=_kbWC(n.body||'');
+  if(titleEl) titleEl.textContent=n.title||'Без названия';
+  if(metaEl) metaEl.innerHTML=`
+    <span>${wc} слов</span>
+    <span style="opacity:.3">·</span>
+    <span>~${_kbRT(wc)} мин чтения</span>
+    <span style="opacity:.3">·</span>
+    <span>${n.updatedAt?new Date(n.updatedAt).toLocaleDateString('ru',{day:'numeric',month:'long',year:'numeric'}):''}</span>`;
+  if(textEl) textEl.innerHTML=n.body||'';
+  _kb6ApplyReaderStyle();
+  _kb6ApplyReaderThemeBtns();
+}
+function _kb6ApplyReaderStyle(){
+  const content=document.getElementById('kb6-rd-content'); if(!content) return;
+  const f=_kb6FontById(_kbS.readFont||'nunito');
+  content.style.fontFamily=`'${f.family}',sans-serif`;
+  content.style.fontSize=(_kbS.readSize||16)+'px';
+  content.style.lineHeight=String(_kbS.readLine||1.8);
+  const lbl=document.getElementById('kb6-rdfont-lbl');
+  if(lbl) lbl.textContent=f.name;
+  const szEl=document.getElementById('kb6-rdsz');
+  if(szEl) szEl.textContent=(_kbS.readSize||16)+'px';
+  const lhEl=document.getElementById('kb6-rdlh');
+  if(lhEl) lhEl.textContent=(_kbS.readLine||1.8).toFixed(1);
+}
+function _kb6ApplyReaderThemeBtns(){
+  const t=_kbS.readTheme||'dark';
+  ['dark','sepia','light'].forEach(th=>{
+    const b=document.getElementById('kb6-rdt-'+th);
+    if(b) b.className='kb6-rd-ctrl'+(t===th?' active':'');
+  });
+  const rd=document.getElementById('kb6reader');
+  if(rd) rd.className='theme-'+t+(rd.classList.contains('on')?' on':'');
+}
+function _kb6RdTheme(t){
+  _kbS.readTheme=t;
+  _kb6ApplyReaderThemeBtns();
+}
+function _kb6RdFont(id){
+  _kbS.readFont=id;
+  _kb6ApplyReaderStyle();
+  const d=document.getElementById('kb6-rdfont-dd'); if(d) d.style.display='none';
+}
+function _kb6RdSize(delta){
+  _kbS.readSize=Math.min(28,Math.max(12,(_kbS.readSize||16)+delta));
+  _kb6ApplyReaderStyle();
+}
+function _kb6RdLine(delta){
+  _kbS.readLine=Math.min(3,Math.max(1.2,Math.round(((_kbS.readLine||1.8)+delta)*10)/10));
+  _kb6ApplyReaderStyle();
+}
+function _kb6UpdateReadProg(){
+  const body=document.getElementById('kb6-rd-body'); if(!body) return;
+  const max=body.scrollHeight-body.clientHeight;
+  const pct=max>0?Math.round(body.scrollTop/max*100):0;
+  const bar=document.getElementById('kb6-read-prog'); if(bar) bar.style.width=pct+'%';
+  const pctEl=document.getElementById('kb6-rd-pct'); if(pctEl) pctEl.textContent=pct+'%';
+}
+
+// ══════════════════════════════════════════════════════════════
+// CRUD OPERATIONS
+// ══════════════════════════════════════════════════════════════
+function _kb6NewNote(){
+  // Modal: pick category + folder
+  const cats = ALL_CATS.filter(c=>(_kb3[c.id]?.folders||[]).length>0);
+  if(!cats.length){
+    // No folders yet → quick create in first cat
+    const c=ALL_CATS[0];
+    if(!_kb3[c.id]) _kb3[c.id]={folders:[]};
+    const fid=_kbUID();
+    _kb3[c.id].folders.push({id:fid,title:'Общие заметки',createdAt:Date.now(),notes:[]});
+    _kbSave3();
+    _kb6CreateNote(c.id,fid);
     return;
   }
-  if(!_kbS.folder){
-    const folders=(_kb3[_kbS.cat]?.folders)||[];
-    if(!folders.length){ _kbNewFolder(_kbS.cat,true); return; }
-    _kbS.folder=folders[0].id;
-  }
-  _kbCreateNote(_kbS.cat,_kbS.folder);
-}
-function _kbNewNoteCatChange(cid){
-  const sel=document.getElementById('kb5nc-fold'); if(!sel) return;
-  const folders=(_kb3[cid]?.folders)||[];
-  sel.innerHTML=folders.length
-    ?folders.map(f=>`<option value="${f.id}">${_kbEsc(f.title)}</option>`).join('')
-    :`<option value="">Нет папок — создай папку сначала</option>`;
-}
-function _kbNewNoteConfirm(){
-  const cat=document.getElementById('kb5nc-cat')?.value;
-  const fid=document.getElementById('kb5nc-fold')?.value;
-  if(!cat||!fid){ _kbCloseMod(); return; }
-  _kbCloseMod(); _kbCreateNote(cat,fid);
-}
-function _kbCreateNote(cid,fid){
-  _kbLoad3();
-  const f=_kbGetFolder(cid,fid); if(!f) return;
-  const id=_kbUID();
-  const n={id,title:'Новая заметка',body:'',tags:[],pinned:false,createdAt:Date.now(),updatedAt:Date.now()};
-  if(!f.notes) f.notes=[];
-  f.notes.unshift(n);
-  _kbS.cat=cid; _kbS.folder=fid; _kbS.note=id;
-  _kbS.collapsed[cid]=false;
-  _kbSave3();
-  const area=document.getElementById('kb5area'); if(area){ area.innerHTML=''; delete area.dataset.evts; }
-  const tb=document.getElementById('kb5tb'); if(tb) delete tb.dataset.built;
-  renderKnowledgeBase();
-  setTimeout(()=>{ const ti=document.getElementById('kb5title'); if(ti){ ti.focus(); ti.select(); } },60);
-}
-function _kbNewFolder(cid,thenNote=false){
-  _kbSM(`<div style="font-size:15px;font-weight:800;color:var(--t1);margin-bottom:14px">Новая папка</div>
-    <input class="kb5-inp" id="kb5nf-inp" placeholder="Название папки" maxlength="60" autocomplete="off">
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <button class="kb5-btn kb5-btn-ghost" style="flex:1;justify-content:center" onclick="_kbCloseMod()">Отмена</button>
-      <button class="kb5-btn kb5-btn-gold" style="flex:1;justify-content:center" onclick="_kbCreateFolder('${cid}',${thenNote})">Создать</button>
-    </div>`);
-  setTimeout(()=>{ const inp=document.getElementById('kb5nf-inp'); if(inp){ inp.focus(); inp.addEventListener('keydown',e=>{ if(e.key==='Enter') _kbCreateFolder(cid,thenNote); }); } },50);
-}
-function _kbCreateFolder(cid,thenNote){
-  const t=(document.getElementById('kb5nf-inp')?.value||'').trim();
-  if(!t){ return; }
-  _kbLoad3();
-  if(!_kb3[cid]) _kb3[cid]={folders:[]};
-  const id=_kbUID();
-  _kb3[cid].folders.push({id,title:t,notes:[]});
-  _kbS.cat=cid; _kbS.folder=id; _kbS.collapsed[cid]=false;
-  _kbSave3(); _kbCloseMod();
-  if(thenNote){ _kbCreateNote(cid,id); } else { renderKnowledgeBase(); }
-}
-function _kbTogPin(){
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note); if(!n) return;
-  n.pinned=!n.pinned; n.updatedAt=Date.now(); _kbSave3();
-  _kbRenderNoteList(); _kbRenderSidebar();
-  // Update pin button
-  const pb=document.getElementById('kb5pinBtn'); if(pb){ const svg=pb.querySelector('svg'); if(svg){ svg.setAttribute('fill',n.pinned?'var(--gold)':'none'); svg.setAttribute('stroke',n.pinned?'var(--gold)':'currentColor'); } }
-}
-function _kbNoteMenu(){
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note); if(!n) return;
-  _kbSM(`<div style="font-size:14px;font-weight:800;color:var(--t1);margin-bottom:14px">«${_kbEsc(n.title||'Без названия')}»</div>
-    <div style="display:flex;flex-direction:column;gap:6px">
-      <button class="kb5-btn kb5-btn-ghost" style="justify-content:flex-start;gap:10px" onclick="_kbRenameNote()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        Переименовать
-      </button>
-      <button class="kb5-btn kb5-btn-ghost" style="justify-content:flex-start;gap:10px" onclick="_kbDupNote()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-        Дублировать
-      </button>
-      <button class="kb5-btn kb5-btn-ghost" style="justify-content:flex-start;gap:10px" onclick="_kbExportNote()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Экспорт .txt
-      </button>
-      <button class="kb5-btn kb5-btn-danger" style="justify-content:flex-start;gap:10px" onclick="_kbDelNote()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg>
-        Удалить заметку
-      </button>
+  // Build modal
+  const firstCat=_kbS.cat&&cats.find(c=>c.id===_kbS.cat)?_kbS.cat:cats[0].id;
+  _kb6Modal(`
+    <div class="kb6-modal-title" style="display:flex;align-items:center;gap:9px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+      Новая заметка
     </div>
-    <button class="kb5-btn kb5-btn-ghost" style="width:100%;justify-content:center;margin-top:10px" onclick="_kbCloseMod()">Закрыть</button>`);
+    <div style="margin-bottom:12px">
+      <label style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);display:block;margin-bottom:6px">Категория</label>
+      <select id="kb6-nc-cat" class="kb6-modal-inp" onchange="_kb6ModalCatChange(this.value)">
+        ${cats.map(c=>`<option value="${c.id}"${c.id===firstCat?' selected':''}>${_kbEsc(c.name)}</option>`).join('')}
+      </select>
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);display:block;margin-bottom:6px">Папка</label>
+      <select id="kb6-nc-fld" class="kb6-modal-inp">
+        ${(_kb3[firstCat]?.folders||[]).map(f=>`<option value="${f.id}"${f.id===_kbS.folder?' selected':''}>${_kbEsc(f.title)}</option>`).join('')}
+      </select>
+    </div>
+    <div style="margin-bottom:4px">
+      <label style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);display:block;margin-bottom:6px">Название</label>
+      <input id="kb6-nc-name" class="kb6-modal-inp" placeholder="Название заметки..." autofocus>
+    </div>
+    <div class="kb6-modal-actions">
+      <button class="kb6-btn kb6-btn-ghost" onclick="_kb6CloseModal()">Отмена</button>
+      <button class="kb6-btn kb6-btn-gold" onclick="_kb6ConfirmNewNote()">Создать →</button>
+    </div>
+  `);
+  setTimeout(()=>document.getElementById('kb6-nc-name')?.focus(),80);
 }
-function _kbRenameNote(){
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note); if(!n) return;
-  _kbSM(`<div style="font-size:15px;font-weight:800;color:var(--t1);margin-bottom:12px">Переименовать</div>
-    <input class="kb5-inp" id="kb5rn-inp" value="${_kbEsc(n.title||'')}" maxlength="100" autocomplete="off">
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <button class="kb5-btn kb5-btn-ghost" style="flex:1;justify-content:center" onclick="_kbCloseMod()">Отмена</button>
-      <button class="kb5-btn kb5-btn-gold" style="flex:1;justify-content:center" onclick="_kbDoRename()">Сохранить</button>
-    </div>`);
-  setTimeout(()=>{ const inp=document.getElementById('kb5rn-inp'); if(inp){ inp.focus(); inp.select(); inp.addEventListener('keydown',e=>{ if(e.key==='Enter') _kbDoRename(); }); } },50);
+function _kb6ModalCatChange(cid){
+  const sel=document.getElementById('kb6-nc-fld'); if(!sel) return;
+  const folders=_kb3[cid]?.folders||[];
+  sel.innerHTML=folders.map(f=>`<option value="${f.id}">${_kbEsc(f.title)}</option>`).join('');
 }
-function _kbDoRename(){
-  const t=(document.getElementById('kb5rn-inp')?.value||'').trim()||'Без названия';
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note); if(!n) return;
-  n.title=t; n.updatedAt=Date.now(); _kbSave3(); _kbCloseMod();
-  const ti=document.getElementById('kb5title'); if(ti) ti.value=t;
-  _kbRenderNoteList(); _kbRenderSidebar();
+function _kb6ConfirmNewNote(){
+  const catEl=document.getElementById('kb6-nc-cat');
+  const fldEl=document.getElementById('kb6-nc-fld');
+  const nmEl=document.getElementById('kb6-nc-name');
+  const cid=catEl?.value; const fid=fldEl?.value;
+  if(!cid||!fid){ return; }
+  _kb6CloseModal();
+  _kb6CreateNote(cid,fid,nmEl?.value||'');
 }
-function _kbDupNote(){
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);
-  const f=_kbGetFolder(_kbS.cat,_kbS.folder);
-  if(!n||!f) return;
-  const id=_kbUID();
-  const dup={...JSON.parse(JSON.stringify(n)),id,title:(n.title||'')+'  (копия)',createdAt:Date.now(),updatedAt:Date.now(),pinned:false};
-  const idx=f.notes.findIndex(x=>x.id===n.id);
-  f.notes.splice(idx+1,0,dup);
-  _kbSave3(); _kbCloseMod();
-  _kbOpenNote(_kbS.cat,_kbS.folder,id);
+function _kb6CreateNoteInFolder(){
+  if(!_kbS.cat||!_kbS.folder) return;
+  _kb6CreateNote(_kbS.cat,_kbS.folder,'');
 }
-function _kbDelNote(){
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note);
-  const f=_kbGetFolder(_kbS.cat,_kbS.folder);
-  if(!n||!f) return;
-  if(!confirm(`Удалить «${n.title||'Без названия'}»?`)) return;
-  f.notes=f.notes.filter(x=>x.id!==n.id);
-  _kbS.note=null; _kbSave3(); _kbCloseMod();
-  const area=document.getElementById('kb5area'); if(area){ area.innerHTML=''; delete area.dataset.evts; }
-  const tb=document.getElementById('kb5tb'); if(tb) delete tb.dataset.built;
-  renderKnowledgeBase();
+function _kb6CreateNote(cid,fid,title=''){
+  if(!_kb3[cid]) _kb3[cid]={folders:[]};
+  const f=_kb3[cid].folders.find(x=>x.id===fid); if(!f) return;
+  const nid=_kbUID();
+  const ts=Date.now();
+  f.notes.unshift({id:nid,title:title||'',body:'',createdAt:ts,updatedAt:ts,pinned:false,tags:[]});
+  _kbSave3();
+  _kb6OpenNote(cid,fid,nid);
+  setTimeout(()=>{
+    const t=document.getElementById('kb6etitle');
+    if(t){ t.focus(); if(!title) t.select(); }
+  },80);
 }
-function _kbExportNote(){
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note); if(!n) return;
-  const md=`# ${n.title||'Без названия'}\n\n${_kbStrip(n.body||'')}`;
-  const blob=new Blob([md],{type:'text/plain;charset=utf-8'});
-  const url=URL.createObjectURL(blob);
+function _kb6NewFolder(cid,thenNote=false){
+  _kb6Modal(`
+    <div class="kb6-modal-title" style="display:flex;align-items:center;gap:9px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      Новая папка
+    </div>
+    <div style="margin-bottom:4px">
+      <label style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);display:block;margin-bottom:6px">Название папки</label>
+      <input id="kb6-nf-name" class="kb6-modal-inp" placeholder="Моя папка...">
+    </div>
+    <div class="kb6-modal-actions">
+      <button class="kb6-btn kb6-btn-ghost" onclick="_kb6CloseModal()">Отмена</button>
+      <button class="kb6-btn kb6-btn-gold" onclick="_kb6ConfirmNewFolder('${cid}',${thenNote})">Создать →</button>
+    </div>
+  `);
+  setTimeout(()=>document.getElementById('kb6-nf-name')?.focus(),80);
+}
+function _kb6ConfirmNewFolder(cid,thenNote){
+  const v=(document.getElementById('kb6-nf-name')?.value||'').trim();
+  if(!v) return;
+  if(!_kb3[cid]) _kb3[cid]={folders:[]};
+  const fid=_kbUID();
+  _kb3[cid].folders.push({id:fid,title:v,createdAt:Date.now(),notes:[]});
+  _kbSave3();
+  _kb6CloseModal();
+  if(thenNote) _kb6CreateNote(cid,fid,'');
+  else _kb6OpenFolder(cid,fid);
+  _kbRenderAll();
+}
+
+// ── Pin / tag ─────────────────────────────────────────────────
+function _kb6TogPin(){
+  _kb6AutoSave();
+  const n=_kb6CurNote(); if(!n) return;
+  n.pinned=!n.pinned; _kbSave3();
+  _kb6RenderToolbar(); _kb6RenderNoteList(); _kb6RenderSidebar();
+}
+function _kb6AddTag(){
+  const t=prompt('Добавить тег:'); if(!t) return;
+  const n=_kb6CurNote(); if(!n) return;
+  if(!n.tags) n.tags=[];
+  if(!n.tags.includes(t)) n.tags.push(t);
+  _kbSave3(); _kb6RenderTags();
+}
+function _kb6RemTag(t){
+  const n=_kb6CurNote(); if(!n||!n.tags) return;
+  n.tags=n.tags.filter(x=>x!==t); _kbSave3(); _kb6RenderTags();
+}
+
+// ── Note actions menu ─────────────────────────────────────────
+function _kb6NoteMenu(){
+  const n=_kb6CurNote(); if(!n) return;
+  const tb=document.getElementById('kb6tb'); if(!tb) return;
+  const rect=tb.getBoundingClientRect();
+  const kb=document.getElementById('kb6'); if(!kb) return;
+  const kbRect=kb.getBoundingClientRect();
+  _kb6ShowMenu(rect.right-kbRect.left-200, rect.bottom-kbRect.top+4, _kbS.cat, _kbS.folder, _kbS.note);
+}
+function _kb6NoteCtxMenu(e,cid,fid,nid){
+  const kb=document.getElementById('kb6'); if(!kb) return;
+  const kbRect=kb.getBoundingClientRect();
+  const x=Math.min(e.clientX-kbRect.left, kbRect.width-220);
+  const y=Math.min(e.clientY-kbRect.top, kbRect.height-260);
+  _kb6ShowMenu(x,y,cid,fid,nid);
+}
+function _kb6ShowMenu(x,y,cid,fid,nid){
+  const m=document.getElementById('kb6-note-menu'); if(!m) return;
+  const n=_kbGetNote(cid,fid,nid); if(!n) return;
+  m.style.left=x+'px'; m.style.top=y+'px'; m.style.display='block';
+  m.innerHTML=`
+    <button class="kb6-menu-item" onclick="_kb6OpenNote('${cid}','${fid}','${nid}');document.getElementById('kb6-note-menu').style.display='none'">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Открыть
+    </button>
+    <button class="kb6-menu-item" onclick="document.getElementById('kb6-note-menu').style.display='none';_kb6TogReader()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      Читать
+    </button>
+    <div class="kb6-menu-sep"></div>
+    <button class="kb6-menu-item" onclick="document.getElementById('kb6-note-menu').style.display='none';_kb6DupNote('${cid}','${fid}','${nid}')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      Дублировать
+    </button>
+    <button class="kb6-menu-item" onclick="document.getElementById('kb6-note-menu').style.display='none';_kb6MoveNote('${cid}','${fid}','${nid}')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      Переместить
+    </button>
+    <button class="kb6-menu-item" onclick="document.getElementById('kb6-note-menu').style.display='none';_kb6RenameNote('${cid}','${fid}','${nid}')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Переименовать
+    </button>
+    <button class="kb6-menu-item" onclick="document.getElementById('kb6-note-menu').style.display='none';_kb6TogPinById('${cid}','${fid}','${nid}')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="${n.pinned?'var(--gold)':'none'}" stroke="${n.pinned?'var(--gold)':'currentColor'}" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/></svg>
+      ${n.pinned?'Открепить':'Закрепить'}
+    </button>
+    <div class="kb6-menu-sep"></div>
+    <button class="kb6-menu-item" onclick="document.getElementById('kb6-note-menu').style.display='none';_kb6ExportNote('${cid}','${fid}','${nid}')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Экспортировать
+    </button>
+    <div class="kb6-menu-sep"></div>
+    <button class="kb6-menu-item danger" onclick="document.getElementById('kb6-note-menu').style.display='none';_kb6DelNote('${cid}','${fid}','${nid}')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+      Удалить
+    </button>`;
+}
+function _kb6TogPinById(cid,fid,nid){
+  const n=_kbGetNote(cid,fid,nid); if(!n) return;
+  n.pinned=!n.pinned; _kbSave3(); _kbRenderAll();
+}
+function _kb6DupNote(cid,fid,nid){
+  const f=_kbGetFolder(cid,fid); if(!f) return;
+  const n=_kbGetNote(cid,fid,nid); if(!n) return;
+  const copy={...JSON.parse(JSON.stringify(n)),id:_kbUID(),title:(n.title||'')+'(копия)',createdAt:Date.now(),updatedAt:Date.now(),pinned:false};
+  const idx=f.notes.findIndex(x=>x.id===nid);
+  f.notes.splice(idx+1,0,copy);
+  _kbSave3(); _kb6OpenNote(cid,fid,copy.id);
+}
+function _kb6RenameNote(cid,fid,nid){
+  const n=_kbGetNote(cid,fid,nid); if(!n) return;
+  _kb6Modal(`
+    <div class="kb6-modal-title">Переименовать заметку</div>
+    <input id="kb6-rn-inp" class="kb6-modal-inp" value="${_kbEsc(n.title||'')}">
+    <div class="kb6-modal-actions">
+      <button class="kb6-btn kb6-btn-ghost" onclick="_kb6CloseModal()">Отмена</button>
+      <button class="kb6-btn kb6-btn-gold" onclick="_kb6ConfirmRename('${cid}','${fid}','${nid}')">Сохранить</button>
+    </div>
+  `);
+  setTimeout(()=>{ const i=document.getElementById('kb6-rn-inp'); if(i){i.focus();i.select();}},80);
+}
+function _kb6ConfirmRename(cid,fid,nid){
+  const v=(document.getElementById('kb6-rn-inp')?.value||'').trim();
+  const n=_kbGetNote(cid,fid,nid); if(!n) return;
+  if(v) n.title=v; n.updatedAt=Date.now();
+  _kbSave3(); _kb6CloseModal(); _kbRenderAll();
+}
+function _kb6MoveNote(cid,fid,nid){
+  const allFolders=[];
+  ALL_CATS.forEach(c=>(_kb3[c.id]?.folders||[]).forEach(f=>{
+    if(!(c.id===cid&&f.id===fid)) allFolders.push({cid:c.id,fid:f.id,label:`${c.name} › ${f.title}`});
+  }));
+  if(!allFolders.length){ alert('Нет других папок'); return; }
+  _kb6Modal(`
+    <div class="kb6-modal-title">Переместить заметку</div>
+    <select id="kb6-mv-sel" class="kb6-modal-inp" style="margin-bottom:0">
+      ${allFolders.map(f=>`<option value="${f.cid}|${f.fid}">${_kbEsc(f.label)}</option>`).join('')}
+    </select>
+    <div class="kb6-modal-actions">
+      <button class="kb6-btn kb6-btn-ghost" onclick="_kb6CloseModal()">Отмена</button>
+      <button class="kb6-btn kb6-btn-gold" onclick="_kb6ConfirmMove('${cid}','${fid}','${nid}')">Переместить</button>
+    </div>
+  `);
+}
+function _kb6ConfirmMove(srcCid,srcFid,nid){
+  const val=document.getElementById('kb6-mv-sel')?.value; if(!val) return;
+  const [tCid,tFid]=val.split('|');
+  const srcF=_kbGetFolder(srcCid,srcFid); if(!srcF) return;
+  const tF=_kbGetFolder(tCid,tFid); if(!tF) return;
+  const idx=srcF.notes.findIndex(n=>n.id===nid); if(idx===-1) return;
+  const [note]=srcF.notes.splice(idx,1);
+  note.updatedAt=Date.now();
+  tF.notes.unshift(note);
+  _kbSave3(); _kb6CloseModal();
+  _kb6OpenNote(tCid,tFid,nid);
+}
+function _kb6DelNote(cid,fid,nid){
+  _kb6Modal(`
+    <div class="kb6-modal-title">Удалить заметку?</div>
+    <div style="font-size:13px;color:var(--t2);margin-bottom:16px">Это действие нельзя отменить.</div>
+    <div class="kb6-modal-actions">
+      <button class="kb6-btn kb6-btn-ghost" onclick="_kb6CloseModal()">Отмена</button>
+      <button class="kb6-btn kb6-btn-danger" onclick="_kb6ConfirmDel('${cid}','${fid}','${nid}')">Удалить</button>
+    </div>
+  `);
+}
+function _kb6ConfirmDel(cid,fid,nid){
+  const f=_kbGetFolder(cid,fid); if(!f) return;
+  f.notes=f.notes.filter(n=>n.id!==nid);
+  _kbSave3(); _kb6CloseModal();
+  if(_kbS.note===nid){ _kbS.note=null; _kb6RenderMain(); }
+  _kb6RenderNoteList(); _kb6RenderSidebar();
+}
+function _kb6ExportNote(cid,fid,nid){
+  const n=_kbGetNote(cid,fid,nid); if(!n) return;
+  const text=`# ${n.title||'Без названия'}\n\n${_kbStrip(n.body||'')}`;
+  const blob=new Blob([text],{type:'text/plain;charset=utf-8'});
   const a=document.createElement('a');
-  a.href=url; a.download=`${(n.title||'note').replace(/[^a-zA-Zа-яА-Я0-9 ]/g,'_')}.txt`;
-  a.click(); URL.revokeObjectURL(url); _kbCloseMod();
+  a.href=URL.createObjectURL(blob);
+  a.download=((n.title||'заметка').replace(/[^а-яёa-z0-9\s_-]/gi,'_').slice(0,60))+'.txt';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
 
-// ── Tags ──────────────────────────────────────────────────────
-function _kbAddTagPrompt(){
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note); if(!n) return;
-  const t=prompt('Введи тег (без #):','');
-  if(!t||!t.trim()) return;
-  const tag=t.trim().toLowerCase().replace(/\s+/g,'-');
-  if(!(n.tags||[]).includes(tag)){ if(!n.tags) n.tags=[]; n.tags.push(tag); n.updatedAt=Date.now(); _kbSave3(); }
-  const tags=document.getElementById('kb5tags');
-  const c=ALL_CATS.find(x=>x.id===_kbS.cat);
-  if(tags&&c) tags.innerHTML=(n.tags||[]).map(t=>`<span class="kb5-tag" style="background:${c.color}18;color:${c.color}">#${_kbEsc(t)}<span onclick="_kbRemTag('${_kbEsc(t)}')" style="cursor:pointer;opacity:.5;margin-left:2px">×</span></span>`).join('');
+// ── Modal helpers ─────────────────────────────────────────────
+function _kb6Modal(html){
+  const ov=document.getElementById('kb6ov');
+  const mc=document.getElementById('kb6modal');
+  if(!ov||!mc) return;
+  mc.innerHTML=html; ov.classList.add('on');
 }
-function _kbRemTag(t){
-  const n=_kbGetNote(_kbS.cat,_kbS.folder,_kbS.note); if(!n) return;
-  n.tags=(n.tags||[]).filter(x=>x!==t); n.updatedAt=Date.now(); _kbSave3();
-  const tags=document.getElementById('kb5tags');
-  const c=ALL_CATS.find(x=>x.id===_kbS.cat);
-  if(tags&&c) tags.innerHTML=(n.tags||[]).map(t=>`<span class="kb5-tag" style="background:${c.color}18;color:${c.color}">#${_kbEsc(t)}<span onclick="_kbRemTag('${_kbEsc(t)}')" style="cursor:pointer;opacity:.5;margin-left:2px">×</span></span>`).join('');
+function _kb6CloseModal(){
+  document.getElementById('kb6ov')?.classList.remove('on');
 }
 
-// ── Modal ──────────────────────────────────────────────────────
-function _kbSM(html){ const ov=document.getElementById('kb5ov'),mc=document.getElementById('kb5modal'); if(!ov||!mc) return; mc.innerHTML=html; ov.classList.add('on'); }
-function _kbCloseMod(){ document.getElementById('kb5ov')?.classList.remove('on'); }
-document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){ _kbCloseMod(); }
-  if(e.key==='Escape'&&_kbS.note){ const area=document.getElementById('kb5area'); if(document.activeElement===area){ _kbAutoSave(); area.blur(); } }
-});
+// ── Compat aliases ────────────────────────────────────────────
+function renderKnowledgeBase2(){ renderKnowledgeBase(); }
+function _kbNewNote(){ _kb6NewNote(); }
+function _kbNewFolder(cid,thenNote){ _kb6NewFolder(cid,thenNote); }
 
-// ── Compat aliases (called from showTab and other places) ─────
-function _kbRS(){ try{ _kbRenderSidebar(); }catch(e){} }
-function _kbRED(){ try{ _kbRenderMain(); }catch(e){} }
-function _kbRNL(){ try{ _kbRenderNoteList(); }catch(e){} }
-function _kbFlush3(){ _kbAutoSave(); }
-function _kbSSV(){ _kbSSV5('saved'); }
-function _kbCM(){ _kbCloseMod(); }
-function _kbON(cid,fid,nid){ _kbOpenNote(cid,fid,nid); }
-function _kbSF(cid,fid){ _kbOpenFolder(cid,fid); }
-function _kbGoAll(){ _kbGoHome(); }
-function _kbTogTOC(){}
-function _kbTogFocus(){}
-function _kbShortcuts(){}
-function _kbNewNoteQuick(){ _kbNewNote(); }
-function _kbNF(cid){ _kbNewFolder(cid); }
-function _kbNN(){ _kbNewNote(); }
 
 // ── showTab compatibility ─────────────────────────────────────
 /* ══ HABIT TRACKER ENGINE v3 ══ */
