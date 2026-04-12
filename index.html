@@ -2065,6 +2065,13 @@ button, a, [onclick], .stab, .mg-item, .cat-item, .csg-item, .mb, .cf-btn, .lg-r
 [data-theme="light"] .mg-item.on { background: rgba(200,159,40,.06); }
 [data-theme="light"] .msg-layout { background: rgba(255,255,255,.9); backdrop-filter: blur(16px); }
 [data-theme="light"] .msg-bubble.theirs { background: rgba(245,243,237,.95); border-color: rgba(200,159,40,.15); }
+[data-theme="light"] .msg-bubble.mine { background: linear-gradient(145deg,#d4edda,#c3e6cb); border-color: rgba(34,197,94,.25); }
+[data-theme="light"] .msg-list { background: rgba(255,255,255,.98); }
+[data-theme="light"] .msg-chat-head { background: rgba(255,255,255,.95); }
+[data-theme="light"] .msg-input-area { background: rgba(255,255,255,.96); }
+[data-theme="light"] .msg-input-wrap { background: rgba(0,0,0,.04); border-color: rgba(0,0,0,.1); }
+[data-theme="light"] .msg-conv:hover { background: rgba(0,0,0,.03); }
+[data-theme="light"] .msg-conv.active { background: rgba(245,200,66,.1); }
 [data-theme="light"] .auth-box { background: rgba(255,255,255,.9); backdrop-filter: blur(20px); box-shadow: 0 8px 40px rgba(0,0,0,.08); }
 [data-theme="light"] .ov { background: rgba(0,0,0,.35); }
 [data-theme="light"] .modal { background: rgba(255,255,255,.95); backdrop-filter: blur(20px); box-shadow: 0 20px 60px rgba(0,0,0,.12); }
@@ -16609,7 +16616,7 @@ function esc(str){
 // Safe for use inside onclick="..." attributes (escapes single quotes)
 function escAttr(str){
   if(str==null)return'';
-  return String(str).replace(/'/g,"\\'").replace(/"/g,'&quot;');
+  return String(str).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/\n/g,'\\n').replace(/\r/g,'\\r');
 }
 
 function relDate(d){
@@ -19939,7 +19946,18 @@ function _renderConvList(convs){
       : esc(cv.av || '🎯');
     const isUnread = cv.unread > 0;
     const isActive = cv.userId === activeConvUserId;
-    const preview = cv.lastMsgMine ? `<span style="color:var(--t3)">Вы: </span>${esc((cv.lastMsg||'').slice(0,38))}` : esc((cv.lastMsg||'').slice(0,42));
+    // FIX: parse JSON reply/forward content for readable preview
+    let previewText = cv.lastMsg || '';
+    if(previewText.startsWith('{')){
+      try {
+        const parsed = JSON.parse(previewText);
+        if(parsed.t !== undefined) previewText = parsed.t;
+        else if(parsed.url && parsed.duration !== undefined) previewText = '🎤 Голосовое';
+        else if(parsed.url && parsed.name) previewText = '📎 ' + parsed.name;
+      } catch(e){}
+    }
+    if(previewText === '__deleted__') previewText = '🚫 Сообщение удалено';
+    const preview = cv.lastMsgMine ? `<span style="color:var(--t3)">Вы: </span>${esc(Array.from(previewText).slice(0,38).join(''))}` : esc(Array.from(previewText).slice(0,42).join(''));
     return `
     <div class="msg-conv${isActive?' active':''}${isUnread?' has-unread':''}"
       onclick="openConv('${esc(cv.userId)}','${escAttr(cv.name)}','${escAttr(cv.av||'🎯')}','${escAttr(cv.avUrl||'')}')"
@@ -19953,7 +19971,7 @@ function _renderConvList(convs){
       </div>
       <div class="msg-conv-info">
         <div class="msg-conv-name">${esc(cv.name)}</div>
-        <div class="msg-conv-preview${isUnread?' unread-prev':''}">${preview}${(cv.lastMsg||'').length>42?'…':''}</div>
+        <div class="msg-conv-preview${isUnread?' unread-prev':''}">${preview}${Array.from(previewText).length>42?'…':''}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;padding-right:24px;">
         <div style="display:flex;align-items:center;gap:4px;">
@@ -20337,8 +20355,9 @@ function _msgShowTyping(){
 function _msgHideTyping(){
   const sub = document.getElementById('msgChatSub');
   if(!sub) return;
-  sub.className = 'msg-chat-sub online-sub';
-  sub.textContent = 'в сети';
+  // Restore real online status instead of always showing "в сети"
+  if(activeConvUserId) _msgCheckOnlineStatus(activeConvUserId);
+  else { sub.className = 'msg-chat-sub online-sub'; sub.textContent = 'в сети'; }
 }
 
 // ── Chat header menu ──
@@ -20407,9 +20426,10 @@ async function _msgSearchUsers(q){
   res.innerHTML = '<div style="text-align:center;color:var(--t3);font-size:12px;padding:16px;">Ищем…</div>';
   _msgSearchTimer = setTimeout(async ()=>{
     try {
+      const safeTerm = q.trim().replace(/%/g,'\\%').replace(/_/g,'\\_');
       const {data} = await sb.from('users')
         .select('id,username,avatar,avatar_url')
-        .ilike('username', `%${q.trim()}%`)
+        .ilike('username', `%${safeTerm}%`)
         .neq('id', SB_USER?.id||'')
         .limit(12);
       if(!data || data.length === 0){
@@ -20737,7 +20757,7 @@ async function loadMessages(partnerId, append=false){
     // Build with grouping + date separators (Telegram model: gap>5min breaks group)
     // Filter out locally hidden messages (deleted only for me)
     let hiddenMsgs = new Set();
-    try { hiddenMsgs = new Set(JSON.parse(sessionStorage.getItem('dtr_hidden_msgs')||'[]')); } catch(e){}
+    try { hiddenMsgs = new Set(JSON.parse(localStorage.getItem('dtr_hidden_msgs')||'[]')); } catch(e){}
 
     const chunks = [];
     let lastDate='', lastSender='', lastTs=0;
@@ -20790,7 +20810,18 @@ async function loadMessages(partnerId, append=false){
 </div>`);
     });
 
-    elNow.innerHTML = chunks.join('');
+    if(append){
+      // Append mode: prepend older messages at the top, keep existing messages
+      const existingLoadMore = elNow.querySelector('.msg-load-more-btn');
+      if(existingLoadMore) existingLoadMore.remove();
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = chunks.join('');
+      const frag = document.createDocumentFragment();
+      while(tempDiv.firstChild) frag.appendChild(tempDiv.firstChild);
+      elNow.prepend(frag);
+    } else {
+      elNow.innerHTML = chunks.join('');
+    }
 
     // Добавляем кнопку "Загрузить ещё" если пришла полная страница (есть ещё сообщения)
     if(data.length >= MSG_PAGE_SIZE){
@@ -20826,9 +20857,16 @@ function _msgShowBubbleCtx(e, bub){
   const isMine = bub.classList.contains('mine');
   const txt = bub.querySelector('span')?.textContent || '';
 
-  // Get full text content of bubble (works for text, ignores media)
+  // Get full text content of bubble (works for text, files, voice, images)
   const bubSpan = bub.querySelector('span');
-  const txtFull = bubSpan ? bubSpan.textContent : (bub.querySelector('img') ? '[изображение]' : txt);
+  const voiceBub = bub.querySelector('.msg-voice-bubble');
+  const fileBub = bub.querySelector('.msg-file-bubble');
+  const imgEl = bub.querySelector('img');
+  const txtFull = bubSpan ? bubSpan.textContent
+    : voiceBub ? '🎤 Голосовое сообщение'
+    : fileBub ? ('📎 ' + (fileBub.querySelector('.msg-file-name')?.textContent || 'Файл'))
+    : imgEl ? '🖼️ Изображение'
+    : txt;
 
   const items = [
     // FIX 1: Reply — real implementation with quote bar
@@ -20978,18 +21016,23 @@ function _msgCancelEdit(){
   const inp = document.getElementById('msgInput');
   if(inp){ inp.value=''; inp.onkeydown = inp._origKeydown; _msgToggleSendBtn(''); }
   const sendBtn = document.getElementById('msgSendBtn');
-  if(sendBtn){ sendBtn.onclick = sendBtn._origClick; sendBtn.innerHTML = `<svg id="msgSendIconMic" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`; sendBtn.style.background=''; sendBtn.style.color=''; }
+  if(sendBtn){ sendBtn.onclick = sendBtn._origClick; sendBtn.innerHTML = `<svg id="msgSendIconMic" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg><svg id="msgSendIconArrow" style="display:none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`; sendBtn.style.background=''; sendBtn.style.color=''; }
 }
 
 async function _msgSaveEdit(){
   const newText = document.getElementById('msgInput')?.value?.trim();
-  if(!newText || !_msgEditingId || !SB_USER) return;
+  if(!_msgEditingId || !SB_USER) return;
+  if(!newText){ showToast('Сообщение не может быть пустым', '⚠️'); return; }
   const msgId = _msgEditingId;
 
   // Snapshot original text for rollback
   const bub = document.querySelector(`.msg-bubble[data-msg-id="${CSS.escape(msgId)}"]`);
   const spanEl = bub?.querySelector('span');
   const originalHTML = spanEl ? spanEl.innerHTML : null;
+  const originalText = spanEl ? spanEl.textContent : '';
+
+  // Skip if text unchanged
+  if(newText === originalText){ _msgCancelEdit(); return; }
 
   // Optimistic update
   if(spanEl){
@@ -21038,11 +21081,11 @@ async function _msgDeleteMsg(msgId, bub, scope='both'){
         await sb.from('messages').update({ content: '__deleted__', content_type: 'deleted' })
           .eq('id', msgId).eq('from_user_id', SB_USER.id);
       } else {
-        // Can't update partner's message — store local tombstone in sessionStorage
+        // Can't update partner's message — store local tombstone in localStorage
         try {
-          const hidden = JSON.parse(sessionStorage.getItem('dtr_hidden_msgs')||'[]');
+          const hidden = JSON.parse(localStorage.getItem('dtr_hidden_msgs')||'[]');
           hidden.push(String(msgId));
-          sessionStorage.setItem('dtr_hidden_msgs', JSON.stringify(hidden));
+          localStorage.setItem('dtr_hidden_msgs', JSON.stringify(hidden));
         } catch(e){}
       }
       showToast('Удалено только у вас', '🗑️');
@@ -21065,6 +21108,8 @@ async function _msgCheckOnlineStatus(userId){
   if(!SB_USER) return;
   try {
     const { data } = await sb.from('users').select('last_seen').eq('id', userId).single();
+    // Guard: if user switched chats during await, don't update UI
+    if(activeConvUserId !== userId) return;
     const dot = document.getElementById('msgOnlineDot');
     const sub = document.getElementById('msgChatSub');
     if(!data) return;
@@ -23160,6 +23205,56 @@ function initRealtimeMessages() {
       }
       loadConversations();
     })
+    // FIX: Realtime UPDATE — handle edited & deleted messages live
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'messages',
+      filter: `to_user_id=eq.${SB_USER.id}`
+    }, (payload) => {
+      const updated = payload.new;
+      if(!updated) return;
+      const bub = document.querySelector(`.msg-bubble[data-msg-id="${CSS.escape(String(updated.id))}"]`);
+      if(!bub) return;
+      // If message was deleted (content_type='deleted' or content='__deleted__')
+      if(updated.content_type === 'deleted' || updated.content === '__deleted__'){
+        const spanEl = bub.querySelector('span');
+        if(spanEl) spanEl.innerHTML = '<span style="color:rgba(255,255,255,.3);font-style:italic;font-size:13px;">🚫 Сообщение удалено</span>';
+        return;
+      }
+      // If message was edited — update text content
+      const spanEl = bub.querySelector('span');
+      if(spanEl && updated.content){
+        const safeTxt = esc(updated.content);
+        const linkified = safeTxt.replace(/(https?:\/\/[^\s&<"']+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer" style="color:inherit;opacity:.8;text-decoration:underline">$1</a>');
+        spanEl.innerHTML = linkified;
+        if(!bub.querySelector('.msg-edited-lbl')){
+          const lbl = document.createElement('span');
+          lbl.className = 'msg-edited-lbl';
+          lbl.style.cssText = 'font-size:10px;color:rgba(255,255,255,.35);margin-left:4px;font-style:italic;';
+          lbl.textContent = 'изм.';
+          const timeDiv = bub.querySelector('.msg-bubble-time');
+          if(timeDiv) timeDiv.insertBefore(lbl, timeDiv.firstChild);
+        }
+      }
+    })
+    // FIX: Realtime DELETE — remove deleted message bubbles live
+    .on('postgres_changes', {
+      event: 'DELETE',
+      schema: 'public',
+      table: 'messages'
+    }, (payload) => {
+      const delId = payload.old?.id;
+      if(!delId) return;
+      const row = document.querySelector(`.msg-row[data-msg-id="${CSS.escape(String(delId))}"]`);
+      if(!row){
+        const bub = document.querySelector(`.msg-bubble[data-msg-id="${CSS.escape(String(delId))}"]`);
+        if(bub){ const r = bub.closest('.msg-row'); if(r){ r.style.transition='all .22s'; r.style.opacity='0'; setTimeout(()=>r.remove(),220); } }
+      } else {
+        row.style.transition='all .22s'; row.style.opacity='0'; setTimeout(()=>row.remove(),220);
+      }
+      loadConversations();
+    })
     .subscribe();
 
   if (usersRealtimeChannel) { sb.removeChannel(usersRealtimeChannel); }
@@ -23346,9 +23441,8 @@ function appendMessage(msg, isMine) {
     const prevBub = prevRow.querySelector('.msg-bubble');
     if(prevBub){
       // Remove pointed corner from previous (it's no longer last)
-      const curR = prevBub.style.borderRadius;
-      if(isMine) prevBub.style.borderRadius = '17px';
-      else prevBub.style.borderRadius = '17px';
+      if(isMine) prevBub.style.borderRadius = '17px 17px 17px 17px';
+      else prevBub.style.borderRadius = '17px 17px 17px 17px';
       // Hide avatar of previous if theirs
       const prevAv = prevRow.querySelector('.msg-av-micro');
       if(prevAv) prevAv.classList.add('ghost');
@@ -23545,15 +23639,34 @@ function _msgForward(text, fromName){
       ov.remove();
       // Telegram-style: encode forward metadata { fwd: { fromName }, t: text }
       const fwdContent = JSON.stringify({ t: text, fwd: { fromName: _msgForwardFromName || P?.name || 'Вы' } });
-      const {error} = await sb.from('messages').insert({
-        from_user_id: SB_USER.id,
-        to_user_id: c.userId,
-        content: fwdContent,
-        content_type: 'text',
-        read: false
-      });
+      try {
+        const ins1 = await sb.from('messages').insert({
+          from_user_id: SB_USER.id,
+          to_user_id: c.userId,
+          content: fwdContent,
+          content_type: 'text',
+          read: false
+        });
+        if(ins1.error){
+          const errCode = ins1.error.code || '';
+          const errMsg = ins1.error.message || '';
+          if(errCode === '42703' || errMsg.includes('column') || errMsg.includes('content_type') || errMsg.includes('read')){
+            const ins2 = await sb.from('messages').insert({
+              from_user_id: SB_USER.id,
+              to_user_id: c.userId,
+              content: fwdContent
+            });
+            if(ins2.error) throw ins2.error;
+          } else {
+            throw ins1.error;
+          }
+        }
+      } catch(err) {
+        _msgForwardFromName = null;
+        showToast('Не удалось переслать: ' + (err?.message||'').slice(0,60), '⚠️');
+        return;
+      }
       _msgForwardFromName = null;
-      if(error){ showToast('Не удалось переслать', '⚠️'); return; }
       showToast(`Переслано → ${c.name} ✅`);
       await loadConversations();
     };
@@ -23634,7 +23747,7 @@ async function sendMsg(toUserId) {
         const minimal = await sb.from('messages').insert({
           from_user_id: SB_USER.id,
           to_user_id: toUserId,
-          content: text
+          content: finalText
         }).select('id').single();
         if(minimal.error) throw minimal.error;
         data = minimal.data; error = null;
@@ -23683,7 +23796,7 @@ async function sendMsg(toUserId) {
           const retryInsert = await sb.from('messages').insert({
             from_user_id: SB_USER.id,
             to_user_id: toUserId,
-            content: text,
+            content: finalText,
             content_type: 'text',
             read: false
           }).select('id').single();
@@ -23715,7 +23828,17 @@ async function sendMsg(toUserId) {
                    msg.includes('network')       ? 'Нет соединения — нажми для повтора' :
                                                    'Ошибка — нажми для повтора';
       errEl.innerHTML=`<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> ${hint}`;
-      errEl.onclick=()=>{ optBub.style.opacity='1'; errEl.remove(); sendMsg(toUserId); };
+      const _retryText = text; // capture original text for retry
+      errEl.onclick=()=>{
+        // Remove failed bubble entirely
+        const failedRow = optBub.closest('.msg-row');
+        if(failedRow) failedRow.remove();
+        else { optBub.style.opacity='1'; errEl.remove(); }
+        // Re-fill input and send
+        const inp = document.getElementById('msgInput');
+        if(inp){ inp.value = _retryText; _msgToggleSendBtn(_retryText); }
+        sendMsg(toUserId);
+      };
       optBub.appendChild(errEl);
     }
     const detail = err?.message ? ` (${err.message.slice(0,50)})` : '';
