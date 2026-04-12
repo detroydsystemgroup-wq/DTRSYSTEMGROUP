@@ -34611,7 +34611,8 @@ async function _rptCapture(scale){
   var W = rect.width  > 0 ? rect.width  : 420;
   var H = rect.height > 0 ? rect.height : 700;
 
-  return await window.html2canvas(card, {
+  // FIX: race html2canvas against a 20s timeout — prevents infinite hang
+  var capturePromise = window.html2canvas(card, {
     scale            : scale || 3,
     backgroundColor  : '#0C0B09',
     useCORS          : true,
@@ -34676,6 +34677,10 @@ async function _rptCapture(scale){
       }
     }
   });
+  var timeoutPromise = new Promise(function(_,reject){
+    setTimeout(function(){ reject(new Error('html2canvas timeout — попробуй ещё раз')); }, 20000);
+  });
+  return await Promise.race([capturePromise, timeoutPromise]);
 }
 
 async function downloadReport(){
@@ -34693,15 +34698,19 @@ async function downloadReport(){
     if(typeof showToast==='function') showToast('Отчёт сохранён на устройство','✅');
   }catch(e){
     console.error('DTR download:',e);
-    if(typeof showToast==='function') showToast('Ошибка генерации. Попробуй ещё раз.','⚠️');
+    if(typeof showToast==='function') showToast(e.message||'Ошибка генерации. Попробуй ещё раз.','⚠️');
+  } finally {
+    // FIX: always restore button — even if capture hangs and times out
+    if(btn){btn.disabled=false;btn.innerHTML=orig;}
   }
-  if(btn){btn.disabled=false;btn.innerHTML=orig;}
 }
 
 async function shareReport(platform){
   var btn=document.getElementById('reportShare_'+platform);
   var orig=btn?btn.innerHTML:'';
-  if(btn){btn.disabled=true;btn.style.opacity='.5';}
+  var spinnerSVG='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="animation:spin 0.9s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
+  // FIX: show spinner AND disable — both signals that work is in progress
+  if(btn){ btn.disabled=true; btn.innerHTML=spinnerSVG+' '+(platform==='telegram'?'Telegram...':'Instagram...'); }
   try{
     var canvas=await _rptCapture(2);
     var period=(typeof dashPeriod!=='undefined'&&dashPeriod==='month')?'месяц':'неделю';
@@ -34731,10 +34740,12 @@ async function shareReport(platform){
   }catch(e){
     if(e.name!=='AbortError'){
       console.error('DTR share:',e);
-      if(typeof showToast==='function') showToast('Ошибка публикации','⚠️');
+      if(typeof showToast==='function') showToast(e.message||'Ошибка публикации','⚠️');
     }
+  } finally {
+    // FIX: always restore button in finally — guaranteed even on timeout/error
+    if(btn){ btn.disabled=false; btn.style.opacity=''; btn.innerHTML=orig; }
   }
-  if(btn){btn.disabled=false;btn.style.opacity='';btn.innerHTML=orig;}
 }
 
 document.addEventListener('keydown',function(e){
