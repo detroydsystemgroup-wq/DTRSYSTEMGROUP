@@ -25629,12 +25629,14 @@ function _kbCSS(){ return `
   overflow: hidden; transition: width .3s cubic-bezier(.4,0,.2,1);
   position: relative; z-index: 10;
 }
-#kb6sb.collapsed { width: 52px; }
+#kb6sb.collapsed { width: 56px; }
 #kb6sb-top {
   padding: 14px 10px 10px; flex-shrink: 0;
   border-bottom: 0.5px solid rgba(255,255,255,.05);
   display: flex; flex-direction: column; gap: 8px;
+  overflow: hidden;
 }
+/* Fix 1: Prevent icon overflow on hover */
 .kb6-logo {
   display: flex; align-items: center; gap: 9px;
   padding: 0 2px; overflow: hidden;
@@ -25644,20 +25646,94 @@ function _kbCSS(){ return `
   background: linear-gradient(135deg, rgba(245,200,66,.18), rgba(245,200,66,.06));
   border: 0.5px solid rgba(245,200,66,.25);
   display: flex; align-items: center; justify-content: center;
+  /* Fix: use outline instead of scale to avoid overflow */
+  transition: box-shadow .18s, border-color .18s;
+  cursor: pointer;
+}
+.kb6-logo-ico:hover {
+  /* No transform/scale — use shadow glow instead */
+  border-color: rgba(245,200,66,.55);
+  box-shadow: 0 0 0 3px rgba(245,200,66,.12), 0 0 14px rgba(245,200,66,.15);
 }
 .kb6-logo-txt {
   font-size: 13px; font-weight: 800; letter-spacing: -.02em;
   color: var(--t1); white-space: nowrap; opacity: 1;
   transition: opacity .2s;
 }
+
+/* ── Collapsed sidebar — icon-only mode ── */
 #kb6sb.collapsed .kb6-logo-txt,
-#kb6sb.collapsed .kb6-sbq,
-#kb6sb.collapsed .kb6-new-note-btn { opacity: 0; pointer-events: none; }
+#kb6sb.collapsed .kb6-new-note-btn-label,
 #kb6sb.collapsed .kb6-cat-name,
 #kb6sb.collapsed .kb6-cat-count,
 #kb6sb.collapsed .kb6-chev,
 #kb6sb.collapsed .kb6-folder-wrap,
-#kb6sb.collapsed .kb6-sbq { display: none; }
+#kb6sb.collapsed .kb6-add-folder-btn,
+#kb6sb.collapsed .kb6-sbq,
+#kb6sb.collapsed .kb6-sb-lbl,
+#kb6sb.collapsed .kb6-sb-divider,
+#kb6sb.collapsed .kb6-pin-row { display: none; }
+
+/* Collapsed: center logo icon */
+#kb6sb.collapsed #kb6sb-top {
+  padding: 12px 0;
+  align-items: center;
+}
+#kb6sb.collapsed .kb6-logo {
+  justify-content: center;
+  width: 100%;
+  gap: 0;
+  padding: 0;
+}
+#kb6sb.collapsed .kb6-new-note-btn {
+  width: 36px; height: 36px; border-radius: 10px;
+  padding: 0; gap: 0;
+  justify-content: center;
+  align-self: center;
+}
+#kb6sb.collapsed #kb6-sb-scroll {
+  padding: 4px 0;
+  overflow: hidden;
+}
+/* Collapsed: show only category icons, centered */
+#kb6sb.collapsed .kb6-cat-row {
+  justify-content: center;
+  padding: 7px 0;
+  border-radius: 0;
+  width: 100%;
+  position: relative;
+}
+/* Tooltip on hover in collapsed mode */
+#kb6sb.collapsed .kb6-cat-row::after {
+  content: attr(data-name);
+  position: absolute; left: 100%; top: 50%; transform: translateY(-50%);
+  background: rgba(12,12,20,.97); color: var(--t1);
+  font-size: 11.5px; font-weight: 600; white-space: nowrap;
+  padding: 5px 11px; border-radius: 9px; margin-left: 8px;
+  border: 0.5px solid rgba(255,255,255,.12);
+  box-shadow: 0 8px 24px rgba(0,0,0,.6);
+  opacity: 0; pointer-events: none;
+  transition: opacity .16s; z-index: 9999;
+}
+#kb6sb.collapsed .kb6-cat-row:hover::after { opacity: 1; }
+#kb6sb.collapsed .kb6-cat-ico {
+  width: 28px; height: 28px; border-radius: 9px;
+  background: rgba(255,255,255,.06);
+  border: 0.5px solid rgba(255,255,255,.08);
+  transition: background .15s, border-color .15s, box-shadow .15s;
+}
+#kb6sb.collapsed .kb6-cat-row:hover .kb6-cat-ico,
+#kb6sb.collapsed .kb6-cat-row.active .kb6-cat-ico {
+  background: rgba(255,255,255,.1);
+  border-color: rgba(255,255,255,.18);
+  box-shadow: 0 0 0 2px rgba(255,255,255,.05);
+}
+/* Collapse button at bottom — centered in collapsed state */
+#kb6sb.collapsed .kb6-sb-collapse {
+  left: 50%; right: auto; transform: translateX(-50%);
+  bottom: 12px;
+}
+#kb6sb.collapsed #kb6-sb-chev { transform: rotate(180deg); }
 .kb6-new-note-btn {
   display: flex; align-items: center; justify-content: center; gap: 7px;
   width: 100%; padding: 8px 12px; border-radius: 10px;
@@ -25771,81 +25847,81 @@ function _kbCSS(){ return `
 #kb6nl {
   width: 272px; flex-shrink: 0; display: flex; flex-direction: column;
   border-right: 0.5px solid rgba(255,255,255,.06);
-  background: rgba(10,10,16,.97); overflow: hidden;
+  background: rgba(9,9,14,.98); overflow: hidden;
   transition: width .3s cubic-bezier(.4,0,.2,1);
 }
 #kb6nl-head {
-  padding: 14px 16px 10px; flex-shrink: 0;
-  border-bottom: 0.5px solid rgba(255,255,255,.05);
+  flex-shrink: 0;
+  border-bottom: 0.5px solid rgba(255,255,255,.06);
+  background: rgba(9,9,14,.99);
 }
 .kb6-nl-title {
   font-size: 14px; font-weight: 800; color: var(--t1);
-  letter-spacing: -.025em; margin-bottom: 8px;
+  letter-spacing: -.025em;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .kb6-nl-meta {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
 }
 .kb6-nl-sort {
-  display: flex; align-items: center; gap: 4px;
-  font-size: 10.5px; color: var(--t3); font-weight: 600;
+  display: flex; align-items: center; gap: 2px;
+  background: rgba(255,255,255,.04); border-radius: 8px;
+  padding: 2px; border: 0.5px solid rgba(255,255,255,.07);
 }
 .kb6-nl-sort-btn {
-  padding: 2px 7px; border-radius: 6px; border: none;
-  background: transparent; color: var(--t3); font-size: 10.5px;
+  padding: 4px 9px; border-radius: 6px; border: none;
+  background: transparent; color: var(--t3); font-size: 11px;
   cursor: pointer; font-family: inherit; font-weight: 600;
   transition: color .12s, background .12s;
 }
 .kb6-nl-sort-btn:hover { color: var(--t1); background: rgba(255,255,255,.06); }
-.kb6-nl-sort-btn.active { color: var(--gold); }
+.kb6-nl-sort-btn.active { color: var(--t1); background: rgba(255,255,255,.1); }
 .kb6-nl-add {
   display: flex; align-items: center; justify-content: center; gap: 5px;
-  height: 28px; padding: 0 10px; border-radius: 8px;
-  background: rgba(245,200,66,.1); border: 0.5px solid rgba(245,200,66,.2);
-  color: var(--gold); font-size: 11px; font-weight: 700; cursor: pointer;
+  height: 28px; padding: 0 11px; border-radius: 8px;
+  background: rgba(245,200,66,.1); border: 0.5px solid rgba(245,200,66,.22);
+  color: var(--gold); font-size: 11.5px; font-weight: 700; cursor: pointer;
   font-family: inherit; transition: all .15s; white-space: nowrap;
 }
-.kb6-nl-add:hover { background: rgba(245,200,66,.18); transform: translateY(-1px); }
+.kb6-nl-add:hover { background: rgba(245,200,66,.2); transform: translateY(-1px); box-shadow: 0 3px 12px rgba(245,200,66,.2); }
 #kb6nl-scroll {
-  flex: 1; overflow-y: auto; padding: 6px 8px 20px;
+  flex: 1; overflow-y: auto; overflow-x: hidden;
   scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.07) transparent;
 }
 #kb6nl-scroll::-webkit-scrollbar { width: 3px; }
 #kb6nl-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); border-radius: 2px; }
 /* Note cards */
 .kb6-nc {
-  padding: 10px 12px; border-radius: 11px; cursor: pointer;
-  transition: background .12s, border-color .15s; margin-bottom: 3px;
-  border: 0.5px solid transparent; position: relative;
+  padding: 11px 12px; border-radius: 0; cursor: pointer;
+  transition: background .12s; margin: 0;
+  border-bottom: 0.5px solid rgba(255,255,255,.04);
+  position: relative;
 }
-.kb6-nc:hover { background: rgba(255,255,255,.045); border-color: rgba(255,255,255,.07); }
+.kb6-nc:hover { background: rgba(255,255,255,.04); }
 .kb6-nc.active {
-  background: rgba(255,255,255,.07); border-color: rgba(245,200,66,.18);
-  box-shadow: 0 0 0 0.5px rgba(245,200,66,.08);
+  background: rgba(255,255,255,.065);
+  border-bottom-color: rgba(255,255,255,.04);
 }
 .kb6-nc-title {
-  font-size: 13px; font-weight: 700; color: var(--t1);
+  font-size: 13px; font-weight: 700; color: rgba(255,255,255,.88);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  margin-bottom: 3px; letter-spacing: -.01em;
+  margin-bottom: 4px; letter-spacing: -.015em; line-height: 1.3;
 }
 .kb6-nc-prev {
-  font-size: 11px; color: var(--t3); line-height: 1.4;
+  font-size: 11px; color: rgba(168,168,180,.55); line-height: 1.45;
   overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical; margin-bottom: 6px;
+  -webkit-box-orient: vertical; margin-bottom: 0;
 }
 .kb6-nc-meta {
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; overflow: hidden;
 }
-.kb6-nc-time { font-size: 10px; color: var(--t3); }
-.kb6-nc-pin {
-  width: 14px; height: 14px; color: var(--gold);
-  display: flex; align-items: center; justify-content: center;
-}
+.kb6-nc-time { font-size: 10px; color: rgba(168,168,180,.4); flex-shrink: 0; }
+.kb6-nc-wc { font-size: 10px; color: rgba(168,168,180,.35); }
 .kb6-nc-tag {
-  font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 6px;
-  background: rgba(245,200,66,.1); color: var(--gold); letter-spacing: .02em;
+  font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 5px;
+  background: rgba(245,200,66,.08); color: rgba(245,200,66,.7); letter-spacing: .02em;
 }
-.kb6-nc-wc { font-size: 10px; color: var(--t3); margin-left: auto; }
+
 
 /* ── Editor / Main Pane ── */
 #kb6ed {
@@ -26067,17 +26143,65 @@ function _kbCSS(){ return `
   content: ''; display: inline-block; width: 3px; height: 11px;
   border-radius: 2px; background: var(--gold); opacity: .6; flex-shrink: 0;
 }
-.kb6-cat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 28px; }
+.kb6-cat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 28px; }
 .kb6-cat-card {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
-  padding: 14px 16px; border-radius: 14px;
-  background: rgba(255,255,255,.03); border: 0.5px solid rgba(255,255,255,.07);
-  cursor: pointer; transition: all .2s cubic-bezier(.34,1.2,.64,1);
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column; align-items: flex-start;
+  padding: 18px 18px 16px;
+  border-radius: 14px; cursor: pointer;
+  background: rgba(255,255,255,.03);
+  border: 0.5px solid rgba(255,255,255,.08);
+  transition: transform .2s cubic-bezier(.25,.46,.45,.94),
+              box-shadow .2s ease, border-color .2s ease, background .2s ease;
+  min-height: 116px;
+  animation: kb6catIn .28s ease both;
 }
-.kb6-cat-card:hover { background: rgba(255,255,255,.06); transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.3); }
-.kb6-cat-card-ico { width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.kb6-cat-card-name { font-size: 13px; font-weight: 700; color: var(--t1); letter-spacing: -.015em; }
-.kb6-cat-card-meta { font-size: 10.5px; color: var(--t3); }
+@keyframes kb6catIn {
+  from { opacity:0; transform:translateY(8px); }
+  to   { opacity:1; transform:none; }
+}
+.kb6-cat-card:nth-child(1){animation-delay:.03s}
+.kb6-cat-card:nth-child(2){animation-delay:.06s}
+.kb6-cat-card:nth-child(3){animation-delay:.09s}
+.kb6-cat-card:nth-child(4){animation-delay:.12s}
+.kb6-cat-card:nth-child(5){animation-delay:.15s}
+.kb6-cat-card:nth-child(6){animation-delay:.18s}
+.kb6-cat-card:nth-child(7){animation-delay:.21s}
+.kb6-cat-card:nth-child(8){animation-delay:.24s}
+/* Subtle top bar */
+.kb6-cat-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:1.5px;
+  background:var(--cc, rgba(255,255,255,.08)); opacity:.55;
+  transition:opacity .2s;
+}
+.kb6-cat-card:hover { transform:translateY(-3px); background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.14); box-shadow:0 12px 32px rgba(0,0,0,.3); }
+.kb6-cat-card:hover::before { opacity:1; }
+.kb6-cat-card:active { transform:scale(.985); transition-duration:.1s; }
+.kb6-cat-card-ico {
+  width:38px; height:38px; border-radius:11px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  margin-bottom:12px; transition:transform .2s cubic-bezier(.25,.46,.45,.94);
+}
+.kb6-cat-card:hover .kb6-cat-card-ico { transform:scale(1.06); }
+.kb6-cat-card-name {
+  font-size:13px; font-weight:700;
+  color:rgba(255,255,255,.85); letter-spacing:-.02em;
+  line-height:1.25; margin-bottom:10px;
+}
+.kb6-cat-card-meta { display:flex; align-items:center; gap:6px; }
+.kb6-cat-pill {
+  display:inline-flex; align-items:center; gap:4px;
+  font-size:11px; font-weight:600;
+  padding:3px 8px; border-radius:20px;
+  background:rgba(255,255,255,.06);
+  border:0.5px solid rgba(255,255,255,.1);
+  color:rgba(255,255,255,.45);
+  transition:color .18s, background .18s;
+}
+.kb6-cat-card:hover .kb6-cat-pill { color:rgba(255,255,255,.7); background:rgba(255,255,255,.1); }
+.kb6-cat-pill-num {
+  font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:400;
+}
 .kb6-recent-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; margin-bottom: 28px; }
 .kb6-recent-card {
   padding: 14px 16px; border-radius: 14px;
@@ -26287,18 +26411,22 @@ body.kb6-focus-active { overflow: hidden; }
   .kb6-cat-grid { grid-template-columns: repeat(2,1fr); }
   .kb6-recent-grid { grid-template-columns: 1fr; }
 }
-/* Selection in note list */
+/* Note card action button */
 .kb6-nc-right {
-  display: flex; align-items: center; gap: 5px; position: absolute; right: 8px; top: 10px;
-  opacity: 0; transition: opacity .12s;
+  display: flex; align-items: center; gap: 5px;
+  flex-shrink: 0; margin-left: 4px;
+  opacity: 0; transition: opacity .15s;
 }
 .kb6-nc:hover .kb6-nc-right { opacity: 1; }
 .kb6-nc-act-btn {
-  width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
-  background: rgba(255,255,255,.07); border: none; color: var(--t3); cursor: pointer;
-  transition: all .12s;
+  width: 24px; height: 24px; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.08); border: none; color: var(--t3);
+  cursor: pointer; transition: all .12s;
 }
-.kb6-nc-act-btn:hover { color: var(--t1); background: rgba(255,255,255,.14); }
+.kb6-nc-act-btn:hover { color: var(--t1); background: rgba(255,255,255,.16); }
+
+/* Light theme note list overrides */
 
 /* ── Float dropdowns (body-level, bypass overflow:hidden) ── */
 .kb6-float-dd .kb6-dd-opt {
@@ -26323,8 +26451,7 @@ body.kb6-focus-active { overflow: hidden; }
 /* Disable old reader/focus UI (replaced by body overlay) */
 #kb6reader { display: none !important; }
 #kb6-focus-exit { display: none !important; }
-.kb6-logo-ico { cursor: pointer; transition: transform .2s cubic-bezier(.34,1.56,.64,1); }
-.kb6-logo-ico:hover { transform: scale(1.08); }
+/* ── Logo hover handled in sidebar block above ── */
 
 /* ── Star bullets fix — ::before needs non-flex context ── */
 #kb6area ul li {
@@ -26445,9 +26572,9 @@ function _kbBuildShell(){ return `
         </div>
         <span class="kb6-logo-txt" onclick="_kb6GoHome()" style="cursor:pointer;transition:color .15s" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color=''">База знаний</span>
       </div>
-      <button class="kb6-new-note-btn" onclick="_kb6NewNote()">
+      <button class="kb6-new-note-btn" onclick="_kb6NewNote()" title="Новая заметка">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Новая заметка
+        <span class="kb6-new-note-btn-label">Новая заметка</span>
       </button>
       <div class="kb6-sbq">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" opacity=".4"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -26464,20 +26591,38 @@ function _kbBuildShell(){ return `
   </div>
   <!-- Note list panel -->
   <div id="kb6nl" style="display:none">
+    <!-- Panel header -->
     <div id="kb6nl-head">
-      <div class="kb6-bread" id="kb6-bread"></div>
-      <div style="height:6px"></div>
-      <div class="kb6-nl-title" id="kb6-nl-title"></div>
-      <div class="kb6-nl-meta">
-        <div class="kb6-nl-sort" id="kb6-nl-sort">
-          <button class="kb6-nl-sort-btn active" id="kb6s-upd" onclick="_kb6Sort('updated')">Изменены</button>
-          <button class="kb6-nl-sort-btn" id="kb6s-cre" onclick="_kb6Sort('created')">Созданы</button>
-          <button class="kb6-nl-sort-btn" id="kb6s-ttl" onclick="_kb6Sort('title')">А-Я</button>
-        </div>
-        <button class="kb6-nl-add" onclick="_kb6CreateNoteInFolder()">
-          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Новая
+      <!-- Top nav row: back button + breadcrumb -->
+      <div style="display:flex;align-items:center;gap:8px;padding:12px 14px 8px;border-bottom:0.5px solid rgba(255,255,255,.05)">
+        <button id="kb6-nl-back" onclick="_kb6GoHome()" title="Главная" style="
+          display:inline-flex;align-items:center;justify-content:center;
+          width:28px;height:28px;border-radius:8px;
+          background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.1);
+          color:var(--t3);cursor:pointer;flex-shrink:0;transition:all .15s;
+        " onmouseover="this.style.background='rgba(255,255,255,.12)';this.style.color='var(--t1)'" onmouseout="this.style.background='rgba(255,255,255,.06)';this.style.color='var(--t3)'">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
         </button>
+        <div class="kb6-bread" id="kb6-bread" style="flex:1;overflow:hidden"></div>
+      </div>
+      <!-- Folder title + actions -->
+      <div style="padding:12px 14px 10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">
+          <div class="kb6-nl-title" id="kb6-nl-title"></div>
+          <button class="kb6-nl-add" onclick="_kb6CreateNoteInFolder()" style="flex-shrink:0">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Новая
+          </button>
+        </div>
+        <!-- Sort + folder meta row -->
+        <div class="kb6-nl-meta">
+          <div class="kb6-nl-sort" id="kb6-nl-sort">
+            <button class="kb6-nl-sort-btn active" id="kb6s-upd" onclick="_kb6Sort('updated')">Новые</button>
+            <button class="kb6-nl-sort-btn" id="kb6s-cre" onclick="_kb6Sort('created')">Дата</button>
+            <button class="kb6-nl-sort-btn" id="kb6s-ttl" onclick="_kb6Sort('title')">А–Я</button>
+          </div>
+          <div id="kb6-nl-count" style="font-size:10px;color:var(--t3);font-family:var(--font-mono)"></div>
+        </div>
       </div>
     </div>
     <div id="kb6nl-scroll"></div>
@@ -26681,7 +26826,7 @@ function _kb6RenderSidebar(){
     const isCatActive = _kbS.cat===c.id;
     const ico = (typeof getCatSVG!=='undefined') ? getCatSVG(c.id,14) : c.icon;
     h += `<div style="margin-bottom:2px">
-      <button class="kb6-cat-row${isCatActive?' active':''}" onclick="_kb6TogCat('${c.id}')">
+      <button class="kb6-cat-row${isCatActive?' active':''}" data-name="${_kbEsc(c.name)}" title="${_kbEsc(c.name)}" onclick="_kb6TogCat('${c.id}')">
         <div class="kb6-cat-ico" style="background:${c.color}18">${ico}</div>
         <span class="kb6-cat-name">${_kbEsc(c.name)}</span>
         ${cnt?`<span class="kb6-cat-count">${cnt}</span>`:''}
@@ -26757,39 +26902,111 @@ function _kb6RenderMain(){
 function _kb6RenderHome(cont){
   const all = _kbAllNotes();
   const tw = _kbTotalWords();
-  const td = new Date().toISOString().slice(0,10);
-  const todayN = all.filter(n=>n.updatedAt && new Date(n.updatedAt).toISOString().slice(0,10)===td).length;
+  const weekAgo = Date.now() - 7*24*60*60*1000;
+  const newN = all.filter(n=>n.createdAt && n.createdAt >= weekAgo).length;
   const allF = ALL_CATS.reduce((a,c)=>a+(_kb3[c.id]?.folders||[]).length, 0);
   const recent = _kbSortNotes(all).slice(0, 8);
   const pins = all.filter(n=>n.pinned).slice(0,6);
 
   cont.innerHTML = `<div class="kb6-anim" id="kb6home">
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px">
       <div>
         <div style="font-size:26px;font-weight:800;letter-spacing:-.045em;color:var(--t1);margin-bottom:4px">База знаний</div>
-        <div style="font-size:12.5px;color:var(--t3)">Твоё персональное пространство для роста</div>
+        <div style="font-size:12.5px;color:rgba(168,168,178,.55)">Твоё персональное пространство для роста</div>
       </div>
-      <button class="kb6-btn kb6-btn-gold" onclick="_kb6NewNote()" style="display:flex;align-items:center;gap:7px">
+      <button class="kb6-btn kb6-btn-gold" onclick="_kb6NewNote()" style="display:flex;align-items:center;gap:7px;flex-shrink:0">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Новая заметка
       </button>
     </div>
-    <div class="kb6-stat-grid">
-      <div class="kb6-stat"><div class="kb6-stat-n" style="color:var(--gold)">${all.length}</div><div class="kb6-stat-l">Заметок</div></div>
-      <div class="kb6-stat"><div class="kb6-stat-n" style="color:var(--blue)">${allF}</div><div class="kb6-stat-l">Папок</div></div>
-      <div class="kb6-stat"><div class="kb6-stat-n" style="color:var(--purple)">${tw>999?Math.round(tw/1000)+'к':tw}</div><div class="kb6-stat-l">Слов</div></div>
-      <div class="kb6-stat"><div class="kb6-stat-n" style="color:var(--green)">${todayN}</div><div class="kb6-stat-l">Сегодня</div></div>
+
+    <!-- Clickable stat cards -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:32px">
+
+      <!-- All Notes -->
+      <button onclick="_kb6ShowAllNotes()" style="
+        position:relative;overflow:hidden;
+        display:flex;flex-direction:column;align-items:flex-start;
+        padding:18px 20px;border-radius:16px;cursor:pointer;text-align:left;
+        background:rgba(245,200,66,.06);
+        border:0.5px solid rgba(245,200,66,.2);
+        transition:all .22s cubic-bezier(.34,1.4,.64,1);
+        font-family:inherit;
+      " onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 16px 40px rgba(0,0,0,.35),0 0 0 1px rgba(245,200,66,.3)';this.style.background='rgba(245,200,66,.1)'"
+         onmouseout="this.style.transform='';this.style.boxShadow='';this.style.background='rgba(245,200,66,.06)'">
+        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,rgba(245,200,66,.8),rgba(245,200,66,.3))"></div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:36px;font-weight:300;letter-spacing:-.04em;color:var(--gold);line-height:1;margin-bottom:8px">${all.length}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" opacity=".7"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:rgba(245,200,66,.65)">Заметок</span>
+        </div>
+        <div style="position:absolute;right:16px;top:50%;transform:translateY(-50%);opacity:.18">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </div>
+      </button>
+
+      <!-- All Folders -->
+      <button onclick="_kb6ShowAllFolders()" style="
+        position:relative;overflow:hidden;
+        display:flex;flex-direction:column;align-items:flex-start;
+        padding:18px 20px;border-radius:16px;cursor:pointer;text-align:left;
+        background:rgba(26,159,255,.06);
+        border:0.5px solid rgba(26,159,255,.2);
+        transition:all .22s cubic-bezier(.34,1.4,.64,1);
+        font-family:inherit;
+      " onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 16px 40px rgba(0,0,0,.35),0 0 0 1px rgba(26,159,255,.3)';this.style.background='rgba(26,159,255,.1)'"
+         onmouseout="this.style.transform='';this.style.boxShadow='';this.style.background='rgba(26,159,255,.06)'">
+        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,rgba(26,159,255,.8),rgba(26,159,255,.3))"></div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:36px;font-weight:300;letter-spacing:-.04em;color:var(--blue);line-height:1;margin-bottom:8px">${allF}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" opacity=".7"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:rgba(26,159,255,.65)">Папок</span>
+        </div>
+        <div style="position:absolute;right:16px;top:50%;transform:translateY(-50%);opacity:.18">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </div>
+      </button>
+
+      <!-- New Notes -->
+      <button onclick="_kb6ShowNewNotes()" style="
+        position:relative;overflow:hidden;
+        display:flex;flex-direction:column;align-items:flex-start;
+        padding:18px 20px;border-radius:16px;cursor:pointer;text-align:left;
+        background:rgba(34,197,94,.06);
+        border:0.5px solid rgba(34,197,94,.2);
+        transition:all .22s cubic-bezier(.34,1.4,.64,1);
+        font-family:inherit;
+      " onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 16px 40px rgba(0,0,0,.35),0 0 0 1px rgba(34,197,94,.3)';this.style.background='rgba(34,197,94,.1)'"
+         onmouseout="this.style.transform='';this.style.boxShadow='';this.style.background='rgba(34,197,94,.06)'">
+        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,rgba(34,197,94,.8),rgba(34,197,94,.3))"></div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:36px;font-weight:300;letter-spacing:-.04em;color:var(--green);line-height:1;margin-bottom:8px">${newN}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" opacity=".7"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:rgba(34,197,94,.65)">Новые</span>
+        </div>
+        <div style="position:absolute;right:16px;top:50%;transform:translateY(-50%);opacity:.18">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </div>
+      </button>
     </div>
-    <div class="kb6-sec-lbl" style="margin-bottom:12px">Категории</div>
+
+    <div class="kb6-sec-lbl" style="margin-bottom:14px">Категории</div>
     <div class="kb6-cat-grid">
-      ${ALL_CATS.map(c=>{
+      ${ALL_CATS.map((c,i)=>{
         const nc=_kbCatCount(c.id), nf=(_kb3[c.id]?.folders||[]).length;
-        const ico=(typeof getCatSVG!=='undefined')?getCatSVG(c.id,18):c.icon;
-        return `<div class="kb6-cat-card" onclick="_kb6TogCat('${c.id}')" style="border-color:${c.color}25">
-          <div class="kb6-cat-card-ico" style="background:${c.color}15">${ico}</div>
-          <div>
-            <div class="kb6-cat-card-name">${_kbEsc(c.name)}</div>
-            <div class="kb6-cat-card-meta">${nc} зам · ${nf} пап</div>
+        const ico=(typeof getCatSVG!=='undefined')?getCatSVG(c.id,20):c.icon;
+        return `<div class="kb6-cat-card" onclick="_kb6TogCat('${c.id}')" style="--cc:${c.color};animation-delay:${i*0.04}s">
+          <div class="kb6-cat-card-ico" style="background:${c.color}16;border:0.5px solid ${c.color}28">${ico}</div>
+          <div class="kb6-cat-card-name">${_kbEsc(c.name)}</div>
+          <div class="kb6-cat-card-meta">
+            <span class="kb6-cat-pill">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="2.2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <span class="kb6-cat-pill-num" style="color:${c.color}">${nc}</span>
+            </span>
+            <span class="kb6-cat-pill">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="2.2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              <span class="kb6-cat-pill-num" style="color:${c.color}">${nf}</span>
+            </span>
           </div>
         </div>`;
       }).join('')}
@@ -26936,19 +27153,26 @@ function _kb6RenderNoteList(){
   const scroll = document.getElementById('kb6nl-scroll');
   const title  = document.getElementById('kb6-nl-title');
   const bread  = document.getElementById('kb6-bread');
+  const cnt    = document.getElementById('kb6-nl-count');
   if(!scroll) return;
 
   const f = _kbGetFolder(_kbS.cat, _kbS.folder);
   const c = ALL_CATS.find(x=>x.id===_kbS.cat);
   if(!f || !c){ scroll.innerHTML=''; return; }
 
-  if(title) title.textContent = f.title;
+  // Set title with folder color accent
+  if(title) title.innerHTML = `<span style="display:inline-flex;align-items:center;gap:7px">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="${c.color}22" stroke="${c.color}" stroke-width="1.6" style="flex-shrink:0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+    ${_kbEsc(f.title)}
+  </span>`;
+
+  // Breadcrumb
   if(bread) bread.innerHTML = `
-    <span onclick="_kb6GoHome()">Главная</span>
+    <span onclick="_kb6GoHome()" style="opacity:.6">Главная</span>
     <span class="kb6-bread-sep">›</span>
-    <span onclick="_kb6TogCat('${c.id}')">${_kbEsc(c.name)}</span>
+    <span onclick="_kb6TogCat('${c.id}')" style="color:${c.color};opacity:.85">${_kbEsc(c.name)}</span>
     <span class="kb6-bread-sep">›</span>
-    <span style="color:var(--t2)">${_kbEsc(f.title)}</span>`;
+    <span style="color:var(--t2);font-weight:600">${_kbEsc(f.title)}</span>`;
 
   // Sort buttons
   ['upd','cre','ttl'].forEach(k=>{
@@ -26957,37 +27181,90 @@ function _kb6RenderNoteList(){
     if(btn) btn.className = 'kb6-nl-sort-btn'+(_kbS.sort===sortMap[k]?' active':'');
   });
 
-  const notes = _kbSortNotes(f.notes||[]);
+  const allNotes = _kbSortNotes(f.notes||[]);
+  const q = _kbS.search.toLowerCase();
+  const notes = allNotes.filter(n=>!q||(n.title||'').toLowerCase().includes(q)||(n.body||'').toLowerCase().includes(q));
+  const pinned = notes.filter(n=>n.pinned);
+  const unpinned = notes.filter(n=>!n.pinned);
+
+  // Update count
+  if(cnt) cnt.textContent = notes.length ? notes.length+' зам.' : '';
+
   if(!notes.length){
-    scroll.innerHTML=`<div class="kb6-empty"><div class="kb6-empty-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".35"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="kb6-empty-ttl">Нет заметок</div><div class="kb6-empty-sub">Создай первую заметку</div></div>`;
+    scroll.innerHTML=`<div class="kb6-empty">
+      <div class="kb6-empty-ico">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".35"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      </div>
+      <div class="kb6-empty-ttl">${q?'Ничего не найдено':'Нет заметок'}</div>
+      <div class="kb6-empty-sub">${q?'Попробуй другой запрос':'Создай первую заметку в этой папке'}</div>
+      ${!q?`<button class="kb6-btn kb6-btn-gold" onclick="_kb6CreateNoteInFolder()" style="margin-top:8px;font-size:12px;padding:8px 16px">Создать заметку</button>`:''}
+    </div>`;
     return;
   }
 
-  const q = _kbS.search.toLowerCase();
-  scroll.innerHTML = `<div class="kb6-anim">` + notes.filter(n=>!q||(n.title||'').toLowerCase().includes(q)||(n.body||'').toLowerCase().includes(q)).map(n=>{
-    const prev = _kbStrip(n.body||'').slice(0,80);
+  const renderCard = n => {
     const isA = _kbS.note===n.id;
     const wc = _kbWC(n.body||'');
-    return `<div class="kb6-nc${isA?' active':''}" onclick="_kb6OpenNote('${c.id}','${f.id}','${n.id}')" oncontextmenu="event.preventDefault();_kb6NoteCtxMenu(event,'${c.id}','${f.id}','${n.id}')">
+    const rt = _kbRT(wc);
+    const prev = _kbStrip(n.body||'').slice(0,90);
+    const ago = _kbTimeAgo(n.updatedAt||n.createdAt);
+    const tags = n.tags||[];
+    return `<div class="kb6-nc${isA?' active':''}"
+      onclick="_kb6OpenNote('${c.id}','${f.id}','${n.id}')"
+      oncontextmenu="event.preventDefault();_kb6NoteCtxMenu(event,'${c.id}','${f.id}','${n.id}')">
+      <!-- Active indicator bar -->
+      ${isA?`<div style="position:absolute;left:0;top:8px;bottom:8px;width:2.5px;border-radius:0 3px 3px 0;background:${c.color};box-shadow:0 0 8px ${c.color}60"></div>`:''}
       <div style="display:flex;align-items:flex-start;gap:8px">
         <div style="flex:1;min-width:0">
-          <div class="kb6-nc-title">${q?_kbHighlight(n.title||'Без названия',q):_kbEsc(n.title||'Без названия')}</div>
+          <!-- Title -->
+          <div class="kb6-nc-title" style="${isA?`color:var(--t1)`:''}">
+            ${n.pinned?`<svg width="10" height="10" viewBox="0 0 24 24" fill="var(--gold)" stroke="none" style="display:inline;vertical-align:middle;margin-right:4px;margin-bottom:1px"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/></svg>`:''}${q?_kbHighlight(n.title||'Без названия',q):_kbEsc(n.title||'Без названия')}
+          </div>
+          <!-- Preview text -->
           ${prev?`<div class="kb6-nc-prev">${_kbEsc(prev)}</div>`:''}
+          <!-- Tags -->
+          ${tags.length?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;margin-bottom:2px">${tags.slice(0,3).map(t=>`<span style="font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:5px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.1);color:var(--t3);letter-spacing:.02em">#${_kbEsc(t)}</span>`).join('')}</div>`:''}
         </div>
+        <!-- Action button (appears on hover) -->
         <div class="kb6-nc-right">
           <button class="kb6-nc-act-btn" onclick="event.stopPropagation();_kb6NoteCtxMenu(event,'${c.id}','${f.id}','${n.id}')" title="Действия">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
           </button>
         </div>
       </div>
-      <div class="kb6-nc-meta">
-        ${n.pinned?`<div class="kb6-nc-pin"><svg width="10" height="10" viewBox="0 0 24 24" fill="var(--gold)" stroke="none"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/></svg></div>`:''}
-        <span class="kb6-nc-time">${_kbTimeAgo(n.updatedAt||n.createdAt)}</span>
-        ${(n.tags||[]).length?`<span class="kb6-nc-tag">${_kbEsc(n.tags[0])}</span>`:''}
-        <span class="kb6-nc-wc">${wc} сл</span>
+      <!-- Footer meta row -->
+      <div class="kb6-nc-meta" style="margin-top:7px">
+        <span class="kb6-nc-time">${ago}</span>
+        <span class="kb6-nc-wc">${wc>0?wc+' сл':''}</span>
+        ${wc>50?`<span style="font-size:9.5px;color:var(--t3);margin-left:auto">~${rt} мин</span>`:''}
       </div>
     </div>`;
-  }).join('') + `</div>`;
+  };
+
+  let html = `<div class="kb6-anim" style="padding:6px 8px 24px">`;
+
+  // Pinned section
+  if(pinned.length){
+    html += `<div style="
+      font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;
+      color:rgba(245,200,66,.55);padding:8px 4px 4px;
+      display:flex;align-items:center;gap:6px;
+    ">
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="var(--gold)" stroke="none" opacity=".7"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/></svg>
+      Закреплённые
+    </div>`;
+    html += pinned.map(renderCard).join('');
+    if(unpinned.length) html += `<div style="height:0.5px;background:rgba(255,255,255,.06);margin:6px 4px 8px"></div>`;
+  }
+
+  // Regular notes
+  if(unpinned.length){
+    if(pinned.length) html += `<div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);padding:0 4px 4px">Все заметки</div>`;
+    html += unpinned.map(renderCard).join('');
+  }
+
+  html += `</div>`;
+  scroll.innerHTML = html;
 }
 function _kbHighlight(text,q){
   if(!q) return _kbEsc(text);
@@ -27136,10 +27413,10 @@ function _kb6OpenNote(cid,fid,nid){
 }
 function _kb6TogSidebar(){
   const sb=document.getElementById('kb6sb');
-  const chev=document.getElementById('kb6-sb-chev');
   if(!sb) return;
   const isCollapsed = sb.classList.toggle('collapsed');
-  if(chev) chev.style.transform = isCollapsed?'rotate(180deg)':'';
+  // The chevron direction is handled by CSS:
+  // #kb6sb.collapsed #kb6-sb-chev { transform: rotate(180deg); }
 }
 function _kb6Sort(s){
   _kbS.sort=s;
@@ -28156,6 +28433,88 @@ function _kb6ConfirmDelFolder(cid,fid){
   _kbSave3(); _kb6CloseModal();
   if(_kbS.folder===fid){ _kbS.folder=null; _kbS.note=null; }
   _kbRenderAll();
+}
+
+// ── Stat card navigation ──────────────────────────────────────
+function _kb6ShowAllNotes(){
+  const home = document.getElementById('kb6home');
+  const all = _kbSortNotes(_kbAllNotes());
+  if(!home) return;
+  home.innerHTML = `<div class="kb6-anim">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+      <button onclick="_kb6GoHome()" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;flex-shrink:0;background:rgba(255,255,255,.07);border:0.5px solid rgba(255,255,255,.12);color:var(--t2);cursor:pointer;transition:all .15s" onmouseover="this.style.background='rgba(255,255,255,.12)';this.style.color='var(--t1)'" onmouseout="this.style.background='rgba(255,255,255,.07)';this.style.color='var(--t2)'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
+      <div><div style="font-size:20px;font-weight:800;letter-spacing:-.03em;color:var(--t1)">Все заметки</div><div style="font-size:11.5px;color:var(--t3);margin-top:1px">${all.length} заметок · по дате изменения</div></div>
+    </div>
+    ${!all.length?`<div class="kb6-empty"><div class="kb6-empty-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".35"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="kb6-empty-ttl">Нет заметок</div><div class="kb6-empty-sub">Создай первую заметку</div><button class="kb6-btn kb6-btn-gold" onclick="_kb6NewNote()" style="margin-top:8px">Создать</button></div>`:
+    `<div style="display:flex;flex-direction:column;gap:3px">${all.map(n=>{
+      const c=ALL_CATS.find(x=>x.id===n.catId);
+      const prev=_kbStrip(n.body||'').slice(0,70);
+      return `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:12px;cursor:pointer;border:0.5px solid rgba(255,255,255,.05);transition:background .12s,border-color .12s" onclick="_kb6OpenNote('${n.catId}','${n.folderId}','${n.id}')" onmouseover="this.style.background='rgba(255,255,255,.05)';this.style.borderColor='rgba(255,255,255,.1)'" onmouseout="this.style.background='';this.style.borderColor='rgba(255,255,255,.05)'">
+        <div style="width:6px;height:6px;border-radius:50%;background:${c?.color||'#fff'};flex-shrink:0;box-shadow:0 0 6px ${c?.color||'#fff'}60"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13.5px;font-weight:700;color:rgba(255,255,255,.88);letter-spacing:-.015em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:2px">${_kbEsc(n.title||'Без названия')}</div>
+          ${prev?`<div style="font-size:11.5px;color:rgba(168,168,178,.5);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc(prev)}</div>`:''}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0">
+          <div style="font-size:10px;color:rgba(168,168,178,.4)">${_kbTimeAgo(n.updatedAt||n.createdAt)}</div>
+          <div style="font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:6px;background:${c?.color||'#fff'}15;color:${c?.color||'#fff'}">${_kbEsc(c?.name||'')}</div>
+        </div>
+      </div>`;
+    }).join('')}</div>`}
+  </div>`;
+}
+
+function _kb6ShowAllFolders(){
+  const home = document.getElementById('kb6home');
+  if(!home) return;
+  const allFolders = [];
+  ALL_CATS.forEach(c=>(_kb3[c.id]?.folders||[]).forEach(f=>allFolders.push({...f,catId:c.id,catName:c.name,catColor:c.color})));
+  allFolders.sort((a,b)=>(b.notes?.length||0)-(a.notes?.length||0));
+  home.innerHTML = `<div class="kb6-anim">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+      <button onclick="_kb6GoHome()" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;flex-shrink:0;background:rgba(255,255,255,.07);border:0.5px solid rgba(255,255,255,.12);color:var(--t2);cursor:pointer;transition:all .15s" onmouseover="this.style.background='rgba(255,255,255,.12)';this.style.color='var(--t1)'" onmouseout="this.style.background='rgba(255,255,255,.07)';this.style.color='var(--t2)'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
+      <div><div style="font-size:20px;font-weight:800;letter-spacing:-.03em;color:var(--t1)">Все папки</div><div style="font-size:11.5px;color:var(--t3);margin-top:1px">${allFolders.length} папок</div></div>
+    </div>
+    ${!allFolders.length?`<div class="kb6-empty"><div class="kb6-empty-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".35"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div><div class="kb6-empty-ttl">Нет папок</div><div class="kb6-empty-sub">Создай первую папку в любой категории</div></div>`:
+    `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">${allFolders.map(f=>`<div style="padding:18px;border-radius:14px;cursor:pointer;background:rgba(255,255,255,.03);border:0.5px solid rgba(255,255,255,.07);transition:all .2s cubic-bezier(.34,1.2,.64,1);position:relative;overflow:hidden" onclick="_kb6OpenFolder('${f.catId}','${f.id}')" onmouseover="this.style.transform='translateY(-3px)';this.style.background='rgba(255,255,255,.06)';this.style.borderColor='${f.catColor}40'" onmouseout="this.style.transform='';this.style.background='rgba(255,255,255,.03)';this.style.borderColor='rgba(255,255,255,.07)'">
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:${f.catColor};opacity:.5"></div>
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;margin-top:4px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="${f.catColor}20" stroke="${f.catColor}" stroke-width="1.6" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,.88);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:-.015em">${_kbEsc(f.title)}</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="font-size:11px;color:rgba(168,168,178,.5)"><span style="font-family:'JetBrains Mono',monospace;font-size:16px;color:${f.catColor};font-weight:300">${f.notes?.length||0}</span> зам</div>
+        <div style="font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:6px;background:${f.catColor}15;color:${f.catColor}">${_kbEsc(f.catName)}</div>
+      </div>
+    </div>`).join('')}</div>`}
+  </div>`;
+}
+
+function _kb6ShowNewNotes(){
+  const home = document.getElementById('kb6home');
+  if(!home) return;
+  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+  const todayTs = todayStart.getTime();
+  const weekAgo = Date.now() - 7*24*60*60*1000;
+  const today = _kbSortNotes(_kbAllNotes().filter(n=>n.createdAt && n.createdAt>=todayTs));
+  const week  = _kbSortNotes(_kbAllNotes().filter(n=>n.createdAt && n.createdAt>=weekAgo && n.createdAt<todayTs));
+  const renderRow = (n,accentColor='rgba(255,255,255,.06)') => {
+    const c=ALL_CATS.find(x=>x.id===n.catId);
+    return `<div style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-radius:12px;cursor:pointer;border:0.5px solid ${accentColor};background:${accentColor};transition:opacity .12s" onclick="_kb6OpenNote('${n.catId}','${n.folderId}','${n.id}')" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">
+      <div style="width:6px;height:6px;border-radius:50%;background:${c?.color||'#fff'};flex-shrink:0;box-shadow:0 0 6px ${c?.color||'#fff'}60"></div>
+      <div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:700;color:rgba(255,255,255,.88);letter-spacing:-.015em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc(n.title||'Без названия')}</div><div style="font-size:10.5px;color:rgba(168,168,178,.5);margin-top:1px">${_kbEsc(c?.name||'')}</div></div>
+      <div style="font-size:10px;color:rgba(168,168,178,.4);flex-shrink:0">${_kbTimeAgo(n.createdAt)}</div>
+    </div>`;
+  };
+  home.innerHTML = `<div class="kb6-anim">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+      <button onclick="_kb6GoHome()" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;flex-shrink:0;background:rgba(255,255,255,.07);border:0.5px solid rgba(255,255,255,.12);color:var(--t2);cursor:pointer;transition:all .15s" onmouseover="this.style.background='rgba(255,255,255,.12)';this.style.color='var(--t1)'" onmouseout="this.style.background='rgba(255,255,255,.07)';this.style.color='var(--t2)'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
+      <div><div style="font-size:20px;font-weight:800;letter-spacing:-.03em;color:var(--t1)">Новые заметки</div><div style="font-size:11.5px;color:var(--t3);margin-top:1px">${today.length} сегодня · ${week.length} на неделе</div></div>
+    </div>
+    ${today.length?`<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:rgba(34,197,94,.6);margin-bottom:8px;display:flex;align-items:center;gap:6px"><div style="width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px rgba(34,197,94,.8)"></div>Сегодня</div><div style="display:flex;flex-direction:column;gap:4px;margin-bottom:20px">${today.map(n=>renderRow(n,'rgba(34,197,94,.06)')).join('')}</div>`:`<div style="padding:16px;font-size:13px;color:rgba(168,168,178,.45);border-radius:12px;background:rgba(255,255,255,.02);margin-bottom:20px;border:0.5px solid rgba(255,255,255,.05)">Сегодня новых заметок нет</div>`}
+    ${week.length?`<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:rgba(168,168,178,.4);margin-bottom:8px">На этой неделе</div><div style="display:flex;flex-direction:column;gap:4px">${week.map(n=>renderRow(n,'rgba(255,255,255,.03)')).join('')}</div>`:``}
+    ${!today.length&&!week.length?`<div class="kb6-empty"><div class="kb6-empty-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.4" opacity=".5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div><div class="kb6-empty-ttl">Нет новых заметок</div><div class="kb6-empty-sub">Новые заметки за 7 дней появятся здесь</div><button class="kb6-btn kb6-btn-gold" onclick="_kb6NewNote()" style="margin-top:8px">Создать заметку</button></div>`:``}
+  </div>`;
 }
 
 // ── Compat aliases ────────────────────────────────────────────
