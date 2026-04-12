@@ -19670,6 +19670,7 @@ let activeConvUserId = null;
 let msgsPolling = null;
 let _convsLoading = false;
 let _convsCache = null;
+let allConvsCache = null; // FIX: single declaration (was split in two places)
 
 // ── Telegram-model state ──
 let _msgIsAtBottom = true;
@@ -20008,6 +20009,8 @@ async function openConv(userId, name, av, avUrl){
     // Send btn starts in mic mode
     const sendBtn = area.querySelector('#msgSendBtn');
     if(sendBtn){ sendBtn.style.background='var(--card)'; sendBtn.style.boxShadow='none'; sendBtn.style.color='var(--t2)'; }
+    // Clear reply state from previous conversation
+    _msgCancelReply();
     // Clear any pending file from previous conversation
     _msgClearPendingFile();
     // Reset voice UI
@@ -20032,6 +20035,7 @@ async function openConv(userId, name, av, avUrl){
     requestAnimationFrame(()=>{
       loadMessages(userId);
       loadConversations();
+      _msgLoadPinnedBar(); // FIX 2: restore pinned message bar
     });
   }catch(e){
     console.error('openConv:',e);
@@ -20256,22 +20260,7 @@ function _msgClearSearchHighlights(){
   document.querySelectorAll('#msgMessages span').forEach(s=>s.normalize?.());
 }
 
-function _msgDoSearch(q){
-  const cnt = document.getElementById('_msgSearchCount');
-  _msgClearSearchHighlights();
-  _searchMatches = []; _searchIdx = 0;
-  if(!q || q.trim().length < 1){ if(cnt) cnt.textContent=''; return; }
-  const term = q.trim().toLowerCase();
-  document.querySelectorAll('#msgMessages .msg-bubble span').forEach(spanEl=>{
-    const text = spanEl.textContent || '';
-    if(!text.toLowerCase().includes(term)) return;
-    const regex = new RegExp('('+term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
-    spanEl.innerHTML = text.replace(regex,'<mark class="search-highlight" style="background:rgba(245,200,66,.4);color:var(--t1);border-radius:2px;padding:0 1px;">$1</mark>');
-    spanEl.querySelectorAll('.search-highlight').forEach(m=>_searchMatches.push(m));
-  });
-  if(cnt) cnt.textContent = _searchMatches.length ? `1/${_searchMatches.length}` : '0';
-  if(_searchMatches.length) _msgSearchScrollTo(0);
-}
+// _msgDoSearch: replaced by FIX 6 implementation above
 
 function _msgSearchNav(dir){
   if(!_searchMatches.length) return;
@@ -20325,14 +20314,29 @@ async function _msgExecuteClear(userId){
   try {
     if(scope==='me'){
       // Delete only MY sent messages to this partner
-      await sb.from('messages').delete()
+      const {error: errMe} = await sb.from('messages').delete()
         .eq('from_user_id', SB_USER.id)
         .eq('to_user_id', userId);
+      if(errMe) throw errMe;
     } else {
+      // Delete both sides — RLS may only allow deleting own messages
+      // So we delete each direction separately and ignore partner-side RLS errors
       await sb.from('messages').delete()
-        .or(`and(from_user_id.eq.${SB_USER.id},to_user_id.eq.${userId}),and(from_user_id.eq.${userId},to_user_id.eq.${SB_USER.id})`);
+        .eq('from_user_id', SB_USER.id).eq('to_user_id', userId);
+      try {
+        await sb.from('messages').delete()
+          .eq('from_user_id', userId).eq('to_user_id', SB_USER.id);
+      } catch(rlsErr){
+        // Partner-side may be blocked by RLS — not critical, show partial success
+        showToast('Ваши сообщения удалены. Сообщения собеседника — только у него', 'ℹ️');
+        return;
+      }
     }
-  } catch(e){ console.warn('clear history error:',e); }
+  } catch(e){
+    console.warn('clear history error:', e);
+    showToast('Не удалось очистить историю', '⚠️');
+    return;
+  }
 
   // Clear the messages display
   const el = document.getElementById('msgMessages');
@@ -20556,15 +20560,26 @@ function _msgShowBubbleCtx(e, bub){
   const isMine = bub.classList.contains('mine');
   const txt = bub.querySelector('span')?.textContent || '';
 
+  // Get full text content of bubble (works for text, ignores media)
+  const bubSpan = bub.querySelector('span');
+  const txtFull = bubSpan ? bubSpan.textContent : (bub.querySelector('img') ? '[изображение]' : txt);
+
   const items = [
+    // FIX 1: Reply — real implementation with quote bar
     {icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>', label:'Ответить', action:()=>{
-      const inp=document.getElementById('msgInput'); if(inp){inp.focus(); inp.placeholder='Ответ на сообщение…'; setTimeout(()=>inp.placeholder='Сообщение…',3000);}
+      _msgSetReply(msgId, txtFull, isMine);
     }},
     {icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>', label:'Копировать', action:()=>{
-      navigator.clipboard?.writeText(txt).then(()=>showToast('Скопировано 📋')).catch(()=>showToast('Не удалось скопировать'));
+      navigator.clipboard?.writeText(txtFull).then(()=>showToast('Скопировано 📋')).catch(()=>showToast('Не удалось скопировать'));
     }},
-    {icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>', label:'Переслать', action:()=>showToast('Перенаправить — скоро')},
-    {icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>', label:'Закрепить', action:()=>showToast('Сообщение закреплено 📌')},
+    // FIX 3: Forward — real implementation
+    {icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>', label:'Переслать', action:()=>{
+      _msgForward(txtFull);
+    }},
+    // FIX 2: Pin — real implementation
+    {icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>', label:'Закрепить', action:()=>{
+      _msgPinMessage(msgId, txtFull);
+    }},
   ];
   if(isMine){
     items.push({sep:true});
@@ -20713,9 +20728,10 @@ function openChatWithUser(){
   const userId = ov.dataset.userId;
   const name = ov.dataset.userName;
   const av = ov.dataset.userAv;
+  const avUrl = ov.dataset.userAvUrl || null; // FIX: pass avUrl so chat header shows photo
   closeUserProfile();
   showTab('messages');
-  setTimeout(()=>openConv(userId, name, av), 150);
+  setTimeout(()=>openConv(userId, name, av, avUrl), 150);
 }
 
 function fmtMsgTime(iso){
@@ -22668,10 +22684,14 @@ function initRealtimeMessages() {
       filter: `to_user_id=eq.${SB_USER.id}`
     }, (payload) => {
       if (payload.new.from_user_id === activeConvUserId) {
+        // FIX 8: prevent duplicate — skip if message already rendered (e.g. from loadMessages)
+        if(document.querySelector(`.msg-bubble[data-msg-id="${payload.new.id}"]`)) return;
         // Show typing then append with slight delay (Telegram feel)
         _msgShowTyping();
         setTimeout(()=>{
           _msgHideTyping();
+          // Double-check after delay — loadMessages might have added it while typing showed
+          if(document.querySelector(`.msg-bubble[data-msg-id="${payload.new.id}"]`)) return;
           appendMessage(payload.new, false);
         }, 600 + Math.random()*400);
         sb.from('messages').update({read:true}).eq('id', payload.new.id).then(() => {
@@ -22894,6 +22914,160 @@ function appendMessage(msg, isMine) {
 // ══════════════════════════════════════════════════════════════
 // OPTIMISTIC UI — Send message (instant append + sync)
 // ══════════════════════════════════════════════════════════════
+
+// ══ FIX 1: REPLY — real quote implementation ══════════════════
+let _msgReplyTo = null; // { id, text, isMine }
+
+function _msgSetReply(msgId, text, isMine){
+  _msgReplyTo = { id: msgId, text: text.slice(0, 80) + (text.length > 80 ? '…' : ''), isMine };
+  // Remove existing reply bar if any
+  document.getElementById('_msgReplyBar')?.remove();
+  const inputArea = document.querySelector('.msg-input-area');
+  if(!inputArea) return;
+  const bar = document.createElement('div');
+  bar.id = '_msgReplyBar';
+  bar.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 14px 6px;background:rgba(245,200,66,.05);border-top:0.5px solid rgba(245,200,66,.15);flex-shrink:0;animation:msgIn .18s ease both;';
+  bar.innerHTML = `
+    <div style="width:3px;height:32px;border-radius:2px;background:var(--gold);flex-shrink:0;"></div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:.04em;text-transform:uppercase;margin-bottom:2px;">${isMine ? 'Вы' : 'Собеседник'}</div>
+      <div style="font-size:12px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(bar.dataset ? '' : _msgReplyTo.text)}</div>
+    </div>
+    <button onclick="_msgCancelReply()" style="width:24px;height:24px;border-radius:50%;background:none;border:none;color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;" onmouseover="this.style.color='var(--t1)'" onmouseout="this.style.color='var(--t3)'">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>`;
+  // Fix: set text after element created
+  bar.querySelector('div > div:last-child').textContent = _msgReplyTo.text;
+  inputArea.parentNode.insertBefore(bar, inputArea);
+  document.getElementById('msgInput')?.focus();
+}
+
+function _msgCancelReply(){
+  _msgReplyTo = null;
+  document.getElementById('_msgReplyBar')?.remove();
+}
+
+// ══ FIX 2: PIN MESSAGE — store in localStorage per conversation ══
+function _msgPinMessage(msgId, text){
+  if(!activeConvUserId) return;
+  const key = `dtr_pinned_${SB_USER?.id}_${activeConvUserId}`;
+  const pinned = { id: msgId, text: text.slice(0, 120), pinnedAt: new Date().toISOString() };
+  try { localStorage.setItem(key, JSON.stringify(pinned)); } catch(e){}
+  // Show/update pinned bar at top of chat
+  _msgRenderPinnedBar(pinned);
+  showToast('Сообщение закреплено 📌');
+}
+
+function _msgRenderPinnedBar(pinned){
+  document.getElementById('_msgPinnedBar')?.remove();
+  if(!pinned) return;
+  const head = document.querySelector('.msg-chat-head');
+  if(!head) return;
+  const bar = document.createElement('div');
+  bar.id = '_msgPinnedBar';
+  bar.style.cssText = 'display:flex;align-items:center;gap:10px;padding:7px 16px;background:rgba(245,200,66,.06);border-bottom:0.5px solid rgba(245,200,66,.15);cursor:pointer;flex-shrink:0;';
+  bar.innerHTML = `
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.8"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:9.5px;font-weight:700;color:var(--gold);letter-spacing:.05em;text-transform:uppercase;margin-bottom:1px;">Закреплено</div>
+      <div style="font-size:12px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="_msgPinnedText"></div>
+    </div>
+    <button onclick="event.stopPropagation();_msgUnpinMessage()" style="width:22px;height:22px;border-radius:50%;background:none;border:none;color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="Открепить">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>`;
+  bar.querySelector('#_msgPinnedText').textContent = pinned.text;
+  // Click → scroll to pinned message
+  bar.onclick = ()=>{
+    const el = document.querySelector(`.msg-bubble[data-msg-id="${pinned.id}"]`);
+    if(el){ el.scrollIntoView({behavior:'smooth',block:'center'}); el.style.outline='2px solid rgba(245,200,66,.5)'; setTimeout(()=>el.style.outline='',1200); }
+  };
+  head.insertAdjacentElement('afterend', bar);
+}
+
+function _msgUnpinMessage(){
+  if(!activeConvUserId || !SB_USER) return;
+  const key = `dtr_pinned_${SB_USER.id}_${activeConvUserId}`;
+  try { localStorage.removeItem(key); } catch(e){}
+  document.getElementById('_msgPinnedBar')?.remove();
+  showToast('Сообщение откреплено');
+}
+
+function _msgLoadPinnedBar(){
+  if(!activeConvUserId || !SB_USER) return;
+  const key = `dtr_pinned_${SB_USER.id}_${activeConvUserId}`;
+  try {
+    const raw = localStorage.getItem(key);
+    if(raw) _msgRenderPinnedBar(JSON.parse(raw));
+  } catch(e){}
+}
+
+// ══ FIX 3: FORWARD — show conversation picker ════════════════
+function _msgForward(text){
+  const cache = _convsCache || allConvsCache;
+  if(!cache || !cache.length){ showToast('Нет диалогов для пересылки', 'ℹ️'); return; }
+  document.getElementById('_msgForwardModal')?.remove();
+  const ov = document.createElement('div');
+  ov.id = '_msgForwardModal';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;';
+  ov.innerHTML = `
+    <div style="background:var(--card);border:0.5px solid var(--border);border-radius:18px;width:100%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,.6);animation:msgIn .22s cubic-bezier(.34,1.3,.64,1) both;overflow:hidden;">
+      <div style="padding:16px 18px 12px;border-bottom:0.5px solid rgba(255,255,255,.06);font-family:var(--font-display);font-size:15px;font-weight:700;letter-spacing:-.02em;">Переслать сообщение</div>
+      <div style="max-height:320px;overflow-y:auto;" id="_msgFwdList"></div>
+      <div style="padding:12px 16px;border-top:0.5px solid rgba(255,255,255,.06);">
+        <button onclick="document.getElementById('_msgForwardModal').remove()" style="width:100%;padding:10px;border-radius:10px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.08);color:var(--t2);font-size:13px;font-weight:600;font-family:var(--font-display);cursor:pointer;">Отмена</button>
+      </div>
+    </div>`;
+  const list = ov.querySelector('#_msgFwdList');
+  cache.forEach(c => {
+    if(c.userId === activeConvUserId) return; // skip current
+    const btn = document.createElement('button');
+    btn.style.cssText = 'display:flex;align-items:center;gap:10px;width:100%;padding:11px 16px;background:none;border:none;border-bottom:0.5px solid rgba(255,255,255,.04);cursor:pointer;text-align:left;transition:background .12s;';
+    btn.onmouseenter = ()=>{ btn.style.background='rgba(255,255,255,.04)'; };
+    btn.onmouseleave = ()=>{ btn.style.background='none'; };
+    btn.innerHTML = `<div style="width:36px;height:36px;border-radius:9px;background:var(--panel);border:0.5px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${esc(c.av||'🎯')}</div><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(c.name)}</div></div>`;
+    btn.onclick = async ()=>{
+      ov.remove();
+      // Send forward as new message
+      const {error} = await sb.from('messages').insert({
+        from_user_id: SB_USER.id,
+        to_user_id: c.userId,
+        content: '↪ ' + text,
+        content_type: 'text',
+        read: false
+      });
+      if(error){ showToast('Не удалось переслать', '⚠️'); return; }
+      showToast(`Переслано → ${c.name} ✅`);
+      await loadConversations();
+    };
+    list.appendChild(btn);
+  });
+  ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+}
+
+// ══ FIX 6: SEARCH — also look inside image/file/voice captions ══
+function _msgDoSearch(q){
+  const cnt = document.getElementById('_msgSearchCount');
+  _msgClearSearchHighlights();
+  _searchMatches = []; _searchIdx = 0;
+  if(!q || q.trim().length < 1){ if(cnt) cnt.textContent=''; return; }
+  const term = q.trim().toLowerCase();
+  // FIX 6: search in ALL text nodes inside bubbles, not just <span>
+  document.querySelectorAll('#msgMessages .msg-bubble').forEach(bubEl=>{
+    // Collect text-bearing elements: spans, captions, filenames
+    const targets = bubEl.querySelectorAll('span, .msg-file-name, figcaption, [data-caption]');
+    const searchIn = targets.length ? targets : [bubEl];
+    searchIn.forEach(spanEl=>{
+      const text = spanEl.textContent || '';
+      if(!text.toLowerCase().includes(term)) return;
+      const regex = new RegExp('('+term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
+      spanEl.innerHTML = text.replace(regex,'<mark class="search-highlight" style="background:rgba(245,200,66,.4);color:var(--t1);border-radius:2px;padding:0 1px;">$1</mark>');
+      spanEl.querySelectorAll('.search-highlight').forEach(m=>_searchMatches.push(m));
+    });
+  });
+  if(cnt) cnt.textContent = _searchMatches.length ? `1/${_searchMatches.length}` : '0';
+  if(_searchMatches.length) _msgSearchScrollTo(0);
+}
 async function sendMsg(toUserId) {
   // Handle pending file first — file preview is showing
   if(typeof _msgPendingFile !== 'undefined' && _msgPendingFile && _msgPendingFile.file){
@@ -22904,12 +23078,17 @@ async function sendMsg(toUserId) {
   if (!text || !SB_USER) return;
   if (text.length > 1000) { showToast('Сообщение слишком длинное (макс. 1000 символов)', '⚠️'); return; }
 
+  // FIX 1: include reply quote prefix in sent content
+  const replyPrefix = _msgReplyTo ? `↩ «${_msgReplyTo.text}»\n` : '';
+  const finalText = replyPrefix + text;
+  _msgCancelReply(); // clear reply state
+
   input.value = '';
   input.style.height = 'auto';
   _msgToggleSendBtn('');
 
   const optId = `opt-${Date.now()}`;
-  const optimisticMsg = { id: optId, content: text, created_at: new Date().toISOString(), from_user_id: SB_USER.id };
+  const optimisticMsg = { id: optId, content: finalText, created_at: new Date().toISOString(), from_user_id: SB_USER.id };
   appendMessage(optimisticMsg, true);
 
   try {
@@ -22918,7 +23097,7 @@ async function sendMsg(toUserId) {
     const fullInsert = await sb.from('messages').insert({
       from_user_id: SB_USER.id,
       to_user_id: toUserId,
-      content: text,
+      content: finalText, // FIX 1: includes reply quote if replying
       content_type: 'text',
       read: false
     }).select('id').single();
@@ -23069,7 +23248,6 @@ function _applyReadStatusFromDB(msgs){
 }
 
 // ══ FILE / VOICE SENDING ══════════════════════════════════════
-let allConvsCache = null;
 
 // Mobile: show/hide msg list
 function showMsgListOnMobile() {
