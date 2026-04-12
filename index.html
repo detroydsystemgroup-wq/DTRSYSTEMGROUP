@@ -1,4 +1,4 @@
-V<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
@@ -16609,7 +16609,7 @@ function esc(str){
 // Safe for use inside onclick="..." attributes (escapes single quotes)
 function escAttr(str){
   if(str==null)return'';
-  return String(str).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/\n/g,'\\n').replace(/\r/g,'\\r');
+  return String(str).replace(/'/g,"\\'").replace(/"/g,'&quot;');
 }
 
 function relDate(d){
@@ -19939,13 +19939,10 @@ function _renderConvList(convs){
       : esc(cv.av || '🎯');
     const isUnread = cv.unread > 0;
     const isActive = cv.userId === activeConvUserId;
-    // Parse JSON reply/forward/voice/file content for readable preview
-    let _pvText = cv.lastMsg || '';
-    if(_pvText.startsWith('{')){
-      try { const _pj=JSON.parse(_pvText); if(_pj.t!==undefined) _pvText=_pj.t; else if(_pj.url&&_pj.duration!==undefined) _pvText='🎤 Голосовое'; else if(_pj.url&&_pj.name) _pvText='📎 '+_pj.name; } catch(e){}
-    }
-    if(_pvText==='__deleted__') _pvText='🚫 Удалено';
-    const preview = cv.lastMsgMine ? `<span style="color:var(--t3)">Вы: </span>${esc(_pvText.slice(0,38))}` : esc(_pvText.slice(0,42));
+    let _pv = cv.lastMsg || '';
+    if(_pv.startsWith('{')){try{const _j=JSON.parse(_pv);if(_j.t!==undefined)_pv=_j.t;else if(_j.url&&_j.duration!==undefined)_pv='🎤 Голосовое';else if(_j.url&&_j.name)_pv='📎 '+_j.name;}catch(e){}}
+    if(_pv==='__deleted__')_pv='🚫 Удалено';
+    const preview = cv.lastMsgMine ? `<span style="color:var(--t3)">Вы: </span>${esc(_pv.slice(0,38))}` : esc(_pv.slice(0,42));
     return `
     <div class="msg-conv${isActive?' active':''}${isUnread?' has-unread':''}"
       onclick="openConv('${esc(cv.userId)}','${escAttr(cv.name)}','${escAttr(cv.av||'🎯')}','${escAttr(cv.avUrl||'')}')"
@@ -20298,19 +20295,18 @@ function _msgScrollToBottom(smooth=true){
   const el = document.getElementById('msgMessages');
   if(!el) return;
   if(smooth){
-    const target = el.scrollHeight - el.clientHeight;
+    // Telegram-style: fast JS-eased scroll, no CSS lag
+    const target = el.scrollHeight;
     const start = el.scrollTop;
     const dist = target - start;
     if(Math.abs(dist) < 4){ el.scrollTop = target; }
     else {
-      const dur = Math.min(200, Math.max(80, Math.abs(dist) * 0.1));
+      const dur = Math.min(160, Math.max(60, Math.abs(dist) * 0.12));
       const t0 = performance.now();
       (function step(now){
         const p = Math.min((now-t0)/dur, 1);
-        const ease = 1 - Math.pow(1-p, 3);
-        el.scrollTop = start + dist * ease;
+        el.scrollTop = start + dist * (1 - Math.pow(1-p, 3));
         if(p < 1) requestAnimationFrame(step);
-        else { el.scrollTop = el.scrollHeight; }
       })(performance.now());
     }
   } else {
@@ -20319,8 +20315,8 @@ function _msgScrollToBottom(smooth=true){
   _msgIsAtBottom = true;
   _msgUnreadOffscreen = 0;
   _msgUpdateScrollBadge();
-  const btn = document.getElementById('msgScrollDown');
-  if(btn) btn.classList.remove('visible');
+  const sbtn = document.getElementById('msgScrollDown');
+  if(sbtn) sbtn.classList.remove('visible');
 }
 
 // ── Update scroll badge count ──
@@ -20347,9 +20343,8 @@ function _msgShowTyping(){
 function _msgHideTyping(){
   const sub = document.getElementById('msgChatSub');
   if(!sub) return;
-  // Restore real status instead of always showing "в сети"
-  if(activeConvUserId) _msgCheckOnlineStatus(activeConvUserId);
-  else { sub.className = 'msg-chat-sub online-sub'; sub.textContent = 'в сети'; }
+  sub.className = 'msg-chat-sub online-sub';
+  sub.textContent = 'в сети';
 }
 
 // ── Chat header menu ──
@@ -20748,7 +20743,7 @@ async function loadMessages(partnerId, append=false){
     // Build with grouping + date separators (Telegram model: gap>5min breaks group)
     // Filter out locally hidden messages (deleted only for me)
     let hiddenMsgs = new Set();
-    try { hiddenMsgs = new Set(JSON.parse(localStorage.getItem('dtr_hidden_msgs')||'[]')); } catch(e){}
+    try { hiddenMsgs = new Set(JSON.parse(sessionStorage.getItem('dtr_hidden_msgs')||'[]')); } catch(e){}
 
     const chunks = [];
     let lastDate='', lastSender='', lastTs=0;
@@ -20801,18 +20796,7 @@ async function loadMessages(partnerId, append=false){
 </div>`);
     });
 
-    if(append){
-      // Append mode: prepend older messages at top, keep current messages
-      const existingLM = elNow.querySelector('.msg-load-more-btn');
-      if(existingLM) existingLM.remove();
-      const tmpDiv = document.createElement('div');
-      tmpDiv.innerHTML = chunks.join('');
-      const frag = document.createDocumentFragment();
-      while(tmpDiv.firstChild) frag.appendChild(tmpDiv.firstChild);
-      elNow.prepend(frag);
-    } else {
-      elNow.innerHTML = chunks.join('');
-    }
+    elNow.innerHTML = chunks.join('');
 
     // Добавляем кнопку "Загрузить ещё" если пришла полная страница (есть ещё сообщения)
     if(data.length >= MSG_PAGE_SIZE){
@@ -20827,12 +20811,8 @@ async function loadMessages(partnerId, append=false){
     }
 
     if(!append){
-      // Initial load: scroll to bottom instantly — double rAF ensures DOM is painted
-      requestAnimationFrame(()=>{
-        requestAnimationFrame(()=>{
-          elNow.scrollTop = elNow.scrollHeight;
-        });
-      });
+      // Initial load: scroll after DOM paint
+      requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ elNow.scrollTop = elNow.scrollHeight; }); });
     }
     // else append=true (load older): don't scroll — user is reading old messages
     // Apply real read status from DB to already-rendered messages
@@ -20852,13 +20832,9 @@ function _msgShowBubbleCtx(e, bub){
   const isMine = bub.classList.contains('mine');
   const txt = bub.querySelector('span')?.textContent || '';
 
-  // Get full text content of bubble (works for text, files, voice, images)
+  // Get full text content of bubble (works for text, ignores media)
   const bubSpan = bub.querySelector('span');
-  const txtFull = bubSpan ? bubSpan.textContent
-    : bub.querySelector('.msg-voice-bubble') ? '🎤 Голосовое'
-    : bub.querySelector('.msg-file-bubble') ? '📎 '+(bub.querySelector('.msg-file-name')?.textContent||'Файл')
-    : bub.querySelector('img') ? '🖼️ Изображение'
-    : txt;
+  const txtFull = bubSpan ? bubSpan.textContent : (bub.querySelector('img') ? '[изображение]' : txt);
 
   const items = [
     // FIX 1: Reply — real implementation with quote bar
@@ -20909,35 +20885,40 @@ function _msgShowBubbleCtx(e, bub){
 // ══ FIX: DELETE MESSAGE MODAL — scope choice (me / both) ══════
 function _msgShowDeleteMsgModal(msgId, bub, isMine){
   document.getElementById('_msgDelMsgModal')?.remove();
+  // Capture bub now before modal interaction
+  const _bub = bub || document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(msgId))+'"]');
   const ov = document.createElement('div');
   ov.id = '_msgDelMsgModal';
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);z-index:10000;display:flex;align-items:flex-end;justify-content:center;padding:0 0 32px;animation:fadeIn .15s ease;';
-  const safeMsgId = String(msgId).replace(/'/g,"\\'");
-  ov.innerHTML = `
-    <div style="background:var(--card);border:0.5px solid var(--border);border-radius:18px;width:calc(100% - 32px);max-width:420px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6);animation:msgIn .22s cubic-bezier(.34,1.3,.64,1) both;">
-      <div style="padding:16px 18px 8px;font-size:13px;color:var(--t3);text-align:center;border-bottom:0.5px solid rgba(255,255,255,.05);">Удалить сообщение?</div>
-      ${isMine ? `
-      <button onclick="_msgDeleteMsg('${safeMsgId}',null,'me');document.getElementById('_msgDelMsgModal').remove();"
-        style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 18px;background:none;border:none;border-bottom:0.5px solid rgba(255,255,255,.05);color:var(--t1);font-size:14px;cursor:pointer;text-align:left;font-family:var(--font-body);" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background='none'">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-        Удалить только у меня
-      </button>
-      <button onclick="_msgDeleteMsg('${safeMsgId}',null,'both');document.getElementById('_msgDelMsgModal').remove();"
-        style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 18px;background:none;border:none;border-bottom:0.5px solid rgba(255,255,255,.05);color:var(--red);font-size:14px;cursor:pointer;text-align:left;font-family:var(--font-body);" onmouseover="this.style.background='rgba(239,68,68,.06)'" onmouseout="this.style.background='none'">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-        Удалить у обоих
-      </button>` : `
-      <button onclick="_msgDeleteMsg('${safeMsgId}',null,'me');document.getElementById('_msgDelMsgModal').remove();"
-        style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 18px;background:none;border:none;border-bottom:0.5px solid rgba(255,255,255,.05);color:var(--red);font-size:14px;cursor:pointer;text-align:left;font-family:var(--font-body);" onmouseover="this.style.background='rgba(239,68,68,.06)'" onmouseout="this.style.background='none'">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-        Удалить у меня
-      </button>`}
-      <button onclick="document.getElementById('_msgDelMsgModal').remove()"
-        style="display:block;width:100%;padding:14px 18px;background:none;border:none;color:var(--t2);font-size:14px;font-weight:600;cursor:pointer;text-align:center;font-family:var(--font-display);">
-        Отмена
-      </button>
-    </div>`;
-  ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove(); });
+  const card = document.createElement('div');
+  card.style.cssText = 'background:var(--card);border:0.5px solid var(--border);border-radius:18px;width:calc(100% - 32px);max-width:420px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6);animation:msgIn .22s cubic-bezier(.34,1.3,.64,1) both;';
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'padding:16px 18px 8px;font-size:13px;color:var(--t3);text-align:center;border-bottom:0.5px solid rgba(255,255,255,.05);';
+  hdr.textContent = 'Удалить сообщение?';
+  card.appendChild(hdr);
+  const bs = 'display:flex;align-items:center;gap:12px;width:100%;padding:14px 18px;background:none;border:none;border-bottom:0.5px solid rgba(255,255,255,.05);font-size:14px;cursor:pointer;text-align:left;font-family:var(--font-body);';
+  function mkBtn(label, color, scope){
+    const b = document.createElement('button');
+    b.style.cssText = bs + 'color:' + color + ';';
+    b.innerHTML = (scope==='me'?'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>':'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>')+' '+label;
+    b.onmouseover = function(){this.style.background=scope==='me'?'rgba(255,255,255,.04)':'rgba(239,68,68,.06)';};
+    b.onmouseout = function(){this.style.background='none';};
+    b.onclick = function(){ _msgDeleteMsg(msgId, _bub, scope); ov.remove(); };
+    return b;
+  }
+  if(isMine){
+    card.appendChild(mkBtn('Удалить только у меня','var(--t1)','me'));
+    card.appendChild(mkBtn('Удалить у обоих','var(--red)','both'));
+  } else {
+    card.appendChild(mkBtn('Удалить у меня','var(--red)','me'));
+  }
+  const cancel = document.createElement('button');
+  cancel.style.cssText = 'display:block;width:100%;padding:14px 18px;background:none;border:none;color:var(--t2);font-size:14px;font-weight:600;cursor:pointer;text-align:center;font-family:var(--font-display);';
+  cancel.textContent = 'Отмена';
+  cancel.onclick = function(){ ov.remove(); };
+  card.appendChild(cancel);
+  ov.appendChild(card);
+  ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
   document.body.appendChild(ov);
 }
 
@@ -21052,8 +21033,7 @@ async function _msgSaveEdit(){
 }
 
 async function _msgDeleteMsg(msgId, bub, scope='both'){
-  // FIX: find bub by msgId if not passed directly
-  if(!bub) bub = document.querySelector(`.msg-bubble[data-msg-id="${CSS.escape(String(msgId))}"]`);
+  if(!bub) bub = document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(msgId))+'"]');
   // Animate out
   const row = bub?.closest('.msg-row') ?? (bub ? bub.parentElement : null);
   if(row){ row.style.transition='all .22s'; row.style.opacity='0'; row.style.transform='scale(.92) translateX('+(bub?.classList.contains('mine')?'10px':'-10px')+')'; setTimeout(()=>row.remove(),220); }
@@ -21073,9 +21053,9 @@ async function _msgDeleteMsg(msgId, bub, scope='both'){
       } else {
         // Can't update partner's message — store local tombstone in sessionStorage
         try {
-          const hidden = JSON.parse(localStorage.getItem('dtr_hidden_msgs')||'[]');
+          const hidden = JSON.parse(sessionStorage.getItem('dtr_hidden_msgs')||'[]');
           hidden.push(String(msgId));
-          localStorage.setItem('dtr_hidden_msgs', JSON.stringify(hidden));
+          sessionStorage.setItem('dtr_hidden_msgs', JSON.stringify(hidden));
         } catch(e){}
       }
       showToast('Удалено только у вас', '🗑️');
@@ -23193,34 +23173,6 @@ function initRealtimeMessages() {
       }
       loadConversations();
     })
-    // FIX: Realtime UPDATE — handle edited/deleted messages live
-    .on('postgres_changes', {
-      event: 'UPDATE',
-      schema: 'public',
-      table: 'messages',
-      filter: `to_user_id=eq.${SB_USER.id}`
-    }, (payload) => {
-      const upd = payload.new; if(!upd) return;
-      const bub = document.querySelector(`.msg-bubble[data-msg-id="${CSS.escape(String(upd.id))}"]`);
-      if(!bub) return;
-      if(upd.content_type==='deleted'||upd.content==='__deleted__'){
-        const s=bub.querySelector('span'); if(s) s.innerHTML='<span style="color:rgba(255,255,255,.3);font-style:italic;font-size:13px;">🚫 Сообщение удалено</span>';
-      } else {
-        const s=bub.querySelector('span');
-        if(s&&upd.content){ const safe=esc(upd.content).replace(/(https?:\/\/[^\s&<"']+)/g,'<a href="$1" target="_blank" rel="noopener" style="color:inherit;opacity:.8;text-decoration:underline">$1</a>'); s.innerHTML=safe; }
-      }
-    })
-    // FIX: Realtime DELETE — remove deleted bubbles live
-    .on('postgres_changes', {
-      event: 'DELETE',
-      schema: 'public',
-      table: 'messages'
-    }, (payload) => {
-      const did=payload.old?.id; if(!did) return;
-      const bub=document.querySelector(`.msg-bubble[data-msg-id="${CSS.escape(String(did))}"]`);
-      if(bub){ const r=bub.closest('.msg-row'); if(r){r.style.transition='all .22s';r.style.opacity='0';setTimeout(()=>r.remove(),220);} }
-      loadConversations();
-    })
     .subscribe();
 
   if (usersRealtimeChannel) { sb.removeChannel(usersRealtimeChannel); }
@@ -23308,20 +23260,21 @@ function msgContentHTML(msg) {
   let forwardBlock = '';
   try {
     const parsed = JSON.parse(txt);
-    if(parsed && parsed.t !== undefined && parsed.r){
+    if(parsed && parsed.t !== undefined){
       mainText = parsed.t;
-      const r = parsed.r;
-      // Telegram-style quote block — clickable, scrolls to original
-      replyBlock = `<div onclick="event.stopPropagation();_msgScrollToId('${esc(String(r.replyToId))}')"
-        style="display:flex;gap:8px;align-items:stretch;margin-bottom:6px;cursor:pointer;border-radius:8px;background:rgba(255,255,255,.06);padding:7px 10px;transition:background .15s;"
-        onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='rgba(255,255,255,.06)'">
-        <div style="width:3px;border-radius:2px;background:var(--gold);flex-shrink:0;"></div>
-        <div style="min-width:0;flex:1;">
-          <div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:2px;">${esc(r.replyAuthor||'')}</div>
-          <div style="font-size:11.5px;color:rgba(255,255,255,.55);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc((r.replyText||'').slice(0,80))}</div>
-        </div>
-      </div>`;
-    }
+      // Reply block
+      if(parsed.r){
+        const r = parsed.r;
+        replyBlock = `<div onclick="event.stopPropagation();_msgScrollToId('${esc(String(r.replyToId))}')"
+          style="display:flex;gap:8px;align-items:stretch;margin-bottom:6px;cursor:pointer;border-radius:8px;background:rgba(255,255,255,.06);padding:7px 10px;transition:background .15s;"
+          onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='rgba(255,255,255,.06)'">
+          <div style="width:3px;border-radius:2px;background:var(--gold);flex-shrink:0;"></div>
+          <div style="min-width:0;flex:1;">
+            <div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:2px;">${esc(r.replyAuthor||'')}</div>
+            <div style="font-size:11.5px;color:rgba(255,255,255,.55);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc((r.replyText||'').slice(0,80))}</div>
+          </div>
+        </div>`;
+      }
       // Forward block
       if(parsed.fwd){
         const fwdName = parsed.fwd.fromName || '';
@@ -23330,6 +23283,7 @@ function msgContentHTML(msg) {
           Переслано от: <span style="color:var(--gold);font-weight:600;">${esc(fwdName)}</span>
         </div>`;
       }
+    }
   } catch(e){ /* not a reply JSON, plain text */ }
 
   // FIX 3: escape txt first to prevent XSS, then linkify safe URLs only
@@ -23457,7 +23411,6 @@ function appendMessage(msg, isMine) {
 
   // Auto-scroll logic
   if(_msgIsAtBottom){
-    // Instant scroll for own messages, smooth for incoming
     if(isMine) el.scrollTop = el.scrollHeight;
     else el.scrollTo({top:el.scrollHeight,behavior:'smooth'});
   } else if(!isMine){
@@ -23697,7 +23650,7 @@ async function sendMsg(toUserId) {
         const minimal = await sb.from('messages').insert({
           from_user_id: SB_USER.id,
           to_user_id: toUserId,
-          content: finalText
+          content: text
         }).select('id').single();
         if(minimal.error) throw minimal.error;
         data = minimal.data; error = null;
@@ -23746,7 +23699,7 @@ async function sendMsg(toUserId) {
           const retryInsert = await sb.from('messages').insert({
             from_user_id: SB_USER.id,
             to_user_id: toUserId,
-            content: finalText,
+            content: text,
             content_type: 'text',
             read: false
           }).select('id').single();
@@ -36076,16 +36029,16 @@ function _msgSendBtnClick(toUserId){
   if(MIC_STATE.isRecording) return;
   if(_micHoldActive) return;
   // Edit mode — save edit
-  if(typeof _msgEditingId !== 'undefined' && _msgEditingId){ _msgSaveEdit(); return; }
-  // If file pending — send file
+  if(typeof _msgEditingId!=='undefined' && _msgEditingId){ _msgSaveEdit(); return; }
+  // File pending — send file
   if(_msgPendingFile && _msgPendingFile.file){ _msgSendFile(toUserId); return; }
-  // Check if there's text to send
+  // Check input directly (don't rely on arrow SVG visibility)
   const inp = document.getElementById('msgInput');
   if(inp && inp.value && inp.value.trim().length > 0){
     sendMsg(toUserId);
     return;
   }
-  // Mic mode — short click does nothing (mic needs long-press hold)
+  // Mic mode — short click does nothing (voice needs long-press)
 }
 
 function _msgMicStartHold(e, toUserId){
@@ -36093,17 +36046,16 @@ function _msgMicStartHold(e, toUserId){
   MIC_STATE.toUserId = toUserId;
   clearTimeout(MIC_STATE.holdTimeout);
 
-  // Text mode → don't intercept at all (let onclick fire normally for text send)
+  // Text mode: check input directly (arrow SVG may not exist after _msgCancelEdit)
   const inp = document.getElementById('msgInput');
-  const hasText = inp && inp.value && inp.value.trim().length > 0;
-  if(hasText) return;
-  // File pending → don't intercept
+  if(inp && inp.value && inp.value.trim().length > 0) return;
+  // File pending — don't intercept
   if(_msgPendingFile && _msgPendingFile.file) return;
-  // Edit mode → don't intercept  
-  if(typeof _msgEditingId !== 'undefined' && _msgEditingId) return;
+  // Edit mode — don't intercept
+  if(typeof _msgEditingId!=='undefined' && _msgEditingId) return;
 
-  // Only mic/voice mode from here — prevent default only on touch
-  if(e.type === 'touchstart' && e.cancelable) e.preventDefault();
+  // Only prevent default on touch (mousedown preventDefault kills click on desktop!)
+  if(e.type==='touchstart' && e.cancelable) e.preventDefault();
 
   // Visual feedback: button turns amber while holding
   const btn = document.getElementById('msgSendBtn');
@@ -36118,7 +36070,6 @@ function _msgMicStartHold(e, toUserId){
 
 function _msgMicStopHold(e){
   clearTimeout(MIC_STATE.holdTimeout);
-  // Reset button visual
   const btn = document.getElementById('msgSendBtn');
   if(btn && !MIC_STATE.isRecording){
     btn.style.transform = '';
@@ -36131,7 +36082,6 @@ function _msgMicStopHold(e){
     if(btn){ btn.style.transform = ''; btn.style.background = ''; }
     setTimeout(()=>{ _micHoldActive = false; }, 500);
   } else {
-    // Short press (< 350ms) — ensure _micHoldActive resets
     setTimeout(()=>{ _micHoldActive = false; }, 50);
   }
 }
