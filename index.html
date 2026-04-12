@@ -13689,17 +13689,92 @@ html[data-theme="light"] .nav-icon-btn:hover {
 .msg-preview-remove:hover{background:rgba(239,68,68,.3);}
 
 /* Voice recording overlay */
-#msgVoiceRecUI{display:none;position:absolute;inset:0;background:rgba(9,9,11,.97);z-index:20;align-items:center;justify-content:space-between;padding:0 14px;gap:12px;animation:fadeIn .15s ease;}
+/* ── Telegram-style voice recording bar ── */
+#msgVoiceRecUI{
+  display:none;
+  align-items:center;
+  gap:0;
+  padding:0;
+  background:transparent;
+  flex-shrink:0;
+  position:relative;
+  z-index:5;
+  overflow:hidden;
+}
 #msgVoiceRecUI.active{display:flex;}
-.vc-rec-dot{width:10px;height:10px;border-radius:50%;background:var(--red);animation:recBlink 1s ease infinite;flex-shrink:0;}
+
+/* Delete button (left) */
+.vc-rec-delete{
+  width:52px;height:56px;
+  display:flex;align-items:center;justify-content:center;
+  background:none;border:none;cursor:pointer;
+  color:var(--red);flex-shrink:0;
+  transition:transform .18s cubic-bezier(.34,1.56,.64,1),color .15s;
+}
+.vc-rec-delete:hover{transform:scale(1.2);}
+
+/* Center recording area */
+.vc-rec-center{
+  flex:1;
+  display:flex;align-items:center;gap:10px;
+  padding:0 4px;
+  min-width:0;
+}
+
+/* Red pulsing dot */
+.vc-rec-dot{
+  width:10px;height:10px;border-radius:50%;
+  background:var(--red);
+  animation:recBlink 1s ease infinite;
+  flex-shrink:0;
+  box-shadow:0 0 0 0 rgba(239,68,68,.5);
+}
+@keyframes recBlink{
+  0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(239,68,68,.4);}
+  50%{opacity:.5;box-shadow:0 0 0 6px rgba(239,68,68,.0);}
+}
 @keyframes recBlink{0%,100%{opacity:1}50%{opacity:.3}}
-.vc-rec-time{font-size:16px;font-weight:700;font-family:var(--font-mono);color:var(--t1);letter-spacing:.04em;min-width:44px;}
-.vc-rec-waveform{flex:1;height:32px;display:flex;align-items:center;gap:2px;overflow:hidden;}
-.vc-rec-waveform span{background:var(--gold);border-radius:2px;flex-shrink:0;transition:height .05s;}
-.vc-rec-cancel{background:none;border:0.5px solid rgba(239,68,68,.35);color:var(--red);border-radius:10px;padding:6px 12px;font-size:12px;font-weight:600;font-family:var(--font-display);cursor:pointer;transition:background .15s;}
-.vc-rec-cancel:hover{background:rgba(239,68,68,.12);}
-.vc-rec-send{background:var(--gold);border:none;color:#09090B;border-radius:10px;padding:6px 14px;font-size:12px;font-weight:700;font-family:var(--font-display);cursor:pointer;transition:background .15s;}
-.vc-rec-send:hover{background:var(--gold-l);}
+.vc-rec-time{
+  font-size:15px;font-weight:600;font-family:var(--font-mono);
+  color:var(--red);letter-spacing:.04em;min-width:38px;flex-shrink:0;
+}
+.vc-rec-waveform{
+  flex:1;height:28px;display:flex;align-items:center;
+  gap:2px;overflow:hidden;min-width:0;
+}
+.vc-rec-waveform span{
+  background:rgba(245,200,66,.7);border-radius:2px;
+  flex-shrink:0;width:3px;transition:height .06s;
+}
+
+/* Send button (right — gold circle like Telegram) */
+.vc-rec-send-btn{
+  width:48px;height:48px;border-radius:50%;
+  background:linear-gradient(135deg,#16a34a,#22C55E);
+  border:none;color:#fff;cursor:pointer;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 3px 14px rgba(34,197,94,.35);
+  transition:transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .2s;
+  margin-right:6px;
+}
+.vc-rec-send-btn:hover{
+  transform:scale(1.1);
+  box-shadow:0 5px 20px rgba(34,197,94,.5);
+}
+.vc-rec-send-btn:active{transform:scale(.95);}
+
+/* Separator between chat and recording bar */
+#msgVoiceRecUI.active{
+  border-top:0.5px solid rgba(255,255,255,.06);
+  background:rgba(9,9,11,.98);
+  height:56px;
+  padding:0;
+  animation:vrecIn .18s cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes vrecIn{
+  from{opacity:0;transform:translateY(10px);}
+  to{opacity:1;transform:translateY(0);}
+}
 
 /* Upload progress on send button */
 .msg-send.uploading{background:linear-gradient(145deg,var(--gold-d),var(--gold));color:#09090B;}
@@ -20008,7 +20083,7 @@ async function openConv(userId, name, av, avUrl){
       <div id="msgFilePreviewBar" style="display:none;padding:8px 14px;background:rgba(245,200,66,.06);border-top:0.5px solid rgba(245,200,66,.15);border-bottom:0.5px solid rgba(255,255,255,.04);flex-shrink:0;"></div>
 
       <!-- Voice recording overlay (shown during recording) -->
-      <div id="msgVoiceRecUI"><!-- rendered by JS --></div>
+      <!-- Voice recording bar — built by _msgShowRecUI() on first record -->
       <div class="msg-input-area">
         <!-- Attach button -->
         <button id="msgAttachBtn" style="width:36px;height:36px;border-radius:50%;background:none;border:none;color:var(--t3);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:color .15s,transform .15s;"
@@ -35642,45 +35717,93 @@ async function _msgStartRecording(toUserId){
 }
 
 function _msgShowRecUI(toUserId){
+  // Telegram-style: replaces the input area row, chat stays visible above
   let ui = document.getElementById('msgVoiceRecUI');
   if(!ui){
-    // Find the chat body to insert before input area
     const inputArea = document.querySelector('#msgChatArea .msg-input-area');
     const parent = inputArea?.parentElement;
     if(!parent) return;
     ui = document.createElement('div');
     ui.id = 'msgVoiceRecUI';
-    const bars = Array.from({length:30},()=>'<span style="width:3px;height:8px;display:inline-block;flex-shrink:0;"></span>').join('');
+    const bars = Array.from({length:40},()=>'<span></span>').join('');
     ui.innerHTML = `
-      <div class="vc-rec-dot"></div>
-      <div class="vc-rec-time" id="msgRecTimer">0:00</div>
-      <div class="vc-rec-waveform" id="msgRecWave" style="flex:1;display:flex;align-items:center;gap:2px;overflow:hidden;">${bars}</div>
-      <button class="vc-rec-cancel" onclick="_msgStopRecording(true)">Отменить</button>
-      <button class="vc-rec-send" onclick="_msgStopRecording(false)">Отправить</button>`;
+      <!-- Delete / cancel (left trash icon) -->
+      <button class="vc-rec-delete" onclick="_msgStopRecording(true)" title="Отменить">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+        </svg>
+      </button>
+
+      <!-- Center: dot + timer + waveform -->
+      <div class="vc-rec-center">
+        <div class="vc-rec-dot"></div>
+        <div class="vc-rec-time" id="msgRecTimer">0:00</div>
+        <div class="vc-rec-waveform" id="msgRecWave">${bars}</div>
+      </div>
+
+      <!-- Send (right green circle) -->
+      <button class="vc-rec-send-btn" onclick="_msgStopRecording(false)" title="Отправить">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>`;
     parent.insertBefore(ui, inputArea);
   }
+
+  // Hide the normal input area while recording (Telegram behaviour)
+  const inputArea = document.querySelector('#msgChatArea .msg-input-area');
+  if(inputArea) inputArea.style.display = 'none';
+
   ui.classList.add('active');
 
-  // Timer
+  // Also hide file preview and reply bars
+  const fileBar = document.getElementById('msgFilePreviewBar');
+  if(fileBar) fileBar.style.display = 'none';
+
+  // Live timer — update every 100ms for smooth display
   MIC_STATE.timer = setInterval(()=>{
     const sec = Math.floor((Date.now()-MIC_STATE.startTime)/1000);
     const el = document.getElementById('msgRecTimer');
     if(el) el.textContent = Math.floor(sec/60)+':'+(sec%60).toString().padStart(2,'0');
-  }, 500);
+  }, 100);
 }
 
 function _msgAnimateWaveform(){
   if(!MIC_STATE.analyser) return;
+  MIC_STATE.analyser.fftSize = 128; // more detail
   const bars = document.querySelectorAll('#msgRecWave span');
+  const totalBars = bars.length;
   const buf = new Uint8Array(MIC_STATE.analyser.frequencyBinCount);
+  // History buffer for scroll effect (Telegram rolls waveform left)
+  const history = new Array(totalBars).fill(4);
+  let frame = 0;
+
   function draw(){
     if(!MIC_STATE.isRecording) return;
     MIC_STATE.analyser.getByteFrequencyData(buf);
-    bars.forEach((b,i)=>{
-      const v = buf[i] || 0;
-      const h = Math.max(4, Math.round(v/255*28));
-      b.style.height = h+'px';
-    });
+
+    // Get average amplitude across freq bins
+    let sum = 0;
+    const binCount = Math.min(buf.length, 24);
+    for(let i = 0; i < binCount; i++) sum += buf[i];
+    const avg = sum / binCount;
+
+    // Push new bar height and shift history left (scroll effect)
+    if(frame % 2 === 0){ // update every 2 frames ~30fps visual
+      const h = Math.max(3, Math.min(28, Math.round(avg / 255 * 30)));
+      history.push(h);
+      history.shift();
+      bars.forEach((b, i) => {
+        const hVal = history[i];
+        b.style.height = hVal + 'px';
+        // Color intensity based on height
+        const alpha = 0.4 + (hVal / 28) * 0.6;
+        b.style.background = `rgba(245,200,66,${alpha.toFixed(2)})`;
+      });
+    }
+    frame++;
     MIC_STATE.animFrame = requestAnimationFrame(draw);
   }
   draw();
@@ -35693,9 +35816,13 @@ function _msgStopRecording(cancel){
   clearTimeout(MIC_STATE.limitTimeout);
   cancelAnimationFrame(MIC_STATE.animFrame);
 
-  // Hide UI
+  // Hide recording UI — restore input area (Telegram behaviour)
   const ui = document.getElementById('msgVoiceRecUI');
   if(ui){ ui.classList.remove('active'); }
+  const inputArea = document.querySelector('#msgChatArea .msg-input-area');
+  if(inputArea) inputArea.style.display = '';
+  const fileBar = document.getElementById('msgFilePreviewBar');
+  if(fileBar && !MIC_STATE._hadFile) fileBar.style.display = '';
 
   if(MIC_STATE.recorder && MIC_STATE.recorder.state !== 'inactive'){
     MIC_STATE.recorder.onstop = ()=>{
