@@ -23337,7 +23337,7 @@ let _readReceiptChannel = null;
 let _pendingReadMsgIds = new Set(); // real msg ids awaiting read receipt
 
 function _trackReadReceipt(realMsgId, toUserId){
-  _pendingReadMsgIds.add(realMsgId);
+  _pendingReadMsgIds.add(String(realMsgId));
   // Subscribe to updates on our sent messages being marked read
   if(_readReceiptChannel) return; // already subscribed
   if(!SB_USER) return;
@@ -23349,11 +23349,18 @@ function _trackReadReceipt(realMsgId, toUserId){
       filter: `from_user_id=eq.${SB_USER.id}`
     }, (payload)=>{
       if(!payload.new || !payload.new.read) return;
-      const msgId = payload.new.id;
+      const msgId = String(payload.new.id);
       if(!_pendingReadMsgIds.has(msgId)) return;
       _pendingReadMsgIds.delete(msgId);
-      // Upgrade all sent messages in the current chat to 'read' (cyan ticks)
+      // FIX: Telegram-behaviour — upgrade ONLY messages sent BEFORE or AT the confirmed read.
+      // IDs are sequential bigints so we compare numerically.
+      // Messages sent AFTER the confirmed read stay as 'sent' — they haven't been seen yet.
+      const confirmedId = BigInt(msgId);
       document.querySelectorAll('.msg-ticks[data-status="sent"]').forEach(el=>{
+        try {
+          const elId = BigInt(el.dataset.mid || '0');
+          if(elId > confirmedId) return; // sent AFTER → skip, not read yet
+        } catch(e){ return; } // non-numeric opt- ids → skip
         el.style.transition='opacity .2s';
         el.style.opacity='0';
         setTimeout(()=>{ el.innerHTML=_statusSVG('read'); el.dataset.status='read'; el.style.opacity=''; },200);
