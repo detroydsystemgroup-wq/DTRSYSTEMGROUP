@@ -943,7 +943,7 @@ input, button, select, textarea {
 .tc-b:hover{border-color:var(--gold);background:rgba(245,200,66,.06);}
 .tc-b.sel{border-color:var(--gold);background:rgba(245,200,66,.1);box-shadow:0 0 0 2px rgba(245,200,66,.18);}
 /* t-disp — override in HTML inline style with font-clock */
-.t-disp{font-family:var(--font-clock);font-size:62px;font-weight:300;color:var(--t1);letter-spacing:.12em;line-height:1;}
+.t-disp{font-family:var(--font-clock);font-size:46px;font-weight:300;color:var(--t1);letter-spacing:0.03em;line-height:1;width:100%;box-sizing:border-box;overflow:hidden;display:block;}
 .t-disp.run{color:var(--gold);text-shadow:0 0 28px rgba(245,200,66,.28);}
 .t-disp.paused{color:var(--t2);opacity:.5;}
 .t-sbtn{width:100%;padding:13px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;border:none;letter-spacing:.04em;text-transform:uppercase;transition:background-color .2s,border-color .2s,color .2s,box-shadow .2s,opacity .2s;font-family:var(--font-display);}
@@ -985,7 +985,7 @@ input, button, select, textarea {
 .mb:hover{border-color:var(--t2);color:var(--t1);}
 .mb.sel{border-color:var(--blue);color:var(--t1);}
 .mbi{font-size:20px;display:block;margin-bottom:4px;}
-.m-timer{font-family:var(--font-clock);font-size:62px;font-weight:300;text-align:center;color:var(--gold);letter-spacing:.14em;text-shadow:0 0 28px rgba(245,200,66,.25);margin:8px 0;}
+.m-timer{font-family:var(--font-clock);font-size:52px;font-weight:300;text-align:center;color:var(--gold);letter-spacing:0.04em;text-shadow:0 0 28px rgba(245,200,66,.25);margin:8px 0;width:100%;box-sizing:border-box;overflow:hidden;display:block;}
 .ma{display:flex;gap:10px;}
 .btn{flex:1;padding:11px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:var(--font-display);letter-spacing:.02em;text-transform:uppercase;transition:background-color .2s,border-color .2s,color .2s,box-shadow .2s,opacity .2s;}
 .btn-p{background:var(--gold);color:#0A0A0B;font-weight:700;}
@@ -2582,10 +2582,29 @@ body.modal-open{overflow:hidden!important;}
   opacity: .85 !important;
 }
 
-/* ══ TIMER DISPLAY — SMOOTH COLOR TRANSITION ══════════════ */
+/* ══ TIMER DISPLAY — OVERFLOW FIX + SMOOTH COLOR TRANSITION ══ */
 .t-disp {
-  transition: color .5s cubic-bezier(.4,0,.2,1),
-              text-shadow .5s cubic-bezier(.4,0,.2,1) !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 46px !important;
+  font-weight: 300 !important;
+  letter-spacing: 0.03em !important;
+  line-height: 1 !important;
+  text-align: center !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  display: block !important;
+  transition: color .45s cubic-bezier(.4,0,.2,1),
+              text-shadow .45s cubic-bezier(.4,0,.2,1) !important;
+}
+.t-disp.run {
+  color: var(--gold) !important;
+  text-shadow: 0 0 24px rgba(245,200,66,.22), 0 0 48px rgba(245,200,66,.08) !important;
+}
+.t-disp.paused {
+  color: var(--t2) !important;
+  text-shadow: none !important;
+  opacity: .45 !important;
 }
 
 /* ══ KPI CARDS — PER-CARD ACCENT COLORS ══════════════════
@@ -2935,7 +2954,7 @@ body {
 .dp-btn { font-family: var(--font-display) !important; font-size: 12px !important; font-weight: 600 !important; letter-spacing: .02em !important; }
 
 /* Ensure the timer display stays Bebas */
-.t-disp, #qDisp, #mQDisp { font-family: var(--font-clock) !important; font-weight: 300 !important; letter-spacing: .12em !important; }
+.t-disp, #qDisp, #mQDisp { font-family: var(--font-clock) !important; font-weight: 300 !important; letter-spacing: 0.03em !important; font-size: 46px !important; width: 100% !important; box-sizing: border-box !important; overflow: hidden !important; display: block !important; }
 .m-timer { font-family: var(--font-clock) !important; font-weight: 300 !important; }
 
 /* Nav wordmark stays Bebas */
@@ -3676,11 +3695,12 @@ body, .card, .nav, .kpi, .timer-panel, .modal, .ch, .cb,
 }
 .t-panel-body { padding: var(--sp-4) var(--sp-5) var(--sp-5); }
 
-/* Timer display */
+/* Timer display — FIXED: no overflow, correct size */
 .t-disp {
-  font-family: var(--font-clock);
-  font-size: 62px; font-weight: 300; letter-spacing: .12em;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 46px; font-weight: 300; letter-spacing: 0.03em;
   color: var(--t1); text-align: center;
+  width: 100%; box-sizing: border-box; overflow: hidden; display: block;
 }
 .t-disp.run { color: var(--gold); text-shadow: 0 0 28px rgba(245,200,66,.2); }
 .t-lbl {
@@ -4501,13 +4521,17 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
   color: var(--gold) !important;
 }
 
-/* Timer display — center stage */
+/* Timer display — center stage — FIXED: no overflow */
 .t-disp {
-  font-size: 62px !important;
-  letter-spacing: .05em !important;
+  font-size: 46px !important;
+  letter-spacing: 0.03em !important;
   line-height: 1 !important;
-  margin: 20px 0 20px !important;
-  padding: 0 20px !important;
+  margin: 16px 0 !important;
+  padding: 0 8px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  display: block !important;
   color: var(--t1) !important;
 }
 .t-disp.run {
@@ -9884,21 +9908,25 @@ html[data-theme="light"] .nav-icon-btn:hover {
   box-shadow: 0 0 0 2px rgba(245,200,66,.1), 0 3px 10px rgba(245,200,66,.1) !important;
 }
 
-/* Big timer display */
+/* Big timer display — FIXED: no overflow */
 .t-disp {
   font-family: var(--font-mono) !important;
-  font-size: 60px !important;
-  letter-spacing: .1em !important;
+  font-size: 46px !important;
+  letter-spacing: 0.03em !important;
   line-height: 1 !important;
   text-align: center !important;
   color: var(--t1) !important;
-  margin: 20px 0 !important;
-  padding: 0 20px !important;
+  margin: 16px 0 !important;
+  padding: 0 8px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  display: block !important;
   transition: color .4s cubic-bezier(.25,.46,.45,.94) !important;
 }
 .t-disp.run {
   color: var(--gold) !important;
-  text-shadow: 0 0 12px rgba(245,200,66,.1) !important;
+  text-shadow: 0 0 24px rgba(245,200,66,.2) !important;
 }
 
 /* Button row — symmetric */
@@ -15311,8 +15339,8 @@ html[data-theme="light"],
         </div>
       </div>
 
-      <!-- Timer display — Barlow Condensed, perfect center -->
-      <div class="t-disp" id="qDisp" style="font-family:var(--font-clock);font-size:62px;font-weight:300;letter-spacing:.12em;text-align:center;padding:20px 20px 18px;margin:0;line-height:1">00:00:00</div>
+      <!-- Timer display — fixed overflow, right font size -->
+      <div class="t-disp" id="qDisp" style="font-family:var(--font-clock);font-size:46px;font-weight:300;letter-spacing:0.03em;text-align:center;padding:18px 8px 16px;margin:0;line-height:1;width:100%;box-sizing:border-box;overflow:hidden">00:00:00</div>
 
       <!-- Timer buttons -->
       <div class="timer-btn-row" id="timerBtnRow" style="padding:0 20px">
@@ -36823,16 +36851,26 @@ body {
   border-radius: 20px !important;
   box-shadow: 0 0 0 1px rgba(245,200,66,.04), 0 8px 32px rgba(0,0,0,.45) !important;
 }
+/* CRITICAL FIX: timer display must never overflow sidebar (300px - 8px*2 padding = 284px available) */
 .t-disp {
   font-family: 'JetBrains Mono', monospace !important;
-  font-size: 62px !important;
+  font-size: 46px !important;
   font-weight: 300 !important;
-  letter-spacing: .1em !important;
+  letter-spacing: 0.03em !important;
   line-height: 1 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  display: block !important;
 }
 .t-disp.run {
   color: var(--gold) !important;
   text-shadow: 0 0 32px rgba(245,200,66,.22), 0 0 64px rgba(245,200,66,.08) !important;
+}
+.t-disp.paused {
+  color: var(--t2) !important;
+  text-shadow: none !important;
+  opacity: .45 !important;
 }
 .t-sbtn {
   font-family: 'Plus Jakarta Sans', sans-serif !important;
