@@ -1481,7 +1481,17 @@ body { transition:background .28s,color .28s; }
 .up-close:hover{background:rgba(0,0,0,.6);}
 
 /* ══ MESSAGES TAB — v4 Premium Telegram-style ══════════════ */
-.msg-layout{display:grid;grid-template-columns:300px 1fr;height:calc(100vh - 148px);min-height:520px;gap:0;border-radius:18px;overflow:hidden;position:relative;border:0.5px solid rgba(245,200,66,.08);box-shadow:0 8px 48px rgba(0,0,0,.5);}
+.msg-layout{display:grid;grid-template-columns:300px 1fr;height:calc(100vh - 148px);min-height:520px;gap:0;border-radius:18px;overflow:hidden;overflow-x:hidden;position:relative;border:0.5px solid rgba(245,200,66,.08);box-shadow:0 8px 48px rgba(0,0,0,.5);transition:grid-template-columns .28s cubic-bezier(.4,0,.2,1);}
+/* Collapsed sidebar state */
+.msg-layout.sidebar-collapsed{grid-template-columns:0px 1fr;}
+.msg-layout.sidebar-collapsed #msgList{opacity:0;pointer-events:none;min-width:0;overflow:hidden;}
+#msgList{transition:opacity .22s ease,min-width .28s cubic-bezier(.4,0,.2,1);min-width:300px;}
+/* Toggle button */
+.msg-sidebar-toggle{position:absolute;left:0;top:50%;transform:translateY(-50%);width:18px;height:48px;background:rgba(9,9,11,.95);border:0.5px solid rgba(245,200,66,.15);border-left:none;border-radius:0 10px 10px 0;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;color:var(--t3);transition:background .15s,color .15s,left .28s cubic-bezier(.4,0,.2,1);box-shadow:2px 0 12px rgba(0,0,0,.3);}
+.msg-sidebar-toggle:hover{background:rgba(20,18,12,.98);color:var(--gold);}
+.msg-layout.sidebar-collapsed .msg-sidebar-toggle{left:0;border-radius:0 10px 10px 0;}
+.msg-sidebar-toggle svg{transition:transform .25s ease;}
+.msg-layout.sidebar-collapsed .msg-sidebar-toggle svg{transform:rotate(180deg);}
 .msg-list{display:flex;flex-direction:column;background:rgba(9,9,11,.98);border-right:0.5px solid rgba(245,200,66,.07);position:relative;overflow:hidden;}
 .msg-list::after{content:'';position:absolute;right:0;top:0;bottom:0;width:0.5px;background:linear-gradient(180deg,transparent,rgba(245,200,66,.1) 30%,rgba(245,200,66,.1) 70%,transparent);pointer-events:none;}
 .msg-list-head{padding:0;border-bottom:none;display:flex;flex-direction:column;flex-shrink:0;background:rgba(9,9,11,.98);}
@@ -1528,7 +1538,7 @@ body { transition:background .28s,color .28s; }
 .msg-chat-typing-dots span{width:4px;height:4px;background:var(--green);border-radius:50%;animation:tBounce 1.4s ease infinite;}
 .msg-chat-typing-dots span:nth-child(2){animation-delay:.2s;}
 .msg-chat-typing-dots span:nth-child(3){animation-delay:.4s;}
-.msg-messages{flex:1;overflow-y:auto;padding:14px 18px 8px;display:flex;flex-direction:column;gap:0;overscroll-behavior:contain;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.06) transparent;}
+.msg-messages{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 18px 8px;display:flex;flex-direction:column;gap:0;overscroll-behavior-y:contain;overscroll-behavior-x:none;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.06) transparent;scroll-behavior:auto;-webkit-overflow-scrolling:touch;will-change:scroll-position;}
 .msg-messages::-webkit-scrollbar{width:3px;}
 .msg-messages::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px;}
 .msg-date-sep{display:flex;align-items:center;justify-content:center;padding:10px 0;flex-shrink:0;}
@@ -1903,7 +1913,7 @@ button, a, [onclick], .stab, .mg-item, .cat-item, .csg-item, .mb, .cf-btn, .lg-r
 }
 /* ── Prevent overscroll on mobile ── */
 /* overscroll-behavior removed for mobile scroll */
-#tab-messages .msg-messages { overscroll-behavior: auto; }
+#tab-messages .msg-messages { overscroll-behavior-y: contain; overscroll-behavior-x: none; }
 
 
 /* ══ WILL-CHANGE: GPU LAYER PROMOTION ══════════════════════ */
@@ -14689,7 +14699,11 @@ html[data-theme="light"] .nav-icon-btn:hover {
     </div>
 
     <div id="tab-messages" class="tc">
-      <div class="msg-layout">
+      <div class="msg-layout" id="msgLayout">
+        <!-- Sidebar collapse toggle -->
+        <button class="msg-sidebar-toggle" id="msgSidebarToggle" onclick="_msgToggleSidebar()" title="Скрыть/показать панель диалогов">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
 
         <!-- ── LEFT: Conversations ── -->
         <div class="msg-list" id="msgList">
@@ -15865,8 +15879,18 @@ async function doLogout(){
   if(presenceInterval){ clearInterval(presenceInterval); presenceInterval=null; }
   if(msgRealtimeChannel){ sb.removeChannel(msgRealtimeChannel); msgRealtimeChannel=null; }
   if(usersRealtimeChannel){ sb.removeChannel(usersRealtimeChannel); usersRealtimeChannel=null; }
-  if(typeof _readReceiptChannel !== 'undefined' && _readReceiptChannel){ sb.removeChannel(_readReceiptChannel); _readReceiptChannel=null; } // FIX 2
-  if(typeof _onlineCheckInterval !== 'undefined' && _onlineCheckInterval){ clearInterval(_onlineCheckInterval); _onlineCheckInterval=null; } // FIX 2
+  if(typeof _readReceiptChannel !== 'undefined' && _readReceiptChannel){ sb.removeChannel(_readReceiptChannel); _readReceiptChannel=null; }
+  if(typeof _onlineCheckInterval !== 'undefined' && _onlineCheckInterval){ clearInterval(_onlineCheckInterval); _onlineCheckInterval=null; }
+  // Reset messaging state on logout
+  if(typeof _pendingReadMsgIds !== 'undefined') _pendingReadMsgIds.clear();
+  if(typeof _msgEditingId !== 'undefined') _msgEditingId = null;
+  if(typeof _msgReplyTo !== 'undefined') _msgReplyTo = null;
+  if(typeof _convsCache !== 'undefined') _convsCache = null;
+  if(typeof allConvsCache !== 'undefined') allConvsCache = null;
+  // Close any open modals/bars
+  ['_msgDelMsgModal','_msgDelConvModal','_msgForwardModal','_msgClearModal',
+   '_msgEditBar','_msgReplyBar','_msgPinnedBar','_msgCtxMenu','_msgEmojiPop',
+   '_msgSearchBar'].forEach(id=>document.getElementById(id)?.remove());
   if(msgsPolling){ clearInterval(msgsPolling); msgsPolling=null; }
   await sb.auth.signOut();
   P=null;SB_USER=null;lgCache={};lgCacheTime={};activeConvUserId=null;
@@ -19981,14 +20005,21 @@ function _msgDeleteConv(userId, name){
 async function _msgDoDeleteConv(userId, scope){
   if(!SB_USER) return;
   try {
+    // Always delete MY messages (allowed by RLS)
+    await sb.from('messages').delete()
+      .eq('from_user_id', SB_USER.id).eq('to_user_id', userId);
     if(scope === 'both'){
-      await sb.from('messages').delete()
-        .or(`and(from_user_id.eq.${SB_USER.id},to_user_id.eq.${userId}),and(from_user_id.eq.${userId},to_user_id.eq.${SB_USER.id})`);
-    } else {
-      await sb.from('messages').delete()
-        .eq('from_user_id', SB_USER.id).eq('to_user_id', userId);
+      // Also delete partner's messages — may fail if RLS blocks it (that's OK)
+      try {
+        await sb.from('messages').delete()
+          .eq('from_user_id', userId).eq('to_user_id', SB_USER.id);
+      } catch(e){
+        // RLS blocked partner-side — inform user
+        showToast('Ваши сообщения удалены. Сообщения собеседника — только у него', 'ℹ️');
+        scope = 'me'; // adjust toast below
+      }
     }
-  } catch(e){ console.warn('Delete conv:', e); }
+  } catch(e){ console.warn('Delete conv:', e); showToast('Не удалось удалить диалог','⚠️'); return; }
   // Remove from cache and re-render
   const cache = (_convsCache || allConvsCache || []).filter(c => c.userId !== userId);
   _convsCache = cache; allConvsCache = cache;
@@ -20018,6 +20049,24 @@ function _msgUpdateConvCache(partnerId, lastMsg, isMine){
   _convsCache = cache;
   allConvsCache = cache;
   _renderConvList(cache);
+}
+
+
+// ══ SIDEBAR COLLAPSE TOGGLE ══════════════════════════════════
+function _msgToggleSidebar(){
+  const layout = document.getElementById('msgLayout');
+  if(!layout) return;
+  const collapsed = layout.classList.toggle('sidebar-collapsed');
+  // Persist preference
+  try{ localStorage.setItem('dtr_msg_sidebar_collapsed', collapsed ? '1' : '0'); }catch(e){}
+}
+
+function _msgRestoreSidebarState(){
+  try{
+    const collapsed = localStorage.getItem('dtr_msg_sidebar_collapsed') === '1';
+    const layout = document.getElementById('msgLayout');
+    if(layout && collapsed) layout.classList.add('sidebar-collapsed');
+  }catch(e){}
 }
 
 async function loadConversations(){
@@ -20178,10 +20227,9 @@ async function openConv(userId, name, av, avUrl){
     // Send btn starts in mic mode
     const sendBtn = area.querySelector('#msgSendBtn');
     if(sendBtn){ sendBtn.style.background='var(--card)'; sendBtn.style.boxShadow='none'; sendBtn.style.color='var(--t2)'; }
-    // FIX 8: reset search state from previous conversation
+    // Reset search, edit, reply states on conversation switch
     if(typeof _msgCloseSearch === 'function') _msgCloseSearch();
-    // FIX 8: reset search state from previous conversation
-    if(typeof _msgCloseSearch === 'function') _msgCloseSearch();
+    if(typeof _msgCancelEdit === 'function') _msgCancelEdit();
     // Clear reply state from previous conversation
     _msgCancelReply();
     // Clear any pending file from previous conversation
@@ -20190,19 +20238,18 @@ async function openConv(userId, name, av, avUrl){
     const vcUI = document.getElementById('msgVoiceRecUI');
     if(vcUI){ vcUI.classList.remove('active'); }
 
-    // Scroll tracker
+    // Scroll tracker — named ref so it can be removed on next openConv
     const scrollEl = document.getElementById('msgMessages');
     if(scrollEl){
-      scrollEl.addEventListener('scroll', ()=>{
+      if(scrollEl._dtrScrollHandler) scrollEl.removeEventListener('scroll', scrollEl._dtrScrollHandler);
+      scrollEl._dtrScrollHandler = ()=>{
         const fromBottom = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight;
         _msgIsAtBottom = fromBottom < 100;
         const btn = document.getElementById('msgScrollDown');
         if(btn) btn.classList.toggle('visible', fromBottom > 100);
-        if(_msgIsAtBottom){
-          _msgUnreadOffscreen = 0;
-          _msgUpdateScrollBadge();
-        }
-      }, {passive:true});
+        if(_msgIsAtBottom){ _msgUnreadOffscreen = 0; _msgUpdateScrollBadge(); }
+      };
+      scrollEl.addEventListener('scroll', scrollEl._dtrScrollHandler, {passive:true});
     }
 
     requestAnimationFrame(()=>{
@@ -20244,7 +20291,24 @@ function _msgToggleSendBtn(val){
 function _msgScrollToBottom(smooth=true){
   const el = document.getElementById('msgMessages');
   if(!el) return;
-  el.scrollTo({top: el.scrollHeight, behavior: smooth?'smooth':'instant'});
+  if(smooth){
+    // Telegram-style: fast JS-eased scroll, no CSS lag
+    const target = el.scrollHeight;
+    const start = el.scrollTop;
+    const dist = target - start;
+    if(Math.abs(dist) < 4){ el.scrollTop = target; }
+    else {
+      const dur = Math.min(160, Math.max(60, Math.abs(dist) * 0.12));
+      const t0 = performance.now();
+      (function step(now){
+        const p = Math.min((now-t0)/dur, 1);
+        el.scrollTop = start + dist * (1 - Math.pow(1-p, 3));
+        if(p < 1) requestAnimationFrame(step);
+      })(performance.now());
+    }
+  } else {
+    el.scrollTop = el.scrollHeight;
+  }
   _msgUnreadOffscreen = 0;
   _msgUpdateScrollBadge();
 }
@@ -20671,10 +20735,15 @@ async function loadMessages(partnerId, append=false){
     }
 
     // Build with grouping + date separators (Telegram model: gap>5min breaks group)
+    // Filter out locally hidden messages (deleted only for me)
+    let hiddenMsgs = new Set();
+    try { hiddenMsgs = new Set(JSON.parse(sessionStorage.getItem('dtr_hidden_msgs')||'[]')); } catch(e){}
+
     const chunks = [];
     let lastDate='', lastSender='', lastTs=0;
     const GAP = 5*60*1000;
     data.forEach((msg,i)=>{
+      if(hiddenMsgs.has(String(msg.id))) return; // skip locally hidden
       const mine = msg.from_user_id === SB_USER.id;
       const d = new Date(msg.created_at);
       const isToday = d.toDateString()===new Date().toDateString();
@@ -20726,13 +20795,20 @@ async function loadMessages(partnerId, append=false){
     // Добавляем кнопку "Загрузить ещё" если пришла полная страница (есть ещё сообщения)
     if(data.length >= MSG_PAGE_SIZE){
       _msgPage[partnerId] = (offset || 0) + MSG_PAGE_SIZE;
+      // Remove existing load-more button to avoid duplicates
+      elNow.querySelector('.msg-load-more-btn')?.remove();
       const loadMoreBtn = document.createElement('div');
+      loadMoreBtn.className = 'msg-load-more-btn';
       loadMoreBtn.style.cssText = 'text-align:center;padding:10px 0 4px;flex-shrink:0;';
-      loadMoreBtn.innerHTML = `<button onclick="loadMessages('${partnerId}',true)" style="background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.1);border-radius:20px;color:var(--t2);font-size:12px;padding:6px 18px;cursor:pointer;font-family:var(--font-body);">↑ Загрузить старые сообщения</button>`;
+      loadMoreBtn.innerHTML = `<button onclick="(()=>{const el=document.getElementById('msgMessages');const h=el.scrollHeight;loadMessages('${partnerId}',true).then(()=>{el.scrollTop=el.scrollHeight-h;});})()" style="background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.1);border-radius:20px;color:var(--t2);font-size:12px;padding:6px 18px;cursor:pointer;font-family:var(--font-body);">↑ Загрузить старые сообщения</button>`;
       elNow.prepend(loadMoreBtn);
     }
 
-    elNow.scrollTo({ top: elNow.scrollHeight, behavior: 'instant' });
+    if(!append){
+      // Initial load: scroll to bottom instantly
+      elNow.scrollTop = elNow.scrollHeight;
+    }
+    // else append=true (load older): don't scroll — user is reading old messages
     // Apply real read status from DB to already-rendered messages
     _applyReadStatusFromDB(data || []);
   }catch(e){
@@ -20910,13 +20986,15 @@ async function _msgSaveEdit(){
   if(!newText || !_msgEditingId || !SB_USER) return;
   const msgId = _msgEditingId;
 
-  // Optimistic update
+  // Snapshot original text for rollback
   const bub = document.querySelector(`.msg-bubble[data-msg-id="${CSS.escape(msgId)}"]`);
   const spanEl = bub?.querySelector('span');
+  const originalHTML = spanEl ? spanEl.innerHTML : null;
+
+  // Optimistic update
   if(spanEl){
     const safeTxt = esc(newText);
     spanEl.innerHTML = safeTxt.replace(/(https?:\/\/[^\s&<"']+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer" style="color:inherit;opacity:.8;text-decoration:underline">$1</a>');
-    // Add edited label
     if(!bub.querySelector('.msg-edited-lbl')){
       const lbl = document.createElement('span');
       lbl.className = 'msg-edited-lbl';
@@ -20928,11 +21006,18 @@ async function _msgSaveEdit(){
   }
   _msgCancelEdit();
 
-  // DB update
+  // DB update with rollback on error
   try {
     await sb.from('messages').update({ content: newText }).eq('id', msgId).eq('from_user_id', SB_USER.id);
     _msgUpdateConvCache(activeConvUserId, newText, true);
-  } catch(e){ console.warn('[DTR] Edit msg:', e); showToast('Не удалось сохранить изменения','⚠️'); }
+  } catch(e){
+    console.warn('[DTR] Edit msg:', e);
+    // Rollback optimistic update
+    if(spanEl && originalHTML !== null) spanEl.innerHTML = originalHTML;
+    const lbl = bub?.querySelector('.msg-edited-lbl');
+    if(lbl) lbl.remove();
+    showToast('Не удалось сохранить изменения','⚠️');
+  }
 }
 
 async function _msgDeleteMsg(msgId, bub, scope='both'){
@@ -20946,12 +21031,23 @@ async function _msgDeleteMsg(msgId, bub, scope='both'){
   }
   try {
     if(scope === 'me'){
-      // Soft-delete: replace content with tombstone visible only to us
-      // Since DB has no per-user delete, we mark content as deleted for sender
-      await sb.from('messages').update({ content: '__deleted__', content_type: 'deleted' })
-        .eq('id', msgId).eq('from_user_id', SB_USER.id);
+      // Soft-delete only for OWN messages (RLS allows UPDATE own messages only)
+      // For received messages — hide locally only (localStorage tombstone)
+      const isMineMsg = bub?.classList.contains('mine');
+      if(isMineMsg){
+        await sb.from('messages').update({ content: '__deleted__', content_type: 'deleted' })
+          .eq('id', msgId).eq('from_user_id', SB_USER.id);
+      } else {
+        // Can't update partner's message — store local tombstone in sessionStorage
+        try {
+          const hidden = JSON.parse(sessionStorage.getItem('dtr_hidden_msgs')||'[]');
+          hidden.push(String(msgId));
+          sessionStorage.setItem('dtr_hidden_msgs', JSON.stringify(hidden));
+        } catch(e){}
+      }
       showToast('Удалено только у вас', '🗑️');
     } else {
+      // Delete own message for both sides
       await sb.from('messages').delete().eq('id', msgId).eq('from_user_id', SB_USER.id);
       showToast('Сообщение удалено у обоих', '🗑️');
     }
@@ -22393,6 +22489,7 @@ function showTab(name,el,skipHistory){
     }, 80);
   }
   if(name==='messages'){
+    if(typeof _msgRestoreSidebarState==='function') _msgRestoreSidebarState();
     renderMsgTab();
     setTimeout(()=>{
       staggerList('.msg-conv', 30, 'row');
@@ -23088,6 +23185,11 @@ function msgContentHTML(msg) {
   const ct  = msg.content_type || 'text';
   const txt = msg.content || '';
   const isMine = msg.from_user_id === SB_USER?.id;
+
+  // FIX: render deleted message as grey tombstone
+  if(ct === 'deleted' || txt === '__deleted__'){
+    return `<span style="color:rgba(255,255,255,.3);font-style:italic;font-size:13px;">🚫 Сообщение удалено</span>`;
+  }
 
   if(ct === 'image'){
     // FIX 4: escape src to prevent attribute injection
