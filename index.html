@@ -18912,36 +18912,276 @@ function _buildArenaHTML(cats, results){
   animation:arenaStatIn .35s ease both;
 }
 
-/* ── a-ctrl-btn ── */
-.a-ctrl-btn{
-  display:inline-flex;align-items:center;gap:7px;
-  height:34px;padding:0 13px;
-  border-radius:10px;
-  border:0.5px solid rgba(255,255,255,.09);
-  background:rgba(255,255,255,.04);
-  color:rgba(255,255,255,.5);
-  font-family:var(--font-display);
-  font-size:11px;font-weight:700;
-  letter-spacing:.04em;text-transform:uppercase;
-  white-space:nowrap;flex-shrink:0;cursor:pointer;
-  box-sizing:border-box;line-height:1;
-  transition:background .15s,border-color .15s,color .15s;
+/* ── a-ctrl-btn — PREMIUM REDESIGN ── */
+
+/* Container — overflow must be VISIBLE so dropdown isn't clipped */
+#arenaTopBar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 14px 0 12px !important;
+  overflow: visible !important;   /* FIX 1: dropdown was getting clipped */
+  flex-wrap: nowrap !important;
 }
-.a-ctrl-btn:hover{
-  background:rgba(255,255,255,.07);
-  border-color:rgba(255,255,255,.18);
-  color:var(--t1);
+
+/* Base button */
+.a-ctrl-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  height: 36px !important;
+  padding: 0 14px !important;
+  border-radius: 12px !important;
+  border: 0.5px solid rgba(255,255,255,.09) !important;
+  background: rgba(255,255,255,.04) !important;
+  color: rgba(255,255,255,.42) !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+  letter-spacing: .07em !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  cursor: pointer !important;
+  box-sizing: border-box !important;
+  line-height: 1 !important;
+  position: relative !important;
+  overflow: hidden !important;
+  transition:
+    background .2s ease,
+    border-color .2s ease,
+    color .2s ease,
+    box-shadow .2s ease,
+    transform .18s cubic-bezier(.34,1.56,.64,1) !important;
 }
-.a-ctrl-btn.active{
-  background:rgba(245,200,66,.1);
-  border-color:rgba(245,200,66,.35);
-  color:var(--gold);
+
+/* Shimmer sweep on hover */
+.a-ctrl-btn::before {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgba(255,255,255,.09) 50%,
+    transparent 65%
+  ) !important;
+  transform: translateX(-120%) !important;
+  transition: transform .45s ease !important;
+  pointer-events: none !important;
 }
-.a-ctrl-btn.active svg{ stroke:var(--gold); }
-.a-ctrl-ico{
-  display:inline-flex;align-items:center;justify-content:center;
-  width:18px;height:18px;border-radius:5px;
-  background:rgba(255,255,255,.06);flex-shrink:0;
+.a-ctrl-btn:hover::before {
+  transform: translateX(120%) !important;
+}
+
+/* FIX 2: Remove bottom line — it looks bad */
+.a-ctrl-btn::after {
+  display: none !important;
+}
+
+/* Icon */
+.a-ctrl-btn svg {
+  transition: transform .2s cubic-bezier(.34,1.56,.64,1), stroke .2s !important;
+  flex-shrink: 0 !important;
+}
+.a-ctrl-btn:hover svg {
+  transform: scale(1.18) !important;
+}
+.a-ctrl-btn.active svg {
+  transform: scale(1.08) !important;
+}
+
+/* Hover — generic lift */
+.a-ctrl-btn:hover {
+  background: rgba(255,255,255,.08) !important;
+  border-color: rgba(255,255,255,.18) !important;
+  color: rgba(255,255,255,.85) !important;
+  transform: translateY(-2px) !important;
+}
+.a-ctrl-btn:active {
+  transform: scale(.94) !important;
+  transition-duration: .08s !important;
+}
+
+/* ── PER-MODE ACCENT COLORS ── */
+
+/* week → blue calendar */
+.a-ctrl-btn[data-mode="week"]:hover {
+  border-color: rgba(96,165,250,.4) !important;
+  color: #60A5FA !important;
+  background: rgba(96,165,250,.08) !important;
+  box-shadow: 0 4px 16px rgba(96,165,250,.12) !important;
+}
+.a-ctrl-btn[data-mode="week"].active {
+  border-color: rgba(96,165,250,.45) !important;
+  color: #60A5FA !important;
+  background: rgba(96,165,250,.1) !important;
+  box-shadow: 0 0 0 1px rgba(96,165,250,.12), 0 4px 18px rgba(96,165,250,.18) !important;
+}
+.a-ctrl-btn[data-mode="week"].active svg { stroke: #60A5FA !important; }
+
+/* month → purple */
+.a-ctrl-btn[data-mode="month"]:hover {
+  border-color: rgba(167,139,250,.4) !important;
+  color: #A78BFA !important;
+  background: rgba(167,139,250,.08) !important;
+  box-shadow: 0 4px 16px rgba(167,139,250,.12) !important;
+}
+.a-ctrl-btn[data-mode="month"].active {
+  border-color: rgba(167,139,250,.45) !important;
+  color: #A78BFA !important;
+  background: rgba(167,139,250,.1) !important;
+  box-shadow: 0 0 0 1px rgba(167,139,250,.12), 0 4px 18px rgba(167,139,250,.18) !important;
+}
+.a-ctrl-btn[data-mode="month"].active svg { stroke: #A78BFA !important; }
+
+/* streak → fire orange */
+.a-ctrl-btn[data-mode="streak"]:hover {
+  border-color: rgba(249,115,22,.4) !important;
+  color: #F97316 !important;
+  background: rgba(249,115,22,.08) !important;
+  box-shadow: 0 4px 16px rgba(249,115,22,.12) !important;
+}
+.a-ctrl-btn[data-mode="streak"].active {
+  border-color: rgba(249,115,22,.45) !important;
+  color: #F97316 !important;
+  background: rgba(249,115,22,.1) !important;
+  box-shadow: 0 0 0 1px rgba(249,115,22,.12), 0 4px 18px rgba(249,115,22,.18) !important;
+}
+.a-ctrl-btn[data-mode="streak"].active svg { stroke: #F97316 !important; }
+/* Fire icon bounce on streak hover */
+.a-ctrl-btn[data-mode="streak"]:hover svg {
+  animation: fireWiggle .4s cubic-bezier(.34,1.8,.64,1) !important;
+}
+@keyframes fireWiggle {
+  0%   { transform: scale(1.18) rotate(0deg); }
+  30%  { transform: scale(1.3) rotate(-8deg); }
+  60%  { transform: scale(1.22) rotate(6deg); }
+  100% { transform: scale(1.18) rotate(0deg); }
+}
+
+/* session → cyan lightning */
+.a-ctrl-btn[data-mode="session"]:hover {
+  border-color: rgba(6,182,212,.4) !important;
+  color: #06B6D4 !important;
+  background: rgba(6,182,212,.08) !important;
+  box-shadow: 0 4px 16px rgba(6,182,212,.12) !important;
+}
+.a-ctrl-btn[data-mode="session"].active {
+  border-color: rgba(6,182,212,.45) !important;
+  color: #06B6D4 !important;
+  background: rgba(6,182,212,.1) !important;
+  box-shadow: 0 0 0 1px rgba(6,182,212,.12), 0 4px 18px rgba(6,182,212,.18) !important;
+}
+.a-ctrl-btn[data-mode="session"].active svg { stroke: #06B6D4 !important; }
+/* Lightning bolt zap on hover */
+.a-ctrl-btn[data-mode="session"]:hover svg {
+  animation: zapPop .3s cubic-bezier(.34,2,.64,1) !important;
+}
+@keyframes zapPop {
+  0%   { transform: scale(1) rotate(0deg); }
+  40%  { transform: scale(1.4) rotate(-15deg); }
+  70%  { transform: scale(1.2) rotate(8deg); }
+  100% { transform: scale(1.18) rotate(0deg); }
+}
+
+/* hours → gold clock (default active) */
+.a-ctrl-btn[data-mode="hours"]:hover {
+  border-color: rgba(245,200,66,.45) !important;
+  color: var(--gold) !important;
+  background: rgba(245,200,66,.09) !important;
+  box-shadow: 0 4px 18px rgba(245,200,66,.16) !important;
+}
+.a-ctrl-btn[data-mode="hours"].active {
+  border-color: rgba(245,200,66,.5) !important;
+  color: var(--gold) !important;
+  background: rgba(245,200,66,.11) !important;
+  box-shadow: 0 0 0 1px rgba(245,200,66,.15), 0 4px 20px rgba(245,200,66,.22) !important;
+}
+.a-ctrl-btn[data-mode="hours"].active svg { stroke: var(--gold) !important; }
+/* Gold pulse glow on active clock */
+.a-ctrl-btn[data-mode="hours"].active {
+  animation: goldPillPulse 3s ease-in-out infinite !important;
+}
+@keyframes goldPillPulse {
+  0%,100% { box-shadow: 0 0 0 1px rgba(245,200,66,.15), 0 4px 20px rgba(245,200,66,.2); }
+  50%     { box-shadow: 0 0 0 1px rgba(245,200,66,.22), 0 4px 28px rgba(245,200,66,.38), 0 0 20px rgba(245,200,66,.1); }
+}
+
+/* FIX 3: League dropdown button — center content properly */
+#arenaLeagueDrop {
+  background: rgba(255,255,255,.05) !important;
+  border: 0.5px solid rgba(255,255,255,.12) !important;
+  border-radius: 12px !important;
+  min-width: 148px !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  padding: 0 10px 0 12px !important;
+  color: rgba(255,255,255,.7) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: .04em !important;
+  transition: border-color .18s, background .18s, box-shadow .18s, transform .18s cubic-bezier(.34,1.56,.64,1) !important;
+  overflow: visible !important;  /* must be visible so dropdown shows */
+}
+#arenaLeagueDrop:hover {
+  background: rgba(255,255,255,.09) !important;
+  border-color: rgba(255,255,255,.22) !important;
+  color: var(--t1) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 5px 18px rgba(0,0,0,.35) !important;
+}
+/* Center the icon+label div inside the dropdown button */
+#arenaLeagueDrop > div:first-child {
+  flex: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  min-width: 0 !important;
+}
+.a-ctrl-ico {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 18px !important; height: 18px !important;
+  border-radius: 5px !important;
+  background: rgba(255,255,255,.07) !important;
+  flex-shrink: 0 !important;
+}
+
+/* Entrance animation for the filter bar */
+/* NOTE: #arenaLeagueDropWrap (nth-child 1) must NOT use transform animation —
+   transform creates a stacking context that breaks the dropdown z-index */
+#arenaTopBar > *:nth-child(1) { animation: btnFadeIn .28s .04s ease both; } /* fade only, no transform */
+#arenaTopBar > *:nth-child(2) { animation: btnEntrance .28s .08s ease both; }
+#arenaTopBar > *:nth-child(3) { animation: btnEntrance .28s .12s ease both; }
+#arenaTopBar > *:nth-child(4) { animation: btnEntrance .28s .16s ease both; }
+#arenaTopBar > *:nth-child(5) { animation: btnEntrance .28s .20s ease both; }
+#arenaTopBar > *:nth-child(6) { animation: btnEntrance .28s .24s ease both; }
+@keyframes btnEntrance {
+  from { opacity: 0; transform: translateY(10px) scale(.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes btnFadeIn {
+  /* No transform — prevents stacking context that would break dropdown z-index */
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Critical: ensure dropdown wrapper and menu are always on top and interactive */
+#arenaLeagueDropWrap {
+  position: relative !important;
+  z-index: 500 !important;
+  isolation: isolate !important;
+}
+#arenaLeagueMenu {
+  z-index: 9999 !important;
+  pointer-events: all !important;
+}
+#arenaLeagueMenu * {
+  pointer-events: all !important;
 }
     `;
     document.head.appendChild(s);
@@ -37463,6 +37703,256 @@ body {
   transform: scale(1.7) !important;
   z-index: 10 !important;
   box-shadow: 0 0 0 1.5px rgba(245,200,66,.5) !important;
+}
+
+/* ══ ACHIEVEMENTS — READABILITY FIX ══════════════════════════
+
+   Issue 1: Section headers too bold → lighter weight
+   Issue 2: Card content unclear → better contrast, no text-blur
+═══════════════════════════════════════════════════════════════ */
+
+/* ── 1. SECTION HEADERS — much lighter ── */
+.ach-sec-name {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;             /* was 700/650 — now light */
+  letter-spacing: .05em !important;
+  text-transform: uppercase !important;
+  color: rgba(168,168,178,.65) !important; /* muted, not dominant */
+  flex: 1 !important;
+}
+.ach-cat-hdr2-name {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: .05em !important;
+  color: rgba(168,168,178,.65) !important;
+}
+.ach-sec-hdr {
+  border-bottom: 0.5px solid rgba(255,255,255,.06) !important;
+  padding-bottom: 10px !important;
+  margin-bottom: 16px !important;
+}
+.ach-sec-icon {
+  font-size: 18px !important;
+  opacity: .75 !important;
+}
+.ach-sec-cnt {
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 10px !important;
+  font-weight: 400 !important;
+  color: var(--t3) !important;
+  background: rgba(255,255,255,.04) !important;
+  border: 0.5px solid rgba(255,255,255,.07) !important;
+  border-radius: 8px !important;
+  padding: 3px 9px !important;
+}
+
+/* ── 2. CARD WRAPPER — cleaner, less dark overlay ── */
+.dtr-badge-wrap {
+  background: linear-gradient(160deg, rgba(24,24,32,.97) 0%, rgba(14,14,20,.99) 100%) !important;
+  border: 1px solid rgba(255,255,255,.09) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 2px 16px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.06) !important;
+}
+.dtr-badge-wrap.unlocked {
+  background: linear-gradient(160deg, rgba(var(--badge-color-rgb,245,200,66),.14) 0%, rgba(10,10,16,.98) 60%) !important;
+  border-color: var(--badge-color, rgba(245,200,66,.6)) !important;
+  border-width: 1px !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,.45), 0 0 24px var(--badge-glow, rgba(245,200,66,.18)), inset 0 1px 0 rgba(255,255,255,.1) !important;
+}
+.dtr-badge-wrap.locked {
+  opacity: .55 !important;   /* was .45 — slightly more visible */
+  filter: saturate(.25) brightness(.75) !important;
+}
+
+/* ── 3. ICON AREA — slightly lighter background ── */
+.dtr-badge-icon-area {
+  padding: 42px 0 16px !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.03) 0%, transparent 100%) !important;
+}
+
+/* ── 4. INFO AREA — remove dark gradient that muddies content ── */
+.dtr-badge-info {
+  padding: 6px 14px 16px !important;
+  gap: 5px !important;
+  border-top: 0.5px solid rgba(255,255,255,.06) !important;
+  background: transparent !important;  /* was rgba(0,0,0,.2) — removed */
+}
+
+/* ── 5. BADGE NAME — readable, no blur ── */
+.dtr-badge-name {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;           /* clear weight */
+  color: var(--t1) !important;
+  text-align: center !important;
+  letter-spacing: .025em !important;
+  line-height: 1.25 !important;
+  text-transform: uppercase !important;
+  text-shadow: none !important;          /* remove blur-causing glow */
+  max-width: 120px !important;
+}
+.dtr-badge-wrap.unlocked .dtr-badge-name {
+  color: var(--badge-color, var(--t1)) !important;
+  text-shadow: none !important;          /* CRITICAL: was 0 0 16px — was causing blur */
+  font-weight: 800 !important;
+  font-size: 12.5px !important;
+}
+
+/* ── 6. BADGE DESCRIPTION — larger, much more readable ── */
+.dtr-badge-desc {
+  font-family: 'Inter', sans-serif !important;
+  font-size: 10.5px !important;          /* was 9px — now actually readable */
+  color: rgba(168,168,178,.75) !important; /* brighter than var(--t2) */
+  text-align: center !important;
+  line-height: 1.5 !important;
+  max-width: 112px !important;
+  font-weight: 400 !important;
+  letter-spacing: -.005em !important;
+}
+
+/* ── 7. XP PILL — more visible ── */
+.dtr-xp {
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  padding: 3px 10px !important;
+  border-radius: 10px !important;
+  background: rgba(245,200,66,.15) !important;
+  border: 0.5px solid rgba(245,200,66,.5) !important;
+  color: var(--gold) !important;
+  text-shadow: none !important;          /* remove blur */
+  letter-spacing: .02em !important;
+}
+
+/* ── 8. RARITY TAG — bigger and readable ── */
+.dtr-rarity {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 8px !important;            /* was 7px */
+  font-weight: 800 !important;
+  letter-spacing: .12em !important;
+  padding: 3px 10px !important;
+  border-radius: 20px !important;
+}
+
+/* ── 9. PROGRESS BAR LABEL ── */
+.dtr-prog-lbl {
+  font-family: 'Inter', sans-serif !important;
+  font-size: 9px !important;
+  color: rgba(168,168,178,.65) !important;
+  letter-spacing: .01em !important;
+}
+
+/* ── 10. UNLOCKED CHECK MARK ── */
+.dtr-unlocked-check {
+  width: 20px !important;
+  height: 20px !important;
+  font-size: 10px !important;
+}
+
+/* ── 11. BADGE ICON — cleaner shadows ── */
+.dtr-badge {
+  width: 80px !important;
+  height: 80px !important;
+  border-radius: 22px !important;
+  border-width: 1px !important;
+}
+.dtr-badge svg {
+  width: 40px !important;
+  height: 40px !important;
+}
+
+/* ── 12. ACH2 CARDS (list view) — cleaner text ── */
+.ach2 {
+  background: rgba(255,255,255,.03) !important;
+  border: 0.5px solid rgba(255,255,255,.08) !important;
+}
+.ach2-name {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: -.015em !important;
+  color: var(--t1) !important;
+  text-shadow: none !important;
+}
+.ach2.unlocked .ach2-name {
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  text-shadow: none !important;        /* remove blur-causing glow */
+  color: var(--t1) !important;
+}
+.ach2-desc {
+  font-family: 'Inter', sans-serif !important;
+  font-size: 12.5px !important;
+  font-weight: 400 !important;
+  color: rgba(168,168,178,.75) !important;
+  line-height: 1.55 !important;
+  letter-spacing: -.005em !important;
+}
+.ach2-date {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: var(--ach-color, var(--gold)) !important;
+}
+.ach2-prog-lbl {
+  font-family: 'Inter', sans-serif !important;
+  font-size: 10.5px !important;
+  color: rgba(168,168,178,.65) !important;
+  font-weight: 500 !important;
+  letter-spacing: .01em !important;
+}
+.a-ctrl-btn {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+  letter-spacing: .07em !important;
+  height: 36px !important;
+  border-radius: 12px !important;
+  padding: 0 14px !important;
+  gap: 7px !important;
+  justify-content: center !important;
+  position: relative !important;
+  overflow: hidden !important;
+  transition: background .2s, border-color .2s, color .2s, box-shadow .2s,
+              transform .18s cubic-bezier(.34,1.56,.64,1) !important;
+}
+/* No bottom line — removed by design */
+.a-ctrl-btn::after { display: none !important; }
+
+.a-ctrl-btn:hover {
+  transform: translateY(-2px) !important;
+}
+.a-ctrl-btn:active {
+  transform: scale(.94) !important;
+}
+.a-ctrl-btn svg {
+  transition: transform .2s cubic-bezier(.34,1.56,.64,1) !important;
+}
+.a-ctrl-btn:hover svg {
+  transform: scale(1.18) !important;
+}
+/* League dropdown must show its menu — no overflow clip */
+#arenaLeagueDropWrap, #arenaLeagueDrop {
+  overflow: visible !important;
+}
+#arenaTopBar {
+  overflow: visible !important;
+}
+/* CRITICAL: prevent stacking context bug on dropdown wrapper */
+#arenaLeagueDropWrap {
+  z-index: 500 !important;
+  isolation: isolate !important;
+  /* No transform applied here — transform creates stacking context that traps dropdown z-index */
+}
+#arenaLeagueMenu {
+  z-index: 9999 !important;
+  pointer-events: all !important;
+}
+#arenaLeagueMenu *, #arenaLeagueMenu button {
+  pointer-events: all !important;
+  cursor: pointer !important;
 }
 
 /* END DTR WOW UPGRADE */
