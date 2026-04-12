@@ -1230,7 +1230,7 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.6);cursor:poi
 @keyframes glowPulse {0%,100%{text-shadow:0 0 18px rgba(26,159,255,.2)}50%{text-shadow:0 0 32px rgba(26,159,255,.45)}}
 
 /* Global smooth base */
-html { scroll-behavior:smooth; }
+/* scroll-behavior removed — JS easing used instead */
 body { transition:background .28s,color .28s; }
 *, *::before, *::after { box-sizing:border-box; }
 
@@ -1544,7 +1544,7 @@ body { transition:background .28s,color .28s; }
 .msg-date-sep{display:flex;align-items:center;justify-content:center;padding:10px 0;flex-shrink:0;}
 .msg-date-sep-line{display:none;}
 .msg-date-sep-label{font-size:10.5px;font-weight:600;color:var(--t3);letter-spacing:.03em;padding:4px 12px;background:rgba(245,200,66,.06);border:0.5px solid rgba(245,200,66,.1);border-radius:20px;}
-.msg-row{display:flex;align-items:flex-end;gap:8px;margin-bottom:2px;animation:msgIn .22s cubic-bezier(.34,1.2,.64,1) both;flex-shrink:0;}
+.msg-row{display:flex;align-items:flex-end;gap:8px;margin-bottom:2px;flex-shrink:0;} /* animation set per .mine/.theirs in tg CSS */
 .msg-row.mine{flex-direction:row-reverse;}
 @keyframes msgIn{0%{opacity:0;transform:translateY(8px) scale(.96);}100%{opacity:1;transform:translateY(0) scale(1);}}
 .msg-av-micro{width:28px;height:28px;border-radius:10px;background:linear-gradient(135deg,rgba(245,200,66,.14),rgba(245,200,66,.04));border:0.5px solid rgba(245,200,66,.14);display:flex;align-items:center;justify-content:center;font-size:12px;overflow:hidden;flex-shrink:0;}
@@ -2642,10 +2642,10 @@ body.modal-open{overflow:hidden!important;}
 }
 
 /* ── Global base ── */
-html { scroll-behavior: smooth; }
+/* scroll-behavior removed — JS easing used instead */
 
 /* ✦ DTR — SMOOTH SCROLL (minimal, safe) */
-html, body { scroll-behavior: smooth !important; }
+/* scroll-behavior removed — JS easing used instead */
 /* END DTR SMOOTH SCROLL */
 
 /* ══ MISSING KEYFRAMES — FIXED ════════════════════════════ */
@@ -14106,6 +14106,92 @@ html[data-theme="light"] .nav-icon-btn:hover {
   .vc-btn { width: 48px; height: 48px; }
   .vc-btn.end { width: 56px; height: 56px; }
 }
+
+/* ═══════════════════════════════════════════════════════
+   TELEGRAM-STYLE MESSAGE ANIMATIONS
+═══════════════════════════════════════════════════════ */
+
+/* Own message: flies in from bottom-right */
+@keyframes tgSendMine {
+  0%   { opacity:0; transform:translateX(24px) translateY(8px) scale(.88); }
+  60%  { opacity:1; transform:translateX(-3px) translateY(-2px) scale(1.01); }
+  100% { opacity:1; transform:translateX(0) translateY(0) scale(1); }
+}
+/* Partner message: flies in from bottom-left */
+@keyframes tgSendTheirs {
+  0%   { opacity:0; transform:translateX(-20px) translateY(8px) scale(.9); }
+  60%  { opacity:1; transform:translateX(3px) translateY(-2px) scale(1.01); }
+  100% { opacity:1; transform:translateX(0) translateY(0) scale(1); }
+}
+/* Tick upgrade: sending → sent pop */
+@keyframes tgTickPop {
+  0%   { transform:scale(0) rotate(-30deg); opacity:0; }
+  60%  { transform:scale(1.3) rotate(5deg);  opacity:1; }
+  100% { transform:scale(1)   rotate(0deg);  opacity:1; }
+}
+/* Read tick: double-tick cyan sweep */
+@keyframes tgTickRead {
+  0%   { opacity:0; transform:scaleX(0); transform-origin:left; }
+  100% { opacity:1; transform:scaleX(1); transform-origin:left; }
+}
+/* File/voice bubble: scale + slide */
+@keyframes tgMedia {
+  0%   { opacity:0; transform:translateY(12px) scale(.92); }
+  55%  { transform:translateY(-2px) scale(1.01); }
+  100% { opacity:1; transform:translateY(0) scale(1); }
+}
+/* Send button: gold pulse on click */
+@keyframes tgSendPulse {
+  0%   { box-shadow:0 0 0 0 rgba(245,200,66,.6); }
+  70%  { box-shadow:0 0 0 10px rgba(245,200,66,0); }
+  100% { box-shadow:0 0 0 0 rgba(245,200,66,0); }
+}
+/* Mic button: red pulse while recording */
+@keyframes tgMicPulse {
+  0%,100% { box-shadow:0 0 0 0 rgba(239,68,68,.5); }
+  50%      { box-shadow:0 0 0 8px rgba(239,68,68,0); }
+}
+
+.msg-row.mine   { animation: tgSendMine   .32s cubic-bezier(.34,1.28,.64,1) both; }
+.msg-row.theirs { animation: tgSendTheirs .28s cubic-bezier(.34,1.28,.64,1) both; }
+
+/* Media bubbles get slightly longer animation */
+.msg-row .msg-voice-bubble,
+.msg-row .msg-file-bubble { animation: tgMedia .3s cubic-bezier(.34,1.2,.64,1) both; }
+
+/* Ticks */
+.msg-ticks[data-status="sent"]  svg { animation: tgTickPop .28s cubic-bezier(.34,1.5,.64,1) both; }
+.msg-ticks[data-status="read"]  svg { animation: tgTickRead .22s ease both; }
+
+/* Send button feedback */
+.msg-send:active { animation: tgSendPulse .4s ease; }
+
+/* Recording mic button */
+.vc-rec-send-btn { animation: tgMicPulse 1.4s ease infinite; }
+
+/* Grouped messages: tighter, same direction */
+.msg-row + .msg-row.mine   { animation-duration: .22s; }
+.msg-row + .msg-row.theirs { animation-duration: .2s; }
+
+/* Optimistic (sending) bubble: slight opacity to show pending */
+.msg-bubble[data-msg-id^="opt-"] { opacity:.85; }
+
+/* File upload progress shimmer */
+@keyframes tgShimmer {
+  0%   { background-position:-200% 0; }
+  100% { background-position:200%  0; }
+}
+.msg-send.uploading {
+  background: linear-gradient(90deg,
+    rgba(245,200,66,.6) 0%,
+    rgba(245,200,66,1)  40%,
+    rgba(245,200,66,.6) 80%,
+    rgba(245,200,66,.6) 100%
+  ) !important;
+  background-size: 200% 100% !important;
+  animation: tgShimmer 1.2s linear infinite !important;
+}
+
 </style>
 </head>
 <body>
@@ -20040,9 +20126,20 @@ async function _msgDoDeleteConv(userId, scope){
 function _msgUpdateConvCache(partnerId, lastMsg, isMine){
   const cache = _convsCache || allConvsCache;
   if(!cache) return;
+  // FIX 4: strip JSON envelope from reply/forward messages for sidebar preview
+  let _cleanMsg = lastMsg || '';
+  if(_cleanMsg.startsWith('{')){
+    try{
+      const _j = JSON.parse(_cleanMsg);
+      if(_j.t !== undefined) _cleanMsg = _j.t;
+      else if(_j.url && _j.duration !== undefined) _cleanMsg = '🎤 Голосовое';
+      else if(_j.url && _j.name) _cleanMsg = '📎 ' + _j.name;
+    }catch(e){}
+  }
+  if(_cleanMsg === '__deleted__') _cleanMsg = '🚫 Удалено';
   const cv = cache.find(c => c.userId === partnerId);
   if(cv){
-    cv.lastMsg = lastMsg;
+    cv.lastMsg = _cleanMsg;
     cv.lastMsgMine = isMine;
     cv.lastTime = new Date().toISOString();
     if(isMine) cv.unread = 0; // our message — no unread for us
@@ -20070,6 +20167,19 @@ function _msgRestoreSidebarState(){
     const layout = document.getElementById('msgLayout');
     if(layout && collapsed) layout.classList.add('sidebar-collapsed');
   }catch(e){}
+}
+
+
+// ── Load more helper — preserves scroll position ──
+async function _msgLoadMore(partnerId){
+  const el = document.getElementById('msgMessages');
+  if(!el) return;
+  const prevHeight = el.scrollHeight;
+  await loadMessages(partnerId, true);
+  // After prepend: restore position so user stays where they were
+  requestAnimationFrame(()=>{
+    el.scrollTop = el.scrollHeight - prevHeight;
+  });
 }
 
 async function loadConversations(){
@@ -20806,7 +20916,9 @@ async function loadMessages(partnerId, append=false){
       const loadMoreBtn = document.createElement('div');
       loadMoreBtn.className = 'msg-load-more-btn';
       loadMoreBtn.style.cssText = 'text-align:center;padding:10px 0 4px;flex-shrink:0;';
-      loadMoreBtn.innerHTML = `<button onclick="(()=>{const el=document.getElementById('msgMessages');const h=el.scrollHeight;loadMessages('${partnerId}',true).then(()=>{el.scrollTop=el.scrollHeight-h;});})()" style="background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.1);border-radius:20px;color:var(--t2);font-size:12px;padding:6px 18px;cursor:pointer;font-family:var(--font-body);">↑ Загрузить старые сообщения</button>`;
+      // FIX 5: proper async scroll-preserve on load more
+      const _loadMoreFn = `_msgLoadMore('${partnerId}')`;
+      loadMoreBtn.innerHTML = `<button onclick="${_loadMoreFn}" style="background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.1);border-radius:20px;color:var(--t2);font-size:12px;padding:6px 18px;cursor:pointer;font-family:var(--font-body);">↑ Загрузить старые сообщения</button>`;
       elNow.prepend(loadMoreBtn);
     }
 
@@ -20973,6 +21085,10 @@ function _msgStartEdit(msgId, bub){
     const sendBtn = document.getElementById('msgSendBtn');
     if(sendBtn){
       sendBtn._origClick = sendBtn.onclick;
+      sendBtn._origMousedown = sendBtn.onmousedown;   // FIX 3: save voice handlers
+      sendBtn._origTouchstart = sendBtn.ontouchstart;
+      sendBtn.onmousedown = null;   // disable voice hold during edit
+      sendBtn.ontouchstart = null;
       sendBtn.onclick = _msgSaveEdit;
       sendBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
       sendBtn.style.background = 'var(--gold)';
@@ -20990,7 +21106,14 @@ function _msgCancelEdit(){
   const inp = document.getElementById('msgInput');
   if(inp){ inp.value=''; inp.onkeydown = inp._origKeydown; _msgToggleSendBtn(''); }
   const sendBtn = document.getElementById('msgSendBtn');
-  if(sendBtn){ sendBtn.onclick = sendBtn._origClick; sendBtn.innerHTML = `<svg id="msgSendIconMic" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg><svg id="msgSendIconArrow" style="display:none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`; sendBtn.style.background=''; sendBtn.style.color=''; }
+  if(sendBtn){
+    sendBtn.onclick = sendBtn._origClick;
+    // FIX 3: restore voice hold handlers lost during edit mode
+    if(sendBtn._origMousedown) sendBtn.onmousedown = sendBtn._origMousedown;
+    if(sendBtn._origTouchstart) sendBtn.ontouchstart = sendBtn._origTouchstart;
+    sendBtn.innerHTML = `<svg id="msgSendIconMic" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg><svg id="msgSendIconArrow" style="display:none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
+    sendBtn.style.background=''; sendBtn.style.color='';
+  }
 }
 
 async function _msgSaveEdit(){
@@ -21117,7 +21240,7 @@ function _startOnlinePolling(userId){
   }, 30000);
 }
 
-let _msgPartnerAvCache = { av: '👤', avUrl: null };
+let _msgPartnerAvCache = { av: '👤', avUrl: null, _name: 'Собеседник' }; // FIX 2: include _name
 function _msgGetPartnerAvatar(){
   const { av, avUrl } = _msgPartnerAvCache;
   if(avUrl) return `<img src="${avUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:9px;" onerror="this.style.display='none'">`;
@@ -23383,6 +23506,8 @@ function appendMessage(msg, isMine) {
   div.className = `msg-row${isMine?' mine':' theirs'}`;
   div.style.marginTop = canGroup ? '2px' : '10px';
   div.dataset.msgId = msgId;
+  // Telegram: grouped messages animate faster (shorter delay)
+  if(canGroup) div.style.animationDuration = isMine ? '.18s' : '.16s';
 
   // Use msgContentHTML to render file/voice/image properly
   const bodyHtml = (typeof msgContentHTML === 'function')
@@ -23403,16 +23528,32 @@ function appendMessage(msg, isMine) {
 
   el.appendChild(div);
 
-  // Incoming: highlight animation
+  // Incoming: Telegram-style — bubble itself animates via CSS .theirs class
+  // No extra class needed — the CSS animation on .msg-row.theirs handles it
+  // But add a subtle green dot flash effect for notification feel
   if(!isMine){
     const bub=div.querySelector('.msg-bubble');
-    if(bub){bub.classList.add('new-msg');setTimeout(()=>bub.classList.remove('new-msg'),600);}
+    if(bub){
+      bub.classList.add('new-msg');
+      setTimeout(()=>bub.classList.remove('new-msg'),500);
+    }
   }
 
   // Auto-scroll logic
   if(_msgIsAtBottom){
-    if(isMine) el.scrollTop = el.scrollHeight;
-    else el.scrollTo({top:el.scrollHeight,behavior:'smooth'});
+    // FIX 1: Telegram-speed JS easing — no CSS smooth lag
+    const _el = el, _target = _el.scrollHeight;
+    const _start = _el.scrollTop, _dist = _target - _start;
+    if(Math.abs(_dist) < 4){ _el.scrollTop = _target; }
+    else {
+      const _dur = Math.min(140, Math.max(50, Math.abs(_dist)*0.1));
+      const _t0 = performance.now();
+      (function _step(now){
+        const p = Math.min((now-_t0)/_dur,1);
+        _el.scrollTop = _start + _dist*(1-Math.pow(1-p,3));
+        if(p<1) requestAnimationFrame(_step);
+      })(performance.now());
+    }
   } else if(!isMine){
     _msgUnreadOffscreen++;
     _msgUpdateScrollBadge();
@@ -23509,7 +23650,7 @@ function _msgRenderPinnedBar(pinned){
   // Click → scroll to pinned message
   bar.onclick = ()=>{
     const el = document.querySelector(`.msg-bubble[data-msg-id="${pinned.id}"]`);
-    if(el){ el.scrollIntoView({behavior:'smooth',block:'center'}); el.style.outline='2px solid rgba(245,200,66,.5)'; setTimeout(()=>el.style.outline='',1200); }
+    if(el){ el.scrollIntoView({behavior:'instant',block:'center'}); el.style.outline='2px solid rgba(245,200,66,.5)'; el.style.transition='outline .3s'; setTimeout(()=>{ el.style.outline=''; el.style.transition=''; },1200); } // FIX 7: instant center
   };
   head.insertAdjacentElement('afterend', bar);
 }
@@ -23603,9 +23744,18 @@ function _msgDoSearch(q){
   if(_searchMatches.length) _msgSearchScrollTo(0);
 }
 async function sendMsg(toUserId) {
-  // Handle pending file first — file preview is showing
+  // Safety: clear any stuck pending file state if no preview is visible
   if(typeof _msgPendingFile !== 'undefined' && _msgPendingFile && _msgPendingFile.file){
-    await _msgSendFile(toUserId); return;
+    const previewBar = document.getElementById('msgFilePreviewBar');
+    if(!previewBar || previewBar.style.display === 'none'){
+      _msgPendingFile = null; // reset stale state
+    } else {
+      await _msgSendFile(toUserId); return;
+    }
+  }
+  // Safety: reset stuck mic state
+  if(typeof _micHoldActive !== 'undefined' && _micHoldActive && !MIC_STATE?.isRecording){
+    _micHoldActive = false;
   }
   const input = document.getElementById('msgInput');
   const text = input?.value?.trim();
@@ -23675,9 +23825,17 @@ async function sendMsg(toUserId) {
         if(ticks){
           ticks.dataset.mid=data.id;
           // Animate: sending → sent (1 grey tick)
-          ticks.style.transition='opacity .18s';
+          // Telegram tick pop animation
+          ticks.style.transition='opacity .12s';
           ticks.style.opacity='0';
-          setTimeout(()=>{ ticks.innerHTML=_statusSVG('sent'); ticks.dataset.status='sent'; ticks.style.opacity=''; },180);
+          setTimeout(()=>{
+            ticks.innerHTML=_statusSVG('sent');
+            ticks.dataset.status='sent';
+            ticks.style.opacity='1';
+            ticks.style.transition='';
+            // Force reflow for animation restart
+            void ticks.offsetWidth;
+          },120);
           // Track real message id for read receipt
           _trackReadReceipt(data.id, toUserId);
         }
@@ -23770,9 +23928,14 @@ function _trackReadReceipt(realMsgId, toUserId){
           const elId = BigInt(el.dataset.mid || '0');
           if(elId > confirmedId) return; // sent AFTER → skip, not read yet
         } catch(e){ return; } // non-numeric opt- ids → skip
-        el.style.transition='opacity .2s';
-        el.style.opacity='0';
-        setTimeout(()=>{ el.innerHTML=_statusSVG('read'); el.dataset.status='read'; el.style.opacity=''; },200);
+        // Telegram: read tick sweeps in from left
+        el.style.opacity='0'; el.style.transition='opacity .12s';
+        setTimeout(()=>{
+          el.innerHTML=_statusSVG('read');
+          el.dataset.status='read';
+          el.style.opacity='1'; el.style.transition='';
+          void el.offsetWidth; // trigger CSS animation on svg
+        },120);
       });
     })
     .subscribe();
@@ -37813,13 +37976,13 @@ async function _msgSendFile(toUserId){
 
     // Clear preview AFTER successful send
     _msgClearPendingFile();
-    appendMessage({ ...msgData, from_user_id: SB_USER.id }, true);
+    const _fMsg = { ...msgData, from_user_id: SB_USER.id, _isMedia: true };
+    appendMessage(_fMsg, true);
     // Upgrade ticks sending → sent immediately (DB insert already confirmed)
     const fTicks = document.querySelector(`.msg-ticks[data-mid="${msgData.id}"]`);
     if(fTicks){
-      fTicks.style.transition = 'opacity .15s';
-      fTicks.style.opacity = '0';
-      setTimeout(()=>{ fTicks.innerHTML = _statusSVG('sent'); fTicks.dataset.status = 'sent'; fTicks.style.opacity = ''; }, 150);
+      fTicks.style.opacity = '0'; fTicks.style.transition = 'opacity .1s';
+      setTimeout(()=>{ fTicks.innerHTML = _statusSVG('sent'); fTicks.dataset.status = 'sent'; fTicks.style.opacity='1'; fTicks.style.transition=''; void fTicks.offsetWidth; }, 100);
       _trackReadReceipt(msgData.id, toUserId);
     }
     // FIX 5: update cache locally for file/image
@@ -37877,9 +38040,17 @@ function _msgSendBtnClick(toUserId){
   if(typeof _msgEditingId!=='undefined' && _msgEditingId){ _msgSaveEdit(); return; }
   // File pending — send file
   if(_msgPendingFile && _msgPendingFile.file){ _msgSendFile(toUserId); return; }
-  // Check input directly (don't rely on arrow SVG visibility)
+  // Check input directly
   const inp = document.getElementById('msgInput');
   if(inp && inp.value && inp.value.trim().length > 0){
+    // Telegram-style: button bounces on send
+    const btn = document.getElementById('msgSendBtn');
+    if(btn){
+      btn.style.transform = 'scale(.88)';
+      btn.style.transition = 'transform .1s';
+      setTimeout(()=>{ btn.style.transform='scale(1.06)'; }, 80);
+      setTimeout(()=>{ btn.style.transform=''; btn.style.transition=''; }, 200);
+    }
     sendMsg(toUserId);
     return;
   }
@@ -38184,13 +38355,12 @@ async function _msgSendVoice(blob, toUserId, duration){
       voiceMsg = vins1.data;
     }
 
-    appendMessage({ ...voiceMsg, from_user_id: SB_USER.id }, true);
+    appendMessage({ ...voiceMsg, from_user_id: SB_USER.id, _isMedia: true }, true);
     // Upgrade ticks sending → sent immediately (DB insert already confirmed)
     const vTicks = document.querySelector(`.msg-ticks[data-mid="${voiceMsg.id}"]`);
     if(vTicks){
-      vTicks.style.transition = 'opacity .15s';
-      vTicks.style.opacity = '0';
-      setTimeout(()=>{ vTicks.innerHTML = _statusSVG('sent'); vTicks.dataset.status = 'sent'; vTicks.style.opacity = ''; }, 150);
+      vTicks.style.opacity = '0'; vTicks.style.transition = 'opacity .1s';
+      setTimeout(()=>{ vTicks.innerHTML = _statusSVG('sent'); vTicks.dataset.status = 'sent'; vTicks.style.opacity='1'; vTicks.style.transition=''; void vTicks.offsetWidth; }, 100);
       _trackReadReceipt(voiceMsg.id, toUserId);
     }
     // FIX 5: local cache update for voice
