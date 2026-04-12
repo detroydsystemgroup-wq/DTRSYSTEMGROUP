@@ -19797,9 +19797,9 @@ async function renderMsgTab(){
 function _statusSVG(status){
   // sending: clock spinner
   if(status==='sending') return `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:spin .9s linear infinite;display:inline-block"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>`;
-  // sent: 1 grey tick (delivered to server, not yet read)
-  if(status==='sent') return `<svg width="13" height="10" viewBox="0 0 13 10" fill="none"><path d="M1 5L4.5 8.5L11 2" stroke="rgba(255,255,255,.45)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-  // read: 2 cyan ticks (partner opened the chat and read it)
+  // sent / delivered: 1 grey tick
+  if(status==='sent'||status==='delivered') return `<svg width="13" height="10" viewBox="0 0 13 10" fill="none"><path d="M1 5L4.5 8.5L11 2" stroke="rgba(255,255,255,.45)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  // read: 2 cyan ticks
   if(status==='read') return `<svg width="16" height="10" viewBox="0 0 16 10" fill="none"><path d="M1 5L4.5 8.5L9 3" stroke="#06B6D4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 5L10.5 8.5L15 3" stroke="#06B6D4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   return '';
 }
@@ -20554,7 +20554,9 @@ async function loadMessages(partnerId, append=false){
       const theirRadius = isLastInGroup ? '17px 17px 17px 4px' : '17px 17px 17px 17px';
       const radius = mine ? mineRadius : theirRadius;
 
-      const ticks = mine ? `<span class="msg-ticks" data-mid="${esc(msg.id)}" data-status="delivered">${_statusSVG('delivered')}</span>` : '';
+      // FIX: render correct tick status directly from DB — no more post-render patch needed
+      const tickStatus = mine ? (msg.read ? 'read' : 'sent') : '';
+      const ticks = mine ? `<span class="msg-ticks" data-mid="${esc(msg.id)}" data-status="${tickStatus}">${_statusSVG(tickStatus)}</span>` : '';
 
       chunks.push(`
 <div class="msg-row${mine?' mine':' theirs'}" style="margin-top:${grouped?'2px':'10px'}">
@@ -23288,14 +23290,16 @@ function _trackReadReceipt(realMsgId, toUserId){
 // Also: when opening a chat, mark all existing 'sent' messages in loadMessages as 'read'
 // if the partner has already read them (field read=true in DB)
 function _applyReadStatusFromDB(msgs){
+  // FIX 3: this is now a no-op — loadMessages renders correct status directly from DB.
+  // Kept as safety net for any edge cases where status needs correction.
   msgs.forEach(msg=>{
     if(msg.from_user_id !== SB_USER?.id) return;
-    if(!msg.read) return;
-    // Find the tick element if rendered
+    const correctStatus = msg.read ? 'read' : 'sent';
     const el = document.querySelector(`.msg-ticks[data-mid="${CSS.escape(msg.id)}"]`);
-    if(el && el.dataset.status !== 'read'){
-      el.innerHTML = _statusSVG('read');
-      el.dataset.status = 'read';
+    if(!el) return;
+    if(el.dataset.status !== correctStatus){
+      el.innerHTML = _statusSVG(correctStatus);
+      el.dataset.status = correctStatus;
     }
   });
 }
