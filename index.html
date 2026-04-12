@@ -15790,6 +15790,8 @@ async function doLogout(){
   if(presenceInterval){ clearInterval(presenceInterval); presenceInterval=null; }
   if(msgRealtimeChannel){ sb.removeChannel(msgRealtimeChannel); msgRealtimeChannel=null; }
   if(usersRealtimeChannel){ sb.removeChannel(usersRealtimeChannel); usersRealtimeChannel=null; }
+  if(typeof _readReceiptChannel !== 'undefined' && _readReceiptChannel){ sb.removeChannel(_readReceiptChannel); _readReceiptChannel=null; } // FIX 2
+  if(typeof _onlineCheckInterval !== 'undefined' && _onlineCheckInterval){ clearInterval(_onlineCheckInterval); _onlineCheckInterval=null; } // FIX 2
   if(msgsPolling){ clearInterval(msgsPolling); msgsPolling=null; }
   await sb.auth.signOut();
   P=null;SB_USER=null;lgCache={};lgCacheTime={};activeConvUserId=null;
@@ -19866,16 +19868,48 @@ function _renderConvList(convs){
   if(badge){ badge.style.display=totalUnread>0?'inline':'none'; badge.textContent=totalUnread>9?'9+':totalUnread; }
 }
 
+
+// ── FIX 5: Local conversation cache update (avoids full 500-msg reload) ──
+function _msgUpdateConvCache(partnerId, lastMsg, isMine){
+  const cache = _convsCache || allConvsCache;
+  if(!cache) return;
+  const cv = cache.find(c => c.userId === partnerId);
+  if(cv){
+    cv.lastMsg = lastMsg;
+    cv.lastMsgMine = isMine;
+    cv.lastTime = new Date().toISOString();
+    if(isMine) cv.unread = 0; // our message — no unread for us
+  }
+  // Sort: most recent first
+  cache.sort((a,b) => new Date(b.lastTime) - new Date(a.lastTime));
+  _convsCache = cache;
+  allConvsCache = cache;
+  _renderConvList(cache);
+}
+
 async function loadConversations(){
   const el = document.getElementById('msgConvList');
   if(!el || !SB_USER || _convsLoading) return;
   _convsLoading = true;
   try {
-    const {data} = await sb.from('messages')
-      .select('id,from_user_id,to_user_id,content,created_at,read')
-      .or(`from_user_id.eq.${SB_USER.id},to_user_id.eq.${SB_USER.id}`)
-      .order('created_at',{ascending:false})
-      .limit(500);
+    // FIX 9: separate unread count query (not capped at 500) + recent messages for preview
+    const [msgResult, unreadResult] = await Promise.all([
+      sb.from('messages')
+        .select('id,from_user_id,to_user_id,content,created_at,read')
+        .or(`from_user_id.eq.${SB_USER.id},to_user_id.eq.${SB_USER.id}`)
+        .order('created_at',{ascending:false})
+        .limit(500),
+      sb.from('messages')
+        .select('from_user_id')
+        .eq('to_user_id', SB_USER.id)
+        .eq('read', false)
+    ]);
+    // Build unread counts from full unread query
+    const unreadCounts = {};
+    (unreadResult.data||[]).forEach(m => {
+      unreadCounts[m.from_user_id] = (unreadCounts[m.from_user_id]||0) + 1;
+    });
+    const data = msgResult.data;
     const partnerIds = new Set();
     const convMap = {};
     (data||[]).forEach(msg => {
@@ -19883,9 +19917,11 @@ async function loadConversations(){
       const isMine = msg.from_user_id === SB_USER.id;
       partnerIds.add(partnerId);
       if(!convMap[partnerId]){
-        convMap[partnerId] = { userId:partnerId, name:'?', av:'🎯', lastMsg:msg.content||'', lastTime:msg.created_at, lastMsgMine:isMine, unread:0 };
+        convMap[partnerId] = { userId:partnerId, name:'?', av:'🎯', lastMsg:msg.content||'', lastTime:msg.created_at, lastMsgMine:isMine,
+          unread: unreadCounts[partnerId] || 0 // FIX 9: use full count, not capped
+        };
       }
-      if(msg.to_user_id === SB_USER.id && !msg.read) convMap[partnerId].unread++;
+      // Don't double-count from loop (already have correct count above)
     });
     if(partnerIds.size > 0){
       const ids = [...partnerIds];
@@ -20009,6 +20045,10 @@ async function openConv(userId, name, av, avUrl){
     // Send btn starts in mic mode
     const sendBtn = area.querySelector('#msgSendBtn');
     if(sendBtn){ sendBtn.style.background='var(--card)'; sendBtn.style.boxShadow='none'; sendBtn.style.color='var(--t2)'; }
+    // FIX 8: reset search state from previous conversation
+    if(typeof _msgCloseSearch === 'function') _msgCloseSearch();
+    // FIX 8: reset search state from previous conversation
+    if(typeof _msgCloseSearch === 'function') _msgCloseSearch();
     // Clear reply state from previous conversation
     _msgCancelReply();
     // Clear any pending file from previous conversation
@@ -20601,8 +20641,9 @@ async function _msgDeleteMsg(msgId, bub){
   if(!SB_USER || !msgId || msgId.startsWith('opt-')) return;
   try {
     await sb.from('messages').delete().eq('id', msgId).eq('from_user_id', SB_USER.id);
+    // FIX 5: after delete reload is needed — lastMsg may have changed
+    await loadConversations();
   } catch(e){ console.warn('[DTR] Delete msg:', e); }
-  await loadConversations();
 }
 
 
@@ -22733,47 +22774,58 @@ function msgContentHTML(msg) {
   const isMine = msg.from_user_id === SB_USER?.id;
 
   if(ct === 'image'){
-    return `<img src="${txt}" style="max-width:240px;max-height:200px;border-radius:12px;display:block;margin-bottom:2px;cursor:pointer;object-fit:cover;" onclick="window.open('${txt}','_blank')" loading="lazy">`;
+    // FIX 4: escape src to prevent attribute injection
+    const safeUrl = esc(txt);
+    return `<img src="${safeUrl}" style="max-width:240px;max-height:200px;border-radius:12px;display:block;margin-bottom:2px;cursor:pointer;object-fit:cover;" onclick="window.open(this.src,'_blank')" loading="lazy" onerror="this.style.display='none'">`;
   }
 
   if(ct === 'voice'){
     const vid = 'v_'+Math.random().toString(36).slice(2);
+    // FIX 6: parse JSON content to get url + duration
+    let voiceUrl2 = txt, voiceDur = 0;
+    try { const vj = JSON.parse(txt); voiceUrl2 = vj.url || txt; voiceDur = vj.duration || 0; } catch(e){}
     // Generate fake waveform bars (visual only, real audio plays on click)
     const bars = Array.from({length:30},(_,i)=>{
       const h = 4 + Math.round(Math.abs(Math.sin(i*0.7))*20);
       return `<span style="width:3px;height:${h}px;display:inline-block;background:rgba(255,255,255,.4);border-radius:2px;flex-shrink:0;"></span>`;
     }).join('');
+    const safeVoiceUrl = esc(voiceUrl2); // FIX 4: escape voice URL
+    const durStr = voiceDur > 0 ? Math.floor(voiceDur/60)+':'+(voiceDur%60).toString().padStart(2,'0') : '0:00';
     return `
-      <audio id="${vid}" src="${txt}" preload="none" style="display:none"></audio>
+      <audio id="${vid}" src="${safeVoiceUrl}" preload="none" style="display:none"></audio>
       <div class="msg-voice-bubble">
         <button class="msg-voice-play" id="${vid}_btn" onclick="_msgVoiceToggle('${vid}')" title="Воспроизвести">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" id="${vid}_ico"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </button>
         <div class="msg-voice-waveform" id="${vid}_wave">${bars}</div>
-        <span class="msg-voice-dur" id="${vid}_dur">0:00</span>
+        <span class="msg-voice-dur" id="${vid}_dur">${durStr}</span>
       </div>`;
   }
 
   if(ct === 'file'){
     let meta = { name: txt, size: 0, url: txt };
     try { meta = JSON.parse(txt); } catch(e){}
+    // FIX 4: escape all user-supplied strings before HTML injection
+    const safeName = esc(meta.name || 'Файл');
+    const safeUrl  = esc(meta.url || txt);
     const icon = _msgFileIcon('application/octet-stream', meta.name || 'file');
     const sizeStr = meta.size ? _msgFmtSize(meta.size) : '';
     return `
       <div class="msg-file-bubble">
         <div class="msg-file-icon">${icon}</div>
         <div class="msg-file-info">
-          <div class="msg-file-name" title="${(meta.name||'').replace(/"/g,'')}">${meta.name||'Файл'}</div>
-          <div class="msg-file-size">${sizeStr}</div>
+          <div class="msg-file-name" title="${safeName}">${safeName}</div>
+          <div class="msg-file-size">${esc(sizeStr)}</div>
         </div>
-        <a href="${meta.url||txt}" target="_blank" download class="msg-file-dl" title="Скачать">
+        <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" download class="msg-file-dl" title="Скачать">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         </a>
       </div>`;
   }
 
-  // text with URL linkify
-  return `<span>${txt.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener" style="color:inherit;opacity:.8;text-decoration:underline">$1</a>')}</span>`;
+  // FIX 3: escape txt first to prevent XSS, then linkify safe URLs only
+  const safeTxt = esc(txt); // escapes <, >, &, ", '
+  return `<span>${safeTxt.replace(/(https?:\/\/[^\s&<"']+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer" style="color:inherit;opacity:.8;text-decoration:underline">$1</a>')}</span>`;
 }
 
 // ── Voice playback toggle ──
@@ -23145,7 +23197,8 @@ async function sendMsg(toUserId) {
         }
       }
     }
-    await loadConversations();
+    // FIX 5: update conv list cache locally (avoid full 500-msg reload)
+    _msgUpdateConvCache(toUserId, finalText, true);
   } catch (err) {
     console.error('[DTR] Message send failed:', err?.code, err?.message, err);
     
@@ -35335,19 +35388,17 @@ async function _msgUploadFile(file){
   const safe = file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
   const path = `chat/${SB_USER.id}/${Date.now()}_${safe}`;
 
-  // Attempt Storage (both buckets)
-  for(const bucket of ['chat-files','avatars']){
-    try {
-      const { error } = await sb.storage.from(bucket).upload(path, file, {
-        contentType: file.type || 'application/octet-stream',
-        upsert: true,
-      });
-      if(!error){
-        const { data } = sb.storage.from(bucket).getPublicUrl(path);
-        return { dataUrl: null, storageUrl: data.publicUrl, name: file.name, size: file.size, type: file.type };
-      }
-    } catch(e){}
-  }
+  // FIX 10: only use 'chat-files' bucket — never write chat files to 'avatars' bucket
+  try {
+    const { error } = await sb.storage.from('chat-files').upload(path, file, {
+      contentType: file.type || 'application/octet-stream',
+      upsert: true,
+    });
+    if(!error){
+      const { data } = sb.storage.from('chat-files').getPublicUrl(path);
+      return { dataUrl: null, storageUrl: data.publicUrl, name: file.name, size: file.size, type: file.type };
+    }
+  } catch(e){ console.warn('[DTR] chat-files storage unavailable, using base64 fallback'); }
 
   // Storage unavailable — store as base64 in DB (works up to ~2MB)
   console.warn('[DTR] Storage unavailable, using base64 fallback');
@@ -35412,7 +35463,9 @@ async function _msgSendFile(toUserId){
     // Clear preview AFTER successful send
     _msgClearPendingFile();
     appendMessage({ ...msgData, from_user_id: SB_USER.id }, true);
-    await loadConversations();
+    // FIX 5: update cache locally for file/image
+    const filePreview = isImage ? '[Фото]' : `[Файл] ${file.name}`;
+    _msgUpdateConvCache(toUserId, filePreview, true);
     showToast(isImage ? 'Фото отправлено 📸' : 'Файл отправлен 📎');
   } catch(err){
     console.error('[DTR] Send file error:', err?.code, err?.message);
@@ -35444,6 +35497,7 @@ const MIC_STATE = {
   startTime: 0,
   timer: null,
   analyser: null,
+  audioCtx: null,   // FIX 1: store AudioContext so we can close() it on stop
   animFrame: null,
   toUserId: null,
   isRecording: false,
@@ -35503,7 +35557,8 @@ function _msgMicStopHold(e){
     _micHoldActive = true;
     _msgStopRecording(false);
     if(btn){ btn.style.transform = ''; btn.style.background = ''; }
-    setTimeout(()=>{ _micHoldActive = false; }, 300);
+    // FIX 7: increased to 500ms — prevents click firing after touchend on slow devices
+    setTimeout(()=>{ _micHoldActive = false; }, 500);
   }
 }
 
@@ -35538,12 +35593,13 @@ async function _msgStartRecording(toUserId){
   }
 
   // Set up analyser for waveform animation
-  const ctx = new AudioContext();
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
   const src = ctx.createMediaStreamSource(MIC_STATE.stream);
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 64;
   src.connect(analyser);
   MIC_STATE.analyser = analyser;
+  MIC_STATE.audioCtx = ctx; // FIX 1: save reference for cleanup
 
   const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
     ? 'audio/webm;codecs=opus'
@@ -35629,6 +35685,9 @@ function _msgStopRecording(cancel){
   if(MIC_STATE.recorder && MIC_STATE.recorder.state !== 'inactive'){
     MIC_STATE.recorder.onstop = ()=>{
       MIC_STATE.stream?.getTracks().forEach(t=>t.stop());
+      // FIX 1: close AudioContext to prevent memory leak
+      if(MIC_STATE.audioCtx){ try{ MIC_STATE.audioCtx.close(); }catch(e){} MIC_STATE.audioCtx = null; }
+      MIC_STATE.analyser = null;
       if(!cancel && MIC_STATE.chunks.length > 0){
         const duration = (Date.now()-MIC_STATE.startTime)/1000;
         if(duration < 0.5){ showToast('Слишком короткое сообщение', '🎤'); return; }
@@ -35640,6 +35699,8 @@ function _msgStopRecording(cancel){
     MIC_STATE.recorder.stop();
   } else {
     MIC_STATE.stream?.getTracks().forEach(t=>t.stop());
+    if(MIC_STATE.audioCtx){ try{ MIC_STATE.audioCtx.close(); }catch(e){} MIC_STATE.audioCtx = null; }
+    MIC_STATE.analyser = null;
     MIC_STATE.chunks = []; MIC_STATE.recorder = null; MIC_STATE.stream = null;
   }
 }
@@ -35655,16 +35716,14 @@ async function _msgSendVoice(blob, toUserId, duration){
     // Try Storage first (both buckets)
     const ext  = blob.type.includes('ogg') ? 'ogg' : 'webm';
     const path = `chat/${SB_USER.id}/voice_${Date.now()}.${ext}`;
-    for(const bucket of ['chat-files','avatars']){
-      try {
-        const { error } = await sb.storage.from(bucket).upload(path, blob, { contentType: blob.type, upsert: true });
-        if(!error){
-          const { data } = sb.storage.from(bucket).getPublicUrl(path);
-          voiceUrl = data.publicUrl;
-          break;
-        }
-      } catch(e){}
-    }
+    // FIX 10: voice — only chat-files bucket, no avatars fallback
+    try {
+      const { error } = await sb.storage.from('chat-files').upload(path, blob, { contentType: blob.type, upsert: true });
+      if(!error){
+        const { data } = sb.storage.from('chat-files').getPublicUrl(path);
+        voiceUrl = data.publicUrl;
+      }
+    } catch(e){ console.warn('[DTR] Voice: chat-files storage unavailable, using base64'); }
 
     // Storage unavailable — encode as base64 data URL
     if(!voiceUrl){
@@ -35677,12 +35736,14 @@ async function _msgSendVoice(blob, toUserId, duration){
       });
     }
 
+    // FIX 6: store duration in content as JSON so player can show correct length
+    const voiceContent = JSON.stringify({ url: voiceUrl, duration: Math.round(duration) });
     // Robust voice insert
     let voiceMsg;
     const vins1 = await sb.from('messages').insert({
       from_user_id: SB_USER.id,
       to_user_id:   toUserId,
-      content:      voiceUrl,
+      content:      voiceContent,
       content_type: 'voice',
       read: false,
     }).select('id,created_at,content,content_type').single();
@@ -35705,7 +35766,8 @@ async function _msgSendVoice(blob, toUserId, duration){
     }
 
     appendMessage({ ...voiceMsg, from_user_id: SB_USER.id }, true);
-    await loadConversations();
+    // FIX 5: local cache update for voice
+    if(typeof _msgUpdateConvCache === 'function') _msgUpdateConvCache(toUserId, '[Голосовое]', true);
     showToast('Голосовое отправлено 🎤');
   } catch(err){
     console.error('[DTR] Voice send error:', err?.code, err?.message);
