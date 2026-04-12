@@ -26300,6 +26300,32 @@ body.kb6-focus-active { overflow: hidden; }
 }
 .kb6-nc-act-btn:hover { color: var(--t1); background: rgba(255,255,255,.14); }
 
+/* ── Float dropdowns (body-level, bypass overflow:hidden) ── */
+.kb6-float-dd .kb6-dd-opt {
+  display: flex; align-items: center; gap: 9px; padding: 8px 12px;
+  border-radius: 9px; cursor: pointer; color: var(--t1);
+  font-size: 13px; transition: background .1s;
+  font-family: 'Inter', var(--font-body), sans-serif;
+}
+.kb6-float-dd .kb6-dd-opt:hover { background: rgba(255,255,255,.07); }
+.kb6-float-dd .kb6-dd-opt.active { color: var(--gold); }
+.kb6-float-dd .kb6-menu-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 14px;
+  border-radius: 9px; cursor: pointer; color: var(--t1);
+  font-size: 13px; transition: background .1s;
+  font-family: 'Inter', var(--font-body), sans-serif;
+  border: none; background: none; text-align: left; width: 100%;
+}
+.kb6-float-dd .kb6-menu-item:hover { background: rgba(255,255,255,.07); }
+.kb6-float-dd .kb6-menu-item.danger { color: var(--red); }
+.kb6-float-dd .kb6-menu-item.danger:hover { background: rgba(239,68,68,.08); }
+
+/* Disable old reader/focus UI (replaced by body overlay) */
+#kb6reader { display: none !important; }
+#kb6-focus-exit { display: none !important; }
+.kb6-logo-ico { cursor: pointer; transition: transform .2s cubic-bezier(.34,1.56,.64,1); }
+.kb6-logo-ico:hover { transform: scale(1.08); }
+
 /* ── Star bullets fix — ::before needs non-flex context ── */
 #kb6area ul li {
   display: list-item; list-style: none;
@@ -26412,12 +26438,12 @@ function _kbBuildShell(){ return `
   <div id="kb6sb">
     <div id="kb6sb-top">
       <div class="kb6-logo">
-        <div class="kb6-logo-ico">
+        <div class="kb6-logo-ico" onclick="_kb6GoHome()" title="На главную">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
           </svg>
         </div>
-        <span class="kb6-logo-txt">База знаний</span>
+        <span class="kb6-logo-txt" onclick="_kb6GoHome()" style="cursor:pointer;transition:color .15s" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color=''">База знаний</span>
       </div>
       <button class="kb6-new-note-btn" onclick="_kb6NewNote()">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -26806,32 +26832,102 @@ function _kb6RenderCatHome(cont){
   const c = ALL_CATS.find(x=>x.id===_kbS.cat);
   if(!c) return;
   const folders = _kb3[c.id]?.folders||[];
-  cont.innerHTML = `<div class="kb6-anim" style="padding:28px 32px">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
-      <div style="width:48px;height:48px;border-radius:14px;background:${c.color}18;display:flex;align-items:center;justify-content:center">${typeof getCatSVG!=='undefined'?getCatSVG(c.id,24):c.icon}</div>
-      <div>
-        <div style="font-size:22px;font-weight:800;letter-spacing:-.035em;color:var(--t1)">${_kbEsc(c.name)}</div>
-        <div style="font-size:12px;color:var(--t3);margin-top:2px">${c.desc||''}</div>
-      </div>
-      <button class="kb6-btn kb6-btn-gold" onclick="_kb6NewFolder('${c.id}')" style="margin-left:auto;display:flex;align-items:center;gap:6px">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Новая папка
-      </button>
-    </div>
-    ${!folders.length?`<div class="kb6-empty">
-      <div class="kb6-empty-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".35"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
-      <div class="kb6-empty-ttl">Нет папок</div>
-      <div class="kb6-empty-sub">Создай первую папку для организации знаний</div>
-    </div>`:
-    `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-      ${folders.map(f=>`<div style="padding:16px 18px;border-radius:14px;background:rgba(255,255,255,.03);border:0.5px solid rgba(255,255,255,.07);cursor:pointer;transition:all .18s" onclick="_kb6OpenFolder('${c.id}','${f.id}')" onmouseover="this.style.background='rgba(255,255,255,.06)';this.style.transform='translateY(-2px)'" onmouseout="this.style.background='rgba(255,255,255,.03)';this.style.transform=''">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="${c.color}20" stroke="${c.color}" stroke-width="1.6" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-          <div style="font-size:13.5px;font-weight:700;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc(f.title)}</div>
+  const totalNotes = folders.reduce((a,f)=>a+(f.notes?.length||0),0);
+  cont.innerHTML = `<div class="kb6-anim" style="height:100%;display:flex;flex-direction:column;overflow-y:auto">
+    <!-- Category hero banner -->
+    <div style="
+      padding:32px 32px 24px;
+      background:linear-gradient(135deg, ${c.color}0d 0%, transparent 60%);
+      border-bottom:0.5px solid rgba(255,255,255,.06); flex-shrink:0;
+    ">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+        <div style="width:52px;height:52px;border-radius:16px;background:${c.color}18;border:0.5px solid ${c.color}30;display:flex;align-items:center;justify-content:center;flex-shrink:0">${typeof getCatSVG!=='undefined'?getCatSVG(c.id,26):c.icon}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:22px;font-weight:800;letter-spacing:-.04em;color:var(--t1);margin-bottom:3px">${_kbEsc(c.name)}</div>
+          <div style="font-size:12px;color:var(--t3)">${c.desc||'Персональная база знаний'}</div>
         </div>
-        <div style="font-size:11px;color:var(--t3)">${f.notes?.length||0} заметок</div>
-      </div>`).join('')}
-    </div>`}
+        <button class="kb6-btn kb6-btn-gold" onclick="_kb6NewFolder('${c.id}')" style="display:flex;align-items:center;gap:7px;flex-shrink:0">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Новая папка
+        </button>
+      </div>
+      <!-- Stats -->
+      <div style="display:flex;gap:10px">
+        <div style="padding:10px 16px;border-radius:11px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.07);flex:1;text-align:center">
+          <div style="font-family:var(--font-mono);font-size:22px;font-weight:400;letter-spacing:-.03em;color:var(--gold)">${folders.length}</div>
+          <div style="font-size:10px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-top:3px">Папок</div>
+        </div>
+        <div style="padding:10px 16px;border-radius:11px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.07);flex:1;text-align:center">
+          <div style="font-family:var(--font-mono);font-size:22px;font-weight:400;letter-spacing:-.03em;color:var(--blue)">${totalNotes}</div>
+          <div style="font-size:10px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-top:3px">Заметок</div>
+        </div>
+        <div style="padding:10px 16px;border-radius:11px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.07);flex:1;text-align:center">
+          <div style="font-family:var(--font-mono);font-size:22px;font-weight:400;letter-spacing:-.03em;color:var(--purple)">${folders.reduce((a,f)=>a+_kbWC((f.notes||[]).reduce((s,n)=>s+(n.body||''),''))>999?Math.round(folders.reduce((a,f)=>a+_kbWC((f.notes||[]).reduce((s,n)=>s+(n.body||''),''))/(1000),0)):folders.reduce((a,f)=>a+_kbWC((f.notes||[]).reduce((s,n)=>s+(n.body||''),''))),0)}</div>
+          <div style="font-size:10px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-top:3px">Слов</div>
+        </div>
+      </div>
+    </div>
+    <!-- Folders grid -->
+    <div style="padding:24px 32px;flex:1">
+      ${!folders.length?`<div class="kb6-empty" style="padding-top:60px">
+        <div class="kb6-empty-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".4"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
+        <div class="kb6-empty-ttl">Нет папок</div>
+        <div class="kb6-empty-sub">Создай первую папку для организации знаний</div>
+        <button class="kb6-btn kb6-btn-gold" onclick="_kb6NewFolder('${c.id}')" style="margin-top:8px">Создать папку</button>
+      </div>`:
+      `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
+        ${folders.map(f=>{
+          const nc = f.notes?.length||0;
+          const recent = f.notes&&f.notes.length ? _kbTimeAgo(Math.max(...f.notes.map(n=>n.updatedAt||0))) : '';
+          const lastNote = f.notes&&f.notes.length ? [...f.notes].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0] : null;
+          const preview = lastNote ? _kbStrip(lastNote.body||'').slice(0,55) : 'Пустая папка';
+          return `<div style="
+              border-radius:16px; cursor:pointer;
+              background:rgba(255,255,255,.03);
+              border:0.5px solid rgba(255,255,255,.08);
+              overflow:hidden; position:relative;
+              transition:transform .2s cubic-bezier(.34,1.2,.64,1), border-color .18s, box-shadow .18s;
+              display:flex; flex-direction:column;
+            "
+            onmouseover="this.style.transform='translateY(-4px)';this.style.borderColor='${c.color}40';this.style.boxShadow='0 12px 32px rgba(0,0,0,.35),0 0 0 0.5px ${c.color}15'"
+            onmouseout="this.style.transform='';this.style.borderColor='rgba(255,255,255,.08)';this.style.boxShadow=''"
+          >
+            <!-- Color accent top -->
+            <div style="height:3px;background:linear-gradient(90deg,${c.color}60,${c.color}20);width:100%"></div>
+            <!-- Main click area -->
+            <div onclick="_kb6OpenFolder('${c.id}','${f.id}')" style="padding:18px 18px 14px;flex:1">
+              <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="${c.color}22" stroke="${c.color}" stroke-width="1.6" stroke-linecap="round" style="flex-shrink:0;margin-top:2px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:14px;font-weight:700;color:var(--t1);letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px">${_kbEsc(f.title)}</div>
+                  <div style="font-size:11px;color:var(--t3);line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${_kbEsc(preview)}</div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:0.5px solid rgba(255,255,255,.05)">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="font-family:var(--font-mono);font-size:13px;font-weight:400;color:${nc?c.color:'var(--t3)'}">${nc}</span>
+                  <span style="font-size:10.5px;color:var(--t3);font-weight:600">заметок</span>
+                </div>
+                ${recent?`<span style="font-size:10px;color:var(--t3)">${recent}</span>`:''}
+              </div>
+            </div>
+            <!-- Action bar -->
+            <div style="display:flex;border-top:0.5px solid rgba(255,255,255,.05);background:rgba(255,255,255,.02)">
+              <button onclick="event.stopPropagation();_kb6CreateNoteAt('${c.id}','${f.id}')" style="flex:1;padding:9px;border:none;background:none;color:var(--t3);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:5px;transition:color .14s,background .14s;border-right:0.5px solid rgba(255,255,255,.05)" onmouseover="this.style.color='var(--gold)';this.style.background='rgba(245,200,66,.05)'" onmouseout="this.style.color='var(--t3)';this.style.background='none'">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Заметка
+              </button>
+              <button onclick="event.stopPropagation();_kb6RenameFolderModal('${c.id}','${f.id}')" style="padding:9px 13px;border:none;background:none;color:var(--t3);cursor:pointer;display:flex;align-items:center;transition:color .14s,background .14s;border-right:0.5px solid rgba(255,255,255,.05)" onmouseover="this.style.color='var(--blue)';this.style.background='rgba(26,159,255,.06)'" onmouseout="this.style.color='var(--t3)';this.style.background='none'" title="Переименовать папку">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <button onclick="event.stopPropagation();_kb6DelFolderConfirm('${c.id}','${f.id}')" style="padding:9px 13px;border:none;background:none;color:var(--t3);cursor:pointer;display:flex;align-items:center;transition:color .14s,background .14s" onmouseover="this.style.color='var(--red)';this.style.background='rgba(239,68,68,.07)'" onmouseout="this.style.color='var(--t3)';this.style.background='none'" title="Удалить папку">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+              </button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`}
+    </div>
   </div>`;
 }
 
@@ -26938,32 +27034,42 @@ function _kb6RenderToolbar(){
   const tb = document.getElementById('kb6tb'); if(!tb) return;
   const curFont = _kbS.editorFont||'inter';
   const cf = _kb6FontById(curFont);
+  const pinned = _kb6CurNote()?.pinned;
   tb.innerHTML = `
-    <!-- Heading dropdown -->
-    <div class="kb6-font-dd">
-      <button class="kb6-font-dd-btn" onclick="_kb6TogDD('kb6-hdrop')" style="min-width:80px">
+    <!-- Heading / Style dropdown -->
+    <div class="kb6-font-dd" style="position:relative">
+      <button class="kb6-font-dd-btn" id="kb6-style-btn" onclick="_kb6TogDD('kb6-hdrop',this)" style="min-width:80px">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
         Стиль
         <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
       </button>
-      <div id="kb6-hdrop" class="kb6-hdrop" style="display:none">
-        ${[
-          ['Обычный текст','<p>','kb6-tb-para',null],
-          ['Заголовок 1','H1','kb6-tb-h1','font-size:22px;font-weight:800'],
-          ['Заголовок 2','H2','kb6-tb-h2','font-size:18px;font-weight:700'],
-          ['Заголовок 3','H3','kb6-tb-h3','font-size:15px;font-weight:600'],
-        ].map(([n,ic,cls,st])=>`<div class="kb6-dd-opt" style="${st||''}" onclick="_kb6FmtBlock('${ic.replace(/'/g,'\\\'')}')">${n}</div>`).join('')}
+      <!-- Source panel (hidden, cloned to body) -->
+      <div id="kb6-hdrop" style="display:none">
+        <div class="kb6-dd-opt" style="font-size:13px" onclick="_kb6FmtBlock('p');document.querySelectorAll('.kb6-float-dd').forEach(d=>d.remove())">Обычный текст</div>
+        <div class="kb6-dd-opt" style="font-size:20px;font-weight:800;letter-spacing:-.03em" onclick="_kb6FmtBlock('H1');document.querySelectorAll('.kb6-float-dd').forEach(d=>d.remove())">Заголовок 1</div>
+        <div class="kb6-dd-opt" style="font-size:16px;font-weight:700;letter-spacing:-.02em" onclick="_kb6FmtBlock('H2');document.querySelectorAll('.kb6-float-dd').forEach(d=>d.remove())">Заголовок 2</div>
+        <div class="kb6-dd-opt" style="font-size:13px;font-weight:600" onclick="_kb6FmtBlock('H3');document.querySelectorAll('.kb6-float-dd').forEach(d=>d.remove())">Заголовок 3</div>
+        <div style="height:0.5px;background:rgba(255,255,255,.07);margin:4px 6px"></div>
+        <div class="kb6-dd-opt" onclick="_kb6InsQuote();document.querySelectorAll('.kb6-float-dd').forEach(d=>d.remove())">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.2" stroke-linecap="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/></svg>
+          Цитата
+        </div>
+        <div class="kb6-dd-opt" onclick="_kb6InsCode();document.querySelectorAll('.kb6-float-dd').forEach(d=>d.remove())">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          Код
+        </div>
       </div>
     </div>
     <div class="kb6-tb-sep"></div>
     <!-- Font picker -->
-    <div class="kb6-font-dd">
-      <button class="kb6-font-dd-btn" onclick="_kb6TogDD('kb6-font-panel')" title="Шрифт редактора">
+    <div class="kb6-font-dd" style="position:relative">
+      <button class="kb6-font-dd-btn" id="kb6-font-btn" onclick="_kb6TogDD('kb6-font-panel',this)" title="Шрифт редактора">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
         <span style="font-family:'${cf.family}',sans-serif">${cf.name}</span>
         <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
       </button>
-      <div id="kb6-font-panel" class="kb6-dd-panel" style="display:none">
+      <!-- Source panel (hidden, cloned to body) -->
+      <div id="kb6-font-panel" style="display:none">
         ${_kb6Fonts().map(f=>`<div class="kb6-dd-opt${curFont===f.id?' active':''}" onclick="_kb6SetEdFont('${f.id}')" style="font-family:'${f.family}',sans-serif">${f.name}</div>`).join('')}
       </div>
     </div>
@@ -26974,21 +27080,17 @@ function _kb6RenderToolbar(){
     <button class="kb6-tb-btn" onclick="_kbFmt('underline')" title="Подчёркивание (Ctrl+U)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"/><line x1="4" y1="21" x2="20" y2="21"/></svg></button>
     <button class="kb6-tb-btn" onclick="_kbFmt('strikeThrough')" title="Зачёркнутый"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="4" y1="12" x2="20" y2="12"/><path d="M17.5 5C17.5 5 15.5 3 12 3S6.5 4.5 6.5 7c0 3.5 10 3.5 10 7s-2 4-4.5 4-4.5-2-4.5-2"/></svg></button>
     <div class="kb6-tb-sep"></div>
-    <button class="kb6-tb-btn" onclick="_kb6InsCode()" title="Код"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button>
-    <button class="kb6-tb-btn" onclick="_kb6InsQuote()" title="Цитата"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/></svg></button>
     <button class="kb6-tb-btn" onclick="_kb6InsLink()" title="Ссылка (Ctrl+K)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
-    <div class="kb6-tb-sep"></div>
-    <button class="kb6-tb-btn" onclick="_kb6InsBullet()" title="Список (★)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
+    <button class="kb6-tb-btn" onclick="_kb6InsBullet()" title="Список (✦)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
     <button class="kb6-tb-btn" onclick="_kb6InsOL()" title="Нумерованный список"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg></button>
     <button class="kb6-tb-btn" onclick="_kb6InsTodo()" title="Чеклист"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="5" width="6" height="6" rx="1"/><polyline points="5 8 7 10 9 6"/><line x1="13" y1="8" x2="21" y2="8"/><rect x="3" y="13" width="6" height="6" rx="1"/><line x1="13" y1="16" x2="21" y2="16"/></svg></button>
     <div class="kb6-tb-sep"></div>
-    <!-- Actions -->
-    <button class="kb6-tb-btn" onclick="_kb6TogPin()" title="Закрепить">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="${_kb6CurNote()?.pinned?'var(--gold)':'none'}" stroke="${_kb6CurNote()?.pinned?'var(--gold)':'currentColor'}" stroke-width="2" stroke-linecap="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/></svg>
+    <button class="kb6-tb-btn${pinned?' active':''}" onclick="_kb6TogPin()" title="${pinned?'Открепить':'Закрепить'}">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="${pinned?'var(--gold)':'none'}" stroke="${pinned?'var(--gold)':'currentColor'}" stroke-width="2" stroke-linecap="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/></svg>
     </button>
-    <button class="kb6-tb-btn" onclick="_kb6TogFocus()" title="Режим фокуса"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
+    <button class="kb6-tb-btn" id="kb6-focus-tb-btn" onclick="_kb6TogFocus()" title="Режим фокуса (Ctrl+Enter)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
     <button class="kb6-tb-btn" onclick="_kb6TogReader()" title="Режим чтения"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
-    <button class="kb6-tb-btn" onclick="_kb6NoteMenu()" title="Ещё"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+    <button class="kb6-tb-btn" id="kb6-more-btn" onclick="_kb6MoreMenu(this)" title="Ещё действия"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
   `;
 }
 
@@ -27125,13 +27227,12 @@ function _kbFmt(cmd,val){
 }
 function _kb6FmtBlock(tag){
   _kbRestSel();
-  if(tag==='<p>') document.execCommand('formatBlock',false,'p');
+  if(tag==='p') document.execCommand('formatBlock',false,'p');
   else document.execCommand('formatBlock',false,tag);
   document.getElementById('kb6area')?.focus();
   _kb6EdInput();
-  // Close dropdown
-  const d=document.getElementById('kb6-hdrop');
-  if(d) d.style.display='none';
+  // Close any floating dropdowns
+  document.querySelectorAll('.kb6-float-dd').forEach(d=>d.remove());
 }
 function _kb6InsCode(){
   _kbRestSel();
@@ -27198,8 +27299,8 @@ function _kb6SetEdFont(id){
   _kbS.editorFont=id;
   _kb6ApplyEditorFont();
   _kb6RenderToolbar();
-  const d=document.getElementById('kb6-font-panel');
-  if(d) d.style.display='none';
+  // Close any floating dropdowns
+  document.querySelectorAll('.kb6-float-dd').forEach(d=>d.remove());
 }
 function _kb6ApplyEditorFont(){
   const area=document.getElementById('kb6area'); if(!area) return;
@@ -27207,39 +27308,505 @@ function _kb6ApplyEditorFont(){
   area.style.fontFamily=`'${f.family}',sans-serif`;
 }
 
-// ── Dropdown toggle ───────────────────────────────────────────
-function _kb6TogDD(id){
-  const el=document.getElementById(id); if(!el) return;
-  const isHidden=el.style.display==='none'||!el.style.display;
-  document.querySelectorAll('.kb6-dd-panel,.kb6-hdrop').forEach(d=>d.style.display='none');
-  el.style.display=isHidden?'block':'none';
+// ── Dropdown toggle — body-level to bypass overflow:hidden on toolbar ────────────────────────────
+function _kb6TogDD(id, triggerEl){
+  // Close any open kb6 dropdowns first
+  document.querySelectorAll('.kb6-float-dd').forEach(d=>{
+    if(d.dataset.ddId !== id) { d.remove(); }
+  });
+  // Check if already open
+  const existing = document.querySelector(`.kb6-float-dd[data-dd-id="${id}"]`);
+  if(existing){ existing.remove(); return; }
+
+  // Find source panel inside toolbar
+  const src = document.getElementById(id);
+  if(!src) return;
+
+  // Get trigger button position
+  const btn = triggerEl || src.previousElementSibling || src.parentElement;
+  const rect = btn.getBoundingClientRect();
+
+  // Clone dropdown at body level
+  const float = document.createElement('div');
+  float.className = 'kb6-float-dd';
+  float.dataset.ddId = id;
+  float.innerHTML = src.innerHTML;
+  float.style.cssText = `
+    position:fixed;
+    top:${rect.bottom + 6}px;
+    left:${Math.max(8, Math.min(rect.left, window.innerWidth - 220))}px;
+    min-width:${id==='kb6-font-panel'?'200px':'180px'};
+    background:rgba(10,10,18,.97);
+    border:0.5px solid rgba(255,255,255,.13);
+    border-radius:14px; padding:6px; z-index:99999;
+    box-shadow:0 24px 64px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.08);
+    backdrop-filter:blur(40px); -webkit-backdrop-filter:blur(40px);
+    animation:kb6dd .16s cubic-bezier(.34,1.15,.64,1) both;
+  `;
+  document.body.appendChild(float);
+
+  // Close on outside click
+  const close = (e)=>{
+    if(!float.contains(e.target) && e.target !== btn && !btn.contains(e.target)){
+      float.remove(); document.removeEventListener('click', close, true);
+    }
+  };
+  setTimeout(()=>document.addEventListener('click', close, true), 50);
 }
 
 // ══════════════════════════════════════════════════════════════
-// FOCUS MODE
+// FOCUS MODE — improved
 // ══════════════════════════════════════════════════════════════
 function _kb6TogFocus(){
-  const kb=document.getElementById('kb6');
-  if(!kb) return;
-  _kbS.focusMode=!_kbS.focusMode;
-  kb.classList.toggle('focus-mode',_kbS.focusMode);
-  document.body.classList.toggle('kb6-focus-active',_kbS.focusMode);
-  document.getElementById('kb6area')?.focus();
+  _kbS.focusMode = !_kbS.focusMode;
+  if(_kbS.focusMode){
+    _kb6EnterFocus();
+  } else {
+    _kb6ExitFocus();
+  }
+}
+function _kb6EnterFocus(){
+  // Save current note
+  _kb6AutoSave();
+  const n = _kb6CurNote();
+  if(!n) return;
+  // Create full-screen focus overlay
+  let fo = document.getElementById('kb6-focus-ov');
+  if(!fo){
+    fo = document.createElement('div');
+    fo.id = 'kb6-focus-ov';
+    document.body.appendChild(fo);
+  }
+  fo.innerHTML = `
+    <style>
+      #kb6-focus-ov {
+        position:fixed; inset:0; z-index:99990;
+        background:#06060C;
+        display:flex; flex-direction:column;
+        animation:kb6FocusIn .35s cubic-bezier(.4,0,.2,1) both;
+      }
+      @keyframes kb6FocusIn { from{opacity:0;transform:scale(.98)} to{opacity:1;transform:scale(1)} }
+      #kb6fo-bar {
+        display:flex; align-items:center; justify-content:space-between;
+        padding:14px 32px; flex-shrink:0;
+        border-bottom:0.5px solid rgba(255,255,255,.06);
+        background:rgba(6,6,12,.95);
+        backdrop-filter:blur(20px);
+      }
+      #kb6fo-title {
+        font-family:'Plus Jakarta Sans',sans-serif;
+        font-size:14px; font-weight:700; color:rgba(255,255,255,.6);
+        letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+        max-width:400px;
+      }
+      #kb6fo-actions { display:flex; align-items:center; gap:8px; }
+      .kb6fo-btn {
+        display:inline-flex; align-items:center; gap:6px;
+        padding:6px 14px; border-radius:9px;
+        background:rgba(255,255,255,.07); border:0.5px solid rgba(255,255,255,.1);
+        color:rgba(255,255,255,.55); font-size:11.5px; font-weight:600;
+        cursor:pointer; font-family:inherit; transition:all .15s;
+      }
+      .kb6fo-btn:hover { background:rgba(255,255,255,.12); color:rgba(255,255,255,.9); }
+      .kb6fo-btn.exit {
+        background:rgba(245,200,66,.1); border-color:rgba(245,200,66,.25); color:var(--gold);
+      }
+      .kb6fo-btn.exit:hover { background:rgba(245,200,66,.18); }
+      #kb6fo-scroll {
+        flex:1; overflow-y:auto; display:flex; justify-content:center;
+        padding:60px 24px 100px;
+        scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.07) transparent;
+      }
+      #kb6fo-scroll::-webkit-scrollbar { width:4px; }
+      #kb6fo-scroll::-webkit-scrollbar-thumb { background:rgba(255,255,255,.1); border-radius:2px; }
+      #kb6fo-inner { width:100%; max-width:680px; }
+      #kb6fo-input {
+        width:100%; background:none; border:none; outline:none;
+        font-family:var(--font-display); font-size:32px; font-weight:800;
+        color:rgba(255,255,255,.92); letter-spacing:-.045em;
+        line-height:1.15; margin-bottom:16px; display:block;
+      }
+      #kb6fo-input::placeholder { color:rgba(255,255,255,.15); }
+      #kb6fo-area {
+        width:100%; outline:none; font-size:17px; line-height:1.9;
+        color:rgba(242,240,232,.85); caret-color:var(--gold);
+        min-height:400px;
+        font-family:'Nunito',sans-serif;
+      }
+      #kb6fo-area:empty::before { content:attr(data-ph); color:rgba(255,255,255,.14); }
+      #kb6fo-area h1 { font-size:28px; font-weight:800; margin:26px 0 10px; letter-spacing:-.04em; }
+      #kb6fo-area h2 { font-size:22px; font-weight:700; margin:22px 0 9px; }
+      #kb6fo-area h3 { font-size:18px; font-weight:600; margin:18px 0 8px; }
+      #kb6fo-area p { margin:0 0 12px; }
+      #kb6fo-area blockquote { border-left:3px solid var(--gold); padding:12px 20px; margin:16px 0; background:rgba(245,200,66,.04); border-radius:0 12px 12px 0; color:rgba(255,255,255,.6); font-style:italic; }
+      #kb6fo-area a { color:var(--gold); }
+      #kb6fo-area ul li { display:list-item; list-style:none; padding-left:1.4em; position:relative; margin-bottom:4px; }
+      #kb6fo-area ul li::before { content:'✦'; color:var(--gold); font-size:9px; position:absolute; left:0; top:.3em; }
+      #kb6fo-area ol { margin:0 0 10px 24px; }
+      #kb6fo-area code { font-family:var(--font-mono); font-size:.82em; background:rgba(128,128,128,.15); padding:2px 6px; border-radius:4px; }
+      #kb6fo-area pre { background:rgba(0,0,0,.35); border-radius:12px; padding:18px 20px; overflow-x:auto; font-family:var(--font-mono); font-size:13px; border:0.5px solid rgba(255,255,255,.08); margin:16px 0; }
+      #kb6fo-status {
+        position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+        display:flex; align-items:center; gap:10px; padding:8px 18px;
+        background:rgba(10,10,16,.95); border:0.5px solid rgba(255,255,255,.09);
+        border-radius:20px; font-size:11px; color:rgba(255,255,255,.35);
+        font-family:var(--font-mono); backdrop-filter:blur(20px);
+        box-shadow:0 8px 32px rgba(0,0,0,.5);
+        animation:kb6slideUp .3s cubic-bezier(.34,1.2,.64,1) both;
+        white-space:nowrap;
+        z-index:99991;
+      }
+      .kb6fo-st-sep { width:0.5px; height:10px; background:rgba(255,255,255,.12); }
+      #kb6fo-wc { color:rgba(255,255,255,.35); }
+      #kb6fo-save-dot { width:5px; height:5px; border-radius:50%; background:var(--green); flex-shrink:0; }
+    </style>
+    <div id="kb6fo-bar">
+      <div id="kb6fo-title">${n.title||'Без названия'}</div>
+      <div id="kb6fo-actions">
+        <button class="kb6fo-btn" onclick="_kb6FoFmt('bold')" title="B">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg>
+        </button>
+        <button class="kb6fo-btn" onclick="_kb6FoFmt('italic')">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg>
+        </button>
+        <button class="kb6fo-btn" onclick="_kb6FoInsQuote()" title="Цитата">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/></svg>
+        </button>
+        <div style="width:0.5px;height:18px;background:rgba(255,255,255,.1)"></div>
+        <button class="kb6fo-btn exit" onclick="_kb6ExitFocus()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+          Выйти из фокуса
+          <span style="font-size:9.5px;opacity:.55;font-family:var(--font-mono)">Esc</span>
+        </button>
+      </div>
+    </div>
+    <div id="kb6fo-scroll">
+      <div id="kb6fo-inner">
+        <input id="kb6fo-input" value="${(n.title||'').replace(/"/g,'&quot;')}" placeholder="Название..." oninput="_kb6FoTitleInput()">
+        <div id="kb6fo-area" contenteditable="true"
+          data-ph="Начни писать — в фокусе ничего лишнего..."
+          oninput="_kb6FoInput()"
+          onkeydown="_kb6FoKey(event)">${n.body||''}</div>
+      </div>
+    </div>
+    <div id="kb6fo-status">
+      <div id="kb6fo-save-dot"></div>
+      <span id="kb6fo-save-lbl">Сохранено</span>
+      <div class="kb6fo-st-sep"></div>
+      <span id="kb6fo-wc">${_kbWC(n.body||'')} слов</span>
+      <div class="kb6fo-st-sep"></div>
+      <span>~${_kbRT(_kbWC(n.body||''))} мин чтения</span>
+    </div>
+  `;
+  document.body.style.overflow='hidden';
+  // Escape to exit
+  fo._kbEscHandler = (e)=>{ if(e.key==='Escape') _kb6ExitFocus(); };
+  document.addEventListener('keydown', fo._kbEscHandler);
+  // Focus area
+  setTimeout(()=>{
+    const area = document.getElementById('kb6fo-area');
+    if(area){ area.focus(); const r=document.createRange(); r.selectNodeContents(area); r.collapse(false); const s=window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+  }, 100);
 }
 function _kb6ExitFocus(){
-  _kbS.focusMode=false;
-  document.getElementById('kb6')?.classList.remove('focus-mode');
-  document.body.classList.remove('kb6-focus-active');
+  _kbS.focusMode = false;
+  // Save focus content back
+  const foArea = document.getElementById('kb6fo-area');
+  const foTitle = document.getElementById('kb6fo-input');
+  const n = _kb6CurNote();
+  if(n && foArea){ n.body = foArea.innerHTML; }
+  if(n && foTitle && foTitle.value){ n.title = foTitle.value; }
+  if(n) { n.updatedAt = Date.now(); _kbSave3(); }
+  const fo = document.getElementById('kb6-focus-ov');
+  if(fo){
+    if(fo._kbEscHandler) document.removeEventListener('keydown', fo._kbEscHandler);
+    fo.style.animation='kb6FocusOut .25s cubic-bezier(.4,0,.2,1) both';
+    fo.style.cssText += ';animation:kb6FocusOut .25s ease both;';
+    // Add exit animation
+    const style = document.createElement('style');
+    style.textContent = '@keyframes kb6FocusOut { to{opacity:0;transform:scale(.98)} }';
+    document.head.appendChild(style);
+    setTimeout(()=>{ fo.remove(); style.remove(); }, 260);
+  }
+  document.body.style.overflow='';
+  // Re-render editor with saved content
+  _kb6RenderEditor();
+}
+let _kb6FoSaveTimer = null;
+function _kb6FoInput(){
+  const foArea = document.getElementById('kb6fo-area');
+  const wc = _kbWC(foArea?.innerHTML||'');
+  const wcEl = document.getElementById('kb6fo-wc');
+  if(wcEl) wcEl.textContent = wc + ' слов';
+  const dot = document.getElementById('kb6fo-save-dot');
+  const lbl = document.getElementById('kb6fo-save-lbl');
+  if(dot) dot.style.background = 'var(--gold)';
+  if(lbl) lbl.textContent = 'Сохраняю...';
+  clearTimeout(_kb6FoSaveTimer);
+  _kb6FoSaveTimer = setTimeout(()=>{
+    const n = _kb6CurNote(); if(!n) return;
+    if(foArea) n.body = foArea.innerHTML;
+    n.updatedAt = Date.now(); _kbSave3();
+    if(dot) dot.style.background = 'var(--green)';
+    if(lbl) lbl.textContent = 'Сохранено';
+  }, 800);
+}
+function _kb6FoTitleInput(){
+  const inp = document.getElementById('kb6fo-input'); if(!inp) return;
+  const n = _kb6CurNote(); if(!n) return;
+  n.title = inp.value; n.updatedAt = Date.now(); _kbSave3();
+}
+function _kb6FoFmt(cmd){
+  document.getElementById('kb6fo-area')?.focus();
+  document.execCommand(cmd, false, null);
+}
+function _kb6FoInsQuote(){
+  document.getElementById('kb6fo-area')?.focus();
+  document.execCommand('insertHTML', false, '<blockquote contenteditable="true">Цитата...</blockquote>');
+}
+function _kb6FoKey(e){
+  if(e.key==='Escape'){ e.preventDefault(); _kb6ExitFocus(); }
+  if((e.ctrlKey||e.metaKey)&&e.key==='b'){ e.preventDefault(); _kb6FoFmt('bold'); }
+  if((e.ctrlKey||e.metaKey)&&e.key==='i'){ e.preventDefault(); _kb6FoFmt('italic'); }
+  if((e.ctrlKey||e.metaKey)&&e.key==='u'){ e.preventDefault(); _kb6FoFmt('underline'); }
 }
 
 // ══════════════════════════════════════════════════════════════
-// READING MODE
+// READING MODE — full screen body overlay
 // ══════════════════════════════════════════════════════════════
 function _kb6TogReader(){
-  const rd=document.getElementById('kb6reader'); if(!rd) return;
-  const isOn=rd.classList.toggle('on');
-  if(isOn){ _kb6PopulateReader(); _kb6UpdateReadProg(); }
+  const existing = document.getElementById('kb6-reader-ov');
+  if(existing){ _kb6CloseReader(); return; }
+  _kb6OpenReader();
 }
+function _kb6OpenReader(){
+  _kb6AutoSave();
+  const n = _kb6CurNote(); if(!n) return;
+  const wc = _kbWC(n.body||'');
+  const rt = _kbRT(wc);
+  const t = _kbS.readTheme||'dark';
+  const sz = _kbS.readSize||16;
+  const lh = _kbS.readLine||1.8;
+  const cf = _kb6FontById(_kbS.readFont||'nunito');
+
+  const ov = document.createElement('div');
+  ov.id = 'kb6-reader-ov';
+  const themes = {
+    dark:  { bg:'#06060C',   text:'rgba(242,240,232,.88)', tb:'rgba(6,6,10,.97)',   border:'rgba(255,255,255,.06)', sub:'rgba(255,255,255,.35)' },
+    sepia: { bg:'#1A1408',   text:'#E8D9C0',               tb:'rgba(20,16,8,.97)',  border:'rgba(200,159,40,.12)', sub:'rgba(232,217,192,.4)' },
+    light: { bg:'#F8F7F2',   text:'#1A1A1E',               tb:'rgba(248,247,242,.97)',border:'rgba(0,0,0,.08)', sub:'rgba(0,0,0,.4)' },
+  };
+  const th = themes[t]||themes.dark;
+
+  ov.innerHTML = `
+    <style id="kb6-rd-ov-style">
+      #kb6-reader-ov {
+        position:fixed; inset:0; z-index:99985;
+        display:flex; flex-direction:column;
+        background:${th.bg};
+        animation:kb6FocusIn .3s cubic-bezier(.4,0,.2,1) both;
+      }
+      #kb6-rd-ov-prog {
+        position:absolute; top:0; left:0; height:3px; z-index:10;
+        background:linear-gradient(90deg,#C89F28,var(--gold),#FDE68A);
+        box-shadow:0 0 10px rgba(245,200,66,.5);
+        transition:width .15s ease; border-radius:0 3px 3px 0;
+      }
+      #kb6-rd-ov-tb {
+        display:flex; align-items:center; gap:8px; flex-wrap:nowrap;
+        padding:12px 24px; flex-shrink:0;
+        background:${th.tb}; border-bottom:0.5px solid ${th.border};
+        backdrop-filter:blur(20px); overflow-x:auto; scrollbar-width:none;
+      }
+      #kb6-rd-ov-tb::-webkit-scrollbar { display:none; }
+      .kb6rdov-ctrl {
+        display:inline-flex; align-items:center; gap:5px;
+        padding:5px 11px; border-radius:9px; flex-shrink:0;
+        background:rgba(255,255,255,.07); border:0.5px solid ${th.border};
+        font-size:12px; color:${th.sub}; cursor:pointer; transition:all .15s;
+        font-family:'Plus Jakarta Sans',sans-serif; font-weight:600; white-space:nowrap;
+      }
+      .kb6rdov-ctrl:hover { background:rgba(255,255,255,.12); color:${th.text}; }
+      .kb6rdov-ctrl.active { background:rgba(245,200,66,.12); border-color:rgba(245,200,66,.3); color:var(--gold); }
+      .kb6rdov-sep { width:0.5px; height:18px; background:${th.border}; margin:0 4px; flex-shrink:0; }
+      .kb6rdov-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:${th.sub}; flex-shrink:0; opacity:.6; }
+      #kb6-rd-ov-body {
+        flex:1; overflow-y:auto;
+        scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.08) transparent;
+      }
+      #kb6-rd-ov-body::-webkit-scrollbar { width:4px; }
+      #kb6-rd-ov-body::-webkit-scrollbar-thumb { background:rgba(128,128,128,.2); border-radius:2px; }
+      #kb6-rd-ov-content {
+        max-width:700px; margin:0 auto; padding:56px 32px 100px;
+        font-family:'${cf.family}',sans-serif;
+        font-size:${sz}px; line-height:${lh};
+        color:${th.text}; transition:font-size .2s,line-height .2s;
+      }
+      #kb6-rd-ov-title { font-size:calc(${sz}px * 2.2); font-weight:800; letter-spacing:-.045em; line-height:1.15; margin-bottom:16px; }
+      #kb6-rd-ov-meta { display:flex; align-items:center; gap:14px; margin-bottom:8px; font-size:${sz*0.75}px; opacity:.45; flex-wrap:wrap; }
+      #kb6-rd-ov-divider { width:60px; height:2px; background:var(--gold); border-radius:2px; opacity:.55; margin-bottom:32px; }
+      #kb6-rd-ov-text h1 { font-size:1.9em; font-weight:800; margin:1.5em 0 .5em; letter-spacing:-.03em; }
+      #kb6-rd-ov-text h2 { font-size:1.45em; font-weight:700; margin:1.3em 0 .45em; }
+      #kb6-rd-ov-text h3 { font-size:1.2em; font-weight:600; margin:1.1em 0 .4em; }
+      #kb6-rd-ov-text p { margin:0 0 1em; }
+      #kb6-rd-ov-text blockquote { border-left:3px solid var(--gold); padding:12px 20px; margin:1.4em 0; font-style:italic; opacity:.8; background:rgba(245,200,66,.04); border-radius:0 10px 10px 0; }
+      #kb6-rd-ov-text ul li { display:list-item; list-style:none; padding-left:1.4em; position:relative; margin-bottom:.4em; }
+      #kb6-rd-ov-text ul li::before { content:'✦'; color:var(--gold); font-size:.65em; position:absolute; left:0; top:.3em; }
+      #kb6-rd-ov-text ol { margin:0 0 1em 1.5em; }
+      #kb6-rd-ov-text a { color:var(--gold); }
+      #kb6-rd-ov-text code { font-family:var(--font-mono); font-size:.8em; background:rgba(128,128,128,.12); padding:2px 6px; border-radius:4px; }
+      #kb6-rd-ov-text pre { background:rgba(0,0,0,.25); border-radius:10px; padding:16px 18px; overflow-x:auto; font-family:var(--font-mono); font-size:.8em; margin:1em 0; }
+      #kb6-rd-ov-metrics {
+        position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+        display:flex; align-items:center; gap:10px; padding:8px 18px;
+        background:rgba(10,10,16,.96); border:0.5px solid rgba(255,255,255,.1);
+        border-radius:20px; font-size:11.5px; color:rgba(255,255,255,.4);
+        backdrop-filter:blur(20px); box-shadow:0 8px 32px rgba(0,0,0,.5);
+        z-index:99986; white-space:nowrap; font-family:var(--font-mono);
+      }
+      .kb6rdov-ms { width:0.5px; height:12px; background:rgba(255,255,255,.15); }
+      .kb6rdov-pct { color:var(--gold); font-weight:700; }
+    </style>
+    <div id="kb6-rd-ov-prog"></div>
+    <div id="kb6-rd-ov-tb">
+      <button class="kb6rdov-ctrl" onclick="_kb6CloseReader()" style="background:rgba(245,200,66,.1);border-color:rgba(245,200,66,.25);color:var(--gold)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        Назад
+      </button>
+      <div class="kb6rdov-sep"></div>
+      <span class="kb6rdov-lbl">Тема</span>
+      <button class="kb6rdov-ctrl${t==='dark'?' active':''}" onclick="_kb6RdOvTheme('dark')">🌑 Тёмная</button>
+      <button class="kb6rdov-ctrl${t==='sepia'?' active':''}" onclick="_kb6RdOvTheme('sepia')">📜 Сепия</button>
+      <button class="kb6rdov-ctrl${t==='light'?' active':''}" onclick="_kb6RdOvTheme('light')">☀️ Светлая</button>
+      <div class="kb6rdov-sep"></div>
+      <span class="kb6rdov-lbl">Шрифт</span>
+      <button class="kb6rdov-ctrl" onclick="_kb6RdOvFontDD(this)">
+        <span id="kb6-rdov-font-lbl">${cf.name}</span>
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="kb6rdov-sep"></div>
+      <span class="kb6rdov-lbl">Размер</span>
+      <button class="kb6rdov-ctrl" onclick="_kb6RdOvSize(-1)">−</button>
+      <span id="kb6-rdov-sz" style="font-family:var(--font-mono);font-size:11px;min-width:32px;text-align:center;color:${th.sub}">${sz}px</span>
+      <button class="kb6rdov-ctrl" onclick="_kb6RdOvSize(1)">+</button>
+      <div class="kb6rdov-sep"></div>
+      <span class="kb6rdov-lbl">Интервал</span>
+      <button class="kb6rdov-ctrl" onclick="_kb6RdOvLine(-.1)" style="letter-spacing:-.05em">↓↑</button>
+      <span id="kb6-rdov-lh" style="font-family:var(--font-mono);font-size:11px;min-width:28px;text-align:center;color:${th.sub}">${lh.toFixed(1)}</span>
+      <button class="kb6rdov-ctrl" onclick="_kb6RdOvLine(.1)" style="letter-spacing:.05em">↑↓</button>
+    </div>
+    <div id="kb6-rd-ov-body">
+      <div id="kb6-rd-ov-content">
+        <div id="kb6-rd-ov-title">${n.title||'Без названия'}</div>
+        <div id="kb6-rd-ov-meta">
+          <span>${wc} слов</span>
+          <span style="opacity:.3">·</span>
+          <span>~${rt} мин чтения</span>
+          <span style="opacity:.3">·</span>
+          <span>${n.updatedAt?new Date(n.updatedAt).toLocaleDateString('ru',{day:'numeric',month:'long',year:'numeric'}):''}</span>
+        </div>
+        <div id="kb6-rd-ov-divider"></div>
+        <div id="kb6-rd-ov-text">${n.body||''}</div>
+      </div>
+    </div>
+    <div id="kb6-rd-ov-metrics">
+      <span>${wc} слов</span>
+      <div class="kb6rdov-ms"></div>
+      <span>~${rt} мин</span>
+      <div class="kb6rdov-ms"></div>
+      <span class="kb6rdov-pct" id="kb6-rdov-pct">0%</span>
+    </div>
+  `;
+  document.body.appendChild(ov);
+  document.body.style.overflow='hidden';
+  // Scroll progress
+  const rdBody = document.getElementById('kb6-rd-ov-body');
+  if(rdBody) rdBody.addEventListener('scroll', _kb6RdOvScroll);
+  // Esc to close
+  ov._kbEscHandler = (e)=>{ if(e.key==='Escape') _kb6CloseReader(); };
+  document.addEventListener('keydown', ov._kbEscHandler);
+}
+function _kb6CloseReader(){
+  const ov = document.getElementById('kb6-reader-ov'); if(!ov) return;
+  if(ov._kbEscHandler) document.removeEventListener('keydown', ov._kbEscHandler);
+  ov.style.animation='kb6FocusOut .25s ease both';
+  setTimeout(()=>{ ov.remove(); const s=document.getElementById('kb6-rd-ov-style'); if(s) s.remove(); }, 260);
+  document.body.style.overflow='';
+}
+function _kb6RdOvScroll(){
+  const body = document.getElementById('kb6-rd-ov-body'); if(!body) return;
+  const max = body.scrollHeight - body.clientHeight;
+  const pct = max>0 ? Math.round(body.scrollTop/max*100) : 0;
+  const prog = document.getElementById('kb6-rd-ov-prog'); if(prog) prog.style.width=pct+'%';
+  const pctEl = document.getElementById('kb6-rdov-pct'); if(pctEl) pctEl.textContent=pct+'%';
+}
+function _kb6RdOvTheme(t){
+  _kbS.readTheme=t;
+  // Reopen reader with new theme
+  const ov = document.getElementById('kb6-reader-ov'); if(ov){ if(ov._kbEscHandler) document.removeEventListener('keydown', ov._kbEscHandler); ov.remove(); }
+  document.body.style.overflow='';
+  _kb6OpenReader();
+}
+function _kb6RdOvFontDD(btn){
+  // Float dropdown for font in reader
+  document.querySelectorAll('.kb6-float-dd').forEach(d=>d.remove());
+  const rect = btn.getBoundingClientRect();
+  const float = document.createElement('div');
+  float.className = 'kb6-float-dd';
+  float.style.cssText=`position:fixed;top:${rect.bottom+6}px;left:${rect.left}px;min-width:200px;background:rgba(10,10,18,.97);border:0.5px solid rgba(255,255,255,.13);border-radius:14px;padding:6px;z-index:99999;box-shadow:0 24px 64px rgba(0,0,0,.85);backdrop-filter:blur(40px);animation:kb6dd .16s cubic-bezier(.34,1.15,.64,1) both;`;
+  float.innerHTML = _kb6Fonts().map(f=>`<div class="kb6-dd-opt${(_kbS.readFont||'nunito')===f.id?' active':''}" onclick="_kb6RdOvSetFont('${f.id}')" style="font-family:'${f.family}',sans-serif;color:var(--t1)">${f.name}</div>`).join('');
+  document.body.appendChild(float);
+  const close=(e)=>{ if(!float.contains(e.target)&&e.target!==btn){ float.remove(); document.removeEventListener('click',close,true); }};
+  setTimeout(()=>document.addEventListener('click',close,true),50);
+}
+function _kb6RdOvSetFont(id){
+  _kbS.readFont=id;
+  document.querySelectorAll('.kb6-float-dd').forEach(d=>d.remove());
+  const c = document.getElementById('kb6-rd-ov-content');
+  const lbl = document.getElementById('kb6-rdov-font-lbl');
+  const f = _kb6FontById(id);
+  if(c) c.style.fontFamily=`'${f.family}',sans-serif`;
+  if(lbl) lbl.textContent=f.name;
+}
+function _kb6RdOvSize(delta){
+  _kbS.readSize = Math.min(28,Math.max(12,(_kbS.readSize||16)+delta));
+  const c = document.getElementById('kb6-rd-ov-content'); if(c) c.style.fontSize=_kbS.readSize+'px';
+  const sz = document.getElementById('kb6-rdov-sz'); if(sz) sz.textContent=_kbS.readSize+'px';
+}
+function _kb6RdOvLine(delta){
+  _kbS.readLine = Math.min(3,Math.max(1.2,Math.round(((_kbS.readLine||1.8)+delta)*10)/10));
+  const c = document.getElementById('kb6-rd-ov-content'); if(c) c.style.lineHeight=String(_kbS.readLine);
+  const lh = document.getElementById('kb6-rdov-lh'); if(lh) lh.textContent=_kbS.readLine.toFixed(1);
+}
+
+// Fix 6: "..." more menu
+function _kb6MoreMenu(btn){
+  // Close any existing
+  document.querySelectorAll('.kb6-float-dd').forEach(d=>d.remove());
+  const n = _kb6CurNote(); if(!n) return;
+  const rect = btn.getBoundingClientRect();
+  const float = document.createElement('div');
+  float.className = 'kb6-float-dd';
+  float.style.cssText=`position:fixed;top:${rect.bottom+6}px;right:${window.innerWidth-rect.right}px;min-width:200px;background:rgba(10,10,18,.97);border:0.5px solid rgba(255,255,255,.13);border-radius:14px;padding:6px;z-index:99999;box-shadow:0 24px 64px rgba(0,0,0,.85);backdrop-filter:blur(40px);animation:kb6dd .16s cubic-bezier(.34,1.15,.64,1) both;`;
+  const menuItems = [
+    { icon:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/></svg>`, label: n.pinned?'Открепить':'Закрепить', fn:`_kb6TogPin()` },
+    { icon:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`, label:'Дублировать', fn:`_kb6DupNote('${_kbS.cat}','${_kbS.folder}','${_kbS.note}')` },
+    { icon:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`, label:'Переименовать', fn:`_kb6RenameNote('${_kbS.cat}','${_kbS.folder}','${_kbS.note}')` },
+    { icon:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>`, label:'Переместить', fn:`_kb6MoveNote('${_kbS.cat}','${_kbS.folder}','${_kbS.note}')` },
+    { icon:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`, label:'Экспортировать', fn:`_kb6ExportNote('${_kbS.cat}','${_kbS.folder}','${_kbS.note}')` },
+    { sep: true },
+    { icon:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`, label:'Удалить заметку', fn:`_kb6DelNote('${_kbS.cat}','${_kbS.folder}','${_kbS.note}')`, danger:true },
+  ];
+  float.innerHTML = menuItems.map(item=>{
+    if(item.sep) return `<div style="height:0.5px;background:rgba(255,255,255,.07);margin:4px 6px"></div>`;
+    return `<button class="kb6-menu-item${item.danger?' danger':''}" onclick="document.querySelectorAll('.kb6-float-dd').forEach(d=>d.remove());${item.fn}" style="width:100%">${item.icon} ${item.label}</button>`;
+  }).join('');
+  document.body.appendChild(float);
+  const close=(e)=>{ if(!float.contains(e.target)&&e.target!==btn){ float.remove(); document.removeEventListener('click',close,true); }};
+  setTimeout(()=>document.addEventListener('click',close,true),50);
+}
+// Keep old _kb6NoteMenu for toolbar compat
+function _kb6NoteMenu(){ const btn=document.getElementById('kb6-more-btn'); if(btn) _kb6MoreMenu(btn); }
 function _kb6PopulateReader(){
   const n=_kb6CurNote(); if(!n) return;
   const titleEl=document.getElementById('kb6-rd-title');
@@ -27431,61 +27998,33 @@ function _kb6RemTag(t){
 }
 
 // ── Note actions menu ─────────────────────────────────────────
-function _kb6NoteMenu(){
-  const n=_kb6CurNote(); if(!n) return;
-  const tb=document.getElementById('kb6tb'); if(!tb) return;
-  const rect=tb.getBoundingClientRect();
-  const kb=document.getElementById('kb6'); if(!kb) return;
-  const kbRect=kb.getBoundingClientRect();
-  _kb6ShowMenu(rect.right-kbRect.left-200, rect.bottom-kbRect.top+4, _kbS.cat, _kbS.folder, _kbS.note);
-}
 function _kb6NoteCtxMenu(e,cid,fid,nid){
-  const kb=document.getElementById('kb6'); if(!kb) return;
-  const kbRect=kb.getBoundingClientRect();
-  const x=Math.min(e.clientX-kbRect.left, kbRect.width-220);
-  const y=Math.min(e.clientY-kbRect.top, kbRect.height-260);
-  _kb6ShowMenu(x,y,cid,fid,nid);
-}
-function _kb6ShowMenu(x,y,cid,fid,nid){
-  const m=document.getElementById('kb6-note-menu'); if(!m) return;
+  // Create floating context menu at click position
+  const float = document.createElement('div');
+  float.className='kb6-float-dd';
   const n=_kbGetNote(cid,fid,nid); if(!n) return;
-  m.style.left=x+'px'; m.style.top=y+'px'; m.style.display='block';
-  m.innerHTML=`
-    <button class="kb6-menu-item" onclick="_kb6OpenNote('${cid}','${fid}','${nid}');document.getElementById('kb6-note-menu').style.display='none'">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-      Открыть
-    </button>
-    <button class="kb6-menu-item" onclick="document.getElementById('kb6-note-menu').style.display='none';_kb6TogReader()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-      Читать
-    </button>
-    <div class="kb6-menu-sep"></div>
-    <button class="kb6-menu-item" onclick="document.getElementById('kb6-note-menu').style.display='none';_kb6DupNote('${cid}','${fid}','${nid}')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-      Дублировать
-    </button>
-    <button class="kb6-menu-item" onclick="document.getElementById('kb6-note-menu').style.display='none';_kb6MoveNote('${cid}','${fid}','${nid}')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-      Переместить
-    </button>
-    <button class="kb6-menu-item" onclick="document.getElementById('kb6-note-menu').style.display='none';_kb6RenameNote('${cid}','${fid}','${nid}')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-      Переименовать
-    </button>
-    <button class="kb6-menu-item" onclick="document.getElementById('kb6-note-menu').style.display='none';_kb6TogPinById('${cid}','${fid}','${nid}')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="${n.pinned?'var(--gold)':'none'}" stroke="${n.pinned?'var(--gold)':'currentColor'}" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/></svg>
-      ${n.pinned?'Открепить':'Закрепить'}
-    </button>
-    <div class="kb6-menu-sep"></div>
-    <button class="kb6-menu-item" onclick="document.getElementById('kb6-note-menu').style.display='none';_kb6ExportNote('${cid}','${fid}','${nid}')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Экспортировать
-    </button>
-    <div class="kb6-menu-sep"></div>
-    <button class="kb6-menu-item danger" onclick="document.getElementById('kb6-note-menu').style.display='none';_kb6DelNote('${cid}','${fid}','${nid}')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-      Удалить
-    </button>`;
+  const x=Math.min(e.clientX, window.innerWidth-220);
+  const y=Math.min(e.clientY, window.innerHeight-280);
+  float.style.cssText=`position:fixed;top:${y}px;left:${x}px;min-width:200px;background:rgba(10,10,18,.97);border:0.5px solid rgba(255,255,255,.13);border-radius:14px;padding:6px;z-index:99999;box-shadow:0 24px 64px rgba(0,0,0,.85);backdrop-filter:blur(40px);animation:kb6dd .15s cubic-bezier(.34,1.2,.64,1) both;`;
+  const menuItems = [
+    { icon:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`, label:'Открыть', fn:`_kb6OpenNote('${cid}','${fid}','${nid}')` },
+    { icon:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`, label:'Читать', fn:`_kb6OpenNote('${cid}','${fid}','${nid}');setTimeout(_kb6OpenReader,100)` },
+    { sep: true },
+    { icon:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V17z"/></svg>`, label: n.pinned?'Открепить':'Закрепить', fn:`_kb6TogPinById('${cid}','${fid}','${nid}')` },
+    { icon:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`, label:'Дублировать', fn:`_kb6DupNote('${cid}','${fid}','${nid}')` },
+    { icon:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`, label:'Переименовать', fn:`_kb6RenameNote('${cid}','${fid}','${nid}')` },
+    { icon:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>`, label:'Переместить', fn:`_kb6MoveNote('${cid}','${fid}','${nid}')` },
+    { icon:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`, label:'Экспортировать', fn:`_kb6ExportNote('${cid}','${fid}','${nid}')` },
+    { sep: true },
+    { icon:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`, label:'Удалить', fn:`_kb6DelNote('${cid}','${fid}','${nid}')`, danger:true },
+  ];
+  float.innerHTML = menuItems.map(item=>{
+    if(item.sep) return `<div style="height:0.5px;background:rgba(255,255,255,.07);margin:4px 6px"></div>`;
+    return `<button class="kb6-menu-item${item.danger?' danger':''}" onclick="document.querySelectorAll('.kb6-float-dd').forEach(d=>d.remove());${item.fn}" style="width:100%">${item.icon} ${item.label}</button>`;
+  }).join('');
+  document.body.appendChild(float);
+  const close=(ev)=>{ if(!float.contains(ev.target)){ float.remove(); document.removeEventListener('click',close,true); }};
+  setTimeout(()=>document.addEventListener('click',close,true),50);
 }
 function _kb6TogPinById(cid,fid,nid){
   const n=_kbGetNote(cid,fid,nid); if(!n) return;
@@ -27573,7 +28112,53 @@ function _kb6ExportNote(cid,fid,nid){
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
 
-// ── Modal helpers ─────────────────────────────────────────────
+// ── Folder actions ────────────────────────────────────────────
+function _kb6CreateNoteAt(cid,fid){
+  _kbS.cat=cid; _kbS.folder=fid;
+  _kb6CreateNote(cid,fid,'');
+}
+function _kb6RenameFolderModal(cid,fid){
+  const f = _kbGetFolder(cid,fid); if(!f) return;
+  _kb6Modal(`
+    <div class="kb6-modal-title" style="display:flex;align-items:center;gap:9px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      Переименовать папку
+    </div>
+    <input id="kb6-rfol-inp" class="kb6-modal-inp" value="${_kbEsc(f.title)}">
+    <div class="kb6-modal-actions">
+      <button class="kb6-btn kb6-btn-ghost" onclick="_kb6CloseModal()">Отмена</button>
+      <button class="kb6-btn kb6-btn-gold" onclick="_kb6ConfirmRenameFolder('${cid}','${fid}')">Сохранить</button>
+    </div>
+  `);
+  setTimeout(()=>{ const i=document.getElementById('kb6-rfol-inp'); if(i){i.focus();i.select();}},80);
+}
+function _kb6ConfirmRenameFolder(cid,fid){
+  const v=(document.getElementById('kb6-rfol-inp')?.value||'').trim();
+  const f=_kbGetFolder(cid,fid); if(!f) return;
+  if(v){ f.title=v; f.updatedAt=Date.now(); _kbSave3(); }
+  _kb6CloseModal(); _kbRenderAll();
+}
+function _kb6DelFolderConfirm(cid,fid){
+  const f=_kbGetFolder(cid,fid); if(!f) return;
+  const nc=f.notes?.length||0;
+  _kb6Modal(`
+    <div class="kb6-modal-title">Удалить папку «${_kbEsc(f.title)}»?</div>
+    <div style="font-size:13px;color:var(--t2);margin-bottom:16px;line-height:1.55">${nc>0?`В папке ${nc} заметок — они будут удалены безвозвратно.`:'Это действие нельзя отменить.'}</div>
+    <div class="kb6-modal-actions">
+      <button class="kb6-btn kb6-btn-ghost" onclick="_kb6CloseModal()">Отмена</button>
+      <button class="kb6-btn kb6-btn-danger" onclick="_kb6ConfirmDelFolder('${cid}','${fid}')">Удалить${nc>0?' ('+nc+' зам.)':''}</button>
+    </div>
+  `);
+}
+function _kb6ConfirmDelFolder(cid,fid){
+  if(!_kb3[cid]) return;
+  _kb3[cid].folders = _kb3[cid].folders.filter(f=>f.id!==fid);
+  _kbSave3(); _kb6CloseModal();
+  if(_kbS.folder===fid){ _kbS.folder=null; _kbS.note=null; }
+  _kbRenderAll();
+}
+
+// ── Compat aliases ────────────────────────────────────────────
 function _kb6Modal(html){
   const ov=document.getElementById('kb6ov');
   const mc=document.getElementById('kb6modal');
