@@ -35553,6 +35553,14 @@ async function _msgSendFile(toUserId){
     // Clear preview AFTER successful send
     _msgClearPendingFile();
     appendMessage({ ...msgData, from_user_id: SB_USER.id }, true);
+    // Upgrade ticks sending → sent immediately (DB insert already confirmed)
+    const fTicks = document.querySelector(`.msg-ticks[data-mid="${msgData.id}"]`);
+    if(fTicks){
+      fTicks.style.transition = 'opacity .15s';
+      fTicks.style.opacity = '0';
+      setTimeout(()=>{ fTicks.innerHTML = _statusSVG('sent'); fTicks.dataset.status = 'sent'; fTicks.style.opacity = ''; }, 150);
+      _trackReadReceipt(msgData.id, toUserId);
+    }
     // FIX 5: update cache locally for file/image
     const filePreview = isImage ? '[Фото]' : `[Файл] ${file.name}`;
     _msgUpdateConvCache(toUserId, filePreview, true);
@@ -35908,6 +35916,14 @@ async function _msgSendVoice(blob, toUserId, duration){
     }
 
     appendMessage({ ...voiceMsg, from_user_id: SB_USER.id }, true);
+    // Upgrade ticks sending → sent immediately (DB insert already confirmed)
+    const vTicks = document.querySelector(`.msg-ticks[data-mid="${voiceMsg.id}"]`);
+    if(vTicks){
+      vTicks.style.transition = 'opacity .15s';
+      vTicks.style.opacity = '0';
+      setTimeout(()=>{ vTicks.innerHTML = _statusSVG('sent'); vTicks.dataset.status = 'sent'; vTicks.style.opacity = ''; }, 150);
+      _trackReadReceipt(voiceMsg.id, toUserId);
+    }
     // FIX 5: local cache update for voice
     if(typeof _msgUpdateConvCache === 'function') _msgUpdateConvCache(toUserId, '[Голосовое]', true);
     showToast('Голосовое отправлено 🎤');
