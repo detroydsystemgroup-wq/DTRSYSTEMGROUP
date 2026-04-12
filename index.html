@@ -13769,7 +13769,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
   background:rgba(9,9,11,.98);
   height:56px;
   padding:0;
-  animation:vrecIn .18s cubic-bezier(.22,1,.36,1) both;
+  animation:vrecIn .18s cubic-bezier(.22,1,.36,1) forwards;
 }
 @keyframes vrecIn{
   from{opacity:0;transform:translateY(10px);}
@@ -35733,43 +35733,39 @@ async function _msgStartRecording(toUserId){
 
 function _msgShowRecUI(toUserId){
   // Telegram-style: replaces the input area row, chat stays visible above
-  let ui = document.getElementById('msgVoiceRecUI');
-  if(!ui){
-    const inputArea = document.querySelector('#msgChatArea .msg-input-area');
-    const parent = inputArea?.parentElement;
-    if(!parent) return;
-    ui = document.createElement('div');
-    ui.id = 'msgVoiceRecUI';
-    const bars = Array.from({length:40},()=>'<span></span>').join('');
-    ui.innerHTML = `
-      <!-- Delete / cancel (left trash icon) -->
-      <button class="vc-rec-delete" onclick="_msgStopRecording(true)" title="Отменить">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="3 6 5 6 21 6"/>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-        </svg>
-      </button>
-
-      <!-- Center: dot + timer + waveform -->
-      <div class="vc-rec-center">
-        <div class="vc-rec-dot"></div>
-        <div class="vc-rec-time" id="msgRecTimer">0:00</div>
-        <div class="vc-rec-waveform" id="msgRecWave">${bars}</div>
-      </div>
-
-      <!-- Send (right green circle) -->
-      <button class="vc-rec-send-btn" onclick="_msgStopRecording(false)" title="Отправить">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="22" y1="2" x2="11" y2="13"/>
-          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-        </svg>
-      </button>`;
-    parent.insertBefore(ui, inputArea);
-  }
+  // Always remove stale element first — we rebuild fresh each recording
+  document.getElementById('msgVoiceRecUI')?.remove();
+  const inputArea = document.querySelector('#msgChatArea .msg-input-area');
+  const parent = inputArea?.parentElement;
+  if(!parent) return;
+  const ui = document.createElement('div');
+  ui.id = 'msgVoiceRecUI';
+  const bars = Array.from({length:40},()=>'<span></span>').join('');
+  ui.innerHTML = `
+    <!-- Delete / cancel (left trash icon) -->
+    <button class="vc-rec-delete" onclick="_msgStopRecording(true)" title="Отменить">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="3 6 5 6 21 6"/>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+      </svg>
+    </button>
+    <!-- Center: dot + timer + waveform -->
+    <div class="vc-rec-center">
+      <div class="vc-rec-dot"></div>
+      <div class="vc-rec-time" id="msgRecTimer">0:00</div>
+      <div class="vc-rec-waveform" id="msgRecWave">${bars}</div>
+    </div>
+    <!-- Send (right green circle) -->
+    <button class="vc-rec-send-btn" onclick="_msgStopRecording(false)" title="Отправить">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"/>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+      </svg>
+    </button>`;
+  parent.insertBefore(ui, inputArea);
 
   // Hide the normal input area while recording (Telegram behaviour)
-  const inputArea = document.querySelector('#msgChatArea .msg-input-area');
-  if(inputArea) inputArea.style.display = 'none';
+  inputArea.style.display = 'none';
 
   ui.classList.add('active');
 
@@ -35831,13 +35827,15 @@ function _msgStopRecording(cancel){
   clearTimeout(MIC_STATE.limitTimeout);
   cancelAnimationFrame(MIC_STATE.animFrame);
 
-  // Hide recording UI — restore input area (Telegram behaviour)
+  // FIX: remove element entirely from DOM — no residual stripe from animation fill-mode
   const ui = document.getElementById('msgVoiceRecUI');
-  if(ui){ ui.classList.remove('active'); }
+  if(ui){ ui.remove(); }
+  // Restore input area
   const inputArea = document.querySelector('#msgChatArea .msg-input-area');
-  if(inputArea) inputArea.style.display = '';
-  const fileBar = document.getElementById('msgFilePreviewBar');
-  if(fileBar && !MIC_STATE._hadFile) fileBar.style.display = '';
+  if(inputArea){ inputArea.style.display = ''; inputArea.style.opacity = '1'; }
+  // Restore reply bar if present
+  const replyBar = document.getElementById('_msgReplyBar');
+  if(replyBar) replyBar.style.display = '';
 
   if(MIC_STATE.recorder && MIC_STATE.recorder.state !== 'inactive'){
     MIC_STATE.recorder.onstop = ()=>{
