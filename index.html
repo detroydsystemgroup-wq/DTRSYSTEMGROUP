@@ -1538,7 +1538,7 @@ body { transition:background .28s,color .28s; }
 .msg-chat-typing-dots span{width:4px;height:4px;background:var(--green);border-radius:50%;animation:tBounce 1.4s ease infinite;}
 .msg-chat-typing-dots span:nth-child(2){animation-delay:.2s;}
 .msg-chat-typing-dots span:nth-child(3){animation-delay:.4s;}
-.msg-messages{flex:1;overflow-y:scroll;overflow-x:hidden;padding:14px 18px 8px;display:flex;flex-direction:column;gap:0;overscroll-behavior:contain;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.06) transparent;}
+.msg-messages{flex:1;overflow-y:scroll;overflow-x:hidden;padding:14px 18px 8px;display:flex;flex-direction:column;gap:0;overscroll-behavior:contain;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.06) transparent;min-height:0;}
 .msg-messages::-webkit-scrollbar{width:3px;}
 .msg-messages::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px;}
 .msg-date-sep{display:flex;align-items:center;justify-content:center;padding:10px 0;flex-shrink:0;}
@@ -23523,9 +23523,9 @@ function appendMessage(msg, isMine) {
     }
   }
 
-  // Auto-scroll logic — instant like Telegram
+  // Auto-scroll
   if(_msgIsAtBottom){
-    requestAnimationFrame(()=>{ el.scrollTop = el.scrollHeight; });
+    el.scrollTop = 999999;
   } else if(!isMine){
     _msgUnreadOffscreen++;
     _msgUpdateScrollBadge();
@@ -23716,158 +23716,96 @@ function _msgDoSearch(q){
   if(_searchMatches.length) _msgSearchScrollTo(0);
 }
 async function sendMsg(toUserId) {
-  // Safety: clear any stuck pending file state if no preview is visible
-  if(typeof _msgPendingFile !== 'undefined' && _msgPendingFile && _msgPendingFile.file){
-    const previewBar = document.getElementById('msgFilePreviewBar');
-    if(!previewBar || previewBar.style.display === 'none'){
-      _msgPendingFile = null; // reset stale state
-    } else {
-      await _msgSendFile(toUserId); return;
-    }
-  }
-  // Safety: reset stuck mic state
-  if(typeof _micHoldActive !== 'undefined' && _micHoldActive && !MIC_STATE?.isRecording){
-    _micHoldActive = false;
-  }
   const input = document.getElementById('msgInput');
-  const text = input?.value?.trim();
-  if (!text || !SB_USER) return;
-  if (text.length > 1000) { showToast('Сообщение слишком длинное (макс. 1000 символов)', '⚠️'); return; }
-
-  // Telegram-style: encode reply metadata as JSON payload
-  let finalText = text;
-  let replyMeta = null;
-  if(_msgReplyTo){
-    replyMeta = { replyToId: _msgReplyTo.id, replyAuthor: _msgReplyTo.authorName, replyText: _msgReplyTo.text };
-    finalText = JSON.stringify({ t: text, r: replyMeta }); // compact JSON
+  if(!input || !SB_USER || !toUserId) return;
+  
+  // File pending?
+  if(typeof _msgPendingFile !== 'undefined' && _msgPendingFile && _msgPendingFile.file){
+    const bar = document.getElementById('msgFilePreviewBar');
+    if(bar && bar.style.display !== 'none'){ await _msgSendFile(toUserId); return; }
+    _msgPendingFile = null;
   }
-  _msgCancelReply(); // clear reply state
+  
+  const text = input.value.trim();
+  if(!text) return;
+  if(text.length > 1000){ showToast('Слишком длинное (макс. 1000 символов)', '⚠️'); return; }
 
+  // Reply encoding
+  let finalText = text;
+  if(typeof _msgReplyTo !== 'undefined' && _msgReplyTo){
+    const r = _msgReplyTo;
+    finalText = JSON.stringify({ t: text, r: { replyToId: r.id, replyAuthor: r.authorName, replyText: r.text } });
+  }
+  if(typeof _msgCancelReply === 'function') _msgCancelReply();
+
+  // Clear input immediately
   input.value = '';
   input.style.height = 'auto';
-  _msgToggleSendBtn('');
+  if(typeof _msgToggleSendBtn === 'function') _msgToggleSendBtn('');
 
-  const optId = `opt-${Date.now()}`;
-  const optimisticMsg = { id: optId, content: finalText, created_at: new Date().toISOString(), from_user_id: SB_USER.id };
-  appendMessage(optimisticMsg, true);
+  // Optimistic append
+  const optId = 'opt-' + Date.now();
+  appendMessage({ id: optId, content: finalText, content_type: 'text', created_at: new Date().toISOString(), from_user_id: SB_USER.id }, true);
 
+  // DB insert
   try {
-    // Try full insert first, fallback to minimal if columns missing
-    let data, error;
-    const fullInsert = await sb.from('messages').insert({
+    const { data, error } = await sb.from('messages').insert({
       from_user_id: SB_USER.id,
       to_user_id: toUserId,
-      content: finalText, // FIX 1: includes reply quote if replying
+      content: finalText,
       content_type: 'text',
       read: false
     }).select('id').single();
-    
-    if(fullInsert.error){
-      const errMsg = fullInsert.error.message || '';
-      const errCode = fullInsert.error.code || '';
-      console.error('[DTR] sendMsg error:', errCode, errMsg);
-      
-      // Column missing (42703) → try without optional columns
-      if(errCode === '42703' || errMsg.includes('column') || errMsg.includes('content_type') || errMsg.includes('read')){
-        const minimal = await sb.from('messages').insert({
+
+    if(error) {
+      // Fallback: try without optional columns
+      if(error.code === '42703' || (error.message||'').includes('column')){
+        const r2 = await sb.from('messages').insert({
           from_user_id: SB_USER.id,
           to_user_id: toUserId,
-          content: text
+          content: finalText
         }).select('id').single();
-        if(minimal.error) throw minimal.error;
-        data = minimal.data; error = null;
-      } else {
-        throw fullInsert.error;
-      }
-    } else {
-      data = fullInsert.data; error = null;
+        if(r2.error) throw r2.error;
+        if(r2.data?.id) _swapOptId(optId, r2.data.id, toUserId);
+      } else { throw error; }
+    } else if(data?.id){
+      _swapOptId(optId, data.id, toUserId);
     }
-    if (error) throw error;
-
-    // Swap optimistic id → real id and upgrade to 'sent' (1 tick)
-    if(data?.id){
-      const optRow=document.querySelector(`.msg-row[data-msg-id="${optId}"]`);
-      if(optRow){ optRow.dataset.msgId=data.id; }
-      const optBub=document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
-      if(optBub){
-        optBub.dataset.msgId=data.id;
-        const rp=optBub.querySelector('.reaction-popup');
-        if(rp) rp.id=`rp-${data.id}`;
-        const ticks=optBub.querySelector('.msg-ticks');
-        if(ticks){
-          ticks.dataset.mid=data.id;
-          // Animate: sending → sent (1 grey tick)
-          // Telegram tick pop animation
-          ticks.style.transition='opacity .12s';
-          ticks.style.opacity='0';
-          setTimeout(()=>{
-            ticks.innerHTML=_statusSVG('sent');
-            ticks.dataset.status='sent';
-            ticks.style.opacity='1';
-            ticks.style.transition='';
-            // Force reflow for animation restart
-            void ticks.offsetWidth;
-          },120);
-          // Track real message id for read receipt
-          _trackReadReceipt(data.id, toUserId);
-        }
-      }
-    }
-    // FIX 5: update conv list cache locally (avoid full 500-msg reload)
-    _msgUpdateConvCache(toUserId, finalText, true);
-  } catch (err) {
-    console.error('[DTR] Message send failed:', err?.code, err?.message, err);
-    
-    // RLS error: try to refresh Supabase session and retry automatically
-    if(err?.code === '42501' || err?.message?.includes('permission denied') || err?.message?.includes('RLS')){
-      try {
-        const { data: { session } } = await sb.auth.getSession();
-        if(session){
-          // Session valid — RLS policy issue. Try once more with fresh headers
-          await sb.auth.refreshSession();
-          // Auto-retry
-          const retryInsert = await sb.from('messages').insert({
-            from_user_id: SB_USER.id,
-            to_user_id: toUserId,
-            content: text,
-            content_type: 'text',
-            read: false
-          }).select('id').single();
-          if(!retryInsert.error && retryInsert.data?.id){
-            // Success on retry — update optimistic message
-            const optBub = document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
-            if(optBub) optBub.dataset.msgId = retryInsert.data.id;
-            const optRow = document.querySelector(`.msg-row[data-msg-id="${optId}"]`);
-            if(optRow) optRow.dataset.msgId = retryInsert.data.id;
-            const ticks = optBub?.querySelector('.msg-ticks');
-            if(ticks){ ticks.innerHTML = _statusSVG('sent'); ticks.dataset.status = 'sent'; }
-            await loadConversations();
-            return; // success
-          }
-        }
-      } catch(retryErr){ console.warn('[DTR] Retry failed:', retryErr); }
-    }
-    
-    const optBub=document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
+  } catch(err) {
+    console.error('[DTR] sendMsg failed:', err?.code, err?.message);
+    // Mark optimistic bubble as failed
+    const optBub = document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
     if(optBub){
-      optBub.style.opacity='.5';
-      const errEl=document.createElement('div');
-      errEl.style.cssText='font-size:10px;color:var(--red);margin-top:4px;cursor:pointer;display:flex;align-items:center;gap:4px;';
-      const code = err?.code || '';
-      const msg  = err?.message || '';
-      const hint = code === '42501'              ? 'Нет прав (RLS) — нажми для повтора' :
-                   code === 'PGRST301'           ? 'Ошибка авторизации — перезайди' :
-                   msg.includes('JWT')           ? 'Сессия истекла — перезайди' :
-                   msg.includes('network')       ? 'Нет соединения — нажми для повтора' :
-                                                   'Ошибка — нажми для повтора';
-      errEl.innerHTML=`<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> ${hint}`;
-      errEl.onclick=()=>{ optBub.style.opacity='1'; errEl.remove(); sendMsg(toUserId); };
+      optBub.style.opacity = '.5';
+      const errEl = document.createElement('div');
+      errEl.style.cssText = 'font-size:10px;color:var(--red);margin-top:4px;cursor:pointer;';
+      errEl.textContent = '⚠️ Не доставлено — нажми для повтора';
+      errEl.onclick = () => { optBub.style.opacity='1'; errEl.remove(); input.value=text; sendMsg(toUserId); };
       optBub.appendChild(errEl);
     }
-    const detail = err?.message ? ` (${err.message.slice(0,50)})` : '';
-    showToast('Не доставлено' + detail, '⚠️');
+    showToast('Не доставлено', '⚠️');
   }
 }
+
+function _swapOptId(optId, realId, toUserId){
+  const row = document.querySelector(`.msg-row[data-msg-id="${optId}"]`);
+  if(row) row.dataset.msgId = realId;
+  const bub = document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
+  if(bub){
+    bub.dataset.msgId = realId;
+    const rp = bub.querySelector('.reaction-popup');
+    if(rp) rp.id = 'rp-' + realId;
+    const ticks = bub.querySelector('.msg-ticks');
+    if(ticks){
+      ticks.dataset.mid = realId;
+      ticks.innerHTML = _statusSVG('sent');
+      ticks.dataset.status = 'sent';
+    }
+  }
+  if(typeof _msgUpdateConvCache === 'function') _msgUpdateConvCache(toUserId, document.querySelector(`.msg-bubble[data-msg-id="${realId}"] span`)?.textContent || '', true);
+  if(typeof _trackReadReceipt === 'function') _trackReadReceipt(realId, toUserId);
+}
+
 
 // ── Read receipt tracker ──
 // When partner opens chat, Supabase marks messages read=true
@@ -38005,23 +37943,13 @@ const MIC_HOLD_MS = 350;
 let _micHoldActive = false;
 
 function _msgSendBtnClick(toUserId){
-  // Voice recording active — ignore click
   if(typeof MIC_STATE !== 'undefined' && MIC_STATE.isRecording) return;
-  // Edit mode
-  if(typeof _msgEditingId !== 'undefined' && _msgEditingId){ _msgSaveEdit(); return; }
-  // File pending
-  if(typeof _msgPendingFile !== 'undefined' && _msgPendingFile && _msgPendingFile.file){
-    _msgSendFile(toUserId); return;
-  }
-  // Text send — check directly, never rely on button visual state
+  if(typeof _msgEditingId !== 'undefined' && _msgEditingId){ if(typeof _msgSaveEdit==='function')_msgSaveEdit(); return; }
+  if(typeof _msgPendingFile !== 'undefined' && _msgPendingFile && _msgPendingFile.file){ _msgSendFile(toUserId); return; }
   const inp = document.getElementById('msgInput');
-  const txt = inp ? inp.value.trim() : '';
-  if(txt.length > 0){
-    sendMsg(toUserId);
-    return;
-  }
-  // Empty + no file = mic mode (long-press starts recording)
+  if(inp && inp.value.trim()){ sendMsg(toUserId); }
 }
+
 
 function _msgMicStartHold(e, toUserId){
   _micHoldActive = false;
