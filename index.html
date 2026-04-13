@@ -20354,30 +20354,22 @@ async function sendMsg(toUserId){
     }
   } catch(err){
     console.error('[DTR] sendMsg:', err?.message, err?.code);
-    
-    // 403 / RLS error → refresh session and retry ONCE
-    const errMsg = err?.message || '';
-    const errCode = err?.code || '';
-    if(errCode === '42501' || errMsg.includes('row-level') || errMsg.includes('policy') || errMsg.includes('permission')){
-      console.log('[DTR] RLS error — refreshing session and retrying...');
+    const em = err?.message||'';
+    // RLS 403 → refresh session and retry once
+    if(em.includes('row-level')||em.includes('policy')||em.includes('permission')||err?.code==='42501'){
       try {
         await sb.auth.refreshSession();
-        const retry = await sb.from('messages').insert({
-          from_user_id: SB_USER.id, to_user_id: toUserId, content: finalText, content_type:'text', read:false
-        }).select('id').single();
-        if(!retry.error && retry.data?.id){
-          console.log('[DTR] Retry succeeded!');
-          const row=document.querySelector(`.msg-row[data-msg-id="${optId}"]`);if(row)row.dataset.msgId=retry.data.id;
-          const bub=document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
-          if(bub){bub.dataset.msgId=retry.data.id;bub.style.opacity='1';const t=bub.querySelector('.msg-ticks');if(t){t.dataset.mid=retry.data.id;t.innerHTML=_statusSVG('sent');t.dataset.status='sent';}}
-          if(typeof _trackReadReceipt==='function') _trackReadReceipt(retry.data.id, toUserId);
-          if(typeof _msgUpdateConvCache==='function') _msgUpdateConvCache(toUserId, text, true);
-          return; // success!
+        const r2 = await sb.from('messages').insert({from_user_id:SB_USER.id,to_user_id:toUserId,content:finalText,content_type:'text',read:false}).select('id').single();
+        if(!r2.error && r2.data?.id){
+          const row=document.querySelector(`.msg-row[data-msg-id="${optId}"]`);if(row)row.dataset.msgId=r2.data.id;
+          const b2=document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
+          if(b2){b2.dataset.msgId=r2.data.id;b2.style.opacity='1';const t=b2.querySelector('.msg-ticks');if(t){t.dataset.mid=r2.data.id;t.innerHTML=_statusSVG('sent');t.dataset.status='sent';}}
+          if(typeof _trackReadReceipt==='function')_trackReadReceipt(r2.data.id,toUserId);
+          if(typeof _msgUpdateConvCache==='function')_msgUpdateConvCache(toUserId,text,true);
+          return;
         }
-        if(retry.error) console.error('[DTR] Retry also failed:', retry.error.message);
-      } catch(retryErr){ console.error('[DTR] Session refresh failed:', retryErr); }
+      } catch(e2){ console.warn('[DTR] Retry failed:', e2); }
     }
-    
     const bub = document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
     if(bub){
       bub.style.opacity = '.5';
@@ -37852,16 +37844,11 @@ async function _msgSendFile(toUserId){
     showToast(isImage ? 'Фото отправлено 📸' : 'Файл отправлен 📎');
   } catch(err){
     console.error('[DTR] Send file error:', err?.code, err?.message);
-    // 403 / RLS → refresh session and retry
-    const errMsg = err?.message || '';
-    if(errMsg.includes('row-level') || errMsg.includes('policy') || errMsg.includes('permission') || err?.code==='42501'){
-      try {
-        console.log('[DTR] File RLS error — refreshing session...');
-        await sb.auth.refreshSession();
-        showToast('Сессия обновлена — попробуй ещё раз','🔄');
-      } catch(e2){}
+    const em = err?.message||'';
+    if(em.includes('row-level')||em.includes('policy')||em.includes('permission')||err?.code==='42501'){
+      try { await sb.auth.refreshSession(); showToast('Сессия обновлена — попробуй ещё раз','🔄'); } catch(e2){}
     }
-    showToast('Ошибка: ' + (err?.message||'неизвестная ошибка').slice(0,100), '⚠️');
+    showToast('Ошибка: ' + (em||'неизвестная ошибка').slice(0,100), '⚠️');
   } finally {
     // Force remove uploading state and reset button
     if(sendBtn){
@@ -38595,16 +38582,14 @@ console.log('[DTR] Video call system initialized');
 }
 </style>
 <script>
-// ══ GLOBAL SEND + AUTO SESSION REFRESH ══
+// ══ GLOBAL HANDLERS: Send text/files + Auto session refresh ══
 (function(){
-  // Auto-refresh Supabase session every 25 min to prevent 403 RLS
-  setInterval(function(){
-    if(typeof sb!=='undefined'&&sb&&sb.auth) sb.auth.refreshSession().catch(function(){});
-  }, 25*60*1000);
-  // Also refresh immediately on page load
-  if(typeof sb!=='undefined'&&sb&&sb.auth) sb.auth.refreshSession().catch(function(){});
+  // Prevent RLS 403: refresh session on load and every 20 min
+  function _refreshSB(){ if(typeof sb!=='undefined'&&sb&&sb.auth) sb.auth.refreshSession().catch(function(){}); }
+  setTimeout(_refreshSB, 2000);
+  setInterval(_refreshSB, 20*60*1000);
 
-  // Enter key → send
+  // ENTER → send text
   document.addEventListener('keydown', function(e){
     if(e.key!=='Enter'||e.shiftKey) return;
     var inp=document.getElementById('msgInput');
@@ -38612,26 +38597,29 @@ console.log('[DTR] Video call system initialized');
     if(!inp.value||!inp.value.trim()) return;
     e.preventDefault(); e.stopImmediatePropagation();
     if(typeof sendMsg==='function'&&typeof activeConvUserId!=='undefined'&&activeConvUserId)
-      sendMsg(activeConvUserId).catch(function(x){console.error('[DTR-G]',x);});
+      sendMsg(activeConvUserId).catch(function(x){console.error('[G]',x);});
   }, true);
 
-  // Click send → send text or file
+  // CLICK send btn → send text OR file
   document.addEventListener('click', function(e){
     var btn=e.target.closest&&e.target.closest('#msgSendBtn');
     if(!btn) return;
     if(typeof activeConvUserId==='undefined'||!activeConvUserId) return;
-    // File?
+    // File pending? Send file!
     if(typeof _msgPendingFile!=='undefined'&&_msgPendingFile&&_msgPendingFile.file){
-      if(typeof _msgSendFile==='function') _msgSendFile(activeConvUserId).catch(function(x){console.error('[DTR-G]',x);});
+      e.stopImmediatePropagation();
+      if(typeof _msgSendFile==='function') _msgSendFile(activeConvUserId).catch(function(x){console.error('[G]',x);});
       return;
     }
+    // Text?
     var inp=document.getElementById('msgInput');
-    if(!inp||!inp.value||!inp.value.trim()) return;
-    if(typeof sendMsg==='function')
-      sendMsg(activeConvUserId).catch(function(x){console.error('[DTR-G]',x);});
+    if(inp&&inp.value&&inp.value.trim()){
+      e.stopImmediatePropagation();
+      if(typeof sendMsg==='function') sendMsg(activeConvUserId).catch(function(x){console.error('[G]',x);});
+    }
   }, true);
 
-  console.log('[DTR-G] Send handlers + auto-refresh installed');
+  console.log('[DTR] Global send + auto-refresh installed');
 })();
 </script>
 </body>
