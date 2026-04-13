@@ -25734,57 +25734,132 @@ function _kbCSS(){ return `
   transition: border-radius .35s cubic-bezier(.4,0,.2,1), height .35s cubic-bezier(.4,0,.2,1);
 }
 /* ═══════════════════════════════════════════════════════
-   UNIVERSAL FULLSCREEN — одна кнопка, все разделы
+   UNIVERSAL FULLSCREEN — полная адаптация всех разделов
    ═══════════════════════════════════════════════════════ */
 
-/* Скрываем интерфейс */
+/* ── Скрываем интерфейс ── */
 body.dtr-fs-active .nav,
 body.dtr-fs-active .ph,
 body.dtr-fs-active .ph-tabs,
 body.dtr-fs-active .week-dots-row { display: none !important; }
 
-/* Убираем правый сайдбар и лишние отступы */
+/* ── Убираем правый сайдбар, сетку и отступы ── */
 body.dtr-fs-active .main {
   grid-template-columns: 1fr !important;
   padding: 0 !important; gap: 0 !important;
 }
 body.dtr-fs-active .main > div:nth-child(2) { display: none !important; }
 
-/* Активная вкладка → весь viewport */
+/* ── Активная вкладка — полный viewport ── */
 body.dtr-fs-active .tc.active {
   position: fixed !important; inset: 0 !important;
   z-index: 99970 !important;
   overflow-y: auto !important; overflow-x: hidden !important;
   background: var(--bg) !important;
-  padding-top: 52px !important; /* отступ под шапку свернуть */
-  animation: dtrFsIn .3s cubic-bezier(.4,0,.2,1) both;
-}
-body.dtr-fs-active #kb-root { padding: 0 !important; }
-body.dtr-fs-active #tab-knowledge {
-  padding: 0 !important; padding-top: 0 !important;
-}
-/* KB: #kb6 заполняет контейнер */
-body.dtr-fs-active #kb6 {
-  height: calc(100dvh - 52px) !important;
-  min-height: calc(100dvh - 52px) !important;
-  border-radius: 0 !important; border: none !important;
+  padding-top: 54px !important;
+  animation: dtrFsIn .28s cubic-bezier(.4,0,.2,1) both;
 }
 @keyframes dtrFsIn {
-  from { opacity:0; transform:scale(.985); }
-  to   { opacity:1; transform:scale(1); }
+  from { opacity:0; transform:scale(.992); }
+  to   { opacity:1; transform:none; }
 }
 
-/* Шапка с кнопкой "Свернуть" — всегда поверх */
-body.dtr-fs-active #dtr-fs-exit-wrap { display: flex !important; }
+/* ── Карточки: без скруглений по краям, на всю ширину ── */
+body.dtr-fs-active .tc.active .card {
+  border-radius: 0 !important;
+  border-left: none !important;
+  border-right: none !important;
+  margin-bottom: 1px !important;
+}
+body.dtr-fs-active .tc.active .card:first-child { border-top: none !important; }
 
-/* Кнопка в навбаре — золотая когда активна */
+/* ── ДАШБОРД — расширяем KPI сетку ── */
+body.dtr-fs-active #tab-dash { padding: 0 !important; }
+body.dtr-fs-active #tab-dash .kpi-grid {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
+}
+body.dtr-fs-active #tab-dash .ch { padding: 14px 24px !important; }
+
+/* ── АРЕНА — убираем ограничение ширины ── */
+body.dtr-fs-active #tab-leagues { padding: 0 !important; }
+body.dtr-fs-active #tab-leagues .card { padding: 0 !important; }
+body.dtr-fs-active #arenaTopBar {
+  border-radius: 0 !important;
+  padding: 12px 24px !important;
+}
+body.dtr-fs-active .lg-body { border-radius: 0 !important; }
+body.dtr-fs-active .lg-row { padding: 10px 24px !important; }
+
+/* ── ИСТОРИЯ — растягиваем фильтры ── */
+body.dtr-fs-active #tab-activity { padding: 0 !important; }
+body.dtr-fs-active #tab-activity .act-tabs-wrap,
+body.dtr-fs-active #tab-activity .sfb-row {
+  border-radius: 0 !important; padding: 12px 24px !important;
+}
+body.dtr-fs-active #tab-activity .card { padding: 20px 24px !important; }
+
+/* ── НАГРАДЫ — расширяем сетку ── */
+body.dtr-fs-active #tab-achievements { padding: 0 !important; }
+body.dtr-fs-active #tab-achievements .ach-badge-grid {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
+}
+body.dtr-fs-active .ach-summary { border-radius: 0 !important; margin: 0 0 1px 0 !important; }
+
+/* ── ЛИГИ (УПРАВЛЕНИЕ) — расширяем карточки ── */
+body.dtr-fs-active #tab-manage { padding: 0 !important; }
+body.dtr-fs-active .mg-grid {
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)) !important;
+  padding: 20px 24px !important;
+}
+body.dtr-fs-active .mg-item { border-radius: 12px !important; }
+
+/* ── СООБЩЕНИЯ — на всю высоту ── */
+body.dtr-fs-active #tab-messages { padding: 0 !important; }
+body.dtr-fs-active .msg-layout {
+  height: calc(100dvh - 54px) !important;
+  min-height: calc(100dvh - 54px) !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+
+/* ── ПРИВЫЧКИ — на всю ширину ── */
+body.dtr-fs-active #tab-habits { padding: 0 !important; }
+body.dtr-fs-active #hab-root > .card,
+body.dtr-fs-active #hab-root > div > .card {
+  border-radius: 0 !important;
+}
+
+/* ── МАТЕРИАЛЫ ── */
+body.dtr-fs-active #tab-learn { padding: 0 !important; }
+body.dtr-fs-active #learn-root {
+  height: calc(100dvh - 54px) !important;
+  min-height: calc(100dvh - 54px) !important;
+}
+
+/* ── ДРУЗЬЯ ── */
+body.dtr-fs-active #tab-social { padding: 0 !important; }
+body.dtr-fs-active #social-root .card { border-radius: 0 !important; }
+
+/* ── БАЗА ЗНАНИЙ ── */
+body.dtr-fs-active #kb-root { padding: 0 !important; }
+body.dtr-fs-active #tab-knowledge { padding: 0 !important; padding-top: 0 !important; }
+body.dtr-fs-active #kb6 {
+  height: calc(100dvh - 54px) !important;
+  min-height: calc(100dvh - 54px) !important;
+  border-radius: 0 !important; border: none !important;
+}
+
+/* ── Навбар кнопка — золотая когда активна ── */
 body.dtr-fs-active #dtr-fs-btn {
   background: rgba(245,200,66,.12) !important;
   border-color: rgba(245,200,66,.35) !important;
   color: var(--gold) !important;
 }
 
-/* Скрываем KB-кнопку (удалена из HTML, на всякий случай) */
+/* ── Шапка "Свернуть" — всегда поверх ── */
+body.dtr-fs-active #dtr-fs-exit-wrap { display: flex !important; }
+
+/* Скрываем KB sidebar toggle (больше не нужен) */
 .kb6-fs-toggle { display: none !important; }
 /* ── Sidebar ── */
 #kb6sb {
@@ -26894,40 +26969,64 @@ function _kbBuildShell(){ return `
   <!-- Modal overlay -->
   <div id="kb6ov"><div id="kb6modal"></div></div>
 </div>
-<!-- Universal fullscreen exit — always accessible -->
+<!-- Fullscreen exit bar — всегда видна, понятна любому -->
 <div id="dtr-fs-exit-wrap" style="
   position:fixed; top:0; left:0; right:0; z-index:99975;
-  display:none; align-items:center; justify-content:space-between;
-  padding:10px 20px;
-  background:linear-gradient(180deg, rgba(6,6,12,.96) 0%, rgba(6,6,12,0) 100%);
-  pointer-events:none;
+  display:none;
+  height:54px;
+  align-items:center; justify-content:space-between;
+  padding:0 20px;
+  background:rgba(6,6,12,.92);
+  border-bottom:0.5px solid rgba(255,255,255,.08);
+  backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+  box-shadow:0 2px 24px rgba(0,0,0,.4);
+  animation:dtrBarIn .3s ease both;
 ">
-  <!-- Left: section name -->
-  <div id="dtr-fs-label" style="
-    font-size:13px;font-weight:700;color:rgba(255,255,255,.55);
-    letter-spacing:.01em;display:flex;align-items:center;gap:8px;
-    pointer-events:none;
-  ">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" opacity=".5"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
-    Полный экран
+  @keyframes dtrBarIn { from{transform:translateY(-100%);opacity:0} to{transform:none;opacity:1} }
+
+  <!-- Левая часть: логотип + раздел -->
+  <div style="display:flex;align-items:center;gap:12px">
+    <div style="
+      width:30px;height:30px;border-radius:8px;
+      background:linear-gradient(135deg,rgba(245,200,66,.2),rgba(245,200,66,.06));
+      border:0.5px solid rgba(245,200,66,.3);
+      display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    ">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round">
+        <path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
+        <path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
+      </svg>
+    </div>
+    <div>
+      <div style="font-size:12px;font-weight:800;color:rgba(255,255,255,.9);letter-spacing:.01em" id="dtr-fs-section-name">Полный экран</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.35);margin-top:1px">Нажми Esc или кнопку → для выхода</div>
+    </div>
   </div>
-  <!-- Right: exit button -->
+
+  <!-- Правая часть: кнопка выхода -->
   <button onclick="dtrExitFS()" style="
-    display:inline-flex;align-items:center;gap:8px;
-    padding:7px 16px;border-radius:10px;
-    background:rgba(255,255,255,.09);
-    border:0.5px solid rgba(255,255,255,.18);
-    color:rgba(255,255,255,.8);font-size:12px;font-weight:700;
+    display:inline-flex;align-items:center;gap:9px;
+    padding:8px 20px;border-radius:10px;
+    background:rgba(255,255,255,.08);
+    border:0.5px solid rgba(255,255,255,.16);
+    color:rgba(255,255,255,.8);font-size:13px;font-weight:700;
     cursor:pointer;font-family:inherit;
-    transition:background .18s,border-color .18s,color .18s,transform .18s;
-    pointer-events:all; backdrop-filter:blur(20px);
-    box-shadow:0 4px 20px rgba(0,0,0,.4);
+    transition:background .18s,border-color .18s,color .18s,transform .15s;
+    letter-spacing:.01em;
   "
-  onmouseover="this.style.background='rgba(239,68,68,.18)';this.style.borderColor='rgba(239,68,68,.45)';this.style.color='#ff6b6b';this.style.transform='translateY(-1px)'"
-  onmouseout="this.style.background='rgba(255,255,255,.09)';this.style.borderColor='rgba(255,255,255,.18)';this.style.color='rgba(255,255,255,.8)';this.style.transform=''">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
+  onmouseover="this.style.background='rgba(239,68,68,.2)';this.style.borderColor='rgba(239,68,68,.5)';this.style.color='#ff8080';this.style.transform='scale(1.03)'"
+  onmouseout="this.style.background='rgba(255,255,255,.08)';this.style.borderColor='rgba(255,255,255,.16)';this.style.color='rgba(255,255,255,.8)';this.style.transform=''">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round">
+      <path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/>
+      <path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/>
+    </svg>
     Свернуть
-    <kbd style="font-size:9.5px;font-family:var(--font-mono);opacity:.5;padding:1px 5px;border-radius:4px;background:rgba(255,255,255,.1);border:0.5px solid rgba(255,255,255,.15)">Esc</kbd>
+    <kbd style="
+      font-size:10px;font-family:var(--font-mono);
+      padding:2px 6px;border-radius:5px;
+      background:rgba(255,255,255,.1);border:0.5px solid rgba(255,255,255,.18);
+      color:rgba(255,255,255,.45);font-weight:400;
+    ">Esc</kbd>
   </button>
 </div>
 <!-- KB focus exit (separate) -->
@@ -27628,14 +27727,23 @@ function dtrEnterFS(){
   const icon = document.getElementById('dtr-fs-icon');
   if(icon) icon.innerHTML = `<path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/>`;
 
-  // Показываем шапку "Свернуть"
+  // Показываем бар с названием раздела
   const wrap = document.getElementById('dtr-fs-exit-wrap');
   if(wrap) wrap.style.display = 'flex';
 
+  // Имя активного раздела
+  const nameMap = {
+    'dash':'Дашборд','leagues':'Арена','activity':'История',
+    'achievements':'Награды','manage':'Лиги','messages':'Сообщения',
+    'knowledge':'База знаний','habits':'Привычки','learn':'Материалы','social':'Друзья'
+  };
+  const activeTab = document.querySelector('.stab.active');
+  const tabName = activeTab?.dataset?.tab || '';
+  const sectionEl = document.getElementById('dtr-fs-section-name');
+  if(sectionEl) sectionEl.textContent = nameMap[tabName] || 'Полный экран';
+
   // KB: адаптируем
-  if(document.getElementById('tab-knowledge')?.classList.contains('active')){
-    if(typeof _kbRenderAll === 'function') _kbRenderAll();
-  }
+  if(tabName === 'knowledge' && typeof _kbRenderAll === 'function') _kbRenderAll();
 
   document.querySelector('.tc.active')?.scrollTo(0,0);
   document.addEventListener('keydown', _dtrFsEscHandler);
