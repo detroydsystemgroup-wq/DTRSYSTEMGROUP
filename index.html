@@ -25707,7 +25707,54 @@ function _kbCSS(){ return `
   background: #080810;
   font-family: 'Inter', var(--font-body), sans-serif;
   position: relative;
+  transition: border-radius .35s cubic-bezier(.4,0,.2,1), height .35s cubic-bezier(.4,0,.2,1);
 }
+/* Fullscreen mode */
+#kb6.kb6-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 99970 !important;
+  border-radius: 0 !important;
+  height: 100vh !important;
+  min-height: 100vh !important;
+  border: none !important;
+  animation: kb6fsIn .3s cubic-bezier(.4,0,.2,1) both;
+}
+@keyframes kb6fsIn {
+  from { opacity:.7; transform: scale(.98); }
+  to   { opacity:1; transform: scale(1); }
+}
+/* Fullscreen exit button */
+#kb6-fs-bar {
+  display: none;
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 0; z-index: 99971;
+  pointer-events: none;
+}
+#kb6.kb6-fullscreen ~ #kb6-fs-bar,
+body.kb6-fs-active #kb6-fs-bar { display: block; }
+#kb6-fs-exit-btn {
+  position: fixed; top: 14px; right: 18px; z-index: 99972;
+  display: none; align-items: center; gap: 8px;
+  padding: 7px 16px; border-radius: 12px;
+  background: rgba(15,15,22,.97); border: 0.5px solid rgba(255,255,255,.14);
+  color: rgba(255,255,255,.7); font-size: 12px; font-weight: 700;
+  cursor: pointer; font-family: inherit; transition: all .18s;
+  box-shadow: 0 4px 20px rgba(0,0,0,.5); backdrop-filter: blur(20px);
+  letter-spacing: .01em;
+}
+body.kb6-fs-active #kb6-fs-exit-btn { display: flex; }
+#kb6-fs-exit-btn:hover { background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.35); color: var(--red); }
+/* Fullscreen toggle button in sidebar */
+.kb6-fs-toggle {
+  width: 26px; height: 26px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: 0.5px solid rgba(255,255,255,.1);
+  color: var(--t3); cursor: pointer; transition: all .15s;
+  flex-shrink: 0;
+}
+.kb6-fs-toggle:hover { background: rgba(255,255,255,.08); color: var(--t1); border-color: rgba(255,255,255,.2); }
+body.kb6-fs-active .kb6-fs-toggle { background: rgba(245,200,66,.1); border-color: rgba(245,200,66,.3); color: var(--gold); }
 /* ── Sidebar ── */
 #kb6sb {
   width: 248px; flex-shrink: 0; display: flex; flex-direction: column;
@@ -26661,6 +26708,13 @@ function _kbBuildShell(){ return `
           </svg>
         </div>
         <span class="kb6-logo-txt" onclick="_kb6GoHome()" style="cursor:pointer;transition:color .15s" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color=''">База знаний</span>
+        <!-- Fullscreen toggle -->
+        <button class="kb6-fs-toggle kb6-logo-txt" onclick="_kb6TogFullscreen()" id="kb6-fs-btn" title="Полный экран">
+          <svg id="kb6-fs-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
+            <path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
+          </svg>
+        </button>
       </div>
       <button class="kb6-new-note-btn" onclick="_kb6NewNote()" title="Новая заметка">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -26816,6 +26870,14 @@ function _kbBuildShell(){ return `
   <!-- Modal overlay -->
   <div id="kb6ov"><div id="kb6modal"></div></div>
 </div>
+<!-- Fullscreen exit button (fixed, outside #kb6) -->
+<button id="kb6-fs-exit-btn" onclick="_kb6ExitFullscreen()">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+    <path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
+    <path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
+  </svg>
+  Свернуть
+</button>
 <!-- Focus exit button (outside kb6) -->
 <button id="kb6-focus-exit" onclick="_kb6ExitFocus()">
   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
@@ -27494,6 +27556,44 @@ function _kb6RenderToolbar(){
 function _kb6GoHome(){
   _kbS.cat=null; _kbS.folder=null; _kbS.note=null;
   _kbRenderAll();
+}
+
+// ── Fullscreen Mode ───────────────────────────────────────────
+function _kb6TogFullscreen(){
+  const kb = document.getElementById('kb6');
+  if(!kb) return;
+  const isFs = kb.classList.contains('kb6-fullscreen');
+  if(isFs) _kb6ExitFullscreen();
+  else _kb6EnterFullscreen();
+}
+function _kb6EnterFullscreen(){
+  const kb = document.getElementById('kb6');
+  if(!kb) return;
+  kb.classList.add('kb6-fullscreen');
+  document.body.classList.add('kb6-fs-active');
+  document.body.style.overflow = 'hidden';
+  // Update icon to "compress"
+  const icon = document.getElementById('kb6-fs-icon');
+  if(icon) icon.innerHTML = `<path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/>`;
+  // Re-render to adapt layout
+  _kbRenderAll();
+  // Esc to exit
+  document.addEventListener('keydown', _kb6FsEscHandler);
+}
+function _kb6ExitFullscreen(){
+  const kb = document.getElementById('kb6');
+  if(!kb) return;
+  kb.classList.remove('kb6-fullscreen');
+  document.body.classList.remove('kb6-fs-active');
+  document.body.style.overflow = '';
+  // Restore icon to "expand"
+  const icon = document.getElementById('kb6-fs-icon');
+  if(icon) icon.innerHTML = `<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>`;
+  document.removeEventListener('keydown', _kb6FsEscHandler);
+  _kbRenderAll();
+}
+function _kb6FsEscHandler(e){
+  if(e.key === 'Escape') _kb6ExitFullscreen();
 }
 function _kb6TogCat(cid){
   if(!_kbS.sidebarCollapsed) _kbS.sidebarCollapsed={};
