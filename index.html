@@ -20190,15 +20190,23 @@ async function _msgLoadMore(partnerId){
 function _msgToggleSendBtn(val){
   const btn = document.getElementById('msgSendBtn');
   if(!btn) return;
-  const hasText = (val||'').trim().length > 0 || (_msgPendingFile && _msgPendingFile.file);
+  const hasText = (val||'').trim().length > 0 || (typeof _msgPendingFile!=='undefined' && _msgPendingFile && _msgPendingFile.file);
   btn.classList.remove('uploading');
+  // NEVER use cssText — it destroys width/height/border-radius from the CSS class
   if(hasText){
-    btn.style.cssText = 'background:linear-gradient(145deg,#b8860b,#f5c842);box-shadow:0 3px 14px rgba(245,200,66,.32);color:#09090B;';
-    btn.querySelectorAll('svg').forEach((s,i)=> s.style.display = i===0?'none':'');
+    btn.style.background = 'linear-gradient(145deg,#b8860b,#f5c842)';
+    btn.style.boxShadow  = '0 3px 14px rgba(245,200,66,.32)';
+    btn.style.color      = '#09090B';
   } else {
-    btn.style.cssText = 'background:var(--card);box-shadow:none;color:var(--t2);';
-    btn.querySelectorAll('svg').forEach((s,i)=> s.style.display = i===0?'':'none');
+    btn.style.background = '';
+    btn.style.boxShadow  = '';
+    btn.style.color      = '';
   }
+  // Toggle SVG icons by ID first, then fallback to position
+  const mic   = document.getElementById('msgSendIconMic')   || btn.querySelector('svg:first-child');
+  const arrow = document.getElementById('msgSendIconArrow') || btn.querySelector('svg:last-of-type');
+  if(mic)   mic.style.display   = hasText ? 'none' : '';
+  if(arrow) arrow.style.display = hasText ? ''     : 'none';
 }
 
 function _msgScrollToBottom(){
@@ -20494,8 +20502,8 @@ async function openConv(userId, name, av, avUrl){
         </button>
         <div class="msg-input-wrap" id="msgInputWrap">
           <textarea class="msg-input" id="msgInput" placeholder="Сообщение…" rows="1" maxlength="1000"
-            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();if(typeof _micHoldActive!=='undefined')_micHoldActive=false;sendMsg('${esc(userId)}')}"
-            oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';_msgToggleSendBtn(this.value)"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg('${esc(userId)}')}"  
+            oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';_msgToggleSendBtn(this.value);(function(v){var b=document.getElementById('msgSendBtn');if(b){b.style.background=v.trim()?'linear-gradient(145deg,#b8860b,#f5c842)':'';b.style.color=v.trim()?'#09090B':'';}})(this.value)"
             onfocus="document.getElementById('msgInputWrap')?.classList.add('focused')"
             onblur="document.getElementById('msgInputWrap')?.classList.remove('focused')"
             aria-label="Написать сообщение"></textarea>
@@ -20503,7 +20511,7 @@ async function openConv(userId, name, av, avUrl){
         </div>
         <!-- Send button (text mode) + Mic button (voice mode) -->
         <button class="msg-send" id="msgSendBtn"
-          onclick="_msgSendBtnClick('${esc(userId)}')"
+          onclick="(function(){var i=document.getElementById('msgInput');if(i&&i.value.trim()){sendMsg('${esc(userId)}');}else{_msgSendBtnClick('${esc(userId)}');}})()"
           aria-label="Отправить/Голос" type="button"
           onmousedown="_msgMicStartHold(event,'${esc(userId)}')"
           onmouseup="_msgMicStopHold(event)"
