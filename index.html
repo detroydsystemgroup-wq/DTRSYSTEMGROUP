@@ -38561,5 +38561,39 @@ console.log('[DTR] Video call system initialized');
   font-size: 9.5px !important;
 }
 </style>
+<script>
+// ══ GLOBAL SEND HANDLER — bulletproof, works even if inline handlers fail ══
+(function(){
+  // Enter key — global delegation
+  document.addEventListener('keydown', function(e){
+    if(e.key !== 'Enter' || e.shiftKey) return;
+    var input = document.getElementById('msgInput');
+    if(!input || document.activeElement !== input) return;
+    var text = input.value && input.value.trim();
+    if(!text) return;
+    e.preventDefault();
+    console.log('[DTR-GLOBAL] Enter → sendMsg, activeConvUserId=', typeof activeConvUserId !== 'undefined' ? activeConvUserId : 'UNDEF');
+    if(typeof sendMsg === 'function' && typeof activeConvUserId !== 'undefined' && activeConvUserId){
+      sendMsg(activeConvUserId).catch(function(err){ console.error('[DTR-GLOBAL] sendMsg error:', err); });
+    }
+  }, true); // useCapture=true — fires BEFORE any other handler
+
+  // Click on send button — global delegation  
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest && e.target.closest('#msgSendBtn');
+    if(!btn) return;
+    var input = document.getElementById('msgInput');
+    if(!input) return;
+    var text = input.value && input.value.trim();
+    if(!text) return;
+    console.log('[DTR-GLOBAL] Click → sendMsg, activeConvUserId=', typeof activeConvUserId !== 'undefined' ? activeConvUserId : 'UNDEF');
+    if(typeof sendMsg === 'function' && typeof activeConvUserId !== 'undefined' && activeConvUserId){
+      sendMsg(activeConvUserId).catch(function(err){ console.error('[DTR-GLOBAL] sendMsg error:', err); });
+    }
+  }, true);
+
+  console.log('[DTR-GLOBAL] Send handlers installed ✓');
+})();
+</script>
 </body>
 </html>
