@@ -1538,7 +1538,7 @@ body { transition:background .28s,color .28s; }
 .msg-chat-typing-dots span{width:4px;height:4px;background:var(--green);border-radius:50%;animation:tBounce 1.4s ease infinite;}
 .msg-chat-typing-dots span:nth-child(2){animation-delay:.2s;}
 .msg-chat-typing-dots span:nth-child(3){animation-delay:.4s;}
-.msg-messages{flex:1;overflow-y:scroll;overflow-x:hidden;padding:14px 18px 8px;display:flex;flex-direction:column;gap:0;overscroll-behavior:contain;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.06) transparent;min-height:0;}
+.msg-messages{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 18px 8px;display:flex;flex-direction:column;gap:0;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.06) transparent;min-height:0;}
 .msg-messages::-webkit-scrollbar{width:3px;}
 .msg-messages::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px;}
 .msg-date-sep{display:flex;align-items:center;justify-content:center;padding:10px 0;flex-shrink:0;}
@@ -20182,6 +20182,185 @@ async function _msgLoadMore(partnerId){
   });
 }
 
+
+// ═══════════════════════════════════════════════════════════
+// MESSAGING CORE — CLEAN REWRITE
+// ═══════════════════════════════════════════════════════════
+
+function _msgToggleSendBtn(val){
+  const btn = document.getElementById('msgSendBtn');
+  if(!btn) return;
+  const hasText = (val||'').trim().length > 0 || (_msgPendingFile && _msgPendingFile.file);
+  btn.classList.remove('uploading');
+  if(hasText){
+    btn.style.cssText = 'background:linear-gradient(145deg,#b8860b,#f5c842);box-shadow:0 3px 14px rgba(245,200,66,.32);color:#09090B;';
+    btn.querySelectorAll('svg').forEach((s,i)=> s.style.display = i===0?'none':'');
+  } else {
+    btn.style.cssText = 'background:var(--card);box-shadow:none;color:var(--t2);';
+    btn.querySelectorAll('svg').forEach((s,i)=> s.style.display = i===0?'':'none');
+  }
+}
+
+function _msgScrollToBottom(){
+  const el = document.getElementById('msgMessages');
+  if(el){ el.scrollTop = 999999; }
+  _msgIsAtBottom = true;
+  _msgUnreadOffscreen = 0;
+  _msgUpdateScrollBadge();
+  const sb = document.getElementById('msgScrollDown');
+  if(sb) sb.classList.remove('visible');
+}
+
+function appendMessage(msg, isMine){
+  const el = document.getElementById('msgMessages');
+  if(!el) return;
+
+  const d = new Date(msg.created_at);
+  const timeStr = d.toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
+  const msgId = msg.id || ('opt-'+Date.now());
+  const txt = msg.content || '';
+
+  // Grouping
+  const rows = el.querySelectorAll('.msg-row');
+  const prev = rows[rows.length-1];
+  const canGroup = prev && ((isMine && prev.classList.contains('mine')) || (!isMine && prev.classList.contains('theirs')));
+  if(canGroup){
+    const pb = prev.querySelector('.msg-bubble');
+    if(pb) pb.style.borderRadius = '17px';
+    const pa = prev.querySelector('.msg-av-micro');
+    if(pa) pa.classList.add('ghost');
+  }
+
+  const radius = isMine ? '17px 17px 4px 17px' : '17px 17px 17px 4px';
+  const ticks = isMine ? `<span class="msg-ticks" data-mid="${esc(msgId)}" data-status="sending">${_statusSVG('sending')}</span>` : '';
+
+  const bodyHtml = (typeof msgContentHTML==='function')
+    ? msgContentHTML({content_type:msg.content_type||'text', content:txt, from_user_id:msg.from_user_id})
+    : `<span>${esc(txt)}</span>`;
+
+  const div = document.createElement('div');
+  div.className = 'msg-row'+(isMine?' mine':' theirs');
+  div.style.marginTop = canGroup ? '2px' : '10px';
+  div.dataset.msgId = msgId;
+  if(canGroup) div.style.animationDuration = '.18s';
+
+  div.innerHTML = `
+    ${!isMine ? `<div class="msg-av-micro" style="background:none;border:none;overflow:hidden;">${_msgGetPartnerAvatar()}</div>` : ''}
+    <div class="msg-bubble${isMine?' mine':' theirs'}" data-msg-id="${esc(msgId)}" style="border-radius:${radius}"
+      oncontextmenu="_msgShowBubbleCtx(event,this)"
+      ondblclick="_showRxPopup(event,this)">
+      ${bodyHtml}
+      <div class="msg-bubble-time">${timeStr}${ticks}</div>
+      <div class="reaction-popup" id="rp-${esc(msgId)}">
+        ${['❤️','🔥','👏','😂','🤔','👍'].map(e=>`<button class="r-pop-btn" onclick="_addRx('${esc(msgId)}','${e}');event.stopPropagation()" type="button">${e}</button>`).join('')}
+      </div>
+    </div>`;
+
+  el.appendChild(div);
+
+  // Scroll
+  if(_msgIsAtBottom){
+    el.scrollTop = 999999;
+  } else if(!isMine){
+    _msgUnreadOffscreen++;
+    _msgUpdateScrollBadge();
+    document.getElementById('msgScrollDown')?.classList.add('visible');
+  }
+}
+
+async function sendMsg(toUserId){
+  const input = document.getElementById('msgInput');
+  if(!input || !SB_USER || !toUserId) return;
+
+  // File pending?
+  if(_msgPendingFile && _msgPendingFile.file){
+    const bar = document.getElementById('msgFilePreviewBar');
+    if(bar && bar.style.display !== 'none'){ await _msgSendFile(toUserId); return; }
+    _msgPendingFile = null;
+  }
+
+  const text = input.value.trim();
+  if(!text) return;
+  if(text.length > 1000){ showToast('Слишком длинное сообщение','⚠️'); return; }
+
+  // Reply?
+  let finalText = text;
+  if(_msgReplyTo){
+    finalText = JSON.stringify({t:text, r:{replyToId:_msgReplyTo.id, replyAuthor:_msgReplyTo.authorName, replyText:_msgReplyTo.text}});
+    _msgCancelReply();
+  } else {
+    if(typeof _msgCancelReply==='function') _msgCancelReply();
+  }
+
+  // Clear input
+  input.value = '';
+  input.style.height = 'auto';
+  _msgToggleSendBtn('');
+
+  // Optimistic
+  const optId = 'opt-'+Date.now();
+  appendMessage({id:optId, content:finalText, content_type:'text', created_at:new Date().toISOString(), from_user_id:SB_USER.id}, true);
+
+  // Insert to DB
+  try {
+    const ins = await sb.from('messages').insert({
+      from_user_id: SB_USER.id,
+      to_user_id: toUserId,
+      content: finalText,
+      content_type: 'text',
+      read: false
+    }).select('id').single();
+
+    let realId = ins.data?.id;
+
+    if(ins.error){
+      // Retry without optional columns
+      if((ins.error.code==='42703')||(ins.error.message||'').includes('column')){
+        const ins2 = await sb.from('messages').insert({from_user_id:SB_USER.id, to_user_id:toUserId, content:finalText}).select('id').single();
+        if(ins2.error) throw ins2.error;
+        realId = ins2.data?.id;
+      } else throw ins.error;
+    }
+
+    if(realId){
+      // Swap opt id → real id
+      const row = document.querySelector(`.msg-row[data-msg-id="${optId}"]`);
+      if(row) row.dataset.msgId = realId;
+      const bub = document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
+      if(bub){
+        bub.dataset.msgId = realId;
+        const rp = bub.querySelector('.reaction-popup');
+        if(rp) rp.id = 'rp-'+realId;
+        const ticks = bub.querySelector('.msg-ticks');
+        if(ticks){ ticks.dataset.mid=realId; ticks.innerHTML=_statusSVG('sent'); ticks.dataset.status='sent'; }
+      }
+      if(typeof _trackReadReceipt==='function') _trackReadReceipt(realId, toUserId);
+      if(typeof _msgUpdateConvCache==='function') _msgUpdateConvCache(toUserId, text, true);
+    }
+  } catch(err){
+    console.error('[DTR] sendMsg:', err?.message);
+    const bub = document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
+    if(bub){
+      bub.style.opacity = '.5';
+      const e2 = document.createElement('div');
+      e2.style.cssText = 'font-size:10px;color:#ef4444;margin-top:4px;cursor:pointer;';
+      e2.textContent = '⚠️ Ошибка — нажми для повтора';
+      e2.onclick = ()=>{ bub.style.opacity='1'; e2.remove(); input.value=text; sendMsg(toUserId); };
+      bub.appendChild(e2);
+    }
+    showToast('Не доставлено','⚠️');
+  }
+}
+
+function _msgSendBtnClick(toUserId){
+  if(typeof MIC_STATE!=='undefined' && MIC_STATE.isRecording) return;
+  if(typeof _msgEditingId!=='undefined' && _msgEditingId){ if(typeof _msgSaveEdit==='function')_msgSaveEdit(); return; }
+  if(_msgPendingFile && _msgPendingFile.file){ _msgSendFile(toUserId); return; }
+  const inp = document.getElementById('msgInput');
+  if(inp && inp.value.trim()) sendMsg(toUserId);
+}
+
+
 async function loadConversations(){
   const el = document.getElementById('msgConvList');
   if(!el || !SB_USER || _convsLoading) return;
@@ -20377,41 +20556,8 @@ async function openConv(userId, name, av, avUrl){
 }
 
 // ── Send/mic button toggle ──
-function _msgToggleSendBtn(val){
-  const btn = document.getElementById('msgSendBtn');
-  if(!btn) return;
-  // Try both getElementById and querySelector (IDs inside shadow DOM or recreated elements)
-  const mic = document.getElementById('msgSendIconMic') || btn.querySelector('svg:first-child');
-  const arrow = document.getElementById('msgSendIconArrow') || btn.querySelector('svg:last-child');
-  btn.classList.remove('uploading');
-  if(mic) mic.style.animation = '';
-  if((val||'').trim().length > 0 || (typeof _msgPendingFile !== 'undefined' && _msgPendingFile)){
-    btn.style.background = 'linear-gradient(145deg,var(--gold-d),var(--gold))';
-    btn.style.boxShadow = '0 3px 14px rgba(245,200,66,.32)';
-    btn.style.color = '#09090B';
-    if(mic) mic.style.display = 'none';
-    if(arrow) arrow.style.display = '';
-  } else {
-    btn.style.background = 'var(--card)';
-    btn.style.boxShadow = 'none';
-    btn.style.color = 'var(--t2)';
-    if(mic) mic.style.display = '';
-    if(arrow) arrow.style.display = 'none';
-  }
-}
 
 // ── Scroll to bottom ──
-function _msgScrollToBottom(smooth=true){
-  const el = document.getElementById('msgMessages');
-  if(!el) return;
-  // Direct instant scroll — most reliable across all browsers
-  el.scrollTop = el.scrollHeight + 9999;
-  _msgIsAtBottom = true;
-  _msgUnreadOffscreen = 0;
-  _msgUpdateScrollBadge();
-  const sbtn = document.getElementById('msgScrollDown');
-  if(sbtn) sbtn.classList.remove('visible');
-}
 
 // ── Update scroll badge count ──
 function _msgUpdateScrollBadge(){
@@ -23446,149 +23592,6 @@ function _msgVoiceResetUI(vid){
 }
 
 // ── Append single message (Telegram grouping model) ──
-function appendMessage(msg, isMine) {
-  const el = document.getElementById('msgMessages');
-  if (!el) return;
-
-  const d = new Date(msg.created_at);
-  const timeStr = d.toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
-  const msgId = msg.id || `opt-${Date.now()}`;
-  const txt = msg.content || '';
-
-  // Check if can group with previous bubble
-  const prevRows = el.querySelectorAll('.msg-row');
-  const prevRow = prevRows[prevRows.length-1];
-  const canGroup = prevRow && (
-    (isMine && prevRow.classList.contains('mine')) ||
-    (!isMine && prevRow.classList.contains('theirs'))
-  );
-
-  // If previous was last-in-group, de-point its corner
-  if(canGroup && prevRow){
-    const prevBub = prevRow.querySelector('.msg-bubble');
-    if(prevBub){
-      // Remove pointed corner from previous (it's no longer last)
-      const curR = prevBub.style.borderRadius;
-      if(isMine) prevBub.style.borderRadius = '17px';
-      else prevBub.style.borderRadius = '17px';
-      // Hide avatar of previous if theirs
-      const prevAv = prevRow.querySelector('.msg-av-micro');
-      if(prevAv) prevAv.classList.add('ghost');
-    }
-  }
-
-  // Radius for new bubble (it's last in group = pointed corner)
-  const radius = isMine ? '17px 17px 4px 17px' : '17px 17px 17px 4px';
-
-  // Status for own messages
-  const ticks = isMine
-    ? `<span class="msg-ticks" data-mid="${esc(msgId)}" data-status="sending">${_statusSVG('sending')}</span>`
-    : '';
-  // No fake timers — status upgrades happen via real events only
-
-  const div = document.createElement('div');
-  div.className = `msg-row${isMine?' mine':' theirs'}`;
-  div.style.marginTop = canGroup ? '2px' : '10px';
-  div.dataset.msgId = msgId;
-  // Telegram: grouped messages animate faster (shorter delay)
-  if(canGroup) div.style.animationDuration = isMine ? '.18s' : '.16s';
-
-  // Use msgContentHTML to render file/voice/image properly
-  const bodyHtml = (typeof msgContentHTML === 'function')
-    ? msgContentHTML({ content_type: msg.content_type || 'text', content: txt, from_user_id: msg.from_user_id })
-    : `<span>${esc(txt)}</span>`;
-
-  div.innerHTML = `
-    ${!isMine?`<div class="msg-av-micro" style="background:none;border:none;overflow:hidden;">${_msgGetPartnerAvatar()}</div>`:''}
-    <div class="msg-bubble${isMine?' mine':' theirs'}" data-msg-id="${esc(msgId)}" style="border-radius:${radius}"
-      oncontextmenu="_msgShowBubbleCtx(event,this)"
-      ondblclick="_showRxPopup(event,this)">
-      ${bodyHtml}
-      <div class="msg-bubble-time">${timeStr}${ticks}</div>
-      <div class="reaction-popup" id="rp-${esc(msgId)}">
-        ${['❤️','🔥','👏','😂','🤔','👍'].map(e=>`<button class="r-pop-btn" onclick="_addRx('${esc(msgId)}','${e}');event.stopPropagation()" type="button">${e}</button>`).join('')}
-      </div>
-    </div>`;
-
-  el.appendChild(div);
-
-  // Incoming: Telegram-style — bubble itself animates via CSS .theirs class
-  // No extra class needed — the CSS animation on .msg-row.theirs handles it
-  // But add a subtle green dot flash effect for notification feel
-  if(!isMine){
-    const bub=div.querySelector('.msg-bubble');
-    if(bub){
-      bub.classList.add('new-msg');
-      setTimeout(()=>bub.classList.remove('new-msg'),500);
-    }
-  }
-
-  // Auto-scroll
-  if(_msgIsAtBottom){
-    el.scrollTop = 999999;
-  } else if(!isMine){
-    _msgUnreadOffscreen++;
-    _msgUpdateScrollBadge();
-    document.getElementById('msgScrollDown')?.classList.add('visible');
-  }
-
-  // Status: stays 'sending' until sendMsg confirms DB insert → 'sent'
-  // Upgrades to 'read' only when partner opens chat (realtime UPDATE event)
-  if(isMine){
-    // Store msgId for later status upgrade by sendMsg
-    if(!window._pendingSentUpgrade) window._pendingSentUpgrade = [];
-    window._pendingSentUpgrade.push(msgId);
-  }
-}
-
-// ══════════════════════════════════════════════════════════════
-// OPTIMISTIC UI — Send message (instant append + sync)
-// ══════════════════════════════════════════════════════════════
-
-// ══ FIX 1: REPLY — real quote implementation ══════════════════
-let _msgReplyTo = null; // { id, text, isMine, authorName, authorId }
-
-function _msgSetReply(msgId, text, isMine, authorName){
-  // Get author name from partner cache or profile
-  const name = authorName || (isMine ? (P?.name || 'Вы') : (_msgPartnerAvCache._name || 'Собеседник'));
-  _msgReplyTo = { id: String(msgId), text: text.slice(0, 100) + (text.length > 100 ? '…' : ''), isMine, authorName: name };
-  document.getElementById('_msgReplyBar')?.remove();
-  const inputArea = document.querySelector('.msg-input-area');
-  if(!inputArea) return;
-  const bar = document.createElement('div');
-  bar.id = '_msgReplyBar';
-  bar.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 14px 6px;background:rgba(9,9,11,.96);border-top:0.5px solid rgba(255,255,255,.06);flex-shrink:0;animation:msgIn .18s ease both;cursor:pointer;';
-  bar.onclick = ()=>{ _msgScrollToId(msgId); };
-  bar.innerHTML = `
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.7"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
-    <div style="width:3px;height:34px;border-radius:2px;background:var(--gold);flex-shrink:0;"></div>
-    <div style="flex:1;min-width:0;">
-      <div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:2px;">${esc(name)}</div>
-      <div style="font-size:12px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="_msgReplyPreviewText"></div>
-    </div>
-    <button onclick="event.stopPropagation();_msgCancelReply()" style="width:24px;height:24px;border-radius:50%;background:none;border:none;color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;" onmouseover="this.style.color='var(--t1)'" onmouseout="this.style.color='var(--t3)'">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>`;
-  bar.querySelector('#_msgReplyPreviewText').textContent = _msgReplyTo.text;
-  inputArea.parentNode.insertBefore(bar, inputArea);
-  document.getElementById('msgInput')?.focus();
-}
-
-function _msgCancelReply(){
-  _msgReplyTo = null;
-  document.getElementById('_msgReplyBar')?.remove();
-}
-
-// Scroll to original message by ID, highlight it
-function _msgScrollToId(msgId){
-  const el = document.querySelector(`.msg-bubble[data-msg-id="${CSS.escape(String(msgId))}"]`);
-  if(el){
-    el.scrollIntoView({behavior:'smooth', block:'center'});
-    el.style.transition='background .2s';
-    el.style.background='rgba(245,200,66,.12)';
-    setTimeout(()=>{ el.style.background=''; },1200);
-  }
-}
 
 // ══ FIX 2: PIN MESSAGE — store in localStorage per conversation ══
 function _msgPinMessage(msgId, text){
@@ -23715,97 +23718,6 @@ function _msgDoSearch(q){
   if(cnt) cnt.textContent = _searchMatches.length ? `1/${_searchMatches.length}` : '0';
   if(_searchMatches.length) _msgSearchScrollTo(0);
 }
-async function sendMsg(toUserId) {
-  const input = document.getElementById('msgInput');
-  if(!input || !SB_USER || !toUserId) return;
-  
-  // File pending?
-  if(typeof _msgPendingFile !== 'undefined' && _msgPendingFile && _msgPendingFile.file){
-    const bar = document.getElementById('msgFilePreviewBar');
-    if(bar && bar.style.display !== 'none'){ await _msgSendFile(toUserId); return; }
-    _msgPendingFile = null;
-  }
-  
-  const text = input.value.trim();
-  if(!text) return;
-  if(text.length > 1000){ showToast('Слишком длинное (макс. 1000 символов)', '⚠️'); return; }
-
-  // Reply encoding
-  let finalText = text;
-  if(typeof _msgReplyTo !== 'undefined' && _msgReplyTo){
-    const r = _msgReplyTo;
-    finalText = JSON.stringify({ t: text, r: { replyToId: r.id, replyAuthor: r.authorName, replyText: r.text } });
-  }
-  if(typeof _msgCancelReply === 'function') _msgCancelReply();
-
-  // Clear input immediately
-  input.value = '';
-  input.style.height = 'auto';
-  if(typeof _msgToggleSendBtn === 'function') _msgToggleSendBtn('');
-
-  // Optimistic append
-  const optId = 'opt-' + Date.now();
-  appendMessage({ id: optId, content: finalText, content_type: 'text', created_at: new Date().toISOString(), from_user_id: SB_USER.id }, true);
-
-  // DB insert
-  try {
-    const { data, error } = await sb.from('messages').insert({
-      from_user_id: SB_USER.id,
-      to_user_id: toUserId,
-      content: finalText,
-      content_type: 'text',
-      read: false
-    }).select('id').single();
-
-    if(error) {
-      // Fallback: try without optional columns
-      if(error.code === '42703' || (error.message||'').includes('column')){
-        const r2 = await sb.from('messages').insert({
-          from_user_id: SB_USER.id,
-          to_user_id: toUserId,
-          content: finalText
-        }).select('id').single();
-        if(r2.error) throw r2.error;
-        if(r2.data?.id) _swapOptId(optId, r2.data.id, toUserId);
-      } else { throw error; }
-    } else if(data?.id){
-      _swapOptId(optId, data.id, toUserId);
-    }
-  } catch(err) {
-    console.error('[DTR] sendMsg failed:', err?.code, err?.message);
-    // Mark optimistic bubble as failed
-    const optBub = document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
-    if(optBub){
-      optBub.style.opacity = '.5';
-      const errEl = document.createElement('div');
-      errEl.style.cssText = 'font-size:10px;color:var(--red);margin-top:4px;cursor:pointer;';
-      errEl.textContent = '⚠️ Не доставлено — нажми для повтора';
-      errEl.onclick = () => { optBub.style.opacity='1'; errEl.remove(); input.value=text; sendMsg(toUserId); };
-      optBub.appendChild(errEl);
-    }
-    showToast('Не доставлено', '⚠️');
-  }
-}
-
-function _swapOptId(optId, realId, toUserId){
-  const row = document.querySelector(`.msg-row[data-msg-id="${optId}"]`);
-  if(row) row.dataset.msgId = realId;
-  const bub = document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
-  if(bub){
-    bub.dataset.msgId = realId;
-    const rp = bub.querySelector('.reaction-popup');
-    if(rp) rp.id = 'rp-' + realId;
-    const ticks = bub.querySelector('.msg-ticks');
-    if(ticks){
-      ticks.dataset.mid = realId;
-      ticks.innerHTML = _statusSVG('sent');
-      ticks.dataset.status = 'sent';
-    }
-  }
-  if(typeof _msgUpdateConvCache === 'function') _msgUpdateConvCache(toUserId, document.querySelector(`.msg-bubble[data-msg-id="${realId}"] span`)?.textContent || '', true);
-  if(typeof _trackReadReceipt === 'function') _trackReadReceipt(realId, toUserId);
-}
-
 
 // ── Read receipt tracker ──
 // When partner opens chat, Supabase marks messages read=true
@@ -37941,14 +37853,6 @@ const MIC_HOLD_MS = 350;
 
 // ── Smart send button: click = send text, hold = record voice ──
 let _micHoldActive = false;
-
-function _msgSendBtnClick(toUserId){
-  if(typeof MIC_STATE !== 'undefined' && MIC_STATE.isRecording) return;
-  if(typeof _msgEditingId !== 'undefined' && _msgEditingId){ if(typeof _msgSaveEdit==='function')_msgSaveEdit(); return; }
-  if(typeof _msgPendingFile !== 'undefined' && _msgPendingFile && _msgPendingFile.file){ _msgSendFile(toUserId); return; }
-  const inp = document.getElementById('msgInput');
-  if(inp && inp.value.trim()){ sendMsg(toUserId); }
-}
 
 
 function _msgMicStartHold(e, toUserId){
