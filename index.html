@@ -14395,6 +14395,21 @@ html[data-theme="light"] .nav-icon-btn:hover {
       </div>
     </div>
 
+    <!-- Fullscreen toggle -->
+    <button id="dtr-fs-btn" onclick="dtrToggleFS()" title="Полный экран (F)" style="
+      display:inline-flex;align-items:center;justify-content:center;
+      width:34px;height:34px;border-radius:10px;
+      background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.1);
+      color:rgba(255,255,255,.5);cursor:pointer;transition:all .18s;flex-shrink:0;
+    "
+    onmouseover="this.style.background='rgba(255,255,255,.12)';this.style.color='rgba(255,255,255,.9)'"
+    onmouseout="this.style.background='rgba(255,255,255,.06)';this.style.color='rgba(255,255,255,.5)'">
+      <svg id="dtr-fs-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
+        <path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
+      </svg>
+    </button>
+
     <!-- User chip with logout -->
     <div class="nav-user-chip">
       <div class="nav-av-full" id="navAv" onclick="if(window.SB_USER&&!window.SB_USER.isDemoUser){openUserProfile(window.SB_USER.id,window.SB_USER.username,window.SB_USER.avatar||'🎯',window.SB_USER.avatar_url||'')}" title="Мой профиль">🎯</div>
@@ -22043,6 +22058,15 @@ function cmdKeyNav(e) {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeCmdPalette();
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openCmdPalette(); }
+  // F key = fullscreen toggle (only when not focused on input/textarea/contenteditable)
+  if (e.key === 'F' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    const tag = document.activeElement?.tagName?.toLowerCase();
+    const isEditable = document.activeElement?.contentEditable === 'true';
+    if (tag !== 'input' && tag !== 'textarea' && !isEditable) {
+      e.preventDefault();
+      if(typeof dtrToggleFS === 'function') dtrToggleFS();
+    }
+  }
 });
 
 
@@ -25709,67 +25733,59 @@ function _kbCSS(){ return `
   position: relative;
   transition: border-radius .35s cubic-bezier(.4,0,.2,1), height .35s cubic-bezier(.4,0,.2,1);
 }
-/* ── Fullscreen KB — covers entire viewport ── */
-body.kb6-fs-active .nav,
-body.kb6-fs-active .ph,
-body.kb6-fs-active .ph-tabs,
-body.kb6-fs-active .week-dots-row,
-body.kb6-fs-active .banner-section,
-body.kb6-fs-active .mot-banner { display: none !important; }
+/* ═══════════════════════════════════════════════════════
+   UNIVERSAL FULLSCREEN — одна кнопка, все разделы
+   ═══════════════════════════════════════════════════════ */
 
-/* Hide right sidebar column */
-body.kb6-fs-active .main {
+/* Скрываем интерфейс */
+body.dtr-fs-active .nav,
+body.dtr-fs-active .ph,
+body.dtr-fs-active .ph-tabs,
+body.dtr-fs-active .week-dots-row { display: none !important; }
+
+/* Убираем правый сайдбар и лишние отступы */
+body.dtr-fs-active .main {
   grid-template-columns: 1fr !important;
-  padding: 0 !important;
-  gap: 0 !important;
+  padding: 0 !important; gap: 0 !important;
 }
-body.kb6-fs-active .main > div:nth-child(2) { display: none !important; }
-body.kb6-fs-active #kb-root { padding: 0 !important; }
-body.kb6-fs-active #tab-knowledge { padding: 0 !important; }
+body.dtr-fs-active .main > div:nth-child(2) { display: none !important; }
 
-#kb6.kb6-fullscreen {
-  position: fixed !important;
-  inset: 0 !important;
+/* Активная вкладка → весь viewport */
+body.dtr-fs-active .tc.active {
+  position: fixed !important; inset: 0 !important;
   z-index: 99970 !important;
-  border-radius: 0 !important;
-  height: 100dvh !important;
-  min-height: 100dvh !important;
-  border: none !important;
-  animation: kb6fsIn .32s cubic-bezier(.4,0,.2,1) both;
+  overflow-y: auto !important; overflow-x: hidden !important;
+  background: var(--bg) !important;
+  padding-top: 52px !important; /* отступ под шапку свернуть */
+  animation: dtrFsIn .3s cubic-bezier(.4,0,.2,1) both;
 }
-@keyframes kb6fsIn {
-  from { opacity:.6; transform:scale(.98); }
+body.dtr-fs-active #kb-root { padding: 0 !important; }
+body.dtr-fs-active #tab-knowledge {
+  padding: 0 !important; padding-top: 0 !important;
+}
+/* KB: #kb6 заполняет контейнер */
+body.dtr-fs-active #kb6 {
+  height: calc(100dvh - 52px) !important;
+  min-height: calc(100dvh - 52px) !important;
+  border-radius: 0 !important; border: none !important;
+}
+@keyframes dtrFsIn {
+  from { opacity:0; transform:scale(.985); }
   to   { opacity:1; transform:scale(1); }
 }
 
-/* Fullscreen exit button */
-#kb6-fs-exit-btn {
-  position: fixed; top: 14px; right: 18px; z-index: 99972;
-  display: none; align-items: center; gap: 8px;
-  padding: 7px 16px; border-radius: 12px;
-  background: rgba(10,10,18,.97); border: 0.5px solid rgba(255,255,255,.14);
-  color: rgba(255,255,255,.7); font-size: 12px; font-weight: 700;
-  cursor: pointer; font-family: inherit; transition: all .18s;
-  box-shadow: 0 4px 20px rgba(0,0,0,.6); backdrop-filter: blur(20px);
-  letter-spacing: .01em;
-}
-body.kb6-fs-active #kb6-fs-exit-btn { display: flex; }
-#kb6-fs-exit-btn:hover {
-  background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.35);
-  color: var(--red); transform: translateY(-1px);
+/* Шапка с кнопкой "Свернуть" — всегда поверх */
+body.dtr-fs-active #dtr-fs-exit-wrap { display: flex !important; }
+
+/* Кнопка в навбаре — золотая когда активна */
+body.dtr-fs-active #dtr-fs-btn {
+  background: rgba(245,200,66,.12) !important;
+  border-color: rgba(245,200,66,.35) !important;
+  color: var(--gold) !important;
 }
 
-/* Fullscreen toggle button in sidebar */
-.kb6-fs-toggle {
-  width: 26px; height: 26px; border-radius: 8px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  background: none; border: 0.5px solid rgba(255,255,255,.1);
-  color: var(--t3); cursor: pointer; transition: all .15s;
-}
-.kb6-fs-toggle:hover { background: rgba(255,255,255,.08); color: var(--t1); border-color: rgba(255,255,255,.2); }
-body.kb6-fs-active .kb6-fs-toggle {
-  background: rgba(245,200,66,.1); border-color: rgba(245,200,66,.3); color: var(--gold);
-}
+/* Скрываем KB-кнопку (удалена из HTML, на всякий случай) */
+.kb6-fs-toggle { display: none !important; }
 /* ── Sidebar ── */
 #kb6sb {
   width: 248px; flex-shrink: 0; display: flex; flex-direction: column;
@@ -26723,13 +26739,6 @@ function _kbBuildShell(){ return `
           </svg>
         </div>
         <span class="kb6-logo-txt" onclick="_kb6GoHome()" style="cursor:pointer;transition:color .15s" onmouseover="this.style.color='var(--gold)'" onmouseout="this.style.color=''">База знаний</span>
-        <!-- Fullscreen toggle -->
-        <button class="kb6-fs-toggle kb6-logo-txt" onclick="_kb6TogFullscreen()" id="kb6-fs-btn" title="Полный экран">
-          <svg id="kb6-fs-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
-            <path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
-            <path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
-          </svg>
-        </button>
       </div>
       <button class="kb6-new-note-btn" onclick="_kb6NewNote()" title="Новая заметка">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -26885,15 +26894,43 @@ function _kbBuildShell(){ return `
   <!-- Modal overlay -->
   <div id="kb6ov"><div id="kb6modal"></div></div>
 </div>
-<!-- Fullscreen exit button (fixed, outside #kb6) -->
-<button id="kb6-fs-exit-btn" onclick="_kb6ExitFullscreen()">
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
-    <path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
-    <path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
-  </svg>
-  Свернуть
-</button>
-<!-- Focus exit button (outside kb6) -->
+<!-- Universal fullscreen exit — always accessible -->
+<div id="dtr-fs-exit-wrap" style="
+  position:fixed; top:0; left:0; right:0; z-index:99975;
+  display:none; align-items:center; justify-content:space-between;
+  padding:10px 20px;
+  background:linear-gradient(180deg, rgba(6,6,12,.96) 0%, rgba(6,6,12,0) 100%);
+  pointer-events:none;
+">
+  <!-- Left: section name -->
+  <div id="dtr-fs-label" style="
+    font-size:13px;font-weight:700;color:rgba(255,255,255,.55);
+    letter-spacing:.01em;display:flex;align-items:center;gap:8px;
+    pointer-events:none;
+  ">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" opacity=".5"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+    Полный экран
+  </div>
+  <!-- Right: exit button -->
+  <button onclick="dtrExitFS()" style="
+    display:inline-flex;align-items:center;gap:8px;
+    padding:7px 16px;border-radius:10px;
+    background:rgba(255,255,255,.09);
+    border:0.5px solid rgba(255,255,255,.18);
+    color:rgba(255,255,255,.8);font-size:12px;font-weight:700;
+    cursor:pointer;font-family:inherit;
+    transition:background .18s,border-color .18s,color .18s,transform .18s;
+    pointer-events:all; backdrop-filter:blur(20px);
+    box-shadow:0 4px 20px rgba(0,0,0,.4);
+  "
+  onmouseover="this.style.background='rgba(239,68,68,.18)';this.style.borderColor='rgba(239,68,68,.45)';this.style.color='#ff6b6b';this.style.transform='translateY(-1px)'"
+  onmouseout="this.style.background='rgba(255,255,255,.09)';this.style.borderColor='rgba(255,255,255,.18)';this.style.color='rgba(255,255,255,.8)';this.style.transform=''">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
+    Свернуть
+    <kbd style="font-size:9.5px;font-family:var(--font-mono);opacity:.5;padding:1px 5px;border-radius:4px;background:rgba(255,255,255,.1);border:0.5px solid rgba(255,255,255,.15)">Esc</kbd>
+  </button>
+</div>
+<!-- KB focus exit (separate) -->
 <button id="kb6-focus-exit" onclick="_kb6ExitFocus()">
   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
   Выйти из фокуса
@@ -27573,43 +27610,68 @@ function _kb6GoHome(){
   _kbRenderAll();
 }
 
-// ── Fullscreen Mode ───────────────────────────────────────────
-function _kb6TogFullscreen(){
-  const kb = document.getElementById('kb6');
-  if(!kb) return;
-  const isFs = kb.classList.contains('kb6-fullscreen');
-  if(isFs) _kb6ExitFullscreen();
-  else _kb6EnterFullscreen();
+// ══════════════════════════════════════════════════════════════
+// UNIVERSAL FULLSCREEN — одна кнопка в навбаре
+// ══════════════════════════════════════════════════════════════
+let _dtrFsActive = false;
+
+function dtrToggleFS(){
+  _dtrFsActive ? dtrExitFS() : dtrEnterFS();
 }
-function _kb6EnterFullscreen(){
-  const kb = document.getElementById('kb6');
-  if(!kb) return;
-  kb.classList.add('kb6-fullscreen');
-  document.body.classList.add('kb6-fs-active');
+
+function dtrEnterFS(){
+  _dtrFsActive = true;
+  document.body.classList.add('dtr-fs-active');
   document.body.style.overflow = 'hidden';
-  // Update icon to "compress"
-  const icon = document.getElementById('kb6-fs-icon');
+
+  // Иконка кнопки → "свернуть"
+  const icon = document.getElementById('dtr-fs-icon');
   if(icon) icon.innerHTML = `<path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/>`;
-  // Re-render to adapt layout
-  _kbRenderAll();
-  // Esc to exit
-  document.addEventListener('keydown', _kb6FsEscHandler);
+
+  // Показываем шапку "Свернуть"
+  const wrap = document.getElementById('dtr-fs-exit-wrap');
+  if(wrap) wrap.style.display = 'flex';
+
+  // KB: адаптируем
+  if(document.getElementById('tab-knowledge')?.classList.contains('active')){
+    if(typeof _kbRenderAll === 'function') _kbRenderAll();
+  }
+
+  document.querySelector('.tc.active')?.scrollTo(0,0);
+  document.addEventListener('keydown', _dtrFsEscHandler);
 }
-function _kb6ExitFullscreen(){
-  const kb = document.getElementById('kb6');
-  if(!kb) return;
-  kb.classList.remove('kb6-fullscreen');
-  document.body.classList.remove('kb6-fs-active');
+
+function dtrExitFS(){
+  _dtrFsActive = false;
+  document.body.classList.remove('dtr-fs-active');
   document.body.style.overflow = '';
-  // Restore icon to "expand"
-  const icon = document.getElementById('kb6-fs-icon');
+
+  // Иконка → "развернуть"
+  const icon = document.getElementById('dtr-fs-icon');
   if(icon) icon.innerHTML = `<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>`;
-  document.removeEventListener('keydown', _kb6FsEscHandler);
-  _kbRenderAll();
+
+  // Скрываем шапку
+  const wrap = document.getElementById('dtr-fs-exit-wrap');
+  if(wrap) wrap.style.display = 'none';
+
+  document.removeEventListener('keydown', _dtrFsEscHandler);
+
+  if(document.getElementById('tab-knowledge')?.classList.contains('active')){
+    if(typeof _kbRenderAll === 'function') _kbRenderAll();
+  }
 }
-function _kb6FsEscHandler(e){
-  if(e.key === 'Escape') _kb6ExitFullscreen();
+
+function _dtrFsEscHandler(e){
+  if(e.key === 'Escape' && _dtrFsActive) dtrExitFS();
 }
+
+// KB delegates
+function _kb6TogFullscreen(){ dtrToggleFS(); }
+function _kb6EnterFullscreen(){ dtrEnterFS(); }
+function _kb6ExitFullscreen(){ dtrExitFS(); }
+function _kb6FsEscHandler(e){ _dtrFsEscHandler(e); }
+
+
 function _kb6TogCat(cid){
   if(!_kbS.sidebarCollapsed) _kbS.sidebarCollapsed={};
   if(_kbS.cat===cid){
