@@ -26275,19 +26275,22 @@ function _kbCSS(){ return `
   color:rgba(255,255,255,.85); letter-spacing:-.02em;
   line-height:1.25; margin-bottom:10px;
 }
-.kb6-cat-card-meta { display:flex; align-items:center; gap:6px; }
+.kb6-cat-card-meta { display:flex; align-items:center; gap:6px; width:100%; }
 .kb6-cat-pill {
-  display:inline-flex; align-items:center; gap:4px;
-  font-size:11px; font-weight:600;
-  padding:3px 8px; border-radius:20px;
-  background:rgba(255,255,255,.06);
+  display:inline-flex; align-items:center; justify-content:center; gap:5px;
+  flex:1;
+  font-size:11.5px; font-weight:600;
+  padding:5px 8px; border-radius:8px;
+  background:rgba(255,255,255,.07);
   border:0.5px solid rgba(255,255,255,.1);
-  color:rgba(255,255,255,.45);
-  transition:color .18s, background .18s;
+  color:rgba(255,255,255,.5);
+  transition:color .18s, background .18s, border-color .18s;
 }
-.kb6-cat-card:hover .kb6-cat-pill { color:rgba(255,255,255,.7); background:rgba(255,255,255,.1); }
+.kb6-cat-card:hover .kb6-cat-pill {
+  color:rgba(255,255,255,.75); background:rgba(255,255,255,.11); border-color:rgba(255,255,255,.16);
+}
 .kb6-cat-pill-num {
-  font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:400;
+  font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:400;
 }
 .kb6-recent-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; margin-bottom: 28px; }
 .kb6-recent-card {
@@ -27136,18 +27139,20 @@ function _kb6RenderCatHome(cont){
   const c = ALL_CATS.find(x=>x.id===_kbS.cat);
   if(!c) return;
   const folders = _kb3[c.id]?.folders||[];
-  const totalNotes = folders.reduce((a,f)=>a+(f.notes?.length||0),0);
-  cont.innerHTML = `<div class="kb6-anim" style="height:100%;display:flex;flex-direction:column;overflow-y:auto">
-    <!-- Category hero banner -->
-    <div style="
-      padding:32px 32px 24px;
-      background:linear-gradient(135deg, ${c.color}0d 0%, transparent 60%);
-      border-bottom:0.5px solid rgba(255,255,255,.06); flex-shrink:0;
-    ">
+  const totalNotes = folders.reduce((a,f)=>a+(f.notes?.length||0), 0);
+  // FIX: compute totalWords correctly as a plain number
+  const totalWords = folders.reduce((a,f)=>
+    a + (f.notes||[]).reduce((s,n)=>s+_kbWC(n.body||''), 0), 0);
+  const totalWordsDisplay = totalWords > 999 ? Math.round(totalWords/1000)+'к' : String(totalWords);
+
+  cont.innerHTML = `<div class="kb6-anim" style="height:100%;display:flex;flex-direction:column;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.07) transparent">
+
+    <!-- Category hero -->
+    <div style="padding:28px 28px 20px;background:linear-gradient(135deg,${c.color}0e 0%,transparent 65%);border-bottom:0.5px solid rgba(255,255,255,.06);flex-shrink:0">
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
-        <div style="width:52px;height:52px;border-radius:16px;background:${c.color}18;border:0.5px solid ${c.color}30;display:flex;align-items:center;justify-content:center;flex-shrink:0">${typeof getCatSVG!=='undefined'?getCatSVG(c.id,26):c.icon}</div>
+        <div style="width:48px;height:48px;border-radius:14px;background:${c.color}18;border:0.5px solid ${c.color}30;display:flex;align-items:center;justify-content:center;flex-shrink:0">${typeof getCatSVG!=='undefined'?getCatSVG(c.id,24):c.icon}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:22px;font-weight:800;letter-spacing:-.04em;color:var(--t1);margin-bottom:3px">${_kbEsc(c.name)}</div>
+          <div style="font-size:20px;font-weight:800;letter-spacing:-.04em;color:var(--t1);margin-bottom:2px">${_kbEsc(c.name)}</div>
           <div style="font-size:12px;color:var(--t3)">${c.desc||'Персональная база знаний'}</div>
         </div>
         <button class="kb6-btn kb6-btn-gold" onclick="_kb6NewFolder('${c.id}')" style="display:flex;align-items:center;gap:7px;flex-shrink:0">
@@ -27155,82 +27160,107 @@ function _kb6RenderCatHome(cont){
           Новая папка
         </button>
       </div>
-      <!-- Stats -->
-      <div style="display:flex;gap:10px">
-        <div style="padding:10px 16px;border-radius:11px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.07);flex:1;text-align:center">
-          <div style="font-family:var(--font-mono);font-size:22px;font-weight:400;letter-spacing:-.03em;color:var(--gold)">${folders.length}</div>
-          <div style="font-size:10px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-top:3px">Папок</div>
-        </div>
-        <div style="padding:10px 16px;border-radius:11px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.07);flex:1;text-align:center">
-          <div style="font-family:var(--font-mono);font-size:22px;font-weight:400;letter-spacing:-.03em;color:var(--blue)">${totalNotes}</div>
-          <div style="font-size:10px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-top:3px">Заметок</div>
-        </div>
-        <div style="padding:10px 16px;border-radius:11px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.07);flex:1;text-align:center">
-          <div style="font-family:var(--font-mono);font-size:22px;font-weight:400;letter-spacing:-.03em;color:var(--purple)">${folders.reduce((a,f)=>a+_kbWC((f.notes||[]).reduce((s,n)=>s+(n.body||''),''))>999?Math.round(folders.reduce((a,f)=>a+_kbWC((f.notes||[]).reduce((s,n)=>s+(n.body||''),''))/(1000),0)):folders.reduce((a,f)=>a+_kbWC((f.notes||[]).reduce((s,n)=>s+(n.body||''),''))),0)}</div>
-          <div style="font-size:10px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-top:3px">Слов</div>
-        </div>
+      <!-- Stats row -->
+      <div style="display:flex;gap:8px">
+        ${[
+          {val: folders.length, lbl:'Папок',   color:'var(--gold)'},
+          {val: totalNotes,     lbl:'Заметок', color:'var(--blue)'},
+          {val: totalWordsDisplay, lbl:'Слов', color:'var(--purple)'},
+        ].map(s=>`<div style="flex:1;padding:10px 14px;border-radius:10px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.07);text-align:center">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:300;letter-spacing:-.03em;color:${s.color};line-height:1">${s.val}</div>
+          <div style="font-size:9px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-top:4px">${s.lbl}</div>
+        </div>`).join('')}
       </div>
     </div>
-    <!-- Folders grid -->
-    <div style="padding:24px 32px;flex:1">
-      ${!folders.length?`<div class="kb6-empty" style="padding-top:60px">
-        <div class="kb6-empty-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".4"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
-        <div class="kb6-empty-ttl">Нет папок</div>
-        <div class="kb6-empty-sub">Создай первую папку для организации знаний</div>
-        <button class="kb6-btn kb6-btn-gold" onclick="_kb6NewFolder('${c.id}')" style="margin-top:8px">Создать папку</button>
-      </div>`:
-      `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
-        ${folders.map(f=>{
-          const nc = f.notes?.length||0;
-          const recent = f.notes&&f.notes.length ? _kbTimeAgo(Math.max(...f.notes.map(n=>n.updatedAt||0))) : '';
-          const lastNote = f.notes&&f.notes.length ? [...f.notes].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0] : null;
-          const preview = lastNote ? _kbStrip(lastNote.body||'').slice(0,55) : 'Пустая папка';
-          return `<div style="
-              border-radius:16px; cursor:pointer;
-              background:rgba(255,255,255,.03);
-              border:0.5px solid rgba(255,255,255,.08);
-              overflow:hidden; position:relative;
-              transition:transform .2s cubic-bezier(.34,1.2,.64,1), border-color .18s, box-shadow .18s;
-              display:flex; flex-direction:column;
-            "
-            onmouseover="this.style.transform='translateY(-4px)';this.style.borderColor='${c.color}40';this.style.boxShadow='0 12px 32px rgba(0,0,0,.35),0 0 0 0.5px ${c.color}15'"
-            onmouseout="this.style.transform='';this.style.borderColor='rgba(255,255,255,.08)';this.style.boxShadow=''"
-          >
-            <!-- Color accent top -->
-            <div style="height:3px;background:linear-gradient(90deg,${c.color}60,${c.color}20);width:100%"></div>
-            <!-- Main click area -->
-            <div onclick="_kb6OpenFolder('${c.id}','${f.id}')" style="padding:18px 18px 14px;flex:1">
-              <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="${c.color}22" stroke="${c.color}" stroke-width="1.6" stroke-linecap="round" style="flex-shrink:0;margin-top:2px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                <div style="flex:1;min-width:0">
-                  <div style="font-size:14px;font-weight:700;color:var(--t1);letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px">${_kbEsc(f.title)}</div>
-                  <div style="font-size:11px;color:var(--t3);line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${_kbEsc(preview)}</div>
+
+    <!-- Folders -->
+    <div style="padding:20px 28px 32px;flex:1">
+      ${!folders.length
+        ? `<div class="kb6-empty" style="padding-top:60px">
+            <div class="kb6-empty-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".35"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
+            <div class="kb6-empty-ttl">Нет папок</div>
+            <div class="kb6-empty-sub">Создай первую папку для организации знаний</div>
+            <button class="kb6-btn kb6-btn-gold" onclick="_kb6NewFolder('${c.id}')" style="margin-top:10px">Создать папку</button>
+          </div>`
+        : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
+            ${folders.map((f,fi)=>{
+              const nc = f.notes?.length||0;
+              const nw = (f.notes||[]).reduce((s,n)=>s+_kbWC(n.body||''),0);
+              const lastNote = nc ? [...f.notes].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0] : null;
+              const preview = lastNote ? _kbStrip(lastNote.body||'').slice(0,60) : '';
+              const ago = lastNote ? _kbTimeAgo(lastNote.updatedAt||lastNote.createdAt) : '';
+              return `<div style="
+                  position:relative;overflow:hidden;border-radius:14px;
+                  display:flex;flex-direction:column;
+                  background:rgba(255,255,255,.03);
+                  border:0.5px solid rgba(255,255,255,.08);
+                  transition:transform .2s cubic-bezier(.25,.46,.45,.94),box-shadow .2s,border-color .2s;
+                  animation:kb6catIn .25s ease both;animation-delay:${fi*0.05}s;
+                "
+                onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 12px 32px rgba(0,0,0,.3)';this.style.borderColor='${c.color}35'"
+                onmouseout="this.style.transform='';this.style.boxShadow='';this.style.borderColor='rgba(255,255,255,.08)'">
+
+                <!-- Top color line -->
+                <div style="height:2px;background:linear-gradient(90deg,${c.color},${c.color}30);flex-shrink:0"></div>
+
+                <!-- Body — click to open -->
+                <div onclick="_kb6OpenFolder('${c.id}','${f.id}')" style="padding:16px 16px 12px;flex:1;cursor:pointer">
+                  <!-- Folder icon + name -->
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+                    <div style="width:34px;height:34px;border-radius:10px;background:${c.color}18;border:0.5px solid ${c.color}28;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="${c.color}30" stroke="${c.color}" stroke-width="1.8" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    </div>
+                    <div style="min-width:0">
+                      <div style="font-size:13.5px;font-weight:700;color:rgba(255,255,255,.9);letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_kbEsc(f.title)}</div>
+                      ${ago?`<div style="font-size:10px;color:rgba(168,168,178,.45);margin-top:1px">${ago}</div>`:''}
+                    </div>
+                  </div>
+
+                  <!-- Preview -->
+                  ${preview?`<div style="font-size:11.5px;color:rgba(168,168,178,.45);line-height:1.45;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;margin-bottom:10px">${_kbEsc(preview)}</div>`:''}
+
+                  <!-- Stats -->
+                  <div style="display:flex;align-items:center;gap:8px;padding-top:10px;border-top:0.5px solid rgba(255,255,255,.06)">
+                    <div style="display:flex;align-items:center;gap:4px">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(168,168,178,.4)" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                      <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:400;color:${nc?c.color:'rgba(168,168,178,.4)'}">${nc}</span>
+                    </div>
+                    ${nw>0?`<div style="display:flex;align-items:center;gap:4px">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(168,168,178,.3)" stroke-width="2" stroke-linecap="round"><line x1="21" y1="6" x2="3" y2="6"/><line x1="15" y1="12" x2="3" y2="12"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
+                      <span style="font-size:11px;color:rgba(168,168,178,.4)">${nw>999?Math.round(nw/1000)+'к':nw} сл</span>
+                    </div>`:''}
+                  </div>
                 </div>
-              </div>
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:0.5px solid rgba(255,255,255,.05)">
-                <div style="display:flex;align-items:center;gap:6px">
-                  <span style="font-family:var(--font-mono);font-size:13px;font-weight:400;color:${nc?c.color:'var(--t3)'}">${nc}</span>
-                  <span style="font-size:10.5px;color:var(--t3);font-weight:600">заметок</span>
+
+                <!-- Action bar -->
+                <div style="display:flex;border-top:0.5px solid rgba(255,255,255,.05);background:rgba(255,255,255,.015);flex-shrink:0">
+                  <button onclick="event.stopPropagation();_kb6CreateNoteAt('${c.id}','${f.id}')"
+                    title="Новая заметка"
+                    style="flex:1;padding:8px 6px;border:none;background:none;color:rgba(168,168,178,.45);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:5px;transition:color .14s,background .14s;border-right:0.5px solid rgba(255,255,255,.05)"
+                    onmouseover="this.style.color='var(--gold)';this.style.background='rgba(245,200,66,.06)'"
+                    onmouseout="this.style.color='rgba(168,168,178,.45)';this.style.background='none'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Заметка
+                  </button>
+                  <button onclick="event.stopPropagation();_kb6RenameFolderModal('${c.id}','${f.id}')"
+                    title="Переименовать"
+                    style="padding:8px 12px;border:none;background:none;color:rgba(168,168,178,.45);cursor:pointer;display:flex;align-items:center;transition:color .14s,background .14s;border-right:0.5px solid rgba(255,255,255,.05)"
+                    onmouseover="this.style.color='var(--blue)';this.style.background='rgba(26,159,255,.07)'"
+                    onmouseout="this.style.color='rgba(168,168,178,.45)';this.style.background='none'">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                  <button onclick="event.stopPropagation();_kb6DelFolderConfirm('${c.id}','${f.id}')"
+                    title="Удалить"
+                    style="padding:8px 12px;border:none;background:none;color:rgba(168,168,178,.45);cursor:pointer;display:flex;align-items:center;transition:color .14s,background .14s"
+                    onmouseover="this.style.color='var(--red)';this.style.background='rgba(239,68,68,.07)'"
+                    onmouseout="this.style.color='rgba(168,168,178,.45)';this.style.background='none'">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                  </button>
                 </div>
-                ${recent?`<span style="font-size:10px;color:var(--t3)">${recent}</span>`:''}
-              </div>
-            </div>
-            <!-- Action bar -->
-            <div style="display:flex;border-top:0.5px solid rgba(255,255,255,.05);background:rgba(255,255,255,.02)">
-              <button onclick="event.stopPropagation();_kb6CreateNoteAt('${c.id}','${f.id}')" style="flex:1;padding:9px;border:none;background:none;color:var(--t3);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:5px;transition:color .14s,background .14s;border-right:0.5px solid rgba(255,255,255,.05)" onmouseover="this.style.color='var(--gold)';this.style.background='rgba(245,200,66,.05)'" onmouseout="this.style.color='var(--t3)';this.style.background='none'">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Заметка
-              </button>
-              <button onclick="event.stopPropagation();_kb6RenameFolderModal('${c.id}','${f.id}')" style="padding:9px 13px;border:none;background:none;color:var(--t3);cursor:pointer;display:flex;align-items:center;transition:color .14s,background .14s;border-right:0.5px solid rgba(255,255,255,.05)" onmouseover="this.style.color='var(--blue)';this.style.background='rgba(26,159,255,.06)'" onmouseout="this.style.color='var(--t3)';this.style.background='none'" title="Переименовать папку">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              </button>
-              <button onclick="event.stopPropagation();_kb6DelFolderConfirm('${c.id}','${f.id}')" style="padding:9px 13px;border:none;background:none;color:var(--t3);cursor:pointer;display:flex;align-items:center;transition:color .14s,background .14s" onmouseover="this.style.color='var(--red)';this.style.background='rgba(239,68,68,.07)'" onmouseout="this.style.color='var(--t3)';this.style.background='none'" title="Удалить папку">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-              </button>
-            </div>
-          </div>`;
-        }).join('')}
-      </div>`}
+              </div>`;
+            }).join('')}
+          </div>`
+      }
     </div>
   </div>`;
 }
