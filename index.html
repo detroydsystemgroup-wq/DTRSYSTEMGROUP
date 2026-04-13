@@ -20354,21 +20354,21 @@ async function sendMsg(toUserId){
     }
   } catch(err){
     console.error('[DTR] sendMsg:', err?.message, err?.code);
-    const em = err?.message||'';
-    // RLS 403 → refresh session and retry once
+    // RLS 403 → refresh + retry
+    const em=err?.message||'';
     if(em.includes('row-level')||em.includes('policy')||em.includes('permission')||err?.code==='42501'){
-      try {
+      try{
         await sb.auth.refreshSession();
-        const r2 = await sb.from('messages').insert({from_user_id:SB_USER.id,to_user_id:toUserId,content:finalText,content_type:'text',read:false}).select('id').single();
-        if(!r2.error && r2.data?.id){
-          const row=document.querySelector(`.msg-row[data-msg-id="${optId}"]`);if(row)row.dataset.msgId=r2.data.id;
-          const b2=document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
-          if(b2){b2.dataset.msgId=r2.data.id;b2.style.opacity='1';const t=b2.querySelector('.msg-ticks');if(t){t.dataset.mid=r2.data.id;t.innerHTML=_statusSVG('sent');t.dataset.status='sent';}}
+        const r2=await sb.from('messages').insert({from_user_id:SB_USER.id,to_user_id:toUserId,content:finalText,content_type:'text',read:false}).select('id').single();
+        if(!r2.error&&r2.data?.id){
+          const ro=document.querySelector('.msg-row[data-msg-id="'+optId+'"]');if(ro)ro.dataset.msgId=r2.data.id;
+          const bu=document.querySelector('.msg-bubble[data-msg-id="'+optId+'"]');
+          if(bu){bu.dataset.msgId=r2.data.id;bu.style.opacity='1';const t=bu.querySelector('.msg-ticks');if(t){t.dataset.mid=r2.data.id;t.innerHTML=_statusSVG('sent');t.dataset.status='sent';}}
           if(typeof _trackReadReceipt==='function')_trackReadReceipt(r2.data.id,toUserId);
           if(typeof _msgUpdateConvCache==='function')_msgUpdateConvCache(toUserId,text,true);
           return;
         }
-      } catch(e2){ console.warn('[DTR] Retry failed:', e2); }
+      }catch(e2){console.warn('[DTR] Retry:',e2);}
     }
     const bub = document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
     if(bub){
@@ -21067,7 +21067,14 @@ async function loadMessages(partnerId, append=false){
 </div>`);
     });
 
-    elNow.innerHTML = chunks.join('');
+    if(append){
+      var _lm=elNow.querySelector('.msg-load-more-btn');if(_lm)_lm.remove();
+      var _t=document.createElement('div');_t.innerHTML=chunks.join('');
+      var _f=document.createDocumentFragment();while(_t.firstChild)_f.appendChild(_t.firstChild);
+      elNow.prepend(_f);
+    } else {
+      elNow.innerHTML=chunks.join('');
+    }
 
     // Добавляем кнопку "Загрузить ещё" если пришла полная страница (есть ещё сообщения)
     if(data.length >= MSG_PAGE_SIZE){
@@ -21281,78 +21288,75 @@ async function _msgSaveEdit(){
   const newText = document.getElementById('msgInput')?.value?.trim();
   if(!newText || !_msgEditingId || !SB_USER) return;
   const msgId = _msgEditingId;
-
-  // Snapshot original text for rollback
-  const bub = document.querySelector(`.msg-bubble[data-msg-id="${CSS.escape(msgId)}"]`);
+  const bub = document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(msgId)+'"]');
   const spanEl = bub?.querySelector('span');
-  const originalHTML = spanEl ? spanEl.innerHTML : null;
-
-  // Optimistic update
+  const origHTML = spanEl ? spanEl.innerHTML : null;
+  const origText = spanEl ? spanEl.textContent : '';
+  
+  // Skip if unchanged
+  if(newText === origText){ _msgCancelEdit(); return; }
+  
+  // Optimistic UI update
   if(spanEl){
-    const safeTxt = esc(newText);
-    spanEl.innerHTML = safeTxt.replace(/(https?:\/\/[^\s&<"']+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer" style="color:inherit;opacity:.8;text-decoration:underline">$1</a>');
+    spanEl.innerHTML = esc(newText).replace(/(https?:\/\/[^\s&<"']+)/g,'<a href="$1" target="_blank" rel="noopener" style="color:inherit;opacity:.8;text-decoration:underline">$1</a>');
     if(!bub.querySelector('.msg-edited-lbl')){
-      const lbl = document.createElement('span');
-      lbl.className = 'msg-edited-lbl';
-      lbl.style.cssText = 'font-size:10px;color:rgba(255,255,255,.35);margin-left:4px;font-style:italic;';
-      lbl.textContent = 'изм.';
-      const timeDiv = bub.querySelector('.msg-bubble-time');
-      if(timeDiv) timeDiv.insertBefore(lbl, timeDiv.firstChild);
+      const lbl=document.createElement('span');
+      lbl.className='msg-edited-lbl';
+      lbl.style.cssText='font-size:10px;color:rgba(255,255,255,.35);margin-left:4px;font-style:italic;';
+      lbl.textContent='изм.';
+      const td=bub.querySelector('.msg-bubble-time');
+      if(td) td.insertBefore(lbl,td.firstChild);
     }
   }
   _msgCancelEdit();
-
-  // DB update with rollback on error
+  
+  // DB update — only own messages (from_user_id check)
   try {
-    await sb.from('messages').update({ content: newText }).eq('id', msgId).eq('from_user_id', SB_USER.id);
-    _msgUpdateConvCache(activeConvUserId, newText, true);
+    const res = await sb.from('messages').update({content:newText}).eq('id',msgId).eq('from_user_id',SB_USER.id);
+    if(res.error){
+      // RLS retry
+      if(res.error.message?.includes('policy')||res.error.message?.includes('row-level')){
+        await sb.auth.refreshSession();
+        const r2=await sb.from('messages').update({content:newText}).eq('id',msgId).eq('from_user_id',SB_USER.id);
+        if(r2.error) throw r2.error;
+      } else throw res.error;
+    }
+    if(typeof _msgUpdateConvCache==='function') _msgUpdateConvCache(activeConvUserId,newText,true);
+    showToast('Сообщение изменено','✏️');
   } catch(e){
-    console.warn('[DTR] Edit msg:', e);
-    // Rollback optimistic update
-    if(spanEl && originalHTML !== null) spanEl.innerHTML = originalHTML;
-    const lbl = bub?.querySelector('.msg-edited-lbl');
-    if(lbl) lbl.remove();
-    showToast('Не удалось сохранить изменения','⚠️');
+    console.warn('[DTR] Edit:',e);
+    if(spanEl && origHTML!==null) spanEl.innerHTML=origHTML;
+    const lbl=bub?.querySelector('.msg-edited-lbl'); if(lbl)lbl.remove();
+    showToast('Не удалось изменить','⚠️');
   }
 }
 
-async function _msgDeleteMsg(msgId, bub, scope='both'){
-  if(!bub) bub = document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(msgId))+'"]');
-  // Animate out
-  const row = bub?.closest('.msg-row') ?? (bub ? bub.parentElement : null);
-  if(row){ row.style.transition='all .22s'; row.style.opacity='0'; row.style.transform='scale(.92) translateX('+(bub?.classList.contains('mine')?'10px':'-10px')+')'; setTimeout(()=>row.remove(),220); }
-
-  if(!SB_USER || !msgId || String(msgId).startsWith('opt-')){
-    showToast('Сообщение удалено у вас');
-    return;
+async function _msgDeleteMsg(msgId, bub, scope){
+  scope=scope||'both';
+  if(!bub) bub=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(msgId))+'"]');
+  const row=bub?(bub.closest('.msg-row')||bub.parentElement):null;
+  if(row){row.style.transition='all .2s';row.style.opacity='0';row.style.transform='scale(.95)';setTimeout(function(){row.remove();},200);}
+  if(!SB_USER||!msgId||String(msgId).startsWith('opt-')){showToast('Удалено');return;}
+  
+  async function _tryOp(fn){
+    try{const r=await fn();if(r?.error){const m=r.error.message||'';if(m.includes('policy')||m.includes('row-level')){await sb.auth.refreshSession();const r2=await fn();if(r2?.error)throw r2.error;}else throw r.error;}return true;}catch(e){console.warn('[DTR]',e);return false;}
   }
-  try {
-    if(scope === 'me'){
-      // Soft-delete only for OWN messages (RLS allows UPDATE own messages only)
-      // For received messages — hide locally only (localStorage tombstone)
-      const isMineMsg = bub?.classList.contains('mine');
-      if(isMineMsg){
-        await sb.from('messages').update({ content: '__deleted__', content_type: 'deleted' })
-          .eq('id', msgId).eq('from_user_id', SB_USER.id);
-      } else {
-        // Can't update partner's message — store local tombstone in sessionStorage
-        try {
-          const hidden = JSON.parse(sessionStorage.getItem('dtr_hidden_msgs')||'[]');
-          hidden.push(String(msgId));
-          sessionStorage.setItem('dtr_hidden_msgs', JSON.stringify(hidden));
-        } catch(e){}
+  
+  try{
+    if(scope==='me'){
+      const isMy=bub&&bub.classList.contains('mine');
+      if(isMy){
+        await _tryOp(()=>sb.from('messages').update({content:'__deleted__',content_type:'deleted'}).eq('id',msgId).eq('from_user_id',SB_USER.id));
+      }else{
+        try{const h=JSON.parse(localStorage.getItem('dtr_hidden_msgs')||'[]');h.push(String(msgId));localStorage.setItem('dtr_hidden_msgs',JSON.stringify(h));}catch(e){}
       }
-      showToast('Удалено только у вас', '🗑️');
-    } else {
-      // Delete own message for both sides
-      await sb.from('messages').delete().eq('id', msgId).eq('from_user_id', SB_USER.id);
-      showToast('Сообщение удалено у обоих', '🗑️');
+      showToast('Удалено у вас','🗑️');
+    }else{
+      await _tryOp(()=>sb.from('messages').delete().eq('id',msgId).eq('from_user_id',SB_USER.id));
+      showToast('Удалено у обоих','🗑️');
     }
     await loadConversations();
-  } catch(e){
-    console.warn('[DTR] Delete msg:', e);
-    showToast('Не удалось удалить', '⚠️');
-  }
+  }catch(e){showToast('Не удалось удалить','⚠️');}
 }
 
 
@@ -23455,6 +23459,17 @@ function initRealtimeMessages() {
         });
         return;
       }
+      loadConversations();
+    })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages',filter:'to_user_id=eq.'+SB_USER.id},function(p){
+      var u=p.new;if(!u)return;var b=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(u.id))+'"]');if(!b)return;
+      if(u.content_type==='deleted'||u.content==='__deleted__'){var s=b.querySelector('span');if(s)s.innerHTML='<span style="color:rgba(255,255,255,.3);font-style:italic;">🚫 Удалено</span>';}
+      else{var s=b.querySelector('span');if(s&&u.content){s.innerHTML=esc(u.content).replace(/(https?:\/\/[^\s&<"']+)/g,'<a href="$1" target="_blank" style="color:inherit;opacity:.8;text-decoration:underline">$1</a>');if(!b.querySelector('.msg-edited-lbl')){var l=document.createElement('span');l.className='msg-edited-lbl';l.style.cssText='font-size:10px;color:rgba(255,255,255,.35);margin-left:4px;font-style:italic;';l.textContent='изм.';var td=b.querySelector('.msg-bubble-time');if(td)td.insertBefore(l,td.firstChild);}}}
+    })
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'messages'},function(p){
+      var did=p.old&&p.old.id;if(!did)return;
+      var b=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(did))+'"]');
+      if(b){var r=b.closest('.msg-row');if(r){r.style.transition='all .2s';r.style.opacity='0';setTimeout(function(){r.remove();},200);}}
       loadConversations();
     })
     .subscribe();
@@ -37844,11 +37859,12 @@ async function _msgSendFile(toUserId){
     showToast(isImage ? 'Фото отправлено 📸' : 'Файл отправлен 📎');
   } catch(err){
     console.error('[DTR] Send file error:', err?.code, err?.message);
-    const em = err?.message||'';
-    if(em.includes('row-level')||em.includes('policy')||em.includes('permission')||err?.code==='42501'){
-      try { await sb.auth.refreshSession(); showToast('Сессия обновлена — попробуй ещё раз','🔄'); } catch(e2){}
+    const fem=err?.message||'';
+    if(fem.includes('row-level')||fem.includes('policy')||fem.includes('permission')){
+      try{await sb.auth.refreshSession();showToast('Сессия обновлена — отправь ещё раз','🔄');}catch(e2){}
+    } else {
+      showToast('Ошибка: '+(fem||'неизвестная').slice(0,80),'⚠️');
     }
-    showToast('Ошибка: ' + (em||'неизвестная ошибка').slice(0,100), '⚠️');
   } finally {
     // Force remove uploading state and reset button
     if(sendBtn){
@@ -38582,44 +38598,62 @@ console.log('[DTR] Video call system initialized');
 }
 </style>
 <script>
-// ══ GLOBAL HANDLERS: Send text/files + Auto session refresh ══
+// ══ TELEGRAM-STYLE GLOBAL HANDLERS ══
 (function(){
-  // Prevent RLS 403: refresh session on load and every 20 min
-  function _refreshSB(){ if(typeof sb!=='undefined'&&sb&&sb.auth) sb.auth.refreshSession().catch(function(){}); }
-  setTimeout(_refreshSB, 2000);
-  setInterval(_refreshSB, 20*60*1000);
+  // Auto-refresh Supabase session to prevent RLS 403
+  function _rs(){if(typeof sb!=='undefined'&&sb&&sb.auth)sb.auth.refreshSession().catch(function(){});}
+  setTimeout(_rs,1500); setInterval(_rs,20*60*1000);
 
-  // ENTER → send text
-  document.addEventListener('keydown', function(e){
-    if(e.key!=='Enter'||e.shiftKey) return;
+  // ENTER → send or save edit
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Enter'||e.shiftKey)return;
     var inp=document.getElementById('msgInput');
-    if(!inp||document.activeElement!==inp) return;
-    if(!inp.value||!inp.value.trim()) return;
-    e.preventDefault(); e.stopImmediatePropagation();
+    if(!inp||document.activeElement!==inp)return;
+    // Edit mode? Save edit
+    if(typeof _msgEditingId!=='undefined'&&_msgEditingId){
+      e.preventDefault();e.stopImmediatePropagation();
+      if(typeof _msgSaveEdit==='function')_msgSaveEdit();
+      return;
+    }
+    if(!inp.value||!inp.value.trim())return;
+    e.preventDefault();e.stopImmediatePropagation();
     if(typeof sendMsg==='function'&&typeof activeConvUserId!=='undefined'&&activeConvUserId)
       sendMsg(activeConvUserId).catch(function(x){console.error('[G]',x);});
-  }, true);
+  },true);
 
-  // CLICK send btn → send text OR file
-  document.addEventListener('click', function(e){
+  // CLICK send btn → edit save / file / text
+  document.addEventListener('click',function(e){
     var btn=e.target.closest&&e.target.closest('#msgSendBtn');
-    if(!btn) return;
-    if(typeof activeConvUserId==='undefined'||!activeConvUserId) return;
-    // File pending? Send file!
+    if(!btn)return;
+    if(typeof activeConvUserId==='undefined'||!activeConvUserId)return;
+    // Edit mode?
+    if(typeof _msgEditingId!=='undefined'&&_msgEditingId){
+      e.stopImmediatePropagation();
+      if(typeof _msgSaveEdit==='function')_msgSaveEdit();
+      return;
+    }
+    // File pending?
     if(typeof _msgPendingFile!=='undefined'&&_msgPendingFile&&_msgPendingFile.file){
       e.stopImmediatePropagation();
-      if(typeof _msgSendFile==='function') _msgSendFile(activeConvUserId).catch(function(x){console.error('[G]',x);});
+      if(typeof _msgSendFile==='function')_msgSendFile(activeConvUserId).catch(function(x){console.error('[G]',x);});
       return;
     }
     // Text?
     var inp=document.getElementById('msgInput');
     if(inp&&inp.value&&inp.value.trim()){
       e.stopImmediatePropagation();
-      if(typeof sendMsg==='function') sendMsg(activeConvUserId).catch(function(x){console.error('[G]',x);});
+      if(typeof sendMsg==='function')sendMsg(activeConvUserId).catch(function(x){console.error('[G]',x);});
     }
-  }, true);
+  },true);
 
-  console.log('[DTR] Global send + auto-refresh installed');
+  // ESC → cancel edit / close search
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Escape')return;
+    if(typeof _msgEditingId!=='undefined'&&_msgEditingId){if(typeof _msgCancelEdit==='function')_msgCancelEdit();return;}
+    if(typeof _msgSearchActive!=='undefined'&&_msgSearchActive){if(typeof _msgCloseSearch==='function')_msgCloseSearch();return;}
+  });
+
+  console.log('[DTR] Telegram-style handlers installed');
 })();
 </script>
 </body>
