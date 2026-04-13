@@ -19865,39 +19865,10 @@ let _msgUnreadOffscreen = 0;
 let _msgCtxTarget = null;
 let _msgStatusTimers = {};
 let _msgTypingTimer = null;
-
-// ── Reply state (MUST be declared before sendMsg uses it) ──
 let _msgReplyTo = null;
-
-function _msgSetReply(msgId, text, isMine, authorName){
-  const name = authorName || (isMine ? (typeof P!=='undefined'&&P?P.name:'Вы') : 'Собеседник');
-  _msgReplyTo = { id:String(msgId), text:(text||'').slice(0,100), isMine:isMine, authorName:name };
-  document.getElementById('_msgReplyBar')?.remove();
-  const inputArea = document.querySelector('.msg-input-area');
-  if(!inputArea) return;
-  const bar = document.createElement('div');
-  bar.id = '_msgReplyBar';
-  bar.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 14px 6px;background:rgba(9,9,11,.96);border-top:0.5px solid rgba(255,255,255,.06);flex-shrink:0;';
-  bar.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" style="flex-shrink:0;opacity:.7"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg><div style="width:3px;height:34px;border-radius:2px;background:var(--gold);flex-shrink:0;"></div><div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:2px;">'+esc(name)+'</div><div id="_rpTxt" style="font-size:12px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div></div><button onclick="event.stopPropagation();_msgCancelReply()" style="width:24px;height:24px;border-radius:50%;background:none;border:none;color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
-  const t=bar.querySelector('#_rpTxt'); if(t) t.textContent=_msgReplyTo.text;
-  inputArea.parentNode.insertBefore(bar, inputArea);
-  document.getElementById('msgInput')?.focus();
-}
-
-function _msgCancelReply(){
-  _msgReplyTo = null;
-  document.getElementById('_msgReplyBar')?.remove();
-}
-
-function _msgScrollToId(msgId){
-  const el = document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(msgId))+'"]');
-  if(el){
-    el.scrollIntoView({behavior:'smooth', block:'center'});
-    el.style.transition='background .2s';
-    el.style.background='rgba(245,200,66,.12)';
-    setTimeout(function(){ el.style.background=''; }, 1200);
-  }
-}
+function _msgCancelReply(){ _msgReplyTo=null; var b=document.getElementById('_msgReplyBar'); if(b)b.remove(); }
+function _msgScrollToId(id){ var el=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(id))+'"]'); if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.style.background='rgba(245,200,66,.12)';setTimeout(function(){el.style.background='';},1200);} }
+function _msgSetReply(mid,text,mine,author){ _msgReplyTo={id:String(mid),text:(text||'').slice(0,100),isMine:mine,authorName:author||''}; document.getElementById('_msgReplyBar')?.remove(); var ia=document.querySelector('.msg-input-area'); if(!ia)return; var b=document.createElement('div'); b.id='_msgReplyBar'; b.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(9,9,11,.96);border-top:0.5px solid rgba(255,255,255,.06);flex-shrink:0;'; b.innerHTML='<div style="width:3px;height:30px;border-radius:2px;background:var(--gold);flex-shrink:0;"></div><div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:700;color:var(--gold);">'+esc(author||'')+'</div><div style="font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc((text||'').slice(0,80))+'</div></div><button onclick="_msgCancelReply()" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'; ia.parentNode.insertBefore(b,ia); document.getElementById('msgInput')?.focus(); }
 
 
 // ══ DB SETUP CHECK ══════════════════════════════════════════
@@ -20310,8 +20281,11 @@ function appendMessage(msg, isMine){
 }
 
 async function sendMsg(toUserId){
+  console.log('[DTR] sendMsg called, toUserId=', toUserId);
   const input = document.getElementById('msgInput');
-  if(!input || !SB_USER || !toUserId) return;
+  if(!input){ console.error('[DTR] sendMsg: input not found'); return; }
+  if(!SB_USER){ console.error('[DTR] sendMsg: SB_USER is null'); return; }
+  if(!toUserId){ console.error('[DTR] sendMsg: toUserId is empty'); return; }
 
   // File pending?
   if(_msgPendingFile && _msgPendingFile.file){
@@ -20326,12 +20300,12 @@ async function sendMsg(toUserId){
 
   // Reply?
   let finalText = text;
-  if(typeof _msgReplyTo!=='undefined' && _msgReplyTo){
-    finalText = JSON.stringify({t:text, r:{replyToId:_msgReplyTo.id, replyAuthor:_msgReplyTo.authorName, replyText:_msgReplyTo.text}});
-    if(typeof _msgCancelReply==='function') _msgCancelReply();
-  } else {
-    if(typeof _msgCancelReply==='function') _msgCancelReply();
-  }
+  try {
+    if(typeof _msgReplyTo!=='undefined' && _msgReplyTo && _msgReplyTo.id){
+      finalText = JSON.stringify({t:text, r:{replyToId:_msgReplyTo.id, replyAuthor:_msgReplyTo.authorName, replyText:_msgReplyTo.text}});
+    }
+  } catch(e){}
+  if(typeof _msgCancelReply==='function') _msgCancelReply();
 
   // Clear input
   input.value = '';
@@ -20535,7 +20509,7 @@ async function openConv(userId, name, av, avUrl){
         </button>
         <div class="msg-input-wrap" id="msgInputWrap">
           <textarea class="msg-input" id="msgInput" placeholder="Сообщение…" rows="1" maxlength="1000"
-            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg('${esc(userId)}')}"  
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();console.log('[DTR] Enter pressed');sendMsg('${esc(userId)}').catch(function(e){console.error('[DTR] sendMsg error:',e);})}"  
             oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';_msgToggleSendBtn(this.value);(function(v){var b=document.getElementById('msgSendBtn');if(b){b.style.background=v.trim()?'linear-gradient(145deg,#b8860b,#f5c842)':'';b.style.color=v.trim()?'#09090B':'';}})(this.value)"
             onfocus="document.getElementById('msgInputWrap')?.classList.add('focused')"
             onblur="document.getElementById('msgInputWrap')?.classList.remove('focused')"
@@ -20544,7 +20518,7 @@ async function openConv(userId, name, av, avUrl){
         </div>
         <!-- Send button (text mode) + Mic button (voice mode) -->
         <button class="msg-send" id="msgSendBtn"
-          onclick="(function(){var i=document.getElementById('msgInput');if(i&&i.value.trim()){sendMsg('${esc(userId)}');}else{_msgSendBtnClick('${esc(userId)}');}})()"
+          onclick="(function(){console.log('[DTR] Send btn clicked');var i=document.getElementById('msgInput');if(i&&i.value.trim()){sendMsg('${esc(userId)}').catch(function(e){console.error('[DTR] sendMsg error:',e);});}else{_msgSendBtnClick('${esc(userId)}');}})()"
           aria-label="Отправить/Голос" type="button"
           onmousedown="_msgMicStartHold(event,'${esc(userId)}')"
           onmouseup="_msgMicStopHold(event)"
