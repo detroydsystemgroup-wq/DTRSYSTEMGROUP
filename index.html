@@ -20258,7 +20258,7 @@ function appendMessage(msg, isMine){
 
   div.innerHTML = `
     ${!isMine ? `<div class="msg-av-micro" style="background:none;border:none;overflow:hidden;">${_msgGetPartnerAvatar()}</div>` : ''}
-    <div class="msg-bubble${isMine?' mine':' theirs'}" data-msg-id="${esc(msgId)}" style="border-radius:${radius}"
+    <div class="msg-bubble${isMine?' mine':' theirs'}" data-msg-id="${esc(msgId)}" data-ct="${esc(msg.content_type||'text')}" data-raw="${esc(txt)}" style="border-radius:${radius}"
       oncontextmenu="_msgShowBubbleCtx(event,this)"
       ondblclick="_showRxPopup(event,this)">
       ${bodyHtml}
@@ -20354,20 +20354,11 @@ async function sendMsg(toUserId){
     }
   } catch(err){
     console.error('[DTR] sendMsg:', err?.message, err?.code);
-    // RLS 403 → refresh + retry
     const em=err?.message||'';
     if(em.includes('row-level')||em.includes('policy')||em.includes('permission')||err?.code==='42501'){
-      try{
-        await sb.auth.refreshSession();
+      try{await sb.auth.refreshSession();
         const r2=await sb.from('messages').insert({from_user_id:SB_USER.id,to_user_id:toUserId,content:finalText,content_type:'text',read:false}).select('id').single();
-        if(!r2.error&&r2.data?.id){
-          const ro=document.querySelector('.msg-row[data-msg-id="'+optId+'"]');if(ro)ro.dataset.msgId=r2.data.id;
-          const bu=document.querySelector('.msg-bubble[data-msg-id="'+optId+'"]');
-          if(bu){bu.dataset.msgId=r2.data.id;bu.style.opacity='1';const t=bu.querySelector('.msg-ticks');if(t){t.dataset.mid=r2.data.id;t.innerHTML=_statusSVG('sent');t.dataset.status='sent';}}
-          if(typeof _trackReadReceipt==='function')_trackReadReceipt(r2.data.id,toUserId);
-          if(typeof _msgUpdateConvCache==='function')_msgUpdateConvCache(toUserId,text,true);
-          return;
-        }
+        if(!r2.error&&r2.data?.id){const ro=document.querySelector('.msg-row[data-msg-id="'+optId+'"]');if(ro)ro.dataset.msgId=r2.data.id;const bu=document.querySelector('.msg-bubble[data-msg-id="'+optId+'"]');if(bu){bu.dataset.msgId=r2.data.id;bu.style.opacity='1';const t=bu.querySelector('.msg-ticks');if(t){t.dataset.mid=r2.data.id;t.innerHTML=_statusSVG('sent');t.dataset.status='sent';}}if(typeof _trackReadReceipt==='function')_trackReadReceipt(r2.data.id,toUserId);if(typeof _msgUpdateConvCache==='function')_msgUpdateConvCache(toUserId,text,true);return;}
       }catch(e2){console.warn('[DTR] Retry:',e2);}
     }
     const bub = document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
@@ -21055,7 +21046,7 @@ async function loadMessages(partnerId, append=false){
       chunks.push(`
 <div class="msg-row${mine?' mine':' theirs'}" style="margin-top:${grouped?'2px':'10px'}">
   ${!mine?`<div class="msg-av-micro${isLastInGroup?'':' ghost'}" style="background:none;border:none;overflow:hidden;">${isLastInGroup?_msgGetPartnerAvatar():'&nbsp;'}</div>`:''}
-  <div class="msg-bubble${mine?' mine':' theirs'}" data-msg-id="${esc(msg.id)}" style="border-radius:${radius}"
+  <div class="msg-bubble${mine?' mine':' theirs'}" data-msg-id="${esc(msg.id)}" data-ct="${esc(ct)}" data-raw="${esc(txt)}" style="border-radius:${radius}"
     oncontextmenu="_msgShowBubbleCtx(event,this)"
     ondblclick="_showRxPopup(event,this)">
     ${body}
@@ -21067,14 +21058,8 @@ async function loadMessages(partnerId, append=false){
 </div>`);
     });
 
-    if(append){
-      var _lm=elNow.querySelector('.msg-load-more-btn');if(_lm)_lm.remove();
-      var _t=document.createElement('div');_t.innerHTML=chunks.join('');
-      var _f=document.createDocumentFragment();while(_t.firstChild)_f.appendChild(_t.firstChild);
-      elNow.prepend(_f);
-    } else {
-      elNow.innerHTML=chunks.join('');
-    }
+    if(append){var _lm=elNow.querySelector('.msg-load-more-btn');if(_lm)_lm.remove();var _t=document.createElement('div');_t.innerHTML=chunks.join('');var _f=document.createDocumentFragment();while(_t.firstChild)_f.appendChild(_t.firstChild);elNow.prepend(_f);}
+    else{elNow.innerHTML=chunks.join('');}
 
     // Добавляем кнопку "Загрузить ещё" если пришла полная страница (есть ещё сообщения)
     if(data.length >= MSG_PAGE_SIZE){
@@ -21110,54 +21095,74 @@ function _msgShowBubbleCtx(e, bub){
   _msgCtxTarget = bub;
   const msgId = bub.dataset.msgId;
   const isMine = bub.classList.contains('mine');
-  const txt = bub.querySelector('span')?.textContent || '';
-
-  // Get full text content of bubble (works for text, ignores media)
+  
+  // Extract content type and raw content from data attributes
+  const contentType = bub.dataset.ct || 'text';
+  const rawContent = bub.dataset.raw || '';
+  
+  // Get display text for reply/copy
   const bubSpan = bub.querySelector('span');
-  const txtFull = bubSpan ? bubSpan.textContent : (bub.querySelector('img') ? '[изображение]' : txt);
+  const voiceBub = bub.querySelector('.msg-voice-bubble');
+  const fileBub = bub.querySelector('.msg-file-bubble');
+  const imgEl = bub.querySelector('img');
+  const txtFull = bubSpan ? bubSpan.textContent
+    : voiceBub ? '🎤 Голосовое'
+    : fileBub ? ('📎 ' + (fileBub.querySelector('.msg-file-name')?.textContent || 'Файл'))
+    : imgEl ? '🖼️ Изображение'
+    : '';
+  
+  // Check if this is a forwarded message
+  let isForwarded = false;
+  try { const p = JSON.parse(rawContent); if(p && p.fwd) isForwarded = true; } catch(e){}
+  
+  const isTextMsg = contentType === 'text' && !voiceBub && !fileBub && !imgEl;
 
   const items = [
-    // FIX 1: Reply — real implementation with quote bar
-    {icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>', label:'Ответить', action:()=>{
-      // Get author name: mine = my name, theirs = partner name from cache
-      const authorName = isMine ? (P?.name || 'Вы') : (_msgPartnerAvCache._name || 'Собеседник');
-      _msgSetReply(msgId, txtFull, isMine, authorName);
+    // Reply
+    {icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>', label:'Ответить', action:function(){
+      const authorName = isMine ? (P?.name || 'Вы') : (_msgPartnerAvCache?._name || 'Собеседник');
+      if(typeof _msgSetReply==='function') _msgSetReply(msgId, txtFull, isMine, authorName);
     }},
-    {icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>', label:'Копировать', action:()=>{
-      navigator.clipboard?.writeText(txtFull).then(()=>showToast('Скопировано 📋')).catch(()=>showToast('Не удалось скопировать'));
+    // Copy
+    {icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>', label:'Копировать', action:function(){
+      var copyText = txtFull;
+      // For files — copy URL
+      if(contentType==='file'){ try { copyText = JSON.parse(rawContent).url || rawContent; } catch(e){ copyText = rawContent; } }
+      if(contentType==='image') copyText = rawContent;
+      navigator.clipboard?.writeText(copyText).then(function(){showToast('Скопировано 📋');}).catch(function(){showToast('Не удалось');});
     }},
-    // FIX 3: Forward — real implementation
-    {icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>', label:'Переслать', action:()=>{
-      // Pass the actual author name so recipient sees "Переслано от: Name"
-      const fwdAuthor = isMine ? (P?.name || 'Вы') : (_msgPartnerAvCache._name || 'Собеседник');
-      _msgForward(txtFull, fwdAuthor);
+    // Forward — works for ALL content types (text, image, voice, file)
+    {icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>', label:'Переслать', action:function(){
+      const fwdAuthor = isMine ? (P?.name || 'Вы') : (_msgPartnerAvCache?._name || 'Собеседник');
+      _msgForward(rawContent, contentType, fwdAuthor);
     }},
-    // FIX 2: Pin — real implementation
-    {icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>', label:'Закрепить', action:()=>{
-      _msgPinMessage(msgId, txtFull);
+    // Pin
+    {icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>', label:'Закрепить', action:function(){
+      if(typeof _msgPinMessage==='function') _msgPinMessage(msgId, txtFull);
     }},
   ];
-  // Edit — only for own text messages
-  const isTextMsg = !bub.querySelector('.msg-file-bubble') && !bub.querySelector('.msg-voice-bubble') && !bub.querySelector('img');
-  if(isMine && isTextMsg){
+  
+  // Edit — only for OWN TEXT messages that are NOT forwarded
+  if(isMine && isTextMsg && !isForwarded){
     items.push({sep:true});
     items.push({
       icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
       label:'Изменить',
-      action:()=>{ _msgStartEdit(msgId, bub); }
+      action:function(){ _msgStartEdit(msgId, bub); }
     });
   }
-  if(isMine){ items.push({sep:true}); }
-  // Delete — available for everyone with scope choice
+  
+  if(isMine) items.push({sep:true});
+  // Delete
   items.push({
     icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
     label:'Удалить', danger:true,
-    action:()=>{ _msgShowDeleteMsgModal(msgId, bub, isMine); }
+    action:function(){ _msgShowDeleteMsgModal(msgId, bub, isMine); }
   });
+  
   const menu = _msgGetCtxMenu(items, e.clientX, e.clientY);
   document.body.appendChild(menu);
-  requestAnimationFrame(()=>menu.classList.add('open'));
-  // Also show reaction popup on right-click
+  requestAnimationFrame(function(){menu.classList.add('open');});
 }
 
 
@@ -21288,75 +21293,80 @@ async function _msgSaveEdit(){
   const newText = document.getElementById('msgInput')?.value?.trim();
   if(!newText || !_msgEditingId || !SB_USER) return;
   const msgId = _msgEditingId;
-  const bub = document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(msgId)+'"]');
+
+  // Snapshot original text for rollback
+  const bub = document.querySelector(`.msg-bubble[data-msg-id="${CSS.escape(msgId)}"]`);
   const spanEl = bub?.querySelector('span');
-  const origHTML = spanEl ? spanEl.innerHTML : null;
-  const origText = spanEl ? spanEl.textContent : '';
-  
-  // Skip if unchanged
-  if(newText === origText){ _msgCancelEdit(); return; }
-  
-  // Optimistic UI update
+  const originalHTML = spanEl ? spanEl.innerHTML : null;
+
+  // Optimistic update
   if(spanEl){
-    spanEl.innerHTML = esc(newText).replace(/(https?:\/\/[^\s&<"']+)/g,'<a href="$1" target="_blank" rel="noopener" style="color:inherit;opacity:.8;text-decoration:underline">$1</a>');
+    const safeTxt = esc(newText);
+    spanEl.innerHTML = safeTxt.replace(/(https?:\/\/[^\s&<"']+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer" style="color:inherit;opacity:.8;text-decoration:underline">$1</a>');
     if(!bub.querySelector('.msg-edited-lbl')){
-      const lbl=document.createElement('span');
-      lbl.className='msg-edited-lbl';
-      lbl.style.cssText='font-size:10px;color:rgba(255,255,255,.35);margin-left:4px;font-style:italic;';
-      lbl.textContent='изм.';
-      const td=bub.querySelector('.msg-bubble-time');
-      if(td) td.insertBefore(lbl,td.firstChild);
+      const lbl = document.createElement('span');
+      lbl.className = 'msg-edited-lbl';
+      lbl.style.cssText = 'font-size:10px;color:rgba(255,255,255,.35);margin-left:4px;font-style:italic;';
+      lbl.textContent = 'изм.';
+      const timeDiv = bub.querySelector('.msg-bubble-time');
+      if(timeDiv) timeDiv.insertBefore(lbl, timeDiv.firstChild);
     }
   }
   _msgCancelEdit();
-  
-  // DB update — only own messages (from_user_id check)
+
+  // DB update with rollback on error
   try {
-    const res = await sb.from('messages').update({content:newText}).eq('id',msgId).eq('from_user_id',SB_USER.id);
-    if(res.error){
-      // RLS retry
-      if(res.error.message?.includes('policy')||res.error.message?.includes('row-level')){
-        await sb.auth.refreshSession();
-        const r2=await sb.from('messages').update({content:newText}).eq('id',msgId).eq('from_user_id',SB_USER.id);
-        if(r2.error) throw r2.error;
-      } else throw res.error;
-    }
-    if(typeof _msgUpdateConvCache==='function') _msgUpdateConvCache(activeConvUserId,newText,true);
-    showToast('Сообщение изменено','✏️');
+    const eres=await sb.from('messages').update({content:newText}).eq('id',msgId).eq('from_user_id',SB_USER.id);
+    if(eres.error){const em=eres.error.message||'';if(em.includes('policy')||em.includes('row-level')){await sb.auth.refreshSession();await sb.from('messages').update({content:newText}).eq('id',msgId).eq('from_user_id',SB_USER.id);}else throw eres.error;}
+    _msgUpdateConvCache(activeConvUserId, newText, true);
+    showToast('Изменено','✏️');
   } catch(e){
-    console.warn('[DTR] Edit:',e);
-    if(spanEl && origHTML!==null) spanEl.innerHTML=origHTML;
-    const lbl=bub?.querySelector('.msg-edited-lbl'); if(lbl)lbl.remove();
-    showToast('Не удалось изменить','⚠️');
+    console.warn('[DTR] Edit msg:', e);
+    // Rollback optimistic update
+    if(spanEl && originalHTML !== null) spanEl.innerHTML = originalHTML;
+    const lbl = bub?.querySelector('.msg-edited-lbl');
+    if(lbl) lbl.remove();
+    showToast('Не удалось сохранить изменения','⚠️');
   }
 }
 
-async function _msgDeleteMsg(msgId, bub, scope){
-  scope=scope||'both';
-  if(!bub) bub=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(msgId))+'"]');
-  const row=bub?(bub.closest('.msg-row')||bub.parentElement):null;
-  if(row){row.style.transition='all .2s';row.style.opacity='0';row.style.transform='scale(.95)';setTimeout(function(){row.remove();},200);}
-  if(!SB_USER||!msgId||String(msgId).startsWith('opt-')){showToast('Удалено');return;}
-  
-  async function _tryOp(fn){
-    try{const r=await fn();if(r?.error){const m=r.error.message||'';if(m.includes('policy')||m.includes('row-level')){await sb.auth.refreshSession();const r2=await fn();if(r2?.error)throw r2.error;}else throw r.error;}return true;}catch(e){console.warn('[DTR]',e);return false;}
+async function _msgDeleteMsg(msgId, bub, scope='both'){
+  if(!bub) bub = document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(msgId))+'"]');
+  // Animate out
+  const row = bub?.closest('.msg-row') ?? (bub ? bub.parentElement : null);
+  if(row){ row.style.transition='all .22s'; row.style.opacity='0'; row.style.transform='scale(.92) translateX('+(bub?.classList.contains('mine')?'10px':'-10px')+')'; setTimeout(()=>row.remove(),220); }
+
+  if(!SB_USER || !msgId || String(msgId).startsWith('opt-')){
+    showToast('Сообщение удалено у вас');
+    return;
   }
-  
-  try{
-    if(scope==='me'){
-      const isMy=bub&&bub.classList.contains('mine');
-      if(isMy){
-        await _tryOp(()=>sb.from('messages').update({content:'__deleted__',content_type:'deleted'}).eq('id',msgId).eq('from_user_id',SB_USER.id));
-      }else{
-        try{const h=JSON.parse(localStorage.getItem('dtr_hidden_msgs')||'[]');h.push(String(msgId));localStorage.setItem('dtr_hidden_msgs',JSON.stringify(h));}catch(e){}
+  try {
+    if(scope === 'me'){
+      // Soft-delete only for OWN messages (RLS allows UPDATE own messages only)
+      // For received messages — hide locally only (localStorage tombstone)
+      const isMineMsg = bub?.classList.contains('mine');
+      if(isMineMsg){
+        await sb.from('messages').update({ content: '__deleted__', content_type: 'deleted' })
+          .eq('id', msgId).eq('from_user_id', SB_USER.id);
+      } else {
+        // Can't update partner's message — store local tombstone in sessionStorage
+        try {
+          const hidden = JSON.parse(sessionStorage.getItem('dtr_hidden_msgs')||'[]');
+          hidden.push(String(msgId));
+          sessionStorage.setItem('dtr_hidden_msgs', JSON.stringify(hidden));
+        } catch(e){}
       }
-      showToast('Удалено у вас','🗑️');
-    }else{
-      await _tryOp(()=>sb.from('messages').delete().eq('id',msgId).eq('from_user_id',SB_USER.id));
-      showToast('Удалено у обоих','🗑️');
+      showToast('Удалено только у вас', '🗑️');
+    } else {
+      // Delete own message for both sides
+      await sb.from('messages').delete().eq('id', msgId).eq('from_user_id', SB_USER.id);
+      showToast('Сообщение удалено у обоих', '🗑️');
     }
     await loadConversations();
-  }catch(e){showToast('Не удалось удалить','⚠️');}
+  } catch(e){
+    console.warn('[DTR] Delete msg:', e);
+    showToast('Не удалось удалить', '⚠️');
+  }
 }
 
 
@@ -23461,17 +23471,8 @@ function initRealtimeMessages() {
       }
       loadConversations();
     })
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages',filter:'to_user_id=eq.'+SB_USER.id},function(p){
-      var u=p.new;if(!u)return;var b=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(u.id))+'"]');if(!b)return;
-      if(u.content_type==='deleted'||u.content==='__deleted__'){var s=b.querySelector('span');if(s)s.innerHTML='<span style="color:rgba(255,255,255,.3);font-style:italic;">🚫 Удалено</span>';}
-      else{var s=b.querySelector('span');if(s&&u.content){s.innerHTML=esc(u.content).replace(/(https?:\/\/[^\s&<"']+)/g,'<a href="$1" target="_blank" style="color:inherit;opacity:.8;text-decoration:underline">$1</a>');if(!b.querySelector('.msg-edited-lbl')){var l=document.createElement('span');l.className='msg-edited-lbl';l.style.cssText='font-size:10px;color:rgba(255,255,255,.35);margin-left:4px;font-style:italic;';l.textContent='изм.';var td=b.querySelector('.msg-bubble-time');if(td)td.insertBefore(l,td.firstChild);}}}
-    })
-    .on('postgres_changes',{event:'DELETE',schema:'public',table:'messages'},function(p){
-      var did=p.old&&p.old.id;if(!did)return;
-      var b=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(did))+'"]');
-      if(b){var r=b.closest('.msg-row');if(r){r.style.transition='all .2s';r.style.opacity='0';setTimeout(function(){r.remove();},200);}}
-      loadConversations();
-    })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages',filter:'to_user_id=eq.'+SB_USER.id},function(p){var u=p.new;if(!u)return;var b=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(u.id))+'"]');if(!b)return;if(u.content_type==='deleted'||u.content==='__deleted__'){var s=b.querySelector('span');if(s)s.innerHTML='<span style="color:rgba(255,255,255,.3);font-style:italic;">🚫 Удалено</span>';}else{var s=b.querySelector('span');if(s&&u.content)s.innerHTML=esc(u.content).replace(/(https?:\/\/[^\s&<"']+)/g,'<a href="$1" target="_blank" style="color:inherit;opacity:.8;text-decoration:underline">$1</a>');}})
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'messages'},function(p){var did=p.old&&p.old.id;if(!did)return;var b=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(did))+'"]');if(b){var r=b.closest('.msg-row');if(r){r.style.transition='all .2s';r.style.opacity='0';setTimeout(function(){r.remove();},200);}}loadConversations();})
     .subscribe();
 
   if (usersRealtimeChannel) { sb.removeChannel(usersRealtimeChannel); }
@@ -23695,49 +23696,104 @@ function _msgLoadPinnedBar(){
 
 // ══ FIX 3: FORWARD — show conversation picker ════════════════
 let _msgForwardFromName = null;
-function _msgForward(text, fromName){
+function _msgForward(rawContent, contentType, fromName){
   _msgForwardFromName = fromName || null;
   const cache = _convsCache || allConvsCache;
   if(!cache || !cache.length){ showToast('Нет диалогов для пересылки', 'ℹ️'); return; }
   document.getElementById('_msgForwardModal')?.remove();
+  
+  // Determine preview text for modal
+  var previewLabel = '';
+  if(contentType==='image') previewLabel = '🖼️ Изображение';
+  else if(contentType==='voice') previewLabel = '🎤 Голосовое сообщение';
+  else if(contentType==='file'){
+    try { previewLabel = '📎 ' + JSON.parse(rawContent).name; } catch(e){ previewLabel = '📎 Файл'; }
+  } else {
+    // Text — may be JSON with reply/forward
+    var displayText = rawContent;
+    try { var p=JSON.parse(rawContent); if(p.t!==undefined) displayText=p.t; } catch(e){}
+    previewLabel = displayText.slice(0,60) + (displayText.length>60?'…':'');
+  }
+  
   const ov = document.createElement('div');
   ov.id = '_msgForwardModal';
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;';
   ov.innerHTML = `
     <div style="background:var(--card);border:0.5px solid var(--border);border-radius:18px;width:100%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,.6);animation:msgIn .22s cubic-bezier(.34,1.3,.64,1) both;overflow:hidden;">
-      <div style="padding:16px 18px 12px;border-bottom:0.5px solid rgba(255,255,255,.06);font-family:var(--font-display);font-size:15px;font-weight:700;letter-spacing:-.02em;">Переслать сообщение</div>
+      <div style="padding:16px 18px 8px;border-bottom:0.5px solid rgba(255,255,255,.06);">
+        <div style="font-family:var(--font-display);font-size:15px;font-weight:700;letter-spacing:-.02em;">Переслать</div>
+        <div style="font-size:12px;color:var(--t3);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(previewLabel)}</div>
+      </div>
       <div style="max-height:320px;overflow-y:auto;" id="_msgFwdList"></div>
       <div style="padding:12px 16px;border-top:0.5px solid rgba(255,255,255,.06);">
         <button onclick="document.getElementById('_msgForwardModal').remove()" style="width:100%;padding:10px;border-radius:10px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.08);color:var(--t2);font-size:13px;font-weight:600;font-family:var(--font-display);cursor:pointer;">Отмена</button>
       </div>
     </div>`;
   const list = ov.querySelector('#_msgFwdList');
-  cache.forEach(c => {
-    if(c.userId === activeConvUserId) return; // skip current
+  
+  cache.forEach(function(c){
+    if(c.userId === activeConvUserId) return;
     const btn = document.createElement('button');
     btn.style.cssText = 'display:flex;align-items:center;gap:10px;width:100%;padding:11px 16px;background:none;border:none;border-bottom:0.5px solid rgba(255,255,255,.04);cursor:pointer;text-align:left;transition:background .12s;';
-    btn.onmouseenter = ()=>{ btn.style.background='rgba(255,255,255,.04)'; };
-    btn.onmouseleave = ()=>{ btn.style.background='none'; };
-    btn.innerHTML = `<div style="width:36px;height:36px;border-radius:9px;background:var(--panel);border:0.5px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${esc(c.av||'🎯')}</div><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(c.name)}</div></div>`;
-    btn.onclick = async ()=>{
+    btn.onmouseenter = function(){ btn.style.background='rgba(255,255,255,.04)'; };
+    btn.onmouseleave = function(){ btn.style.background='none'; };
+    const avHtml = c.avUrl
+      ? '<img src="'+esc(c.avUrl)+'" style="width:100%;height:100%;object-fit:cover;border-radius:9px;" onerror="this.style.display=\'none\'">'
+      : esc(c.av||'🎯');
+    btn.innerHTML = '<div style="width:36px;height:36px;border-radius:9px;background:var(--panel);border:0.5px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;overflow:hidden;">'+avHtml+'</div><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(c.name)+'</div></div>';
+    
+    btn.onclick = async function(){
       ov.remove();
-      // Telegram-style: encode forward metadata { fwd: { fromName }, t: text }
-      const fwdContent = JSON.stringify({ t: text, fwd: { fromName: _msgForwardFromName || P?.name || 'Вы' } });
-      const {error} = await sb.from('messages').insert({
-        from_user_id: SB_USER.id,
-        to_user_id: c.userId,
-        content: fwdContent,
-        content_type: 'text',
-        read: false
-      });
+      var fwdName = _msgForwardFromName || (typeof P!=='undefined'&&P?P.name:'') || 'Вы';
       _msgForwardFromName = null;
-      if(error){ showToast('Не удалось переслать', '⚠️'); return; }
-      showToast(`Переслано → ${c.name} ✅`);
-      await loadConversations();
+      
+      var insertContent, insertType;
+      
+      if(contentType==='image' || contentType==='voice' || contentType==='file'){
+        // Forward media AS-IS with same content_type — keeps the original file/voice/image
+        insertContent = rawContent;
+        insertType = contentType;
+      } else {
+        // Text forward — wrap in JSON with fwd metadata
+        var plainText = rawContent;
+        try { var p=JSON.parse(rawContent); if(p.t!==undefined) plainText=p.t; } catch(e){}
+        insertContent = JSON.stringify({t:plainText, fwd:{fromName:fwdName}});
+        insertType = 'text';
+      }
+      
+      try {
+        var ins = await sb.from('messages').insert({
+          from_user_id: SB_USER.id,
+          to_user_id: c.userId,
+          content: insertContent,
+          content_type: insertType,
+          read: false
+        });
+        if(ins.error){
+          // RLS retry
+          if((ins.error.message||'').includes('policy')||(ins.error.message||'').includes('row-level')){
+            await sb.auth.refreshSession();
+            var r2 = await sb.from('messages').insert({from_user_id:SB_USER.id, to_user_id:c.userId, content:insertContent, content_type:insertType, read:false});
+            if(r2.error) throw r2.error;
+          }
+          // Column missing fallback
+          else if(ins.error.code==='42703'){
+            var r3 = await sb.from('messages').insert({from_user_id:SB_USER.id, to_user_id:c.userId, content:insertContent});
+            if(r3.error) throw r3.error;
+          }
+          else throw ins.error;
+        }
+        var typeLabel = contentType==='image'?'фото':contentType==='voice'?'голосовое':contentType==='file'?'файл':'сообщение';
+        showToast('Переслано '+typeLabel+' → '+c.name+' ✅');
+        await loadConversations();
+      } catch(err){
+        console.error('[DTR] Forward:', err);
+        showToast('Не удалось переслать: '+(err?.message||'').slice(0,60), '⚠️');
+      }
     };
     list.appendChild(btn);
   });
-  ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove(); });
+  ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
   document.body.appendChild(ov);
 }
 
@@ -37860,11 +37916,8 @@ async function _msgSendFile(toUserId){
   } catch(err){
     console.error('[DTR] Send file error:', err?.code, err?.message);
     const fem=err?.message||'';
-    if(fem.includes('row-level')||fem.includes('policy')||fem.includes('permission')){
-      try{await sb.auth.refreshSession();showToast('Сессия обновлена — отправь ещё раз','🔄');}catch(e2){}
-    } else {
-      showToast('Ошибка: '+(fem||'неизвестная').slice(0,80),'⚠️');
-    }
+    if(fem.includes('row-level')||fem.includes('policy')){try{await sb.auth.refreshSession();showToast('Сессия обновлена — отправь ещё раз','🔄');}catch(e2){}}
+    else showToast('Ошибка: '+(fem||'неизвестная').slice(0,80),'⚠️');
   } finally {
     // Force remove uploading state and reset button
     if(sendBtn){
@@ -38598,62 +38651,26 @@ console.log('[DTR] Video call system initialized');
 }
 </style>
 <script>
-// ══ TELEGRAM-STYLE GLOBAL HANDLERS ══
 (function(){
-  // Auto-refresh Supabase session to prevent RLS 403
   function _rs(){if(typeof sb!=='undefined'&&sb&&sb.auth)sb.auth.refreshSession().catch(function(){});}
-  setTimeout(_rs,1500); setInterval(_rs,20*60*1000);
-
-  // ENTER → send or save edit
+  setTimeout(_rs,1500);setInterval(_rs,20*60*1000);
   document.addEventListener('keydown',function(e){
     if(e.key!=='Enter'||e.shiftKey)return;
-    var inp=document.getElementById('msgInput');
-    if(!inp||document.activeElement!==inp)return;
-    // Edit mode? Save edit
-    if(typeof _msgEditingId!=='undefined'&&_msgEditingId){
-      e.preventDefault();e.stopImmediatePropagation();
-      if(typeof _msgSaveEdit==='function')_msgSaveEdit();
-      return;
-    }
+    var inp=document.getElementById('msgInput');if(!inp||document.activeElement!==inp)return;
+    if(typeof _msgEditingId!=='undefined'&&_msgEditingId){e.preventDefault();e.stopImmediatePropagation();if(typeof _msgSaveEdit==='function')_msgSaveEdit();return;}
     if(!inp.value||!inp.value.trim())return;
     e.preventDefault();e.stopImmediatePropagation();
-    if(typeof sendMsg==='function'&&typeof activeConvUserId!=='undefined'&&activeConvUserId)
-      sendMsg(activeConvUserId).catch(function(x){console.error('[G]',x);});
+    if(typeof sendMsg==='function'&&typeof activeConvUserId!=='undefined'&&activeConvUserId)sendMsg(activeConvUserId).catch(function(x){console.error('[G]',x);});
   },true);
-
-  // CLICK send btn → edit save / file / text
   document.addEventListener('click',function(e){
-    var btn=e.target.closest&&e.target.closest('#msgSendBtn');
-    if(!btn)return;
+    var btn=e.target.closest&&e.target.closest('#msgSendBtn');if(!btn)return;
     if(typeof activeConvUserId==='undefined'||!activeConvUserId)return;
-    // Edit mode?
-    if(typeof _msgEditingId!=='undefined'&&_msgEditingId){
-      e.stopImmediatePropagation();
-      if(typeof _msgSaveEdit==='function')_msgSaveEdit();
-      return;
-    }
-    // File pending?
-    if(typeof _msgPendingFile!=='undefined'&&_msgPendingFile&&_msgPendingFile.file){
-      e.stopImmediatePropagation();
-      if(typeof _msgSendFile==='function')_msgSendFile(activeConvUserId).catch(function(x){console.error('[G]',x);});
-      return;
-    }
-    // Text?
-    var inp=document.getElementById('msgInput');
-    if(inp&&inp.value&&inp.value.trim()){
-      e.stopImmediatePropagation();
-      if(typeof sendMsg==='function')sendMsg(activeConvUserId).catch(function(x){console.error('[G]',x);});
-    }
+    if(typeof _msgEditingId!=='undefined'&&_msgEditingId){e.stopImmediatePropagation();if(typeof _msgSaveEdit==='function')_msgSaveEdit();return;}
+    if(typeof _msgPendingFile!=='undefined'&&_msgPendingFile&&_msgPendingFile.file){e.stopImmediatePropagation();if(typeof _msgSendFile==='function')_msgSendFile(activeConvUserId).catch(function(x){console.error('[G]',x);});return;}
+    var inp=document.getElementById('msgInput');if(inp&&inp.value&&inp.value.trim()){e.stopImmediatePropagation();if(typeof sendMsg==='function')sendMsg(activeConvUserId).catch(function(x){console.error('[G]',x);});}
   },true);
-
-  // ESC → cancel edit / close search
-  document.addEventListener('keydown',function(e){
-    if(e.key!=='Escape')return;
-    if(typeof _msgEditingId!=='undefined'&&_msgEditingId){if(typeof _msgCancelEdit==='function')_msgCancelEdit();return;}
-    if(typeof _msgSearchActive!=='undefined'&&_msgSearchActive){if(typeof _msgCloseSearch==='function')_msgCloseSearch();return;}
-  });
-
-  console.log('[DTR] Telegram-style handlers installed');
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(typeof _msgEditingId!=='undefined'&&_msgEditingId&&typeof _msgCancelEdit==='function')_msgCancelEdit();}});
+  console.log('[DTR] Handlers OK');
 })();
 </script>
 </body>
