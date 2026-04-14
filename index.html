@@ -26059,6 +26059,18 @@ function _kbCSS(){ return `
    Each section gets its own visual language, color, layout & atmosphere
    ═══════════════════════════════════════════════════════════════════════ */
 
+
+/* ─── Fullscreen content area — always interactive ─────────────
+   The topbar (#dtr-fs-exit-wrap) is position:fixed z-index:99975
+   Content sits at z-index:1 or auto — should never be blocked
+   except under the 56px topbar zone ── */
+body.dtr-fs-active .tc.active {
+  pointer-events: all !important;
+}
+body.dtr-fs-active .tc.active * {
+  /* Don't blanket set pointer-events — let specific rules control */
+}
+
 /* ─── BASE: Hide chrome, set up viewport ─────────────────────────────── */
 body.dtr-fs-active .nav,
 body.dtr-fs-active .ph,
@@ -26387,11 +26399,16 @@ body.dtr-fs-active[data-fs-tab="messages"] #dtr-fs-exit-wrap {
 }
 body.dtr-fs-active[data-fs-tab="messages"] #dtr-fs-section-name { color: #06B6D4 !important; }
 
+/* ══ СООБЩЕНИЯ FULLSCREEN — Full viewport chat ══════════════
+   Fix: ensure all interactive elements have pointer-events:all
+   and z-index doesn't block any buttons
+═══════════════════════════════════════════════════════════ */
 body.dtr-fs-active[data-fs-tab="messages"] .tc.active {
   overflow: hidden !important;
   display: flex !important;
   flex-direction: column !important;
   padding-top: 56px !important;
+  pointer-events: all !important;
 }
 body.dtr-fs-active[data-fs-tab="messages"] #tab-messages {
   flex: 1 1 0 !important;
@@ -26400,6 +26417,7 @@ body.dtr-fs-active[data-fs-tab="messages"] #tab-messages {
   overflow: hidden !important;
   padding: 0 !important;
   min-height: 0 !important;
+  pointer-events: all !important;
 }
 body.dtr-fs-active[data-fs-tab="messages"] .msg-layout {
   flex: 1 1 0 !important;
@@ -26407,6 +26425,86 @@ body.dtr-fs-active[data-fs-tab="messages"] .msg-layout {
   min-height: 0 !important;
   border-radius: 0 !important;
   border: none !important;
+  pointer-events: all !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+/* Ensure ALL interactive elements in messages are clickable */
+body.dtr-fs-active[data-fs-tab="messages"] .msg-layout * {
+  pointer-events: auto !important;
+}
+/* Scrollable messages area */
+body.dtr-fs-active[data-fs-tab="messages"] .msg-messages {
+  overflow-y: auto !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+  pointer-events: all !important;
+}
+/* Send bar — ensure it's always at the bottom and clickable */
+body.dtr-fs-active[data-fs-tab="messages"] .msg-chat {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  position: relative !important;
+  pointer-events: all !important;
+}
+/* Input wrap */
+body.dtr-fs-active[data-fs-tab="messages"] .msg-input-wrap {
+  pointer-events: all !important;
+  position: relative !important;
+  z-index: 10 !important;
+}
+/* Send button */
+body.dtr-fs-active[data-fs-tab="messages"] #msgSendBtn,
+body.dtr-fs-active[data-fs-tab="messages"] button[id*="send"],
+body.dtr-fs-active[data-fs-tab="messages"] .msg-send-wrap {
+  pointer-events: all !important;
+  cursor: pointer !important;
+  position: relative !important;
+  z-index: 20 !important;
+}
+/* All buttons in messages are clickable */
+body.dtr-fs-active[data-fs-tab="messages"] button,
+body.dtr-fs-active[data-fs-tab="messages"] [role="button"],
+body.dtr-fs-active[data-fs-tab="messages"] input,
+body.dtr-fs-active[data-fs-tab="messages"] textarea {
+  pointer-events: all !important;
+}
+
+/* Сообщения: ensure input bar is always accessible, never hidden */
+body.dtr-fs-active[data-fs-tab="messages"] .msg-chat {
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  height: 100% !important;
+}
+body.dtr-fs-active[data-fs-tab="messages"] .msg-messages {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  min-height: 0 !important;
+  scrollbar-width: none !important;
+}
+body.dtr-fs-active[data-fs-tab="messages"] .msg-messages::-webkit-scrollbar { display: none !important; }
+body.dtr-fs-active[data-fs-tab="messages"] .msg-send-wrap,
+body.dtr-fs-active[data-fs-tab="messages"] [class*="msg-send"],
+body.dtr-fs-active[data-fs-tab="messages"] [id*="send"] {
+  flex-shrink: 0 !important;
+  pointer-events: all !important;
+  position: relative !important;
+  z-index: 50 !important;
+}
+
+/* Conversation list items */
+body.dtr-fs-active[data-fs-tab="messages"] .msg-conv {
+  pointer-events: all !important;
+  cursor: pointer !important;
+}
+/* Video call button */
+body.dtr-fs-active[data-fs-tab="messages"] #msgVideoCamBtn {
+  pointer-events: all !important;
+  position: relative !important;
+  z-index: 10 !important;
 }
 body.dtr-fs-active[data-fs-tab="messages"] .msg-list {
   border-right-color: rgba(6,182,212,.1) !important;
@@ -26436,10 +26534,9 @@ body.dtr-fs-active[data-fs-tab="messages"] .msg-send-bar {
 ══════════════════════════════════════════════════════════════════════ */
 body.dtr-fs-active[data-fs-tab="knowledge"] .tc.active {
   background: linear-gradient(160deg, #070610 0%, #090814 50%, #06060E 100%) !important;
-  /* CRITICAL: flex column chain so #kb6 can fill available height */
   display: flex !important;
   flex-direction: column !important;
-  overflow: hidden !important;  /* NO scroll on outer container */
+  overflow: hidden !important;
   padding-top: 56px !important;
 }
 body.dtr-fs-active[data-fs-tab="knowledge"] #dtr-fs-exit-wrap {
@@ -26474,6 +26571,43 @@ body.dtr-fs-active[data-fs-tab="knowledge"] #kb6 {
   border: none !important;
   background: linear-gradient(160deg, #070610 0%, #090812 100%) !important;
   transition: none !important; /* no height transition in fullscreen */
+}
+
+
+/* ══ KB FULLSCREEN: Merge our topbar with KB's native header ══
+   Our bar becomes transparent so KB home header is fully visible
+   The exit button floats as overlay at top-right */
+body.dtr-fs-active[data-fs-tab="knowledge"] #dtr-fs-exit-wrap {
+  background: transparent !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+  /* Only show the exit button, hide section name for KB */
+  pointer-events: none !important;
+  z-index: 99980 !important;
+}
+body.dtr-fs-active[data-fs-tab="knowledge"] #dtr-fs-exit-wrap > div:first-child {
+  display: none !important;
+}
+body.dtr-fs-active[data-fs-tab="knowledge"] #dtr-fs-exit-wrap > button {
+  pointer-events: all !important;
+  background: rgba(139,92,246,.14) !important;
+  border-color: rgba(139,92,246,.3) !important;
+  color: rgba(200,180,255,.85) !important;
+  font-size: 12px !important;
+  padding: 6px 14px !important;
+}
+body.dtr-fs-active[data-fs-tab="knowledge"] #dtr-fs-exit-wrap > button:hover {
+  background: rgba(139,92,246,.3) !important;
+  border-color: rgba(139,92,246,.6) !important;
+}
+/* KB home header: add top padding since our bar is 56px */
+body.dtr-fs-active[data-fs-tab="knowledge"] #kb6home > div:first-child {
+  padding-top: 8px !important;
+}
+/* KB home header right side: Новая заметка button stays visible */
+body.dtr-fs-active[data-fs-tab="knowledge"] #kb6home > div:first-child > button {
+  z-index: 1 !important;
+  position: relative !important;
 }
 
 /* Sidebar: violet accent */
@@ -26614,7 +26748,10 @@ body.dtr-fs-active[data-fs-tab="knowledge"] .kb6-logo {
 ══════════════════════════════════════════════════════════════════════ */
 body.dtr-fs-active[data-fs-tab="habits"] .tc.active {
   background: linear-gradient(160deg, #0C0806 0%, #0F0A06 50%, #090705 100%) !important;
-  overflow-y: auto !important;
+  overflow: hidden !important;  /* NO outer scroll — inner areas scroll */
+  display: flex !important;
+  flex-direction: column !important;
+  padding-top: 56px !important;
 }
 body.dtr-fs-active[data-fs-tab="habits"] #dtr-fs-exit-wrap {
   background: linear-gradient(90deg, rgba(12,8,6,.98) 0%, rgba(16,10,6,.95) 100%) !important;
@@ -26625,23 +26762,50 @@ body.dtr-fs-active[data-fs-tab="habits"] #dtr-fs-section-name { color: #F97316 !
 
 /* Outer container: max-width, centered */
 body.dtr-fs-active[data-fs-tab="habits"] #tab-habits {
+  flex: 1 1 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
   padding: 0 !important;
+  min-height: 0 !important;
 }
 body.dtr-fs-active[data-fs-tab="habits"] #hab-root {
-  max-width: 1440px !important;
-  margin: 0 auto !important;
-  padding: 24px 40px 48px !important;
-  /* TWO-COLUMN LAYOUT: tracker (grows) | analytics (fixed 400px) */
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  height: 0 !important;
+  overflow-y: auto !important;
+  scrollbar-width: none !important;
+  /* TWO-COLUMN LAYOUT: tracker (grows) | analytics (sticky 400px) */
   display: grid !important;
   grid-template-columns: 1fr 400px !important;
   grid-template-rows: auto !important;
-  gap: 0 28px !important;
   align-items: start !important;
+  gap: 0 24px !important;
+  padding: 20px 36px 40px !important;
+  max-width: none !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
 }
+body.dtr-fs-active[data-fs-tab="habits"] #hab-root::-webkit-scrollbar { display: none !important; }
 /* ALL direct children → column 1 by default */
 body.dtr-fs-active[data-fs-tab="habits"] #hab-root > * {
   grid-column: 1 !important;
   min-width: 0 !important;
+}
+/* Mode bar (Мой трекер / Совместный) → always visible in FS but compact */
+body.dtr-fs-active[data-fs-tab="habits"] #hab-root > .hab-mode-bar,
+body.dtr-fs-active[data-fs-tab="habits"] #hab-root > #habModeBar {
+  grid-column: 1 / -1 !important;  /* full width across both columns */
+  margin-bottom: 8px !important;
+  padding: 3px !important;
+  border-radius: 10px !important;
+  background: rgba(249,115,22,.06) !important;
+  border-color: rgba(249,115,22,.14) !important;
+}
+body.dtr-fs-active[data-fs-tab="habits"] .hab-mode-btn.active {
+  background: rgba(249,115,22,.16) !important;
+  color: #F97316 !important;
+  border-color: rgba(249,115,22,.35) !important;
 }
 /* Mode bar (.hab-mode-bar) → hide in fullscreen (we have our own bar) */
 body.dtr-fs-active[data-fs-tab="habits"] #hab-root > .hab-mode-bar,
@@ -26754,11 +26918,24 @@ body.dtr-fs-active[data-fs-tab="learn"] #dtr-fs-exit-wrap {
 }
 body.dtr-fs-active[data-fs-tab="learn"] #dtr-fs-section-name { color: #60A5FA !important; }
 
+
+/* Override negative margins from #tab-learn.tc base CSS */
+body.dtr-fs-active[data-fs-tab="learn"] #tab-learn.tc {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  margin-top: 0 !important;
+  width: 100% !important;
+}
+
+/* ══ МАТЕРИАЛЫ FULLSCREEN — Complete immersive redesign ══════════
+   Media library: sidebar + scrollable grid, no wasted space
+═══════════════════════════════════════════════════════════════ */
 body.dtr-fs-active[data-fs-tab="learn"] .tc.active {
   overflow: hidden !important;
   display: flex !important;
   flex-direction: column !important;
   padding-top: 56px !important;
+  background: linear-gradient(160deg, #06080E 0%, #070A14 100%) !important;
 }
 body.dtr-fs-active[data-fs-tab="learn"] #tab-learn {
   flex: 1 1 0 !important;
@@ -26767,15 +26944,188 @@ body.dtr-fs-active[data-fs-tab="learn"] #tab-learn {
   overflow: hidden !important;
   padding: 0 !important;
   min-height: 0 !important;
+  margin: 0 !important;
+  /* Override negative margins from base CSS */
+  margin: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  box-sizing: border-box !important;
 }
 body.dtr-fs-active[data-fs-tab="learn"] #learn-root {
   flex: 1 1 0 !important;
   height: 0 !important;
   min-height: 0 !important;
-  overflow-y: auto !important;
-  scrollbar-width: none !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
-body.dtr-fs-active[data-fs-tab="learn"] #learn-root::-webkit-scrollbar { display: none !important; }
+body.dtr-fs-active[data-fs-tab="learn"] #learn-root::-webkit-scrollbar { display: none; }
+
+/* Mode bar (Мои материалы / Совместные) */
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-mode-bar {
+  flex-shrink: 0 !important;
+  margin: 14px 24px 0 !important;
+  border-radius: 12px !important;
+  background: rgba(255,255,255,.04) !important;
+  border-color: rgba(96,165,250,.12) !important;
+}
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-mode-btn.active {
+  background: rgba(96,165,250,.14) !important;
+  color: #60A5FA !important;
+  border-color: rgba(96,165,250,.3) !important;
+}
+
+/* lrn-wrap: sidebar + main — full height */
+body.dtr-fs-active[data-fs-tab="learn"] #lrn-wrap {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  height: 0 !important;
+  display: flex !important;
+  overflow: hidden !important;
+}
+
+/* Sidebar — fixed width, full height, scrollable */
+body.dtr-fs-active[data-fs-tab="learn"] #lrn-sidebar {
+  width: 240px !important;
+  min-width: 240px !important;
+  max-width: 240px !important;
+  height: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  flex-shrink: 0 !important;
+  scrollbar-width: none !important;
+  border-right-color: rgba(96,165,250,.1) !important;
+  background: rgba(5,7,14,.96) !important;
+}
+body.dtr-fs-active[data-fs-tab="learn"] #lrn-sidebar::-webkit-scrollbar { display: none !important; }
+
+/* Summary card in sidebar */
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-sb-summary {
+  border-color: rgba(96,165,250,.18) !important;
+  background: rgba(96,165,250,.05) !important;
+}
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-sb-summary::before {
+  background: linear-gradient(90deg, transparent, rgba(96,165,250,.45), transparent) !important;
+}
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-sb-summary-title { color: #60A5FA !important; }
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-sb-summary-title::before { background: #60A5FA !important; }
+
+/* Sidebar category items hover */
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-sb-cat:hover {
+  background: rgba(96,165,250,.08) !important;
+  color: #60A5FA !important;
+}
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-sb-cat.active {
+  background: rgba(96,165,250,.14) !important;
+  color: #60A5FA !important;
+  border-left: 2px solid #60A5FA !important;
+}
+
+/* Main content — scrollable */
+body.dtr-fs-active[data-fs-tab="learn"] #lrn-main {
+  flex: 1 !important;
+  height: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scrollbar-width: none !important;
+  padding: 20px 40px 40px 32px !important;
+  min-width: 0 !important;
+}
+body.dtr-fs-active[data-fs-tab="learn"] #lrn-main::-webkit-scrollbar { display: none !important; }
+
+/* Page header */
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-main-hdr {
+  margin-bottom: 20px !important;
+  padding-top: 8px !important;
+}
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-page-ttl {
+  font-size: 26px !important;
+}
+
+/* New category button */
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-new-cat-btn {
+  background: rgba(96,165,250,.12) !important;
+  border-color: rgba(96,165,250,.3) !important;
+  color: #60A5FA !important;
+}
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-new-cat-btn:hover {
+  background: rgba(96,165,250,.2) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* Category section header */
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-cat-head {
+  border-radius: 14px 14px 0 0 !important;
+  padding: 16px 20px !important;
+  background: linear-gradient(135deg, rgba(96,165,250,.08), rgba(96,165,250,.03)) !important;
+  border-color: rgba(96,165,250,.15) !important;
+}
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-sec-name {
+  font-size: 16px !important;
+  letter-spacing: -.02em !important;
+}
+
+/* Section wrapper */
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-section {
+  border-radius: 16px !important;
+  border-color: rgba(96,165,250,.1) !important;
+  margin-bottom: 28px !important;
+  overflow: hidden !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,.25) !important;
+}
+
+/* Cards grid — 4 columns in fullscreen */
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-row {
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 16px !important;
+  padding: 16px 20px 20px !important;
+}
+
+/* Individual media card */
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-card {
+  border-radius: 12px !important;
+  transition: transform .22s cubic-bezier(.34,1.15,.64,1), box-shadow .22s, border-color .2s !important;
+}
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-card:hover {
+  transform: translateY(-7px) scale(1.02) !important;
+  box-shadow: 0 18px 48px rgba(0,0,0,.6), 0 0 0 1px rgba(96,165,250,.15) !important;
+  border-color: rgba(96,165,250,.25) !important;
+}
+
+/* Thumbnail */
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-thumb {
+  aspect-ratio: 16/9 !important;
+}
+
+/* Card title */
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-card-ttl {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+/* Add card */
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-add-card {
+  border-color: rgba(96,165,250,.15) !important;
+  border-radius: 12px !important;
+}
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-add-card:hover {
+  border-color: rgba(96,165,250,.35) !important;
+  background: rgba(96,165,250,.06) !important;
+}
+
+/* Modal overlay — must stay on top */
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-ov {
+  z-index: 99999 !important;
+  pointer-events: all !important;
+}
+body.dtr-fs-active[data-fs-tab="learn"] .lrn-modal {
+  z-index: 100000 !important;
+  pointer-events: all !important;
+}
 body.dtr-fs-active[data-fs-tab="learn"] .kb6-sidebar,
 body.dtr-fs-active[data-fs-tab="learn"] .lrn-sidebar {
   border-right-color: rgba(96,165,250,.1) !important;
@@ -26862,16 +27212,19 @@ body.dtr-fs-active[data-fs-tab="habits"] #hab-root > .hab-matrix {
 /* ID-targeted analytics card — highest specificity */
 body.dtr-fs-active[data-fs-tab="habits"] #hab-analytics-card {
   grid-column: 2 !important;
-  grid-row: 1 / span 50 !important;
+  grid-row: 1 / span 100 !important;
   position: sticky !important;
-  top: 24px !important;
+  top: 0 !important;
   margin-top: 0 !important;
   border-radius: 20px !important;
-  border-color: rgba(249,115,22,.14) !important;
-  background: rgba(14,10,7,.95) !important;
+  border-color: rgba(249,115,22,.15) !important;
+  background: rgba(12,9,6,.97) !important;
+  height: calc(100dvh - 100px) !important;
   max-height: calc(100dvh - 100px) !important;
   overflow-y: auto !important;
+  overflow-x: hidden !important;
   scrollbar-width: none !important;
+  align-self: start !important;
 }
 body.dtr-fs-active[data-fs-tab="habits"] #hab-analytics-card::-webkit-scrollbar {
   display: none !important;
