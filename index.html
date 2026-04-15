@@ -20687,8 +20687,9 @@ async function sendMsg(toUserId){
   const optId = 'opt-'+Date.now();
   appendMessage({id:optId, content:finalText, content_type:'text', created_at:new Date().toISOString(), from_user_id:SB_USER.id}, true);
 
-  // Insert to DB
+  // Insert to DB — refresh token first to prevent RLS 42501
   try {
+    try { await sb.auth.refreshSession(); } catch(_re){}
     const ins = await sb.from('messages').insert({
       from_user_id: SB_USER.id,
       to_user_id: toUserId,
@@ -20741,6 +20742,9 @@ async function sendMsg(toUserId){
       e2.onclick = ()=>{ bub.style.opacity='1'; e2.remove(); input.value=text; sendMsg(toUserId); };
       bub.appendChild(e2);
     }
+    if(err?.code==='42501'||(err?.message||'').includes('row-level')||(err?.message||'').includes('policy')){
+      if(typeof _msgShowDbAlert==='function') _msgShowDbAlert('rls_error');
+    }
     showToast('Не доставлено','⚠️');
   }
 }
@@ -20759,70 +20763,67 @@ async function loadConversations(){
   if(!el || !SB_USER || _convsLoading) return;
   _convsLoading = true;
   try {
-    // ── Strategy: get the LAST message per partner, not last N messages total ──
-    // This guarantees ALL conversations are shown regardless of message count
     const uid = SB_USER.id;
-
-    // Step 1: Get ALL partner IDs (deduplicated) — paginated to handle many chats
-    const [sentR, recvR] = await Promise.all([
-      sb.from('messages').select('to_user_id').eq('from_user_id', uid),
-      sb.from('messages').select('from_user_id').eq('to_user_id', uid)
+    // 3 queries total — fast and reliable
+    const [sentR, recvR, unreadR] = await Promise.all([
+      // Last sent messages per conversation (up to 200 distinct partners)
+      sb.from('messages')
+        .select('id,from_user_id,to_user_id,content,content_type,created_at')
+        .eq('from_user_id', uid)
+        .order('created_at', {ascending:false})
+        .limit(1000),
+      // Last received messages
+      sb.from('messages')
+        .select('id,from_user_id,to_user_id,content,content_type,created_at,read')
+        .eq('to_user_id', uid)
+        .order('created_at', {ascending:false})
+        .limit(1000),
+      // Unread counts
+      sb.from('messages')
+        .select('from_user_id')
+        .eq('to_user_id', uid)
+        .eq('read', false)
     ]);
-    const partnerSet = new Set();
-    (sentR.data||[]).forEach(m => partnerSet.add(m.to_user_id));
-    (recvR.data||[]).forEach(m => partnerSet.add(m.from_user_id));
-    const partnerIds = [...partnerSet];
 
-    if(partnerIds.length === 0){
-      allConvsCache = []; _convsCache = []; _renderConvList([]); return;
-    }
+    // Build per-partner latest message map
+    const convMap = {};
+    const addMsg = (msg, isMine) => {
+      const pid = isMine ? msg.to_user_id : msg.from_user_id;
+      if(!convMap[pid] || new Date(msg.created_at) > new Date(convMap[pid].lastTime)){
+        convMap[pid] = {
+          userId: pid,
+          name: '?', av: '🎯', avUrl: null,
+          lastMsg: msg.content || '',
+          lastMsgType: msg.content_type || 'text',
+          lastTime: msg.created_at,
+          lastMsgMine: isMine,
+          unread: 0
+        };
+      }
+    };
+    (sentR.data||[]).forEach(m => addMsg(m, true));
+    (recvR.data||[]).forEach(m => addMsg(m, false));
 
-    // Step 2: For each partner get last message + unread count in parallel
-    const convPromises = partnerIds.map(async (pid) => {
-      const [lastR, unreadR] = await Promise.all([
-        sb.from('messages')
-          .select('id,from_user_id,to_user_id,content,content_type,created_at,read')
-          .or(`and(from_user_id.eq.${uid},to_user_id.eq.${pid}),and(from_user_id.eq.${pid},to_user_id.eq.${uid})`)
-          .order('created_at', {ascending:false})
-          .limit(1)
-          .single(),
-        sb.from('messages')
-          .select('id', {count:'exact', head:true})
-          .eq('from_user_id', pid)
-          .eq('to_user_id', uid)
-          .eq('read', false)
-      ]);
-      const msg = lastR.data;
-      if(!msg) return null;
-      const isMine = msg.from_user_id === uid;
-      return {
-        userId: pid,
-        name: '?', av: '🎯', avUrl: null,
-        lastMsg: msg.content || '',
-        lastMsgType: msg.content_type || 'text',
-        lastTime: msg.created_at,
-        lastMsgMine: isMine,
-        unread: unreadR.count || 0
-      };
+    // Unread counts
+    (unreadR.data||[]).forEach(m => {
+      if(convMap[m.from_user_id]) convMap[m.from_user_id].unread++;
     });
 
-    const results = (await Promise.all(convPromises)).filter(Boolean);
-
-    // Step 3: Fetch user info for all partners in one batch
+    const partnerIds = Object.keys(convMap);
     if(partnerIds.length > 0){
       const {data:users} = await sb.from('users')
         .select('id,username,avatar,avatar_url')
         .in('id', partnerIds);
-      const uMap = {};
-      (users||[]).forEach(u => { uMap[u.id] = u; });
-      results.forEach(c => {
-        const u = uMap[c.userId];
-        if(u){ c.name = u.username||'?'; c.av = u.avatar||'🎯'; c.avUrl = u.avatar_url||null; }
+      (users||[]).forEach(u => {
+        if(convMap[u.id]){
+          convMap[u.id].name = u.username || '?';
+          convMap[u.id].av = u.avatar || '🎯';
+          convMap[u.id].avUrl = u.avatar_url || null;
+        }
       });
     }
 
-    // Sort by most recent
-    const convs = results.sort((a,b) => new Date(b.lastTime) - new Date(a.lastTime));
+    const convs = Object.values(convMap).sort((a,b) => new Date(b.lastTime) - new Date(a.lastTime));
     allConvsCache = convs;
     _convsCache = convs;
     _renderConvList(convs);
@@ -23615,18 +23616,23 @@ function _vcInitInboundListener(){
     })
     .subscribe((status) => {
       console.log('[DTR VC] Inbound channel:', status);
-      if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT'){
-        console.warn('[DTR VC] Realtime subscription failed — falling back to polling');
-        // Fallback: poll every 15s if realtime fails
+      if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED'){
+        // Reconnect after delay
+        if(!window._vcReconnectTimer){
+          window._vcReconnectTimer = setTimeout(()=>{
+            window._vcReconnectTimer = null;
+            if(typeof _vcInitInboundListener==='function') _vcInitInboundListener();
+          }, 3000);
+        }
         if(!window._vcFallbackPoll){
           window._vcFallbackPoll = setInterval(()=>{
             if(typeof _vcPollPendingCall==='function') _vcPollPendingCall();
           }, 15000);
         }
       }
-      if(status === 'SUBSCRIBED' && window._vcFallbackPoll){
-        clearInterval(window._vcFallbackPoll);
-        window._vcFallbackPoll = null;
+      if(status === 'SUBSCRIBED'){
+        if(window._vcFallbackPoll){ clearInterval(window._vcFallbackPoll); window._vcFallbackPoll = null; }
+        if(window._vcReconnectTimer){ clearTimeout(window._vcReconnectTimer); window._vcReconnectTimer = null; }
       }
     });
 
