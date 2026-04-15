@@ -41102,6 +41102,9 @@ async function _grpLoadMyGroups(){
 async function _grpInjectSidebar(){
   var list=document.getElementById('msgConvList');
   if(!list)return;
+  // Only run if user is authenticated
+  if(typeof SB_USER==='undefined'||!SB_USER||!SB_USER.id){return;}
+  if(typeof sb==='undefined'||!sb)return;
   list.querySelectorAll('.dtr-group-conv').forEach(function(el){el.remove();});
   var groups=await _grpLoadMyGroups();
   if(!groups.length)return;
@@ -42134,7 +42137,8 @@ function _grpPatchShowTab(){
   if(typeof orig!=='function')return;
   window.showTab=function(tab){
     orig.apply(this,arguments);
-    if(tab==='messages')setTimeout(_grpInjectSidebar,300);
+    if(tab==='messages'&&typeof SB_USER!=='undefined'&&SB_USER&&SB_USER.id)
+      setTimeout(_grpInjectSidebar,300);
   };
 }
 
@@ -42143,7 +42147,10 @@ function _grpPatchLoadConvs(){
   if(typeof orig!=='function')return;
   window.loadConversations=function(){
     var p=orig.apply(this,arguments);
-    var inject=function(){setTimeout(_grpInjectSidebar,150);};
+    var inject=function(){
+      if(typeof SB_USER!=='undefined'&&SB_USER&&SB_USER.id)
+        setTimeout(_grpInjectSidebar,150);
+    };
     if(p&&typeof p.then==='function')p.then(inject);else inject();
     return p;
   };
@@ -42197,9 +42204,18 @@ document.addEventListener('click',function(e){
 function _grpBoot(){
   _grpPatchShowTab();
   _grpPatchLoadConvs();
-  // If messages tab already active
-  var msgTab=document.getElementById('tab-messages');
-  if(msgTab&&msgTab.classList.contains('active'))setTimeout(_grpInjectSidebar,500);
+  // Wait for auth before injecting — listen for SB_USER to be set
+  var _bootTries=0;
+  function _tryInjectOnBoot(){
+    _bootTries++;
+    if(typeof SB_USER!=='undefined'&&SB_USER&&SB_USER.id){
+      var msgTab=document.getElementById('tab-messages');
+      if(msgTab&&msgTab.classList.contains('active'))_grpInjectSidebar();
+      return;
+    }
+    if(_bootTries<20)setTimeout(_tryInjectOnBoot,500);
+  }
+  setTimeout(_tryInjectOnBoot,800);
   console.log('%c[DTR] Group Chat System v3 ready', 'color:#F5C842;font-weight:bold;');
 }
 
