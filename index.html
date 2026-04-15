@@ -20504,24 +20504,18 @@ async function _msgCheckDb(){
       .limit(0);
     
     if(probe.error){
-      const code = probe.error.code;
-      const msg  = probe.error.message || '';
-      
-      if(code === '42703' || msg.includes('column') || msg.includes('content_type')){
-        // Missing columns — show ALTER TABLE SQL
-        _msgShowDbAlert('missing_columns');
-      } else if(code === '42501' || msg.includes('permission') || msg.includes('policy') || msg.includes('RLS')){
-        // RLS blocking reads
-        _msgShowDbAlert('rls_error');
-      } else if(code === 'PGRST116' || msg.includes('does not exist')){
-        // Table doesn't exist at all
-        _msgShowDbAlert('no_table');
-      }
+      // Silent — don't show SQL dialogs to user automatically
+      console.warn('[DTR] DB probe:', probe.error.code, probe.error.message);
     }
   } catch(e){ /* silent */ }
 }
 
+// Throttle: only show once per 60 seconds per type
+const _dbAlertLastShown = {};
 function _msgShowDbAlert(type){
+  const now = Date.now();
+  if(_dbAlertLastShown[type] && now - _dbAlertLastShown[type] < 60000) return;
+  _dbAlertLastShown[type] = now;
   const existing = document.getElementById('_msgDbAlert');
   if(existing) return;
   
@@ -21110,12 +21104,7 @@ async function sendMsg(toUserId){
       errEl.onclick = ()=>{ bub.style.opacity='1'; errEl.remove(); input.value=text; sendMsg(toUserId); };
       bub.appendChild(errEl);
     }
-    // Show RLS fix if it's a permissions error
-    const ec = insertError?.code||'', em2 = insertError?.message||'';
-    if(ec==='42501'||em2.includes('row-level')||em2.includes('policy')||em2.includes('permission')){
-      if(typeof _msgShowDbAlert==='function') _msgShowDbAlert('rls_error');
-    }
-    showToast('Не доставлено — проверь настройки БД','⚠️');
+    showToast('Не доставлено ⚠️');
   }
 }
 
@@ -22275,9 +22264,7 @@ async function _addRx(msgId,emoji){
     else { await sb.from('message_reactions').insert({message_id:msgId,user_id:SB_USER.id,emoji}); showToast(emoji,''); }
     _refreshRx(msgId);
   }catch(err){
-    if(err?.code==='42P01' || (err?.message||'').includes('does not exist')){
-      if(typeof _msgShowDbAlert==='function') _msgShowDbAlert('reactions_table');
-    } else { console.warn('[DTR] reaction error:', err?.message); }
+    console.warn('[DTR] reaction error:', err?.message);
   }
 }
 async function _refreshRx(msgId){
