@@ -21028,8 +21028,7 @@ function appendMessage(msg, isMine){
   div.innerHTML = `
     ${!isMine ? `<div class="msg-av-micro" style="background:none;border:none;overflow:hidden;">${_msgGetPartnerAvatar()}</div>` : ''}
     <div class="msg-bubble${isMine?' mine':' theirs'}" data-msg-id="${esc(msgId)}" data-ct="${esc(msg.content_type||'text')}" data-raw="${esc(txt)}" style="border-radius:${radius}"
-      oncontextmenu="_msgShowBubbleCtx(event,this)"
-      ondblclick="_showRxPopup(event,this)">
+      oncontextmenu="_msgShowBubbleCtx(event,this)">
       ${bodyHtml}
       <div class="msg-bubble-time">${timeStr}${ticks}</div>
 
@@ -24600,10 +24599,12 @@ function msgContentHTML(msg) {
     let voiceUrl2 = _mediaUrl || txt, voiceDur = 0;
     try { const vj = JSON.parse(txt); voiceUrl2 = vj.url || _mediaUrl || txt; voiceDur = vj.duration || 0; } catch(e){}
     // Generate fake waveform bars (visual only, real audio plays on click)
-    const bars = Array.from({length:30},(_,i)=>{
-      const h = 4 + Math.round(Math.abs(Math.sin(i*0.7))*20);
-      return `<span style="width:3px;height:${h}px;display:inline-block;background:rgba(255,255,255,.4);border-radius:2px;flex-shrink:0;"></span>`;
-    }).join('');
+    const _barArr = [];
+    for(let _bi=0;_bi<30;_bi++){
+      const _bh = 4 + Math.round(Math.abs(Math.sin(_bi*0.7))*20);
+      _barArr.push('<span style="width:3px;height:'+_bh+'px;display:inline-block;background:rgba(255,255,255,.4);border-radius:2px;flex-shrink:0;"></span>');
+    }
+    const bars = _barArr.join('');
     const safeVoiceUrl = esc(voiceUrl2); // FIX 4: escape voice URL
     const durStr = voiceDur > 0 ? Math.floor(voiceDur/60)+':'+(voiceDur%60).toString().padStart(2,'0') : '0:00';
     return _fwdBlock + `
