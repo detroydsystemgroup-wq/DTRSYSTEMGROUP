@@ -41010,27 +41010,16 @@ function _fmtDate(iso){
    DB CHECK — проверяем что таблицы существуют
 ───────────────────────────────────────────────*/
 async function _grpCheckDb(){
-  if(_grpDbReady) return true;
-  if(typeof sb==='undefined'||!sb) return false;
-  try{
-    var r=await sb.from('group_chats').select('id').limit(1);
-    if(r.error){
-      var code=r.error.code||'';
-      var msg=r.error.message||'';
-      if(code==='42P01'||msg.includes('does not exist')||msg.includes('relation')){
-        _grpShowSqlAlert();
-        return false;
-      }
-      _grpDbReady=true;
-      return true;
-    }
-    _grpDbReady=true;
-    return true;
-  }catch(e){
-    console.warn('[DTR] _grpCheckDb failed, assuming tables exist:',e);
-    _grpDbReady=true;
-    return true;
-  }
+  // Always return true — we validate tables only when actual errors occur during operations
+  // This prevents false negatives caused by RLS blocking the probe SELECT
+  _grpDbReady = true;
+  return true;
+}
+
+// Called only when a real DB operation returns 42P01 (table does not exist)
+function _grpHandleTableMissing(){
+  _grpDbReady = false;
+  _grpShowSqlAlert();
 }
 
 function _grpShowSqlAlert(){
@@ -41058,10 +41047,20 @@ async function _grpLoadMyGroups(){
   if(!_myId())return[];
   if(typeof sb==='undefined'||!sb)return[];
   try{
-    // 1. Получаем group_id всех моих групп
     var r0=await sb.from('group_members')
       .select('group_id,role').eq('user_id',_myId());
-    if(r0.error){console.warn('[DTR] group_members select:',r0.error);return[];}
+    if(r0.error){
+      var ec=r0.error.code||'';
+      var em=r0.error.message||'';
+      // Table missing — show SQL alert
+      if(ec==='42P01'||em.includes('does not exist')){
+        _grpHandleTableMissing();
+        return[];
+      }
+      // RLS / permission / 500 — tables exist, user just has no groups yet
+      console.warn('[DTR] group_members select (ignored):',ec,em);
+      return[];
+    }
     var memberRows=r0.data||[];
     if(!memberRows.length)return[];
     var groupIds=memberRows.map(function(r){return r.group_id;});
@@ -41181,8 +41180,6 @@ async function _grpOpenChat(groupId){
   }
 
   // Load group meta + members
-  var ok=await _grpCheckDb();
-  if(!ok)return;
   try{
     var [{data:chat,error:ce},{data:members,error:me}]=await Promise.all([
       sb.from('group_chats').select('*').eq('id',groupId).single(),
@@ -41652,7 +41649,6 @@ function _grpSubscribeRealtime(groupId){
    INFO / MANAGEMENT MODAL
 ───────────────────────────────────────────────*/
 window._grpOpenInfo=async function(groupId,editMode){
-  var ok=await _grpCheckDb();if(!ok)return;
   var cached=_grpCache[groupId];
   if(!cached){await _grpOpenChat(groupId);cached=_grpCache[groupId];}
   if(!cached)return;
@@ -41930,9 +41926,6 @@ function _grpResetChatArea(){
 ───────────────────────────────────────────────*/
 window._dtrOpenGroupModal=async function(){
   console.log('[DTR] _dtrOpenGroupModal called');
-  // Don't block on DB check — open modal immediately, let _gcDoCreate validate
-  var dbOk=await _grpCheckDb();
-  console.log('[DTR] _grpCheckDb result:', dbOk);
   if(document.getElementById('_grpCreateModal'))return;
   // Load contacts from existing conversations
   var convs=(typeof allConvsCache!=='undefined'&&allConvsCache)?allConvsCache:[];
@@ -42104,6 +42097,13 @@ window._gcDoCreate=async function(){
     }).select('id').single();
     if(r1.error){
       console.error('[DTR] group_chats insert error:',r1.error);
+      var ec1=r1.error.code||'';
+      var em1=r1.error.message||'';
+      if(ec1==='42P01'||em1.includes('does not exist')){
+        _grpHandleTableMissing();
+        if(btn){btn.disabled=false;btn.textContent='Создать группу';}
+        return;
+      }
       throw r1.error;
     }
     var groupId=r1.data.id;
