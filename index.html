@@ -40824,769 +40824,1354 @@ console.log('[DTR] Video call system initialized');
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════
-     DTR CHAT — IMPROVEMENT PATCH v2 JS
-     • Создание групп (localStorage)
-     • Typing indicator in sidebar
-     • Автоскролл с плавностью
-     • Улучшенные микровзаимодействия
-     • Input auto-grow + send button state
-     • Swipe back на мобиле
+     DTR GROUPS — Full Telegram-model implementation
+     Supabase-backed: group_chats + group_members + group_messages
+     Author: DTR v3
 ══════════════════════════════════════════════════════════════ -->
 <script>
+/* ══════════════════════════════════════════════════════════════
+   DTR GROUP CHAT SYSTEM — Telegram Model
+   
+   Supabase schema (SQL ниже):
+   • group_chats        — метаданные группы
+   • group_members      — участники + роли (owner/member)
+   • group_messages     — сообщения с realtime
+   
+   SQL для выполнения в Supabase → SQL Editor:
+   ── см. console.log('[DTR] SQL') или в README ──
+══════════════════════════════════════════════════════════════ */
 (function(){
 'use strict';
 
-/* ════════════════════════════════════════════════
-   1. GROUPS — localStorage-based virtual groups
-   Структура: { id, name, members:[{id,name,av}], messages:[], created_at }
-════════════════════════════════════════════════ */
-var DTR_GROUPS_KEY = 'dtr_groups_v1';
+/* ─────────────────────────────────────────────
+   SQL DDL — выводится в консоль при первом запуске
+   Скопируй и выполни в Supabase → SQL Editor
+───────────────────────────────────────────────*/
+var DTR_GROUP_SQL = `
+-- ══ DTR GROUP CHAT SCHEMA ══════════════════════════════════════
 
-function _dtrLoadGroups(){
-  try{ return JSON.parse(localStorage.getItem(DTR_GROUPS_KEY)||'[]'); }catch(e){ return []; }
-}
-function _dtrSaveGroups(groups){
-  try{ localStorage.setItem(DTR_GROUPS_KEY, JSON.stringify(groups)); }catch(e){}
-}
-function _dtrGetGroup(id){
-  return _dtrLoadGroups().find(function(g){ return g.id===id; })||null;
-}
+-- 1. Группы
+CREATE TABLE IF NOT EXISTS group_chats (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 50),
+  description text DEFAULT '',
+  avatar_emoji text DEFAULT '👥',
+  owner_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at  timestamptz DEFAULT now(),
+  updated_at  timestamptz DEFAULT now()
+);
 
-/* ── Open group modal ── */
-window._dtrOpenGroupModal = function(){
-  if(document.getElementById('dtrGroupModal')) return;
-  var convs = (typeof allConvsCache!=='undefined'&&allConvsCache) ? allConvsCache : [];
-  var modal = document.createElement('div');
-  modal.id = 'dtrGroupModal';
-  modal.innerHTML = [
-    '<div class="gm-box">',
-      '<div class="gm-head">',
-        '<div style="display:flex;align-items:center;gap:9px">',
-          '<div style="width:28px;height:28px;border-radius:8px;background:rgba(26,159,255,.12);border:0.5px solid rgba(26,159,255,.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">',
-            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
-          '</div>',
-          '<span class="gm-title">Новая группа</span>',
-        '</div>',
-        '<button class="gm-close" onclick="_dtrCloseGroupModal()">',
-          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
-        '</button>',
-      '</div>',
-      '<div class="gm-body">',
-        '<div class="gm-section-label" style="margin-bottom:6px">Название группы</div>',
-        '<input class="gm-field" id="gmNameInput" type="text" placeholder="Например: Трекеры 🔥" maxlength="40" autocomplete="off">',
-        '<div class="gm-section-label" style="margin-top:4px;margin-bottom:8px">',
-          'Участники',
-          '<span id="gmSelCount" style="color:var(--blue);margin-left:6px;font-weight:700;">0</span>',
-          '<span style="color:var(--t3);font-weight:400"> выбрано</span>',
-        '</div>',
-        '<div id="gmMemberList">',
-          convs.length === 0
-            ? '<div style="text-align:center;color:var(--t3);font-size:12px;padding:24px 0;">Начни переписку с участниками лиги,<br>чтобы добавить их в группу</div>'
-            : convs.map(function(cv){
-                var avHtml = cv.avUrl
-                  ? '<img src="'+cv.avUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:11px;" onerror="this.style.display=\'none\'">'
-                  : '<span style="font-size:16px">'+(cv.av||'👤')+'</span>';
-                return '<div class="gm-member-row" data-uid="'+cv.userId+'" data-name="'+(cv.name||'').replace(/"/g,'&quot;')+'" data-av="'+(cv.av||'👤')+'" onclick="_dtrToggleGroupMember(this)" style="user-select:none;">'+
-                  '<div class="gm-member-check" id="gmc-'+cv.userId+'">'+
-                    '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#09090B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polyline points="20 6 9 17 4 12"/></svg>'+
-                  '</div>'+
-                  '<div class="gm-member-av">'+avHtml+'</div>'+
-                  '<div class="gm-member-name">'+(cv.name||'Участник')+'</div>'+
-                '</div>';
-              }).join(''),
-        '</div>',
-      '</div>',
-      '<div class="gm-footer">',
-        '<button class="gm-create-btn" id="gmCreateBtn" disabled onclick="_dtrCreateGroup()">',
-          'Создать группу',
-        '</button>',
-      '</div>',
-    '</div>'
-  ].join('');
-  modal.addEventListener('click', function(e){ if(e.target===modal) _dtrCloseGroupModal(); });
-  document.body.appendChild(modal);
-  setTimeout(function(){ var n=document.getElementById('gmNameInput'); if(n) n.focus(); }, 80);
-  var ni = document.getElementById('gmNameInput');
-  if(ni) ni.addEventListener('input', _dtrUpdateGroupCreateBtn);
-};
+-- 2. Участники
+CREATE TABLE IF NOT EXISTS group_members (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  group_id   uuid NOT NULL REFERENCES group_chats(id) ON DELETE CASCADE,
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role       text NOT NULL DEFAULT 'member' CHECK (role IN ('owner','admin','member')),
+  joined_at  timestamptz DEFAULT now(),
+  UNIQUE(group_id, user_id)
+);
 
-window._dtrCloseGroupModal = function(){
-  var m = document.getElementById('dtrGroupModal');
-  if(m){ m.style.animation='fadeOut .18s ease both'; setTimeout(function(){ m.remove(); },170); }
-};
+-- 3. Сообщения
+CREATE TABLE IF NOT EXISTS group_messages (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  group_id    uuid NOT NULL REFERENCES group_chats(id) ON DELETE CASCADE,
+  from_user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  content     text NOT NULL CHECK (char_length(content) BETWEEN 1 AND 4000),
+  content_type text DEFAULT 'text',
+  reply_to_id uuid REFERENCES group_messages(id) ON DELETE SET NULL,
+  is_system   boolean DEFAULT false,
+  created_at  timestamptz DEFAULT now()
+);
 
-window._dtrToggleGroupMember = function(row){
-  row.classList.toggle('selected');
-  var check = row.querySelector('.gm-member-check svg');
-  if(check) check.style.display = row.classList.contains('selected') ? '' : 'none';
-  _dtrUpdateGroupCreateBtn();
-};
+-- ── RLS ──────────────────────────────────────────────────────
+ALTER TABLE group_chats    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE group_members  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE group_messages ENABLE ROW LEVEL SECURITY;
 
-function _dtrUpdateGroupCreateBtn(){
-  var selected = document.querySelectorAll('#gmMemberList .gm-member-row.selected').length;
-  var nameVal  = (document.getElementById('gmNameInput')||{}).value||'';
-  var btn      = document.getElementById('gmCreateBtn');
-  var cnt      = document.getElementById('gmSelCount');
-  if(cnt) cnt.textContent = selected;
-  if(btn) btn.disabled = selected < 1 || nameVal.trim().length < 1;
-  if(btn && !btn.disabled) btn.textContent = 'Создать группу (' + selected + ' уч.)';
-  else if(btn) btn.textContent = 'Создать группу';
-}
+-- group_chats: видит тот кто является участником
+DROP POLICY IF EXISTS "gc_select" ON group_chats;
+CREATE POLICY "gc_select" ON group_chats FOR SELECT
+  USING (id IN (SELECT group_id FROM group_members WHERE user_id = auth.uid()));
 
-window._dtrCreateGroup = function(){
-  var nameEl   = document.getElementById('gmNameInput');
-  var name     = nameEl ? nameEl.value.trim() : '';
-  if(!name){ if(nameEl){ nameEl.focus(); nameEl.style.borderColor='rgba(239,68,68,.5)'; } return; }
+DROP POLICY IF EXISTS "gc_insert" ON group_chats;
+CREATE POLICY "gc_insert" ON group_chats FOR INSERT
+  WITH CHECK (owner_id = auth.uid());
 
-  var rows = document.querySelectorAll('#gmMemberList .gm-member-row.selected');
-  var members = [];
-  rows.forEach(function(r){
-    members.push({ id: r.dataset.uid, name: r.dataset.name, av: r.dataset.av });
-  });
-  if(members.length < 1){ showToast && showToast('Выбери хотя бы одного участника','⚠️'); return; }
+DROP POLICY IF EXISTS "gc_update" ON group_chats;
+CREATE POLICY "gc_update" ON group_chats FOR UPDATE
+  USING (owner_id = auth.uid()) WITH CHECK (owner_id = auth.uid());
 
-  // Добавляем самого пользователя
-  var meId   = (typeof SB_USER!=='undefined'&&SB_USER) ? SB_USER.id   : 'me';
-  var meName = (typeof P!=='undefined'&&P)              ? P.name        : 'Я';
-  var meAv   = (typeof P!=='undefined'&&P)              ? P.avatar||'🎯': '🎯';
-  members.unshift({ id: meId, name: meName, av: meAv });
+DROP POLICY IF EXISTS "gc_delete" ON group_chats;
+CREATE POLICY "gc_delete" ON group_chats FOR DELETE
+  USING (owner_id = auth.uid());
 
-  var group = {
-    id: 'grp_' + Date.now(),
-    name: name,
-    members: members,
-    messages: [{
-      id: 'sys_0',
-      system: true,
-      text: 'Группа создана',
-      created_at: new Date().toISOString()
-    }],
-    created_at: new Date().toISOString(),
-    lastMsg: 'Группа создана',
-    lastTime: new Date().toISOString()
-  };
+-- group_members: участник видит членов своих групп
+DROP POLICY IF EXISTS "gm_select" ON group_members;
+CREATE POLICY "gm_select" ON group_members FOR SELECT
+  USING (group_id IN (SELECT group_id FROM group_members WHERE user_id = auth.uid()));
 
-  var groups = _dtrLoadGroups();
-  groups.unshift(group);
-  _dtrSaveGroups(groups);
+DROP POLICY IF EXISTS "gm_insert" ON group_members;
+CREATE POLICY "gm_insert" ON group_members FOR INSERT
+  WITH CHECK (
+    group_id IN (SELECT id FROM group_chats WHERE owner_id = auth.uid())
+    OR user_id = auth.uid()
+  );
 
-  _dtrCloseGroupModal();
-  showToast && showToast('Группа «'+name+'» создана 🎉','✅');
+DROP POLICY IF EXISTS "gm_delete" ON group_members;
+CREATE POLICY "gm_delete" ON group_members FOR DELETE
+  USING (
+    user_id = auth.uid()
+    OR group_id IN (SELECT id FROM group_chats WHERE owner_id = auth.uid())
+  );
 
-  // Render group in conv list
-  setTimeout(function(){
-    _dtrInjectGroupConvs();
-    _dtrOpenGroupChat(group.id);
-  }, 220);
-};
+-- group_messages: участник видит сообщения своих групп
+DROP POLICY IF EXISTS "gms_select" ON group_messages;
+CREATE POLICY "gms_select" ON group_messages FOR SELECT
+  USING (group_id IN (SELECT group_id FROM group_members WHERE user_id = auth.uid()));
 
-/* ── Inject groups into conv list ── */
-function _dtrInjectGroupConvs(){
-  var groups = _dtrLoadGroups();
-  if(groups.length === 0) return;
-  var list   = document.getElementById('msgConvList');
-  if(!list) return;
+DROP POLICY IF EXISTS "gms_insert" ON group_messages;
+CREATE POLICY "gms_insert" ON group_messages FOR INSERT
+  WITH CHECK (
+    from_user_id = auth.uid()
+    AND group_id IN (SELECT group_id FROM group_members WHERE user_id = auth.uid())
+  );
 
-  // Remove old group rows
-  list.querySelectorAll('.dtr-group-conv').forEach(function(el){ el.remove(); });
+DROP POLICY IF EXISTS "gms_delete" ON group_messages;
+CREATE POLICY "gms_delete" ON group_messages FOR DELETE
+  USING (
+    from_user_id = auth.uid()
+    OR group_id IN (SELECT id FROM group_chats WHERE owner_id = auth.uid())
+  );
 
-  // Remove empty-state placeholder if present
-  var empty = list.querySelector('.msg-empty');
-  if(empty && groups.length > 0) empty.style.display = 'none';
+-- ── Realtime ─────────────────────────────────────────────────
+ALTER PUBLICATION supabase_realtime ADD TABLE group_messages;
+ALTER PUBLICATION supabase_realtime ADD TABLE group_members;
 
-  groups.forEach(function(g, idx){
-    var memberNames = g.members.slice(1,3).map(function(m){ return m.name.split(' ')[0]; }).join(', ');
-    var memberCount = g.members.length;
-    var lastTime = _dtrFmtGroupTime(g.lastTime||g.created_at);
-    var preview = g.lastMsg||'Группа создана';
-    var div = document.createElement('div');
-    div.className = 'msg-conv dtr-group-conv';
-    div.dataset.groupId = g.id;
-    div.style.animationDelay = (idx*0.04)+'s';
-    div.setAttribute('data-conv-uid', g.id);
-    div.onclick = function(){ _dtrOpenGroupChat(g.id); };
-    div.innerHTML =
-      '<div class="msg-conv-av">'+
-        '<div class="msg-conv-av-ring is-group" style="font-size:18px;position:relative;">'+
-          '👥'+
-          '<div style="position:absolute;bottom:-2px;right:-2px;background:var(--blue);color:#fff;font-size:7px;font-weight:800;border-radius:5px;padding:1px 3px;border:1.5px solid #09090B;font-family:var(--font-mono);">'+memberCount+'</div>'+
-        '</div>'+
-      '</div>'+
-      '<div class="msg-conv-info">'+
-        '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">'+
-          '<span class="msg-conv-name" style="flex:1;min-width:0;">'+_dtrEsc(g.name)+'</span>'+
-          '<span class="msg-conv-group-tag">'+
-            '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'+
-            'Группа'+
-          '</span>'+
-        '</div>'+
-        '<div class="msg-conv-preview">'+_dtrEsc(preview.length>40?preview.slice(0,40)+'…':preview)+'</div>'+
-      '</div>'+
-      '<div class="msg-conv-time">'+lastTime+'</div>';
-    list.prepend(div);
-  });
+-- ── Indexes ───────────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_gm_group    ON group_members(group_id);
+CREATE INDEX IF NOT EXISTS idx_gm_user     ON group_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_gms_group   ON group_messages(group_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_gms_user    ON group_messages(from_user_id);
+`;
+
+/* Log SQL on first boot */
+if(!sessionStorage.getItem('dtr_group_sql_shown')){
+  sessionStorage.setItem('dtr_group_sql_shown','1');
+  console.log('%c[DTR] GROUP CHAT SQL — выполни в Supabase SQL Editor:', 'color:#F5C842;font-weight:bold;font-size:13px');
+  console.log(DTR_GROUP_SQL);
 }
 
-/* ── Open group chat ── */
-window._dtrOpenGroupChat = function(groupId){
-  var g = _dtrGetGroup(groupId);
-  if(!g) return;
+/* ─────────────────────────────────────────────
+   STATE
+───────────────────────────────────────────────*/
+var _grpActiveId   = null;   // текущая открытая группа
+var _grpCache      = {};     // {groupId: {chat, members, messages}}
+var _grpRtChannel  = null;   // Realtime channel
+var _grpMembersMap = {};     // {userId: userObj} — кеш профилей
+var _grpDbReady    = false;  // флаг что таблицы существуют
 
-  // Highlight active in list
-  document.querySelectorAll('[data-conv-uid]').forEach(function(el){
-    el.classList.toggle('active', el.dataset.convUid === groupId);
-  });
-
-  // Mobile: show chat pane
-  if(window.innerWidth <= 600){
-    var chatEl = document.getElementById('msgChatArea');
-    var listEl = document.getElementById('msgList');
-    if(chatEl){ chatEl.style.display='flex'; chatEl.classList.add('active'); }
-    if(listEl) listEl.style.display = 'none';
-  }
-
-  var area = document.getElementById('msgChatArea');
-  if(!area) return;
-  var myId = (typeof SB_USER!=='undefined'&&SB_USER) ? SB_USER.id : 'me';
-  var memberStr = g.members.map(function(m){ return m.name.split(' ')[0]; }).join(', ');
-
-  area.innerHTML =
-    '<div class="msg-chat-head">'+
-      (window.innerWidth<=600?'<button style="width:32px;height:32px;border-radius:9px;background:none;border:none;color:var(--t2);display:flex;align-items:center;justify-content:center;cursor:pointer;" onclick="document.getElementById(\'msgChatArea\').style.display=\'none\';document.getElementById(\'msgList\').style.display=\'\';"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>':'')+
-      '<div class="msg-chat-av" style="background:rgba(26,159,255,.12);border-color:rgba(26,159,255,.3);font-size:18px;">👥</div>'+
-      '<div class="msg-chat-info" style="flex:1;min-width:0;">'+
-        '<div class="msg-chat-name">'+_dtrEsc(g.name)+'</div>'+
-        '<div class="msg-chat-sub" style="color:var(--blue);">'+g.members.length+' участников · '+_dtrEsc(memberStr)+'</div>'+
-      '</div>'+
-      '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">'+
-        '<button class="msg-chat-btn" onclick="_dtrShowGroupInfo(\''+groupId+'\')">'+
-          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'+
-          'Инфо'+
-        '</button>'+
-      '</div>'+
-    '</div>'+
-    '<div class="msg-messages" id="msgMessages" style="flex:1;overflow-y:auto;padding:14px 18px 8px;display:flex;flex-direction:column;gap:0;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.06) transparent;min-height:0;">'+
-    '</div>'+
-    '<div class="msg-input-area">'+
-      '<div class="msg-input-wrap" id="msgInputWrap">'+
-        '<textarea class="msg-input" id="msgInput" placeholder="Сообщение в группу…" rows="1" maxlength="1000"'+
-          ' oninput="_dtrGrowInput(this);_msgToggleSendBtn&&_msgToggleSendBtn(this.value)"'+
-          ' onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();_dtrSendGroupMsg(\''+groupId+'\');}"'+
-          ' onfocus="document.getElementById(\'msgInputWrap\')&&document.getElementById(\'msgInputWrap\').classList.add(\'focused\')"'+
-          ' onblur="document.getElementById(\'msgInputWrap\')&&document.getElementById(\'msgInputWrap\').classList.remove(\'focused\')">'+
-        '</textarea>'+
-        '<button class="msg-emoji-btn" type="button">😊</button>'+
-      '</div>'+
-      '<button class="msg-send" id="msgSendBtn" onclick="_dtrSendGroupMsg(\''+groupId+'\')" type="button">'+
-        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>'+
-      '</button>'+
-    '</div>';
-
-  _dtrRenderGroupMessages(groupId);
-  // Scroll tracker
-  var scrollEl = document.getElementById('msgMessages');
-  if(scrollEl){
-    scrollEl.addEventListener('scroll', function(){
-      var fromBottom = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight;
-      if(typeof _msgIsAtBottom !== 'undefined') window._msgIsAtBottom = fromBottom < 120;
-    }, {passive:true});
-  }
-};
-
-function _dtrRenderGroupMessages(groupId){
-  var g = _dtrGetGroup(groupId);
-  var el = document.getElementById('msgMessages');
-  if(!g||!el) return;
-  var myId   = (typeof SB_USER!=='undefined'&&SB_USER) ? SB_USER.id : 'me';
-  var meName = (typeof P!=='undefined'&&P)              ? P.name     : 'Я';
-  var msgs   = g.messages||[];
-  if(msgs.length===0){
-    el.innerHTML='<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center"><div style="font-size:36px;opacity:.2">👥</div><div style="font-size:14px;font-weight:700;color:var(--t2)">Группа создана</div><div style="font-size:12px;color:var(--t3)">Напиши первое сообщение!</div></div>';
-    return;
-  }
-  var chunks = [];
-  var lastDate='', lastSender='', lastTs=0;
-  var GAP = 5*60*1000;
-  msgs.forEach(function(msg, i){
-    if(msg.system){
-      chunks.push('<div class="msg-date-sep"><div class="msg-date-sep-label">'+_dtrEsc(msg.text)+'</div></div>');
-      return;
-    }
-    var mine = msg.from_id === myId;
-    var d    = new Date(msg.created_at||Date.now());
-    var isToday = d.toDateString()===new Date().toDateString();
-    var isYest  = d.toDateString()===new Date(Date.now()-86400000).toDateString();
-    var dateStr = isToday?'Сегодня':isYest?'Вчера':d.toLocaleDateString('ru',{day:'numeric',month:'long'});
-    if(dateStr!==lastDate){
-      chunks.push('<div class="msg-date-sep"><div class="msg-date-sep-label">'+dateStr+'</div></div>');
-      lastDate=dateStr; lastSender=''; lastTs=0;
-    }
-    var senderChg = lastSender!==msg.from_id;
-    var timeGap   = d.getTime()-lastTs > GAP;
-    var grouped   = !senderChg && !timeGap && i>0 && !msgs[i-1].system;
-    var nextMsg   = msgs[i+1];
-    var isLastInGroup = !nextMsg || nextMsg.system || nextMsg.from_id!==msg.from_id || (new Date(nextMsg.created_at)-d)>GAP;
-    lastSender=msg.from_id; lastTs=d.getTime();
-    var timeStr = d.toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
-    var mineR   = isLastInGroup ? '17px 17px 4px 17px' : '17px 17px 17px 17px';
-    var theirR  = isLastInGroup ? '17px 17px 17px 4px' : '17px 17px 17px 17px';
-    var radius  = mine ? mineR : theirR;
-    // Sender name for group (only for first in group, not mine)
-    var senderNameHtml = (!mine && (senderChg||timeGap||grouped===false)) ? '<div class="msg-sender-name">'+_dtrEsc(msg.from_name||'')+'</div>' : '';
-    var avHtml = '';
-    if(!mine){
-      var member = g.members.find(function(m){ return m.id===msg.from_id; });
-      var avChar = member ? member.av||'👤' : '👤';
-      avHtml = isLastInGroup
-        ? '<div class="msg-av-micro" style="background:none;border:none;overflow:hidden;font-size:12px;">'+avChar+'</div>'
-        : '<div class="msg-av-micro ghost"></div>';
-    }
-    chunks.push(
-      '<div class="msg-row'+(mine?' mine':' theirs')+'" style="margin-top:'+(grouped?'2px':'10px')+'">'+
-        avHtml+
-        '<div class="msg-bubble'+(mine?' mine':' theirs')+'" style="border-radius:'+radius+'">'+
-          senderNameHtml+
-          '<span>'+_dtrEsc(msg.text||'')+'</span>'+
-          '<div class="msg-bubble-time">'+timeStr+
-            (mine?'<span class="msg-ticks" style="color:rgba(255,255,255,.55)"><svg width="14" height="9" viewBox="0 0 16 10" fill="none"><path d="M1 5l3 3 7-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>':'')+
-          '</div>'+
-        '</div>'+
-      '</div>'
-    );
-  });
-  el.innerHTML = chunks.join('');
-  requestAnimationFrame(function(){ el.scrollTop = el.scrollHeight + 9999; });
+/* ─────────────────────────────────────────────
+   HELPERS
+───────────────────────────────────────────────*/
+function _esc(s){
+  if(s==null)return'';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
 }
+function _myId(){ return (typeof SB_USER!=='undefined'&&SB_USER)?SB_USER.id:null; }
+function _myName(){ return (typeof P!=='undefined'&&P&&P.name)?P.name:'Я'; }
+function _myAv(){ return (typeof P!=='undefined'&&P&&P.avatar)?P.avatar:'🎯'; }
+function _toast(msg,ico){ typeof showToast==='function'&&showToast(msg,ico||''); }
 
-window._dtrSendGroupMsg = function(groupId){
-  var input = document.getElementById('msgInput');
-  if(!input) return;
-  var text = input.value.trim();
-  if(!text) return;
-  var myId   = (typeof SB_USER!=='undefined'&&SB_USER) ? SB_USER.id : 'me';
-  var meName = (typeof P!=='undefined'&&P)              ? P.name     : 'Я';
-  var groups = _dtrLoadGroups();
-  var g      = groups.find(function(x){ return x.id===groupId; });
-  if(!g) return;
-  var msg = {
-    id: 'gm_'+Date.now(),
-    from_id: myId,
-    from_name: meName,
-    text: text,
-    created_at: new Date().toISOString()
-  };
-  g.messages.push(msg);
-  g.lastMsg  = text;
-  g.lastTime = msg.created_at;
-  _dtrSaveGroups(groups);
-  input.value = '';
-  input.style.height = 'auto';
-  // Optimistic render
-  var el = document.getElementById('msgMessages');
-  if(el){
-    var d = new Date(msg.created_at);
-    var timeStr = d.toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
-    var div = document.createElement('div');
-    div.className = 'msg-row mine';
-    div.style.marginTop = '10px';
-    div.innerHTML =
-      '<div class="msg-bubble mine new-msg" style="border-radius:17px 17px 4px 17px;">'+
-        '<span>'+_dtrEsc(text)+'</span>'+
-        '<div class="msg-bubble-time">'+timeStr+
-          '<span class="msg-ticks" style="color:rgba(255,255,255,.55)"><svg width="14" height="9" viewBox="0 0 16 10" fill="none"><path d="M1 5l3 3 7-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>'+
-        '</div>'+
-      '</div>';
-    // Remove empty state
-    var emptyEl = el.querySelector('[style*="flex-direction:column;align-items:center"]');
-    if(emptyEl && emptyEl.parentNode===el) emptyEl.remove();
-    el.appendChild(div);
-    el.scrollTop = el.scrollHeight + 9999;
-  }
-  // Update sidebar
-  var convEl = document.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"]');
-  if(convEl){
-    var prev = convEl.querySelector('.msg-conv-preview');
-    if(prev) prev.textContent = text.length>40?text.slice(0,40)+'…':text;
-    var timeEl = convEl.querySelector('.msg-conv-time');
-    if(timeEl) timeEl.textContent = _dtrFmtGroupTime(msg.created_at);
-  }
-  // Toggle send button back
-  typeof _msgToggleSendBtn==='function' && _msgToggleSendBtn('');
-};
-
-window._dtrShowGroupInfo = function(groupId){
-  var g = _dtrGetGroup(groupId);
-  if(!g) return;
-  var memberList = g.members.map(function(m){
-    return '<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:0.5px solid rgba(255,255,255,.04);">'+
-      '<div style="width:32px;height:32px;border-radius:10px;background:rgba(245,200,66,.1);border:0.5px solid rgba(245,200,66,.15);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">'+_dtrEsc(m.av||'👤')+'</div>'+
-      '<div style="font-size:13px;font-weight:600;color:var(--t1);">'+_dtrEsc(m.name||'?')+'</div>'+
-    '</div>';
-  }).join('');
-  var ov = document.createElement('div');
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
-  ov.innerHTML='<div style="background:var(--card);border:0.5px solid rgba(255,255,255,.1);border-radius:18px;width:100%;max-width:380px;box-shadow:0 24px 64px rgba(0,0,0,.65);overflow:hidden;animation:dtrModalIn .3s cubic-bezier(.34,1.4,.64,1) both;">'+
-    '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:0.5px solid rgba(255,255,255,.07);">'+
-      '<div style="font-size:15px;font-weight:700;color:var(--t1);">👥 '+_dtrEsc(g.name)+'</div>'+
-      '<button onclick="this.closest(\'[style*=fixed]\').remove()" style="width:28px;height:28px;border-radius:8px;background:none;border:none;color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'+
-    '</div>'+
-    '<div style="padding:14px 18px;max-height:60dvh;overflow-y:auto;">'+
-      '<div style="font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);margin-bottom:8px;">'+g.members.length+' участников</div>'+
-      memberList+
-    '</div>'+
-    '<div style="padding:12px 18px 16px;border-top:0.5px solid rgba(255,255,255,.06);display:flex;gap:8px;">'+
-      '<button onclick="this.closest(\'[style*=fixed]\').remove()" style="flex:1;padding:10px;border-radius:11px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.09);color:var(--t2);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-display);">Закрыть</button>'+
-      '<button onclick="_dtrDeleteGroup(\''+g.id+'\');this.closest(\'[style*=fixed]\').remove();" style="flex:1;padding:10px;border-radius:11px;background:rgba(239,68,68,.08);border:0.5px solid rgba(239,68,68,.2);color:#EF4444;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-display);">Удалить группу</button>'+
-    '</div>'+
-  '</div>';
-  ov.addEventListener('click',function(e){ if(e.target===ov) ov.remove(); });
-  document.body.appendChild(ov);
-};
-
-window._dtrDeleteGroup = function(groupId){
-  var groups = _dtrLoadGroups().filter(function(g){ return g.id!==groupId; });
-  _dtrSaveGroups(groups);
-  // Clear chat area
-  var area = document.getElementById('msgChatArea');
-  if(area) area.innerHTML = area.innerHTML; // будет перерисовано при следующем openConv
-  // Remove from sidebar
-  var convEl = document.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"]');
-  if(convEl) convEl.remove();
-  typeof showToast==='function' && showToast('Группа удалена','🗑️');
-  // Show no-chat placeholder
-  if(area){
-    area.innerHTML='<div class="msg-no-chat">'+
-      '<div style="position:absolute;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle,rgba(245,200,66,.05),transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;animation:avFloat 6s ease-in-out infinite;"></div>'+
-      '<div class="msg-empty-icon" style="width:76px;height:76px;"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>'+
-      '<div><div style="font-family:var(--font-display);font-size:18px;font-weight:800;letter-spacing:-.03em;color:var(--t1);margin-bottom:8px">Выбери диалог</div>'+
-      '<div style="font-size:13px;color:var(--t3);line-height:1.7">Открой профиль участника лиги<br>и нажми <span style="color:var(--gold);font-weight:700">«Написать»</span></div></div>'+
-    '</div>';
-  }
-};
-
-/* ════════════════════════════════════════════════
-   2. INPUT AUTO-GROW  (global for all textareas .msg-input)
-════════════════════════════════════════════════ */
-window._dtrGrowInput = function(el){
-  el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-};
-
-/* ════════════════════════════════════════════════
-   3. TYPING INDICATOR in SIDEBAR conv rows
-   Показываем «набирает…» когда пользователь печатает
-   Реализовано через Supabase Realtime presence
-════════════════════════════════════════════════ */
-var _dtrTypingInSidebar = {};
-
-function _dtrShowTypingInSidebar(userId, show){
-  var conv = document.querySelector('.msg-conv[data-conv-uid="'+userId+'"]');
-  if(!conv) return;
-  var preview = conv.querySelector('.msg-conv-preview');
-  if(!preview) return;
-  if(show){
-    if(_dtrTypingInSidebar[userId]) return; // уже показываем
-    _dtrTypingInSidebar[userId] = preview.innerHTML; // save original
-    preview.innerHTML =
-      '<span class="msg-conv-typing">'+
-        '<span class="msg-conv-typing-dot"></span>'+
-        '<span class="msg-conv-typing-dot"></span>'+
-        '<span class="msg-conv-typing-dot"></span>'+
-        '<span style="margin-left:3px;font-size:12px;">набирает…</span>'+
-      '</span>';
-    preview.classList.add('unread-prev');
-  } else {
-    if(!_dtrTypingInSidebar[userId]) return;
-    preview.innerHTML = _dtrTypingInSidebar[userId];
-    delete _dtrTypingInSidebar[userId];
-    preview.classList.remove('unread-prev');
-  }
-}
-
-// Слушаем typing event из существующего Realtime канала
-var _dtrTypingClearTimers = {};
-function _dtrHandleIncomingTyping(userId){
-  if(!userId) return;
-  _dtrShowTypingInSidebar(userId, true);
-  clearTimeout(_dtrTypingClearTimers[userId]);
-  _dtrTypingClearTimers[userId] = setTimeout(function(){
-    _dtrShowTypingInSidebar(userId, false);
-  }, 3200);
-}
-// Expose for realtime handler
-window._dtrHandleIncomingTyping = _dtrHandleIncomingTyping;
-
-/* ════════════════════════════════════════════════
-   4. SMOOTH SCROLL TO BOTTOM — improved version
-   (patches existing _msgScrollToBottom)
-════════════════════════════════════════════════ */
-var _origScrollToBottom = window._msgScrollToBottom;
-window._msgScrollToBottom = function(forceSmooth){
-  var el = document.getElementById('msgMessages');
-  if(!el) return;
-  var dist = el.scrollHeight - el.scrollTop - el.clientHeight;
-  if(dist < 2){
-    el.scrollTop = el.scrollHeight;
-    window._msgIsAtBottom = true;
-    window._msgUnreadOffscreen = 0;
-    if(typeof window._msgUpdateScrollBadge==='function') window._msgUpdateScrollBadge();
-    var sbtn = document.getElementById('msgScrollDown');
-    if(sbtn) sbtn.classList.remove('visible');
-    return;
-  }
-  if(dist < 600 || forceSmooth){
-    // Short distance — smooth
-    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-  } else {
-    // Long distance — instant (initial load)
-    el.scrollTop = el.scrollHeight + 9999;
-  }
-  window._msgIsAtBottom = true;
-  window._msgUnreadOffscreen = 0;
-  if(typeof window._msgUpdateScrollBadge==='function') window._msgUpdateScrollBadge();
-  var sbtn = document.getElementById('msgScrollDown');
-  if(sbtn) sbtn.classList.remove('visible');
-};
-
-/* ════════════════════════════════════════════════
-   5. SEND BUTTON STATE — sync with input value
-   (more reliable than inline oninput)
-════════════════════════════════════════════════ */
-document.addEventListener('input', function(e){
-  if(!e.target.classList.contains('msg-input')) return;
-  var btn = document.getElementById('msgSendBtn');
-  if(!btn) return;
-  var hasText = e.target.value.trim().length > 0;
-  if(hasText){
-    btn.classList.add('has-text');
-  } else {
-    btn.classList.remove('has-text');
-  }
-});
-
-/* ════════════════════════════════════════════════
-   6. MOBILE SWIPE BACK — in chat view swipe right to go to list
-════════════════════════════════════════════════ */
-(function(){
-  var touchStartX = 0, touchStartY = 0, swipeActive = false;
-  document.addEventListener('touchstart', function(e){
-    if(window.innerWidth > 600) return;
-    var chat = document.getElementById('msgChatArea');
-    if(!chat || chat.style.display==='none') return;
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-    swipeActive = touchStartX < 30; // only from left edge
-  }, {passive:true});
-  document.addEventListener('touchend', function(e){
-    if(!swipeActive || window.innerWidth > 600) return;
-    swipeActive = false;
-    var dx = e.changedTouches[0].clientX - touchStartX;
-    var dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
-    if(dx > 60 && dy < 80){
-      var chat = document.getElementById('msgChatArea');
-      var list = document.getElementById('msgList');
-      if(chat){ chat.style.display='none'; chat.classList.remove('active'); }
-      if(list) list.style.display = '';
-    }
-  }, {passive:true});
-})();
-
-/* ════════════════════════════════════════════════
-   7. SEND BUTTON MICRO-ANIMATION on click
-════════════════════════════════════════════════ */
-document.addEventListener('click', function(e){
-  var btn = e.target.closest('#msgSendBtn');
-  if(!btn) return;
-  btn.style.transform = 'scale(.88)';
-  setTimeout(function(){ btn.style.transform=''; }, 140);
-}, true);
-
-/* ════════════════════════════════════════════════
-   8. KEYBOARD — Escape closes group modal
-════════════════════════════════════════════════ */
-document.addEventListener('keydown', function(e){
-  if(e.key==='Escape' && document.getElementById('dtrGroupModal')){
-    _dtrCloseGroupModal();
-  }
-});
-
-/* ════════════════════════════════════════════════
-   9. INIT — inject groups on messages tab open
-   and restore sidebar state
-════════════════════════════════════════════════ */
-function _dtrInitGroups(){
-  // Patch showTab to inject groups whenever Messages tab is activated
-  var _origShowTab = window.showTab;
-  if(typeof _origShowTab === 'function'){
-    window.showTab = function(tab){
-      _origShowTab(tab);
-      if(tab === 'messages'){
-        setTimeout(_dtrInjectGroupConvs, 200);
-      }
-    };
-  }
-  // If already on messages tab
-  var msgTab = document.getElementById('tab-messages');
-  if(msgTab && msgTab.classList.contains('active')){
-    setTimeout(_dtrInjectGroupConvs, 400);
-  }
-  // Also patch loadConversations to inject groups after it runs
-  var _origLoadConvs = window.loadConversations;
-  if(typeof _origLoadConvs === 'function'){
-    window.loadConversations = function(){
-      var p = _origLoadConvs.apply(this, arguments);
-      if(p && typeof p.then === 'function'){
-        p.then(function(){ setTimeout(_dtrInjectGroupConvs, 100); });
-      } else {
-        setTimeout(_dtrInjectGroupConvs, 100);
-      }
-      return p;
-    };
-  }
-}
-
-/* ════════════════════════════════════════════════
-   10. REPLY PREVIEW renderer — upgrade bubbles
-   that have JSON reply data
-════════════════════════════════════════════════ */
-function _dtrUpgradeReplyBubbles(){
-  document.querySelectorAll('.msg-bubble[data-ct="text"][data-raw]').forEach(function(bub){
-    var raw = bub.dataset.raw||'';
-    if(raw.charAt(0)!=='{') return;
-    try{
-      var obj = JSON.parse(raw);
-      if(!obj.r||!obj.t) return;
-      // Check already upgraded
-      if(bub.querySelector('.msg-reply-preview')) return;
-      var replyBar = document.createElement('div');
-      replyBar.className = 'msg-reply-preview';
-      replyBar.innerHTML =
-        '<div class="msg-reply-author">'+_dtrEsc(obj.r.replyAuthor||'')+'</div>'+
-        '<div class="msg-reply-text">'+_dtrEsc((obj.r.replyText||'').slice(0,60))+'</div>';
-      replyBar.onclick = function(e){
-        e.stopPropagation();
-        if(typeof window._msgScrollToId==='function') window._msgScrollToId(obj.r.replyToId);
-      };
-      // Find the first text span and insert before it
-      var span = bub.querySelector('span');
-      if(span){ bub.insertBefore(replyBar, span); span.textContent = obj.t; }
-    }catch(e){}
-  });
-}
-
-/* ════════════════════════════════════════════════
-   11. OBSERVER — upgrade reply bubbles when messages render
-════════════════════════════════════════════════ */
-var _dtrMsgObserver = null;
-function _dtrStartMsgObserver(){
-  if(_dtrMsgObserver) _dtrMsgObserver.disconnect();
-  var target = document.getElementById('msgMessages');
-  if(!target) return;
-  _dtrMsgObserver = new MutationObserver(function(mutations){
-    var hasNewNodes = mutations.some(function(m){ return m.addedNodes.length>0; });
-    if(hasNewNodes) _dtrUpgradeReplyBubbles();
-  });
-  _dtrMsgObserver.observe(target, {childList:true, subtree:false});
-}
-
-// Re-start observer whenever msgMessages is replaced (new conversation)
-var _dtrChatObserver = new MutationObserver(function(){
-  var msgEl = document.getElementById('msgMessages');
-  if(msgEl) _dtrStartMsgObserver();
-});
-var chatArea = document.getElementById('msgChatArea');
-if(chatArea) _dtrChatObserver.observe(chatArea, {childList:true});
-
-/* ════════════════════════════════════════════════
-   12. HELPER — HTML escape
-════════════════════════════════════════════════ */
-function _dtrEsc(s){
-  if(s==null) return '';
-  return String(s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
-}
-window._dtrEsc = _dtrEsc;
-
-/* ════════════════════════════════════════════════
-   13. HELPER — format group time
-════════════════════════════════════════════════ */
-function _dtrFmtGroupTime(iso){
-  if(!iso) return '';
-  var d = new Date(iso);
-  var now = new Date();
+function _fmtTime(iso){
+  if(!iso)return'';
+  var d=new Date(iso),now=new Date();
   if(d.toDateString()===now.toDateString())
     return d.toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
-  var diff = Math.floor((now-d)/86400000);
-  if(diff===1) return 'Вчера';
-  if(diff<7) return d.toLocaleDateString('ru',{weekday:'short'});
+  var diff=Math.floor((now-d)/86400000);
+  if(diff===1)return'вчера';
+  if(diff<7)return d.toLocaleDateString('ru',{weekday:'short'});
   return d.toLocaleDateString('ru',{day:'2-digit',month:'2-digit'});
 }
 
-/* ════════════════════════════════════════════════
-   14. PATCH: inject Realtime typing broadcast
-   Слушаем события typing из канала presence
-════════════════════════════════════════════════ */
-function _dtrPatchRealtimeTyping(){
-  // Patch: when user types in msg input, broadcast typing to partner
-  var _lastTypingBroadcast = 0;
-  document.addEventListener('input', function(e){
-    if(!e.target.classList.contains('msg-input')) return;
-    var now = Date.now();
-    if(now - _lastTypingBroadcast < 1800) return; // throttle
-    _lastTypingBroadcast = now;
-    // Broadcast via presence channel if available
-    var partnerId = typeof activeConvUserId!=='undefined' ? activeConvUserId : null;
-    if(!partnerId) return;
-    try{
-      if(typeof sb!=='undefined' && sb && sb.channel){
-        var ch = sb.channel('typing:'+partnerId);
-        if(ch && typeof ch.send==='function'){
-          ch.send({
-            type:'broadcast',
-            event:'typing',
-            payload:{ from: (typeof SB_USER!=='undefined'&&SB_USER)?SB_USER.id:'?' }
-          }).catch(function(){});
-        }
-      }
-    }catch(ex){}
+function _fmtDate(iso){
+  if(!iso)return'';
+  var d=new Date(iso),now=new Date(),
+      yest=new Date(Date.now()-86400000);
+  if(d.toDateString()===now.toDateString())return'Сегодня';
+  if(d.toDateString()===yest.toDateString())return'Вчера';
+  return d.toLocaleDateString('ru',{day:'numeric',month:'long',year:d.getFullYear()!==now.getFullYear()?'numeric':undefined});
+}
+
+/* ─────────────────────────────────────────────
+   DB CHECK — проверяем что таблицы существуют
+───────────────────────────────────────────────*/
+async function _grpCheckDb(){
+  if(_grpDbReady||typeof sb==='undefined'||!sb) return false;
+  try{
+    var r=await sb.from('group_chats').select('id').limit(0);
+    if(r.error&&(r.error.code==='42P01'||r.error.message.includes('does not exist'))){
+      _grpShowSqlAlert();
+      return false;
+    }
+    _grpDbReady=true;
+    return true;
+  }catch(e){ return false; }
+}
+
+function _grpShowSqlAlert(){
+  if(document.getElementById('_grpSqlAlert'))return;
+  var a=document.createElement('div');
+  a.id='_grpSqlAlert';
+  a.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(16,16,20,.98);border:0.5px solid rgba(245,200,66,.4);border-radius:14px;padding:16px 20px;z-index:9999;max-width:500px;width:calc(100% - 32px);box-shadow:0 8px 40px rgba(0,0,0,.7);font-family:var(--font-display);animation:msgIn .25s ease;';
+  a.innerHTML='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px;">'
+    +'<div><div style="font-size:13px;font-weight:700;color:var(--gold);margin-bottom:3px;">⚙️ Нужно создать таблицы групп</div>'
+    +'<div style="font-size:11.5px;color:var(--t3);">Скопируй SQL и выполни в Supabase → SQL Editor</div></div>'
+    +'<button onclick="document.getElementById(\'_grpSqlAlert\').remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;flex-shrink:0;padding:2px;display:flex;align-items:center;justify-content:center;">'
+    +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button onclick="navigator.clipboard&&navigator.clipboard.writeText(window.DTR_GROUP_SQL||\'\')" style="flex:1;padding:8px;border-radius:9px;background:rgba(245,200,66,.1);border:0.5px solid rgba(245,200,66,.25);color:var(--gold);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-display);">📋 Копировать SQL</button>'
+    +'<button onclick="console.log(window.DTR_GROUP_SQL);document.getElementById(\'_grpSqlAlert\').remove()" style="flex:1;padding:8px;border-radius:9px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.09);color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-display);">Показать в консоли</button>'
+    +'</div>';
+  document.body.appendChild(a);
+  window.DTR_GROUP_SQL = DTR_GROUP_SQL;
+}
+
+/* ─────────────────────────────────────────────
+   LOAD GROUPS — загружаем группы текущего юзера
+───────────────────────────────────────────────*/
+async function _grpLoadMyGroups(){
+  var ok=await _grpCheckDb();
+  if(!ok||!_myId())return[];
+  try{
+    // 1. Получаем group_id всех моих групп
+    var {data:memberRows,error:me}=await sb.from('group_members')
+      .select('group_id,role').eq('user_id',_myId());
+    if(me||!memberRows||!memberRows.length)return[];
+    var groupIds=memberRows.map(function(r){return r.group_id;});
+    var roleMap={};memberRows.forEach(function(r){roleMap[r.group_id]=r.role;});
+
+    // 2. Загружаем мета групп
+    var {data:chats,error:ce}=await sb.from('group_chats')
+      .select('id,name,description,avatar_emoji,owner_id,created_at,updated_at')
+      .in('id',groupIds).order('updated_at',{ascending:false});
+    if(ce||!chats)return[];
+
+    // 3. Для каждой группы — последнее сообщение
+    var lastMsgPromises=chats.map(function(c){
+      return sb.from('group_messages')
+        .select('content,content_type,created_at,from_user_id')
+        .eq('group_id',c.id).order('created_at',{ascending:false}).limit(1)
+        .then(function(r){ return {id:c.id,row:r.data&&r.data[0]||null}; });
+    });
+    var lastMsgs=await Promise.all(lastMsgPromises);
+    var lastMap={};lastMsgs.forEach(function(x){lastMap[x.id]=x.row;});
+
+    return chats.map(function(c){
+      var lm=lastMap[c.id];
+      return{
+        id:c.id,name:c.name,description:c.description||'',
+        emoji:c.avatar_emoji||'👥',owner_id:c.owner_id,
+        role:roleMap[c.id]||'member',
+        lastMsg:lm?lm.content:'',
+        lastTime:lm?lm.created_at:c.created_at,
+        lastMine:lm&&lm.from_user_id===_myId()
+      };
+    });
+  }catch(e){console.warn('[DTR] _grpLoadMyGroups:',e);return[];}
+}
+
+/* ─────────────────────────────────────────────
+   INJECT GROUPS INTO SIDEBAR
+───────────────────────────────────────────────*/
+async function _grpInjectSidebar(){
+  var list=document.getElementById('msgConvList');
+  if(!list)return;
+  list.querySelectorAll('.dtr-group-conv').forEach(function(el){el.remove();});
+  var groups=await _grpLoadMyGroups();
+  if(!groups.length)return;
+  var empty=list.querySelector('.msg-empty');
+  if(empty)empty.style.display='none';
+  groups.forEach(function(g,idx){
+    var preview=_grpPreviewText(g.lastMsg,g.lastMine);
+    var div=document.createElement('div');
+    div.className='msg-conv dtr-group-conv';
+    div.dataset.convUid=g.id;
+    div.dataset.groupId=g.id;
+    div.style.cssText='animation:fadeUp .2s '+(idx*0.04)+'s ease both;';
+    if(_grpActiveId===g.id)div.classList.add('active');
+    div.onclick=function(){_grpOpenChat(g.id);};
+    div.innerHTML=
+      '<div class="msg-conv-av">'
+        +'<div class="msg-conv-av-ring is-group" style="font-size:22px;position:relative;">'
+          +_esc(g.emoji)
+          +'<div style="position:absolute;bottom:-3px;right:-3px;background:var(--blue);color:#fff;'
+          +'font-size:7px;font-weight:800;border-radius:5px;padding:1px 3px;border:1.5px solid #09090B;'
+          +'line-height:1.2;font-family:var(--font-mono);" id="grp-cnt-'+g.id+'"></div>'
+        +'</div>'
+      +'</div>'
+      +'<div class="msg-conv-info">'
+        +'<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">'
+          +'<span class="msg-conv-name" style="flex:1;min-width:0;">'+_esc(g.name)+'</span>'
+          +'<span class="msg-conv-group-tag">'
+            +'<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
+            +'Группа'
+          +'</span>'
+        +'</div>'
+        +'<div class="msg-conv-preview" id="grp-prev-'+g.id+'">'+_esc(preview)+'</div>'
+      +'</div>'
+      +'<div class="msg-conv-time" id="grp-time-'+g.id+'">'+_fmtTime(g.lastTime)+'</div>';
+    list.prepend(div);
+    // Load member count async
+    _grpLoadMemberCount(g.id);
   });
 }
 
-/* ════════════════════════════════════════════════
-   BOOTSTRAP — run after DOM ready
-════════════════════════════════════════════════ */
-function _dtrBoot(){
-  _dtrInitGroups();
-  _dtrPatchRealtimeTyping();
-  // Patch: intercept initRealtimeMessages to subscribe to typing
-  var _origInitRT = window.initRealtimeMessages;
-  if(typeof _origInitRT==='function'){
-    window.initRealtimeMessages = function(){
-      _origInitRT.apply(this, arguments);
-      // After realtime init, subscribe to typing events for active conv
-      setTimeout(function(){
-        try{
-          if(typeof sb==='undefined'||!sb) return;
-          var myId = (typeof SB_USER!=='undefined'&&SB_USER)?SB_USER.id:null;
-          if(!myId) return;
-          var typingCh = sb.channel('typing:'+myId);
-          typingCh.on('broadcast',{event:'typing'},function(payload){
-            var fromId = payload&&payload.payload&&payload.payload.from;
-            if(fromId) _dtrHandleIncomingTyping(fromId);
-          }).subscribe();
-        }catch(ex){ console.warn('[DTR] typing subscribe:', ex); }
-      }, 2000);
-    };
-  }
-  console.log('[DTR] Chat improvements v2 loaded ✓');
+function _grpPreviewText(content,isMine){
+  if(!content)return'Группа создана';
+  var prefix=isMine?'Вы: ':'';
+  var text=content;
+  try{var o=JSON.parse(content);if(o&&o.t)text=o.t;}catch(e){}
+  if(text.length>42)text=text.slice(0,42)+'…';
+  return prefix+text;
 }
 
-if(document.readyState==='loading'){
-  document.addEventListener('DOMContentLoaded', _dtrBoot);
-} else {
-  _dtrBoot();
+async function _grpLoadMemberCount(groupId){
+  try{
+    var {count}=await sb.from('group_members').select('id',{count:'exact',head:true}).eq('group_id',groupId);
+    var el=document.getElementById('grp-cnt-'+groupId);
+    if(el&&count!=null)el.textContent=count;
+  }catch(e){}
 }
+
+/* ─────────────────────────────────────────────
+   OPEN GROUP CHAT
+───────────────────────────────────────────────*/
+async function _grpOpenChat(groupId){
+  _grpActiveId=groupId;
+  // Unsubscribe from previous realtime
+  if(_grpRtChannel){try{await sb.removeChannel(_grpRtChannel);}catch(e){}_grpRtChannel=null;}
+
+  // Highlight sidebar
+  document.querySelectorAll('[data-conv-uid]').forEach(function(el){
+    el.classList.toggle('active',el.dataset.convUid===groupId);
+  });
+
+  // Mobile show chat
+  if(window.innerWidth<=600){
+    var ca=document.getElementById('msgChatArea'),li=document.getElementById('msgList');
+    if(ca){ca.style.display='flex';ca.classList.add('active');}
+    if(li)li.style.display='none';
+  }
+
+  // Load group meta + members
+  var ok=await _grpCheckDb();
+  if(!ok)return;
+  try{
+    var [{data:chat,error:ce},{data:members,error:me}]=await Promise.all([
+      sb.from('group_chats').select('*').eq('id',groupId).single(),
+      sb.from('group_members').select('user_id,role,joined_at').eq('group_id',groupId)
+    ]);
+    if(ce||!chat){_toast('Группа не найдена','⚠️');return;}
+    // Load member profiles
+    var uids=(members||[]).map(function(m){return m.user_id;});
+    var {data:userRows}=uids.length?await sb.from('users').select('id,username,avatar,avatar_url').in('id',uids):{data:[]};
+    var usersMap={};(userRows||[]).forEach(function(u){usersMap[u.id]=u;});
+    var membersEnriched=(members||[]).map(function(m){
+      var u=usersMap[m.user_id]||{};
+      return{user_id:m.user_id,role:m.role,joined_at:m.joined_at,
+        username:u.username||'?',avatar:u.avatar||'👤',avatar_url:u.avatar_url||null};
+    });
+    _grpCache[groupId]={chat:chat,members:membersEnriched};
+    var isOwner=chat.owner_id===_myId();
+    var myRole=(members||[]).find(function(m){return m.user_id===_myId();});
+    myRole=myRole?myRole.role:'member';
+    _grpRenderChatUI(chat,membersEnriched,isOwner,myRole);
+    await _grpLoadMessages(groupId,false);
+    _grpSubscribeRealtime(groupId);
+  }catch(e){console.error('[DTR] _grpOpenChat:',e);_toast('Ошибка загрузки группы','⚠️');}
+}
+
+/* ─────────────────────────────────────────────
+   RENDER CHAT UI
+───────────────────────────────────────────────*/
+function _grpRenderChatUI(chat,members,isOwner,myRole){
+  var area=document.getElementById('msgChatArea');
+  if(!area)return;
+  var memberCount=members.length;
+  var previewNames=members.slice(0,3).map(function(m){return(m.username||'?').split(' ')[0];}).join(', ');
+  var backBtn=window.innerWidth<=600
+    ?'<button style="width:32px;height:32px;border-radius:9px;background:none;border:none;color:var(--t2);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;" onclick="document.getElementById(\'msgChatArea\').style.display=\'none\';document.getElementById(\'msgList\').style.display=\'\';">'
+     +'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>':'' ;
+
+  area.innerHTML=
+    '<div class="msg-chat-head" id="grpChatHead">'
+      +backBtn
+      +'<div class="msg-chat-av" style="background:rgba(26,159,255,.12);border-color:rgba(26,159,255,.3);font-size:20px;cursor:pointer;" onclick="_grpOpenInfo(\''+_esc(chat.id)+'\')">'+_esc(chat.avatar_emoji||'👥')+'</div>'
+      +'<div class="msg-chat-info" style="cursor:pointer;" onclick="_grpOpenInfo(\''+_esc(chat.id)+'\')">'
+        +'<div class="msg-chat-name">'+_esc(chat.name)+'</div>'
+        +'<div class="msg-chat-sub" id="grpChatSub" style="color:var(--blue);">'+memberCount+' участников · '+_esc(previewNames)+'</div>'
+      +'</div>'
+      +'<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">'
+        +(isOwner||myRole==='admin'
+          ?'<button class="msg-chat-btn" onclick="_grpOpenInfo(\''+_esc(chat.id)+'\',true)">'
+            +'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'
+            +'Управление</button>'
+          :'<button class="msg-chat-btn" onclick="_grpOpenInfo(\''+_esc(chat.id)+'\')">'
+            +'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+            +'Инфо</button>')
+      +'</div>'
+    +'</div>'
+    +'<div class="msg-messages" id="grpMessages" style="flex:1;overflow-y:auto;padding:14px 18px 8px;display:flex;flex-direction:column;gap:0;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.06) transparent;min-height:0;"></div>'
+    +'<button class="msg-scroll-down" id="grpScrollDown" onclick="_grpScrollToBottom()">'
+      +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>'
+      +'<span id="grpScrollBadge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--gold);color:#09090B;font-size:11px;font-weight:800;font-family:var(--font-mono);padding:1px 4px;border-radius:8px;min-width:16px;text-align:center;line-height:1.4;"></span>'
+    +'</button>'
+    +'<div class="msg-input-area">'
+      +'<div class="msg-input-wrap" id="grpInputWrap">'
+        +'<textarea class="msg-input" id="grpInput" placeholder="Сообщение…" rows="1" maxlength="4000"'
+          +' oninput="this.style.height=\'auto\';this.style.height=Math.min(this.scrollHeight,120)+\'px\';_grpToggleSend(this.value)"'
+          +' onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();_grpSendMsg();}"'
+          +' onfocus="document.getElementById(\'grpInputWrap\').classList.add(\'focused\')"'
+          +' onblur="document.getElementById(\'grpInputWrap\').classList.remove(\'focused\')"></textarea>'
+        +'<button class="msg-emoji-btn" type="button" onclick="_grpToggleEmoji()">😊</button>'
+      +'</div>'
+      +'<button class="msg-send" id="grpSendBtn" onclick="_grpSendMsg()" type="button">'
+        +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>'
+      +'</button>'
+    +'</div>';
+
+  // Scroll tracker
+  var el=document.getElementById('grpMessages');
+  if(el){
+    el.addEventListener('scroll',function(){
+      var fb=el.scrollHeight-el.scrollTop-el.clientHeight;
+      var btn=document.getElementById('grpScrollDown');
+      if(btn)btn.classList.toggle('visible',fb>120);
+    },{passive:true});
+  }
+}
+
+/* ─────────────────────────────────────────────
+   LOAD MESSAGES
+───────────────────────────────────────────────*/
+var _grpPage={};
+var _grpLoadToken=0;
+var PAGE_SIZE=80;
+
+async function _grpLoadMessages(groupId,append){
+  var el=document.getElementById('grpMessages');
+  if(!el)return;
+  var tok=++_grpLoadToken;
+  if(!append)_grpPage[groupId]=0;
+  var offset=_grpPage[groupId]||0;
+  try{
+    var {data:msgs,error}=await sb.from('group_messages')
+      .select('id,from_user_id,content,content_type,is_system,created_at,reply_to_id')
+      .eq('group_id',groupId)
+      .order('created_at',{ascending:false})
+      .range(offset,offset+PAGE_SIZE-1);
+    if(tok!==_grpLoadToken)return;
+    if(error)throw error;
+    var elNow=document.getElementById('grpMessages');
+    if(!elNow||_grpActiveId!==groupId)return;
+    var reversed=(msgs||[]).slice().reverse();
+    var members=(_grpCache[groupId]&&_grpCache[groupId].members)||[];
+    var html=_grpBuildMessagesHTML(reversed,members,groupId);
+    if(append){
+      var loadBtn=elNow.querySelector('.grp-load-more');
+      if(loadBtn)loadBtn.remove();
+      var tmp=document.createElement('div');tmp.innerHTML=html;
+      var frag=document.createDocumentFragment();
+      while(tmp.firstChild)frag.appendChild(tmp.firstChild);
+      elNow.prepend(frag);
+    }else{
+      elNow.innerHTML=html;
+    }
+    if((msgs||[]).length>=PAGE_SIZE){
+      _grpPage[groupId]=(offset||0)+PAGE_SIZE;
+      var btn=document.createElement('div');
+      btn.className='grp-load-more';
+      btn.style='text-align:center;padding:8px 0 4px;flex-shrink:0;';
+      btn.innerHTML='<button class="msg-load-more-btn" style="background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.09);border-radius:20px;color:var(--t2);font-size:12px;padding:6px 18px;cursor:pointer;font-family:var(--font-body);" onclick="_grpLoadMessages(\''+groupId+'\',true)">↑ Загрузить старые</button>';
+      elNow.prepend(btn);
+    }
+    if(!append)requestAnimationFrame(function(){elNow.scrollTop=elNow.scrollHeight+9999;});
+  }catch(e){console.error('[DTR] _grpLoadMessages:',e);}
+}
+
+/* ─────────────────────────────────────────────
+   BUILD MESSAGES HTML
+───────────────────────────────────────────────*/
+function _grpBuildMessagesHTML(msgs,members,groupId){
+  if(!msgs||!msgs.length)
+    return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center;">'
+      +'<div style="font-size:36px;opacity:.2">👥</div>'
+      +'<div style="font-size:14px;font-weight:700;color:var(--t2);">Начни общение</div>'
+      +'<div style="font-size:12px;color:var(--t3);">Напиши первое сообщение группе!</div>'
+      +'</div>';
+  var mMap={};members.forEach(function(m){mMap[m.user_id]=m;});
+  var chunks=[];
+  var lastDate='',lastSender='',lastTs=0;
+  var GAP=5*60*1000;
+  msgs.forEach(function(msg,i){
+    if(msg.is_system){
+      chunks.push('<div class="msg-date-sep"><div class="msg-date-sep-label">'+_esc(msg.content)+'</div></div>');
+      return;
+    }
+    var mine=msg.from_user_id===_myId();
+    var d=new Date(msg.created_at);
+    var ds=_fmtDate(msg.created_at);
+    if(ds!==lastDate){
+      chunks.push('<div class="msg-date-sep"><div class="msg-date-sep-label">'+ds+'</div></div>');
+      lastDate=ds;lastSender='';lastTs=0;
+    }
+    var sChg=lastSender!==msg.from_user_id;
+    var tGap=d.getTime()-lastTs>GAP;
+    var grouped=!sChg&&!tGap&&i>0&&!msgs[i-1].is_system;
+    var next=msgs[i+1];
+    var isLast=!next||next.is_system||next.from_user_id!==msg.from_user_id||(new Date(next.created_at)-d)>GAP;
+    lastSender=msg.from_user_id;lastTs=d.getTime();
+    var timeStr=d.toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
+    var mR=isLast?'17px 17px 4px 17px':'17px';
+    var tR=isLast?'17px 17px 17px 4px':'17px';
+    var radius=mine?mR:tR;
+    // Member info
+    var mem=mMap[msg.from_user_id]||{};
+    var memberName=mem.username||'?';
+    var memberAv=mem.avatar||'👤';
+    // Avatar for non-mine
+    var avHtml='';
+    if(!mine){
+      avHtml=isLast
+        ?'<div class="msg-av-micro" style="background:none;border:none;font-size:12px;">'+_esc(memberAv)+'</div>'
+        :'<div class="msg-av-micro ghost"></div>';
+    }
+    // Sender name (first in group chain, not mine)
+    var senderHtml='';
+    if(!mine&&(sChg||tGap||!grouped)){
+      senderHtml='<div class="msg-sender-name">'+_esc(memberName)+'</div>';
+    }
+    // Content
+    var bodyHtml='';
+    var ct=msg.content_type||'text';
+    var txt=msg.content||'';
+    if(typeof msgContentHTML==='function'){
+      bodyHtml=msgContentHTML({content_type:ct,content:txt,from_user_id:msg.from_user_id});
+    }else{
+      // Parse reply JSON
+      var displayTxt=txt;
+      var replyHtml='';
+      try{
+        var obj=JSON.parse(txt);
+        if(obj&&obj.t){
+          displayTxt=obj.t;
+          replyHtml='<div class="msg-reply-preview" onclick="_grpScrollToMsg(\''+_esc(obj.r.replyToId)+'\')">'
+            +'<div class="msg-reply-author">'+_esc(obj.r.replyAuthor||'')+'</div>'
+            +'<div class="msg-reply-text">'+_esc((obj.r.replyText||'').slice(0,60))+'</div>'
+            +'</div>';
+        }
+      }catch(ex){}
+      bodyHtml=replyHtml+'<span>'+_esc(displayTxt)+'</span>';
+    }
+    // Ticks (only mine)
+    var ticks=mine?'<span class="msg-ticks" style="color:rgba(255,255,255,.55);">'
+      +'<svg width="16" height="10" viewBox="0 0 16 10" fill="none"><path d="M1 5l3 3 7-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      +'</span>':'';
+    chunks.push(
+      '<div class="msg-row'+(mine?' mine':' theirs')+'" style="margin-top:'+(grouped?'2px':'10px')+';" data-msg-id="'+_esc(msg.id)+'">'
+        +avHtml
+        +'<div class="msg-bubble'+(mine?' mine':' theirs')+' new-msg" data-msg-id="'+_esc(msg.id)+'" style="border-radius:'+radius+';"'
+          +' oncontextmenu="_grpBubbleCtx(event,this,\''+_esc(msg.id)+'\','+mine+');">'
+          +senderHtml
+          +bodyHtml
+          +'<div class="msg-bubble-time">'+timeStr+ticks+'</div>'
+        +'</div>'
+      +'</div>'
+    );
+  });
+  return chunks.join('');
+}
+
+/* ─────────────────────────────────────────────
+   SEND MESSAGE
+───────────────────────────────────────────────*/
+var _grpReplyTo=null;
+
+async function _grpSendMsg(){
+  var input=document.getElementById('grpInput');
+  if(!input||!_grpActiveId||!_myId())return;
+  var text=input.value.trim();
+  if(!text)return;
+  if(text.length>4000){_toast('Слишком длинное сообщение','⚠️');return;}
+  var finalContent=text;
+  if(_grpReplyTo){
+    finalContent=JSON.stringify({
+      t:text,
+      r:{replyToId:_grpReplyTo.id,replyAuthor:_grpReplyTo.author,replyText:_grpReplyTo.text}
+    });
+    _grpCancelReply();
+  }
+  input.value='';input.style.height='auto';
+  _grpToggleSend('');
+  // Optimistic render
+  var optId='opt_'+Date.now();
+  var optMsg={id:optId,from_user_id:_myId(),content:finalContent,content_type:'text',
+    is_system:false,created_at:new Date().toISOString()};
+  _grpAppendMessage(optMsg);
+  // Insert to DB
+  try{
+    var {data,error}=await sb.from('group_messages').insert({
+      group_id:_grpActiveId,from_user_id:_myId(),
+      content:finalContent,content_type:'text'
+    }).select('id').single();
+    if(error)throw error;
+    // Replace optimistic ID
+    var row=document.querySelector('[data-msg-id="'+optId+'"]');
+    if(row)row.dataset.msgId=data.id;
+    var bub=document.querySelector('.msg-bubble[data-msg-id="'+optId+'"]');
+    if(bub)bub.dataset.msgId=data.id;
+    // Update sidebar
+    _grpUpdateSidebarPreview(_grpActiveId,text,true,new Date().toISOString());
+  }catch(e){
+    console.error('[DTR] _grpSendMsg:',e);
+    // Remove optimistic
+    var row=document.querySelector('[data-msg-id="'+optId+'"]');
+    if(row)row.remove();
+    _toast('Не удалось отправить','⚠️');
+  }
+}
+
+function _grpAppendMessage(msg){
+  var el=document.getElementById('grpMessages');
+  if(!el)return;
+  var groupId=_grpActiveId;
+  var members=(_grpCache[groupId]&&_grpCache[groupId].members)||[];
+  // Remove empty state
+  var emptyEl=el.querySelector('[style*="flex-direction:column;align-items:center"]');
+  if(emptyEl&&emptyEl.parentNode===el)emptyEl.remove();
+  var html=_grpBuildMessagesHTML([msg],members,groupId);
+  var tmp=document.createElement('div');tmp.innerHTML=html;
+  // Fix: new-msg only on freshly appended
+  var bub=tmp.querySelector('.msg-bubble');
+  if(bub)bub.classList.add('new-msg');
+  while(tmp.firstChild)el.appendChild(tmp.firstChild);
+  _grpScrollToBottom();
+}
+
+function _grpScrollToBottom(){
+  var el=document.getElementById('grpMessages');
+  if(!el)return;
+  var dist=el.scrollHeight-el.scrollTop-el.clientHeight;
+  if(dist<600){el.scrollTo({top:el.scrollHeight,behavior:'smooth'});}
+  else{el.scrollTop=el.scrollHeight+9999;}
+}
+
+function _grpScrollToMsg(id){
+  var el=document.querySelector('[data-msg-id="'+CSS.escape(id)+'"]');
+  if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.style.background='rgba(245,200,66,.12)';setTimeout(function(){el.style.background='';},1200);}
+}
+
+function _grpUpdateSidebarPreview(groupId,text,isMine,time){
+  var prev=document.getElementById('grp-prev-'+groupId);
+  var timeEl=document.getElementById('grp-time-'+groupId);
+  if(prev)prev.textContent=_grpPreviewText(text,isMine);
+  if(timeEl)timeEl.textContent=_fmtTime(time);
+  // Move to top of list
+  var convEl=document.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"]');
+  var list=document.getElementById('msgConvList');
+  if(convEl&&list)list.prepend(convEl);
+}
+
+/* ─────────────────────────────────────────────
+   TOGGLE SEND BUTTON
+───────────────────────────────────────────────*/
+function _grpToggleSend(val){
+  var btn=document.getElementById('grpSendBtn');
+  if(!btn)return;
+  var has=(val||'').trim().length>0;
+  if(has){
+    btn.style.background='linear-gradient(145deg,#b8860b,#f5c842)';
+    btn.style.color='#09090B';
+    btn.style.boxShadow='0 3px 14px rgba(245,200,66,.32)';
+  }else{
+    btn.style.background='';btn.style.color='';btn.style.boxShadow='';
+  }
+}
+
+/* ─────────────────────────────────────────────
+   EMOJI PICKER
+───────────────────────────────────────────────*/
+function _grpToggleEmoji(){
+  var existing=document.getElementById('_grpEmojiPicker');
+  if(existing){existing.remove();return;}
+  var input=document.getElementById('grpInput');
+  if(!input)return;
+  var picker=document.createElement('div');
+  picker.id='_grpEmojiPicker';
+  picker.className='msg-emoji-popup';
+  var emojis=['😊','😂','❤️','🔥','👍','👏','🤔','😎','🙏','💪','🎉','⚡','🚀','💯','🤝','👀'];
+  picker.innerHTML=emojis.map(function(e){
+    return'<button class="r-pop-btn" type="button" onclick="var i=document.getElementById(\'grpInput\');if(i){i.value+=\''+e+'\';i.focus();_grpToggleSend(i.value);}document.getElementById(\'_grpEmojiPicker\')&&document.getElementById(\'_grpEmojiPicker\').remove();">'+e+'</button>';
+  }).join('');
+  var area=document.querySelector('.msg-input-area');
+  if(area)area.appendChild(picker);
+  setTimeout(function(){
+    document.addEventListener('click',function h(e){
+      if(!e.target.closest('#_grpEmojiPicker')&&!e.target.closest('.msg-emoji-btn')){
+        var p=document.getElementById('_grpEmojiPicker');if(p)p.remove();
+        document.removeEventListener('click',h);
+      }
+    });
+  },0);
+}
+
+/* ─────────────────────────────────────────────
+   REPLY
+───────────────────────────────────────────────*/
+function _grpSetReply(msgId,text,author){
+  _grpReplyTo={id:msgId,text:text,author:author};
+  document.getElementById('_grpReplyBar')&&document.getElementById('_grpReplyBar').remove();
+  var ia=document.querySelector('#grpInput')&&document.querySelector('#grpInput').closest('.msg-input-area');
+  if(!ia)return;
+  var bar=document.createElement('div');
+  bar.id='_grpReplyBar';
+  bar.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(9,9,11,.96);border-top:0.5px solid rgba(255,255,255,.06);flex-shrink:0;';
+  bar.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" style="flex-shrink:0;opacity:.8"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>'
+    +'<div style="flex:1;min-width:0;"><div style="font-size:10.5px;font-weight:700;color:var(--gold);margin-bottom:1px;">'+_esc(author)+'</div>'
+    +'<div style="font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+_esc((text||'').slice(0,80))+'</div></div>'
+    +'<button onclick="_grpCancelReply()" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:4px;display:flex;align-items:center;">'
+    +'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
+  ia.parentNode.insertBefore(bar,ia);
+  document.getElementById('grpInput')&&document.getElementById('grpInput').focus();
+}
+function _grpCancelReply(){
+  _grpReplyTo=null;
+  var b=document.getElementById('_grpReplyBar');if(b)b.remove();
+}
+
+/* ─────────────────────────────────────────────
+   BUBBLE CONTEXT MENU
+───────────────────────────────────────────────*/
+function _grpBubbleCtx(e,bub,msgId,isMine){
+  e.preventDefault();
+  document.getElementById('_grpCtxMenu')&&document.getElementById('_grpCtxMenu').remove();
+  var text=bub.querySelector('span')?bub.querySelector('span').textContent:'';
+  var authorEl=bub.querySelector('.msg-sender-name');
+  var author=authorEl?authorEl.textContent:_myName();
+  var menu=document.createElement('div');
+  menu.id='_grpCtxMenu';
+  menu.style.cssText='position:fixed;z-index:9999;background:var(--card);border:0.5px solid rgba(255,255,255,.1);border-radius:14px;padding:5px;min-width:170px;box-shadow:0 8px 32px rgba(0,0,0,.55);animation:dtrModalIn .18s cubic-bezier(.34,1.4,.64,1) both;';
+  var items=[
+    {ico:'↩️',label:'Ответить',fn:'_grpSetReply(\''+_esc(msgId)+'\',\''+_esc(text.slice(0,80))+'\',\''+_esc(author)+'\')'},
+    {ico:'📋',label:'Копировать',fn:'navigator.clipboard&&navigator.clipboard.writeText(\''+_esc(text)+'\')'},
+  ];
+  if(isMine)items.push({ico:'🗑️',label:'Удалить',fn:'_grpDeleteMsg(\''+_esc(msgId)+'\')',danger:true});
+  menu.innerHTML=items.map(function(it){
+    return'<button onclick="'+it.fn+';document.getElementById(\'_grpCtxMenu\').remove()" style="display:flex;align-items:center;gap:9px;width:100%;padding:9px 12px;border-radius:9px;background:none;border:none;color:'+(it.danger?'var(--red)':'var(--t1)')+';font-size:13px;font-weight:500;font-family:var(--font-display);cursor:pointer;text-align:left;transition:background .12s;" onmouseover="this.style.background=\'rgba(255,255,255,.05)\'" onmouseout="this.style.background=\'none\'">'
+      +'<span>'+it.ico+'</span><span>'+it.label+'</span></button>';
+  }).join('');
+  // Position
+  var x=Math.min(e.clientX,window.innerWidth-180);
+  var y=Math.min(e.clientY,window.innerHeight-items.length*46);
+  menu.style.left=x+'px';menu.style.top=y+'px';
+  document.body.appendChild(menu);
+  setTimeout(function(){
+    document.addEventListener('click',function h(){menu.remove();document.removeEventListener('click',h);},{once:true});
+  },0);
+}
+
+async function _grpDeleteMsg(msgId){
+  try{
+    await sb.from('group_messages').delete().eq('id',msgId);
+    var row=document.querySelector('[data-msg-id="'+CSS.escape(msgId)+'"]');
+    if(row){row.style.transition='opacity .2s';row.style.opacity='0';setTimeout(function(){row.remove();},200);}
+  }catch(e){_toast('Не удалось удалить','⚠️');}
+}
+
+/* ─────────────────────────────────────────────
+   REALTIME SUBSCRIPTION
+───────────────────────────────────────────────*/
+function _grpSubscribeRealtime(groupId){
+  if(typeof sb==='undefined'||!sb)return;
+  try{
+    _grpRtChannel=sb.channel('grp_msgs_'+groupId)
+      .on('postgres_changes',
+        {event:'INSERT',schema:'public',table:'group_messages',filter:'group_id=eq.'+groupId},
+        function(payload){
+          var msg=payload.new;
+          if(!msg||msg.from_user_id===_myId())return; // own messages already shown optimistically
+          if(_grpActiveId!==groupId)return;
+          // Ensure sender is in members cache
+          var members=(_grpCache[groupId]&&_grpCache[groupId].members)||[];
+          if(!members.find(function(m){return m.user_id===msg.from_user_id;})){
+            // fetch profile and add
+            sb.from('users').select('id,username,avatar,avatar_url').eq('id',msg.from_user_id).single()
+              .then(function(r){
+                if(r.data)members.push({user_id:r.data.id,username:r.data.username,avatar:r.data.avatar,role:'member'});
+                _grpAppendMessage(msg);
+              });
+            return;
+          }
+          _grpAppendMessage(msg);
+          // Update sidebar for this group
+          var txt=msg.content||'';
+          try{var o=JSON.parse(txt);if(o&&o.t)txt=o.t;}catch(ex){}
+          _grpUpdateSidebarPreview(groupId,txt,false,msg.created_at);
+        }
+      )
+      .on('postgres_changes',
+        {event:'DELETE',schema:'public',table:'group_messages',filter:'group_id=eq.'+groupId},
+        function(payload){
+          var old=payload.old;if(!old||!old.id)return;
+          var row=document.querySelector('[data-msg-id="'+CSS.escape(old.id)+'"]');
+          if(row){row.style.transition='opacity .2s';row.style.opacity='0';setTimeout(function(){row.remove();},200);}
+        }
+      )
+      .subscribe();
+  }catch(e){console.warn('[DTR] realtime subscribe:',e);}
+}
+
+/* ─────────────────────────────────────────────
+   INFO / MANAGEMENT MODAL
+───────────────────────────────────────────────*/
+window._grpOpenInfo=async function(groupId,editMode){
+  var ok=await _grpCheckDb();if(!ok)return;
+  var cached=_grpCache[groupId];
+  if(!cached){await _grpOpenChat(groupId);cached=_grpCache[groupId];}
+  if(!cached)return;
+  var chat=cached.chat,members=cached.members||[];
+  var isOwner=chat.owner_id===_myId();
+  var myRole=(members.find(function(m){return m.user_id===_myId();})||{}).role||'member';
+  var canManage=isOwner||(myRole==='admin');
+  var EMOJIS=['👥','🔥','⚡','🎯','🏆','💎','🚀','🌟','💪','🎮','📚','🎵','🌍','🤝','🦁','🐉'];
+  var existing=document.getElementById('_grpInfoModal');if(existing)existing.remove();
+  var ov=document.createElement('div');
+  ov.id='_grpInfoModal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px;';
+  ov.innerHTML=
+    '<div style="background:var(--card);border:0.5px solid rgba(255,255,255,.1);border-radius:20px;width:100%;max-width:440px;max-height:90dvh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.65);animation:dtrModalIn .3s cubic-bezier(.34,1.4,.64,1) both;">'
+      // HEAD
+      +'<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:0.5px solid rgba(255,255,255,.07);flex-shrink:0;">'
+        +'<div style="font-size:15px;font-weight:700;color:var(--t1);">'+(canManage&&editMode?'Управление группой':'Информация о группе')+'</div>'
+        +'<button onclick="document.getElementById(\'_grpInfoModal\').remove()" style="width:28px;height:28px;border-radius:8px;background:none;border:none;color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .15s,background .15s;" onmouseover="this.style.color=\'var(--t1)\';this.style.background=\'rgba(255,255,255,.06)\'" onmouseout="this.style.color=\'var(--t3)\';this.style.background=\'none\'">'
+          +'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
+      +'</div>'
+      // BODY
+      +'<div style="flex:1;overflow-y:auto;padding:16px 18px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent;">'
+        // Emoji + name
+        +(canManage&&editMode
+          ?'<div style="display:flex;gap:12px;margin-bottom:14px;">'
+              +'<div style="position:relative;">'
+                +'<div id="grpEmojiSel" style="width:52px;height:52px;border-radius:14px;background:rgba(26,159,255,.12);border:0.5px solid rgba(26,159,255,.3);display:flex;align-items:center;justify-content:center;font-size:26px;cursor:pointer;transition:transform .15s;" onclick="_grpPickEmoji(\''+groupId+'\')" title="Изменить аватарку">'+_esc(chat.avatar_emoji||'👥')+'</div>'
+              +'</div>'
+              +'<div style="flex:1;">'
+                +'<input id="grpEditName" type="text" value="'+_esc(chat.name)+'" maxlength="50" placeholder="Название группы" class="gm-field" style="margin-bottom:8px;">'
+                +'<textarea id="grpEditDesc" rows="2" placeholder="Описание (необязательно)" class="gm-field" style="resize:none;">'+_esc(chat.description||'')+'</textarea>'
+              +'</div>'
+            +'</div>'
+          :'<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;padding:14px;background:rgba(255,255,255,.03);border-radius:14px;border:0.5px solid rgba(255,255,255,.06);">'
+              +'<div style="width:56px;height:56px;border-radius:16px;background:rgba(26,159,255,.12);border:0.5px solid rgba(26,159,255,.3);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;">'+_esc(chat.avatar_emoji||'👥')+'</div>'
+              +'<div style="flex:1;min-width:0;">'
+                +'<div style="font-size:17px;font-weight:700;color:var(--t1);letter-spacing:-.02em;margin-bottom:4px;">'+_esc(chat.name)+'</div>'
+                +(chat.description?'<div style="font-size:13px;color:var(--t2);line-height:1.5;">'+_esc(chat.description)+'</div>':'')
+                +'<div style="font-size:11px;color:var(--t3);margin-top:4px;">'+members.length+' участников</div>'
+              +'</div>'
+            +'</div>')
+        // Members section
+        +'<div style="font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);margin-bottom:8px;">Участники ('+members.length+')</div>'
+        +'<div id="grpMembersList">'
+          +members.map(function(m){
+            var isMe=m.user_id===_myId();
+            var canKick=canManage&&!isMe&&(!isOwner&&m.role==='admin'?false:true)&&m.user_id!==chat.owner_id;
+            return'<div style="display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:10px;transition:background .12s;" onmouseover="this.style.background=\'rgba(255,255,255,.03)\'" onmouseout="this.style.background=\'none\'">'
+              +'<div style="width:36px;height:36px;border-radius:11px;background:rgba(245,200,66,.1);border:0.5px solid rgba(245,200,66,.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">'+_esc(m.avatar||'👤')+'</div>'
+              +'<div style="flex:1;min-width:0;">'
+                +'<div style="font-size:13.5px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+_esc(m.username||'?')+(isMe?' <span style="color:var(--t3);font-weight:400;font-size:11px;">(вы)</span>':'')+'</div>'
+                +'<div style="font-size:11px;color:'+(m.user_id===chat.owner_id?'var(--gold)':m.role==='admin'?'var(--blue)':'var(--t3)')+';">'+
+                  (m.user_id===chat.owner_id?'владелец':m.role==='admin'?'администратор':'участник')+'</div>'
+              +'</div>'
+              +(canKick
+                ?'<button onclick="_grpKickMember(\''+groupId+'\',\''+m.user_id+'\',\''+_esc(m.username||'?')+'\')" style="height:26px;padding:0 10px;border-radius:8px;background:rgba(239,68,68,.08);border:0.5px solid rgba(239,68,68,.2);color:var(--red);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-display);transition:background .15s;" onmouseover="this.style.background=\'rgba(239,68,68,.15)\'" onmouseout="this.style.background=\'rgba(239,68,68,.08)\'">Исключить</button>'
+                :'')
+            +'</div>';
+          }).join('')
+        +'</div>'
+        // Add members (owner/admin only)
+        +(canManage
+          ?'<div style="margin-top:12px;">'
+              +'<div style="font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);margin-bottom:8px;">Добавить участников</div>'
+              +'<div style="position:relative;margin-bottom:8px;">'
+                +'<svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t3);pointer-events:none;" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>'
+                +'<input id="grpAddSearch" type="text" placeholder="Найти участника…" class="gm-field" style="padding-left:32px;margin-bottom:0;" oninput="_grpSearchForAdd(this.value,\''+groupId+'\')" autocomplete="off">'
+              +'</div>'
+              +'<div id="grpAddResults"></div>'
+            +'</div>'
+          :'')
+      +'</div>'
+      // FOOTER
+      +'<div style="padding:12px 18px 16px;border-top:0.5px solid rgba(255,255,255,.06);display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;">'
+        // Save (owner/admin, editMode)
+        +(canManage&&editMode
+          ?'<button onclick="_grpSaveInfo(\''+groupId+'\')" style="flex:1;padding:10px;border-radius:11px;background:linear-gradient(145deg,var(--gold-d),var(--gold));border:none;color:#09090B;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-display);">Сохранить</button>'
+          :'')
+        // Leave (not owner)
+        +(!isOwner
+          ?'<button onclick="_grpLeave(\''+groupId+'\')" style="flex:1;padding:10px;border-radius:11px;background:rgba(239,68,68,.08);border:0.5px solid rgba(239,68,68,.2);color:var(--red);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-display);transition:background .15s;" onmouseover="this.style.background=\'rgba(239,68,68,.16)\'" onmouseout="this.style.background=\'rgba(239,68,68,.08)\'">Покинуть группу</button>'
+          :'')
+        // Delete (owner only)
+        +(isOwner
+          ?'<button onclick="_grpDelete(\''+groupId+'\')" style="flex:1;padding:10px;border-radius:11px;background:rgba(239,68,68,.08);border:0.5px solid rgba(239,68,68,.2);color:var(--red);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-display);transition:background .15s;" onmouseover="this.style.background=\'rgba(239,68,68,.16)\'" onmouseout="this.style.background=\'rgba(239,68,68,.08)\'">Удалить группу</button>'
+          :'')
+        // Edit toggle
+        +(canManage&&!editMode
+          ?'<button onclick="document.getElementById(\'_grpInfoModal\').remove();_grpOpenInfo(\''+groupId+'\',true)" style="flex:1;padding:10px;border-radius:11px;background:rgba(245,200,66,.08);border:0.5px solid rgba(245,200,66,.2);color:var(--gold);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-display);transition:background .15s;" onmouseover="this.style.background=\'rgba(245,200,66,.15)\'" onmouseout="this.style.background=\'rgba(245,200,66,.08)\'">Редактировать</button>'
+          :'')
+      +'</div>'
+    +'</div>';
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+  document.body.appendChild(ov);
+};
+
+/* Emoji picker for group avatar */
+window._grpPickEmoji=function(groupId){
+  var existing=document.getElementById('_grpEmojiPickerInfo');if(existing){existing.remove();return;}
+  var EMOJIS=['👥','🔥','⚡','🎯','🏆','💎','🚀','🌟','💪','🎮','📚','🎵','🌍','🤝','🦁','🐉','🦊','🐺','🌈','☀️','🌙','🎸','🏋️','🧠','🎨','🔬'];
+  var picker=document.createElement('div');
+  picker.id='_grpEmojiPickerInfo';
+  picker.style.cssText='position:absolute;top:60px;left:0;background:var(--card);border:0.5px solid rgba(255,255,255,.1);border-radius:14px;padding:8px;display:flex;flex-wrap:wrap;gap:2px;width:200px;box-shadow:0 8px 32px rgba(0,0,0,.5);z-index:300;animation:msgIn .2s ease;';
+  picker.innerHTML=EMOJIS.map(function(e){
+    return'<button class="r-pop-btn" type="button" onclick="var sel=document.getElementById(\'grpEmojiSel\');if(sel){sel.textContent=\''+e+'\';sel.dataset.emoji=\''+e+'\';}document.getElementById(\'_grpEmojiPickerInfo\').remove();">'+e+'</button>';
+  }).join('');
+  var parent=document.getElementById('grpEmojiSel');
+  if(parent){parent.style.position='relative';parent.appendChild(picker);}
+  setTimeout(function(){
+    document.addEventListener('click',function h(e){
+      if(!e.target.closest('#_grpEmojiPickerInfo')&&!e.target.closest('#grpEmojiSel')){
+        var p=document.getElementById('_grpEmojiPickerInfo');if(p)p.remove();
+        document.removeEventListener('click',h);
+      }
+    });
+  },0);
+};
+
+/* Save group info */
+window._grpSaveInfo=async function(groupId){
+  var nameEl=document.getElementById('grpEditName');
+  var descEl=document.getElementById('grpEditDesc');
+  var emojiEl=document.getElementById('grpEmojiSel');
+  if(!nameEl)return;
+  var name=nameEl.value.trim();
+  if(!name){nameEl.style.borderColor='rgba(239,68,68,.5)';nameEl.focus();return;}
+  var desc=descEl?descEl.value.trim():'';
+  var emoji=emojiEl?(emojiEl.dataset.emoji||emojiEl.textContent||'👥'):'👥';
+  try{
+    var {error}=await sb.from('group_chats').update({name:name,description:desc,avatar_emoji:emoji,updated_at:new Date().toISOString()}).eq('id',groupId);
+    if(error)throw error;
+    // Update local cache
+    if(_grpCache[groupId]&&_grpCache[groupId].chat){
+      _grpCache[groupId].chat.name=name;
+      _grpCache[groupId].chat.description=desc;
+      _grpCache[groupId].chat.avatar_emoji=emoji;
+    }
+    // Update header
+    var headName=document.querySelector('.msg-chat-name');
+    if(headName)headName.textContent=name;
+    var headAv=document.querySelector('#grpChatHead .msg-chat-av');
+    if(headAv)headAv.textContent=emoji;
+    // Update sidebar
+    var sidebarName=document.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"] .msg-conv-name');
+    if(sidebarName)sidebarName.textContent=name;
+    var sidebarAv=document.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"] .msg-conv-av-ring');
+    if(sidebarAv){var cnt=sidebarAv.querySelector('div');sidebarAv.textContent=emoji;if(cnt)sidebarAv.appendChild(cnt);}
+    _toast('Группа обновлена','✅');
+    document.getElementById('_grpInfoModal')&&document.getElementById('_grpInfoModal').remove();
+  }catch(e){_toast('Ошибка сохранения','⚠️');console.error(e);}
+};
+
+/* Search users for adding */
+var _grpAddSearchTimer=null;
+window._grpSearchForAdd=function(q,groupId){
+  var res=document.getElementById('grpAddResults');if(!res)return;
+  clearTimeout(_grpAddSearchTimer);
+  if(!q||q.trim().length<1){res.innerHTML='';return;}
+  res.innerHTML='<div style="font-size:12px;color:var(--t3);padding:8px 0;">Ищем…</div>';
+  _grpAddSearchTimer=setTimeout(async function(){
+    try{
+      var existing=(_grpCache[groupId]&&_grpCache[groupId].members)||[];
+      var existIds=existing.map(function(m){return m.user_id;});
+      var {data}=await sb.from('users').select('id,username,avatar,avatar_url')
+        .ilike('username','%'+q.trim()+'%').neq('id',_myId()||'').limit(8);
+      if(!data||!data.length){res.innerHTML='<div style="font-size:12px;color:var(--t3);padding:8px 0;">Никого не найдено</div>';return;}
+      res.innerHTML=data.map(function(u){
+        var already=existIds.includes(u.id);
+        return'<div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;cursor:pointer;transition:background .12s;" onmouseover="this.style.background=\'rgba(255,255,255,.04)\'" onmouseout="this.style.background=\'none\'" onclick="'+(already?'':'_grpAddMember(\''+groupId+'\',\''+u.id+'\',\''+_esc(u.username||'?')+'\',\''+_esc(u.avatar||'👤')+'\')')+'">'
+          +'<div style="width:34px;height:34px;border-radius:10px;background:rgba(245,200,66,.1);border:0.5px solid rgba(245,200,66,.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">'+_esc(u.avatar||'👤')+'</div>'
+          +'<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:var(--t1);">'+_esc(u.username||'?')+'</div></div>'
+          +(already?'<span style="font-size:11px;color:var(--t3);">в группе</span>':'<button style="height:24px;padding:0 10px;border-radius:7px;background:rgba(26,159,255,.1);border:0.5px solid rgba(26,159,255,.25);color:var(--blue);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-display);">Добавить</button>')
+        +'</div>';
+      }).join('');
+    }catch(e){res.innerHTML='<div style="font-size:12px;color:var(--red);padding:8px 0;">Ошибка поиска</div>';}
+  },300);
+};
+
+window._grpAddMember=async function(groupId,userId,username,avatar){
+  try{
+    var {error}=await sb.from('group_members').insert({group_id:groupId,user_id:userId,role:'member'});
+    if(error)throw error;
+    // Update local cache
+    if(_grpCache[groupId]){
+      _grpCache[groupId].members.push({user_id:userId,username:username,avatar:avatar,role:'member'});
+    }
+    // Send system message
+    await sb.from('group_messages').insert({
+      group_id:groupId,from_user_id:_myId(),
+      content:username+' добавлен в группу',
+      content_type:'text',is_system:true
+    });
+    _toast(username+' добавлен','✅');
+    // Refresh modal
+    document.getElementById('_grpInfoModal')&&document.getElementById('_grpInfoModal').remove();
+    _grpOpenInfo(groupId,true);
+    _grpLoadMemberCount(groupId);
+    // Update subtitle
+    var sub=document.getElementById('grpChatSub');
+    if(sub&&_grpCache[groupId])sub.textContent=_grpCache[groupId].members.length+' участников';
+  }catch(e){
+    if(e.code==='23505'||String(e.message).includes('unique')){_toast(username+' уже в группе','ℹ️');}
+    else{_toast('Ошибка добавления','⚠️');console.error(e);}
+  }
+};
+
+window._grpKickMember=async function(groupId,userId,username){
+  if(!confirm('Исключить '+username+' из группы?'))return;
+  try{
+    await sb.from('group_members').delete().eq('group_id',groupId).eq('user_id',userId);
+    await sb.from('group_messages').insert({
+      group_id:groupId,from_user_id:_myId(),
+      content:username+' исключён из группы',
+      content_type:'text',is_system:true
+    });
+    if(_grpCache[groupId]){
+      _grpCache[groupId].members=_grpCache[groupId].members.filter(function(m){return m.user_id!==userId;});
+    }
+    _toast(username+' исключён','✅');
+    document.getElementById('_grpInfoModal')&&document.getElementById('_grpInfoModal').remove();
+    _grpOpenInfo(groupId,false);
+    _grpLoadMemberCount(groupId);
+  }catch(e){_toast('Ошибка','⚠️');console.error(e);}
+};
+
+window._grpLeave=async function(groupId){
+  if(!confirm('Покинуть группу?'))return;
+  try{
+    await sb.from('group_members').delete().eq('group_id',groupId).eq('user_id',_myId());
+    await sb.from('group_messages').insert({
+      group_id:groupId,from_user_id:_myId(),
+      content:_myName()+' покинул группу',
+      content_type:'text',is_system:true
+    });
+    _grpActiveId=null;
+    if(_grpRtChannel){try{await sb.removeChannel(_grpRtChannel);}catch(e){}_grpRtChannel=null;}
+    delete _grpCache[groupId];
+    document.getElementById('_grpInfoModal')&&document.getElementById('_grpInfoModal').remove();
+    document.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"]')&&
+      document.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"]').remove();
+    _toast('Вы покинули группу');
+    _grpResetChatArea();
+  }catch(e){_toast('Ошибка','⚠️');console.error(e);}
+};
+
+window._grpDelete=async function(groupId){
+  if(!confirm('Удалить группу навсегда? Это действие необратимо.'))return;
+  try{
+    // Cascade deletes members + messages via FK ON DELETE CASCADE
+    await sb.from('group_chats').delete().eq('id',groupId);
+    _grpActiveId=null;
+    if(_grpRtChannel){try{await sb.removeChannel(_grpRtChannel);}catch(e){}_grpRtChannel=null;}
+    delete _grpCache[groupId];
+    document.getElementById('_grpInfoModal')&&document.getElementById('_grpInfoModal').remove();
+    document.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"]')&&
+      document.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"]').remove();
+    _toast('Группа удалена','🗑️');
+    _grpResetChatArea();
+  }catch(e){_toast('Ошибка удаления','⚠️');console.error(e);}
+};
+
+function _grpResetChatArea(){
+  var area=document.getElementById('msgChatArea');
+  if(!area)return;
+  area.innerHTML='<div class="msg-no-chat">'
+    +'<div style="position:absolute;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle,rgba(245,200,66,.05),transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;animation:avFloat 6s ease-in-out infinite;"></div>'
+    +'<div class="msg-empty-icon" style="width:76px;height:76px;"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>'
+    +'<div><div style="font-family:var(--font-display);font-size:18px;font-weight:800;letter-spacing:-.03em;color:var(--t1);margin-bottom:8px">Выбери диалог</div>'
+    +'<div style="font-size:13px;color:var(--t3);line-height:1.7">Открой профиль участника лиги<br>и нажми <span style="color:var(--gold);font-weight:700">«Написать»</span></div></div>'
+    +'</div>';
+}
+
+/* ─────────────────────────────────────────────
+   CREATE GROUP MODAL
+───────────────────────────────────────────────*/
+window._dtrOpenGroupModal=async function(){
+  var ok=await _grpCheckDb();if(!ok)return;
+  if(document.getElementById('_grpCreateModal'))return;
+  // Load contacts from existing conversations
+  var convs=(typeof allConvsCache!=='undefined'&&allConvsCache)?allConvsCache:[];
+  var EMOJIS=['👥','🔥','⚡','🎯','🏆','💎','🚀','🌟','💪','🎮','📚','🎵','🌍','🤝','🦁','🐉'];
+  var ov=document.createElement('div');
+  ov.id='_grpCreateModal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px;animation:fadeIn .18s ease;';
+  ov.innerHTML=
+    '<div class="gm-box">'
+      +'<div class="gm-head">'
+        +'<div style="display:flex;align-items:center;gap:9px;">'
+          +'<div style="width:28px;height:28px;border-radius:8px;background:rgba(26,159,255,.12);border:0.5px solid rgba(26,159,255,.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
+            +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
+          +'</div>'
+          +'<span class="gm-title">Новая группа</span>'
+        +'</div>'
+        +'<button class="gm-close" onclick="document.getElementById(\'_grpCreateModal\').remove()">'
+          +'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+        +'</button>'
+      +'</div>'
+      +'<div class="gm-body">'
+        // Emoji + name row
+        +'<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;">'
+          +'<div id="gcEmojiBtn" style="width:52px;height:52px;border-radius:14px;background:rgba(26,159,255,.12);border:0.5px solid rgba(26,159,255,.3);display:flex;align-items:center;justify-content:center;font-size:26px;cursor:pointer;flex-shrink:0;position:relative;transition:transform .15s;" onclick="_grpPickCreateEmoji()" title="Выбрать аватарку">👥</div>'
+          +'<div style="flex:1;">'
+            +'<input id="gcName" class="gm-field" type="text" placeholder="Название группы *" maxlength="50" style="margin-bottom:6px;" oninput="_gcUpdateBtn()">'
+            +'<textarea id="gcDesc" class="gm-field" rows="2" placeholder="Описание (необязательно)" style="resize:none;margin-bottom:0;"></textarea>'
+          +'</div>'
+        +'</div>'
+        +'<div class="gm-section-label" style="margin-bottom:8px;">Добавить участников <span id="gcSelCount" style="color:var(--blue);font-weight:700;">0</span> выбрано</div>'
+        // Search contacts
+        +'<div style="position:relative;margin-bottom:8px;">'
+          +'<svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t3);pointer-events:none;" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>'
+          +'<input id="gcSearchInput" class="gm-field" style="padding-left:32px;margin-bottom:0;" type="text" placeholder="Поиск участников…" oninput="_gcSearchContacts(this.value)" autocomplete="off">'
+        +'</div>'
+        +'<div id="gcMemberList">'
+          +(convs.length?convs.map(function(cv,idx){
+            var avHtml=cv.avUrl
+              ?'<img src="'+cv.avUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:11px;" onerror="this.style.display=\'none\'">'
+              :'<span style="font-size:16px;">'+_esc(cv.av||'👤')+'</span>';
+            return'<div class="gm-member-row" data-uid="'+_esc(cv.userId)+'" data-name="'+_esc(cv.name||'')+'" data-av="'+_esc(cv.av||'👤')+'" onclick="_gcToggleMember(this)" style="user-select:none;">'
+              +'<div class="gm-member-check" id="gcc-'+_esc(cv.userId)+'">'
+                +'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#09090B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><polyline points="20 6 9 17 4 12"/></svg>'
+              +'</div>'
+              +'<div class="gm-member-av">'+avHtml+'</div>'
+              +'<div class="gm-member-name">'+_esc(cv.name||'?')+'</div>'
+            +'</div>';
+          }).join('')
+          :'<div style="text-align:center;color:var(--t3);font-size:12px;padding:24px 0;">Начни переписку с участниками DTR,<br>чтобы добавить их в группу</div>')
+        +'</div>'
+      +'</div>'
+      +'<div class="gm-footer">'
+        +'<button id="gcCreateBtn" class="gm-create-btn" disabled onclick="_gcDoCreate()">Создать группу</button>'
+      +'</div>'
+    +'</div>';
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+  document.body.appendChild(ov);
+  setTimeout(function(){document.getElementById('gcName')&&document.getElementById('gcName').focus();},80);
+};
+
+window._gcToggleMember=function(row){
+  row.classList.toggle('selected');
+  var svg=row.querySelector('.gm-member-check svg');
+  if(svg)svg.style.display=row.classList.contains('selected')?'':'none';
+  _gcUpdateBtn();
+};
+
+window._gcUpdateBtn=function(){
+  var sel=document.querySelectorAll('#gcMemberList .gm-member-row.selected').length;
+  var name=(document.getElementById('gcName')||{value:''}).value||'';
+  var btn=document.getElementById('gcCreateBtn');
+  var cnt=document.getElementById('gcSelCount');
+  if(cnt)cnt.textContent=sel;
+  if(btn){
+    btn.disabled=sel<1||name.trim().length<1;
+    btn.textContent=sel>0?'Создать группу ('+sel+' уч.)':'Создать группу';
+  }
+};
+
+var _gcSearchTimer=null;
+window._gcSearchContacts=function(q){
+  clearTimeout(_gcSearchTimer);
+  if(!q||q.trim().length<1){
+    // Restore full list from convs
+    var convs=(typeof allConvsCache!=='undefined'&&allConvsCache)?allConvsCache:[];
+    var ml=document.getElementById('gcMemberList');
+    if(ml)ml.innerHTML=convs.map(function(cv){
+      var isSel=document.getElementById('gcc-'+cv.userId)&&document.getElementById('gcc-'+cv.userId).closest('.gm-member-row').classList.contains('selected');
+      var avHtml=cv.avUrl?'<img src="'+cv.avUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:11px;">':'<span style="font-size:16px;">'+_esc(cv.av||'👤')+'</span>';
+      return'<div class="gm-member-row'+(isSel?' selected':'')+'" data-uid="'+_esc(cv.userId)+'" data-name="'+_esc(cv.name||'')+'" data-av="'+_esc(cv.av||'👤')+'" onclick="_gcToggleMember(this)">'
+        +'<div class="gm-member-check" id="gcc-'+_esc(cv.userId)+'">'
+          +(isSel?'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#09090B" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>':'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#09090B" stroke-width="3" style="display:none;"><polyline points="20 6 9 17 4 12"/></svg>')
+        +'</div>'
+        +'<div class="gm-member-av">'+avHtml+'</div>'
+        +'<div class="gm-member-name">'+_esc(cv.name||'?')+'</div>'
+      +'</div>';
+    }).join('');
+    return;
+  }
+  _gcSearchTimer=setTimeout(async function(){
+    try{
+      var {data}=await sb.from('users').select('id,username,avatar,avatar_url')
+        .ilike('username','%'+q.trim()+'%').neq('id',_myId()||'').limit(10);
+      var ml=document.getElementById('gcMemberList');if(!ml)return;
+      ml.innerHTML=(data||[]).map(function(u){
+        return'<div class="gm-member-row" data-uid="'+_esc(u.id)+'" data-name="'+_esc(u.username||'')+'" data-av="'+_esc(u.avatar||'👤')+'" onclick="_gcToggleMember(this)">'
+          +'<div class="gm-member-check"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#09090B" stroke-width="3" style="display:none;"><polyline points="20 6 9 17 4 12"/></svg></div>'
+          +'<div class="gm-member-av"><span style="font-size:16px;">'+_esc(u.avatar||'👤')+'</span></div>'
+          +'<div class="gm-member-name">'+_esc(u.username||'?')+'</div>'
+        +'</div>';
+      }).join('')||'<div style="text-align:center;color:var(--t3);font-size:12px;padding:16px;">Никого не найдено</div>';
+    }catch(e){}
+  },300);
+};
+
+window._grpPickCreateEmoji=function(){
+  var EMOJIS=['👥','🔥','⚡','🎯','🏆','💎','🚀','🌟','💪','🎮','📚','🎵','🌍','🤝','🦁','🐉','🦊','🌈','☀️','🌙','🎸','🏋️','🧠','🎨'];
+  var existing=document.getElementById('_gcEmojiPicker');if(existing){existing.remove();return;}
+  var picker=document.createElement('div');
+  picker.id='_gcEmojiPicker';
+  picker.style.cssText='position:absolute;top:56px;left:0;background:var(--card);border:0.5px solid rgba(255,255,255,.1);border-radius:14px;padding:8px;display:flex;flex-wrap:wrap;gap:2px;width:200px;box-shadow:0 8px 32px rgba(0,0,0,.5);z-index:300;animation:msgIn .2s ease;';
+  picker.innerHTML=EMOJIS.map(function(e){
+    return'<button class="r-pop-btn" type="button" onclick="var b=document.getElementById(\'gcEmojiBtn\');if(b){b.textContent=\''+e+'\';b.dataset.emoji=\''+e+'\';}document.getElementById(\'_gcEmojiPicker\').remove();">'+e+'</button>';
+  }).join('');
+  var btn=document.getElementById('gcEmojiBtn');if(btn)btn.appendChild(picker);
+  setTimeout(function(){
+    document.addEventListener('click',function h(e){
+      if(!e.target.closest('#_gcEmojiPicker')&&!e.target.closest('#gcEmojiBtn')){
+        var p=document.getElementById('_gcEmojiPicker');if(p)p.remove();
+        document.removeEventListener('click',h);
+      }
+    });
+  },0);
+};
+
+window._gcDoCreate=async function(){
+  var nameEl=document.getElementById('gcName');
+  var descEl=document.getElementById('gcDesc');
+  var emojiEl=document.getElementById('gcEmojiBtn');
+  if(!nameEl)return;
+  var name=nameEl.value.trim();
+  if(!name){nameEl.focus();nameEl.style.borderColor='rgba(239,68,68,.5)';return;}
+  var desc=descEl?descEl.value.trim():'';
+  var emoji=emojiEl?(emojiEl.dataset.emoji||emojiEl.textContent||'👥'):'👥';
+  var rows=document.querySelectorAll('#gcMemberList .gm-member-row.selected');
+  var members=[];
+  rows.forEach(function(r){members.push({id:r.dataset.uid,name:r.dataset.name,av:r.dataset.av});});
+  if(!members.length){_toast('Выбери хотя бы одного участника','⚠️');return;}
+  var btn=document.getElementById('gcCreateBtn');
+  if(btn){btn.disabled=true;btn.textContent='Создаём…';}
+  try{
+    // 1. Create group
+    var {data:gc,error:gce}=await sb.from('group_chats').insert({
+      name:name,description:desc,avatar_emoji:emoji,owner_id:_myId()
+    }).select('id').single();
+    if(gce)throw gce;
+    var groupId=gc.id;
+    // 2. Add owner
+    var memberInserts=[{group_id:groupId,user_id:_myId(),role:'owner'}];
+    // 3. Add selected members
+    members.forEach(function(m){memberInserts.push({group_id:groupId,user_id:m.id,role:'member'});});
+    var {error:mie}=await sb.from('group_members').insert(memberInserts);
+    if(mie)throw mie;
+    // 4. System message
+    await sb.from('group_messages').insert({
+      group_id:groupId,from_user_id:_myId(),
+      content:'Группа «'+name+'» создана',
+      content_type:'text',is_system:true
+    });
+    document.getElementById('_grpCreateModal')&&document.getElementById('_grpCreateModal').remove();
+    _toast('Группа «'+name+'» создана 🎉','✅');
+    await _grpInjectSidebar();
+    setTimeout(function(){_grpOpenChat(groupId);},200);
+  }catch(e){
+    console.error('[DTR] create group:',e);
+    _toast('Ошибка создания группы','⚠️');
+    if(btn){btn.disabled=false;btn.textContent='Создать группу';}
+  }
+};
+
+/* ─────────────────────────────────────────────
+   PATCH showTab — inject groups when Messages opens
+───────────────────────────────────────────────*/
+function _grpPatchShowTab(){
+  var orig=window.showTab;
+  if(typeof orig!=='function')return;
+  window.showTab=function(tab){
+    orig.apply(this,arguments);
+    if(tab==='messages')setTimeout(_grpInjectSidebar,300);
+  };
+}
+
+function _grpPatchLoadConvs(){
+  var orig=window.loadConversations;
+  if(typeof orig!=='function')return;
+  window.loadConversations=function(){
+    var p=orig.apply(this,arguments);
+    var inject=function(){setTimeout(_grpInjectSidebar,150);};
+    if(p&&typeof p.then==='function')p.then(inject);else inject();
+    return p;
+  };
+}
+
+/* ─────────────────────────────────────────────
+   MOBILE SWIPE BACK
+───────────────────────────────────────────────*/
+(function(){
+  var tx=0,ty=0,sw=false;
+  document.addEventListener('touchstart',function(e){
+    if(window.innerWidth>600)return;
+    var ca=document.getElementById('msgChatArea');
+    if(!ca||ca.style.display==='none')return;
+    tx=e.touches[0].clientX;ty=e.touches[0].clientY;sw=tx<30;
+  },{passive:true});
+  document.addEventListener('touchend',function(e){
+    if(!sw||window.innerWidth>600){sw=false;return;}sw=false;
+    var dx=e.changedTouches[0].clientX-tx,dy=Math.abs(e.changedTouches[0].clientY-ty);
+    if(dx>60&&dy<80){
+      var ca=document.getElementById('msgChatArea'),li=document.getElementById('msgList');
+      if(ca){ca.style.display='none';ca.classList.remove('active');}
+      if(li)li.style.display='';
+    }
+  },{passive:true});
+})();
+
+/* ─────────────────────────────────────────────
+   KEYBOARD
+───────────────────────────────────────────────*/
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'){
+    ['_grpCreateModal','_grpInfoModal','_grpCtxMenu','_gcEmojiPicker','_grpEmojiPickerInfo']
+      .forEach(function(id){var el=document.getElementById(id);if(el)el.remove();});
+  }
+});
+
+/* ─────────────────────────────────────────────
+   SEND BUTTON MICRO-ANIMATION
+───────────────────────────────────────────────*/
+document.addEventListener('click',function(e){
+  var btn=e.target.closest('#grpSendBtn,#msgSendBtn');
+  if(!btn)return;
+  btn.style.transform='scale(.88)';
+  setTimeout(function(){btn.style.transform='';},140);
+},true);
+
+/* ─────────────────────────────────────────────
+   BOOT
+───────────────────────────────────────────────*/
+function _grpBoot(){
+  _grpPatchShowTab();
+  _grpPatchLoadConvs();
+  // If messages tab already active
+  var msgTab=document.getElementById('tab-messages');
+  if(msgTab&&msgTab.classList.contains('active'))setTimeout(_grpInjectSidebar,500);
+  console.log('%c[DTR] Group Chat System v3 ready', 'color:#F5C842;font-weight:bold;');
+}
+
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',_grpBoot);}
+else{_grpBoot();}
 
 })();
 </script>
