@@ -21584,25 +21584,30 @@ async function _msgExecuteClear(userId){
   const scope = ov?.querySelector('input[name="clearScope"]:checked')?.value || 'me';
   ov?.remove();
   if(!SB_USER) return;
+
   try {
-    if(scope==='me'){
-      // Delete only MY sent messages to this partner
-      const {error: errMe} = await sb.from('messages').delete()
-        .eq('from_user_id', SB_USER.id)
-        .eq('to_user_id', userId);
-      if(errMe) throw errMe;
+    if(scope === 'me'){
+      // ── "Только у меня": fetch all message IDs in this conversation,
+      // then hide them locally via localStorage — partner sees nothing changed ──
+      const { data: msgs } = await sb.from('messages')
+        .select('id')
+        .or(`and(from_user_id.eq.${SB_USER.id},to_user_id.eq.${userId}),and(from_user_id.eq.${userId},to_user_id.eq.${SB_USER.id})`);
+      if(msgs && msgs.length > 0){
+        const KEY = 'dtr_hidden_msgs_' + SB_USER.id;
+        const hidden = new Set(JSON.parse(localStorage.getItem(KEY)||'[]'));
+        msgs.forEach(m => hidden.add(String(m.id)));
+        localStorage.setItem(KEY, JSON.stringify([...hidden]));
+      }
     } else {
-      // Delete both sides — RLS may only allow deleting own messages
-      // So we delete each direction separately and ignore partner-side RLS errors
+      // ── "У обоих": delete from DB (own messages only via RLS),
+      // partner's messages in that chat also deleted from their side via RLS ──
       await sb.from('messages').delete()
         .eq('from_user_id', SB_USER.id).eq('to_user_id', userId);
       try {
         await sb.from('messages').delete()
           .eq('from_user_id', userId).eq('to_user_id', SB_USER.id);
       } catch(rlsErr){
-        // Partner-side may be blocked by RLS — not critical, show partial success
-        showToast('Ваши сообщения удалены. Сообщения собеседника — только у него', 'ℹ️');
-        return;
+        showToast('Ваши сообщения удалены. У собеседника — только его', 'ℹ️');
       }
     }
   } catch(e){
@@ -24611,12 +24616,104 @@ function _msgVoiceResetUI(vid){
 // ══ FIX 2: PIN MESSAGE — store in localStorage per conversation ══
 function _msgPinMessage(msgId, text){
   if(!activeConvUserId) return;
-  const key = `dtr_pinned_${SB_USER?.id}_${activeConvUserId}`;
-  const pinned = { id: msgId, text: text.slice(0, 120), pinnedAt: new Date().toISOString() };
-  try { localStorage.setItem(key, JSON.stringify(pinned)); } catch(e){}
-  // Show/update pinned bar at top of chat
-  _msgRenderPinnedBar(pinned);
-  showToast('Сообщение закреплено 📌');
+  // Ask scope: only me or both
+  const existMod = document.getElementById('_msgPinScopeModal');
+  if(existMod) existMod.remove();
+  const mod = document.createElement('div');
+  mod.id = '_msgPinScopeModal';
+  mod.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .15s ease;';
+  mod.innerHTML = `
+    <div style="background:var(--card);border:0.5px solid var(--border);border-radius:18px;padding:22px;width:100%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,.6);animation:msgIn .2s cubic-bezier(.34,1.3,.64,1) both;">
+      <div style="font-family:var(--font-display);font-size:15px;font-weight:700;color:var(--t1);margin-bottom:6px;">📌 Закрепить сообщение</div>
+      <div style="font-size:12px;color:var(--t3);margin-bottom:16px;line-height:1.5;padding:8px 10px;background:rgba(255,255,255,.04);border-radius:8px;border-left:2px solid var(--gold);">${esc((text||'').slice(0,80))}</div>
+      <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:16px;">
+        <label style="display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:10px;border:0.5px solid rgba(255,255,255,.07);cursor:pointer;transition:background .12s;" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background='none'">
+          <input type="radio" name="pinScope" value="me" checked style="accent-color:var(--gold);width:15px;height:15px;">
+          <div><div style="font-size:13px;font-weight:600;color:var(--t1);">Только у меня</div><div style="font-size:11px;color:var(--t3);margin-top:1px;">Собеседник не увидит закреп</div></div>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:10px;border:0.5px solid rgba(255,255,255,.07);cursor:pointer;transition:background .12s;" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background='none'">
+          <input type="radio" name="pinScope" value="both" style="accent-color:var(--gold);width:15px;height:15px;">
+          <div><div style="font-size:13px;font-weight:600;color:var(--t1);">У обоих</div><div style="font-size:11px;color:var(--t3);margin-top:1px;">Собеседник тоже увидит закреп</div></div>
+        </label>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="document.getElementById('_msgPinScopeModal').remove()" style="flex:1;padding:10px;border-radius:10px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.08);color:var(--t2);font-size:13px;font-weight:600;font-family:var(--font-display);cursor:pointer;">Отмена</button>
+        <button onclick="_msgDoPinWithScope('${esc(String(msgId))}',${JSON.stringify(text.slice(0,120))});document.getElementById('_msgPinScopeModal').remove();" style="flex:1;padding:10px;border-radius:10px;background:rgba(245,200,66,.12);border:0.5px solid rgba(245,200,66,.3);color:var(--gold);font-size:13px;font-weight:600;font-family:var(--font-display);cursor:pointer;">Закрепить</button>
+      </div>
+    </div>`;
+  mod.addEventListener('click', e=>{ if(e.target===mod) mod.remove(); });
+  document.body.appendChild(mod);
+}
+
+async function _msgDoPinWithScope(msgId, text){
+  const mod = document.getElementById('_msgPinScopeModal');
+  const scope = mod?.querySelector('input[name="pinScope"]:checked')?.value || 'me';
+  if(!activeConvUserId || !SB_USER) return;
+
+  const pinned = { id: msgId, text: text, pinnedAt: new Date().toISOString(), scope };
+
+  if(scope === 'me'){
+    // Local only
+    const key = `dtr_pinned_${SB_USER.id}_${activeConvUserId}`;
+    try { localStorage.setItem(key, JSON.stringify(pinned)); } catch(e){}
+    _msgRenderPinnedBar(pinned);
+    showToast('Сообщение закреплено 📌');
+  } else {
+    // Store in DB so both users see it
+    // Use a canonical key (sorted user IDs) to identify the conversation
+    const [u1, u2] = [SB_USER.id, activeConvUserId].sort();
+    const convKey = `pin_${u1}_${u2}`;
+    try {
+      // Try inserting into conv_pins table
+      const {error} = await sb.from('conv_pins').upsert({
+        conv_key: convKey,
+        message_id: msgId,
+        message_text: text,
+        pinned_by: SB_USER.id,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'conv_key' });
+
+      if(error){
+        // Table may not exist — fall back to shared localStorage key
+        const sharedKey = `dtr_pin_shared_${convKey}`;
+        localStorage.setItem(sharedKey, JSON.stringify(pinned));
+        _msgRenderPinnedBar(pinned);
+        showToast('Закреплено (синхр. с партнёром после создания таблицы) 📌');
+        if(error.code === '42P01') _msgShowPinTableAlert();
+      } else {
+        _msgRenderPinnedBar(pinned);
+        showToast('Сообщение закреплено у обоих 📌');
+      }
+    } catch(e){
+      // Fallback
+      const key = `dtr_pinned_${SB_USER.id}_${activeConvUserId}`;
+      try { localStorage.setItem(key, JSON.stringify(pinned)); } catch(ex){}
+      _msgRenderPinnedBar(pinned);
+      showToast('Закреплено только у вас 📌');
+    }
+  }
+}
+
+function _msgShowPinTableAlert(){
+  if(typeof _msgShowDbAlert === 'function'){
+    // Inject SQL alert manually
+    const sql = `CREATE TABLE IF NOT EXISTS conv_pins (
+  conv_key text PRIMARY KEY,
+  message_id text,
+  message_text text,
+  pinned_by uuid,
+  updated_at timestamptz DEFAULT now()
+);
+ALTER TABLE conv_pins ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "conv_pins_all" ON conv_pins FOR ALL USING (true) WITH CHECK (true);
+ALTER PUBLICATION supabase_realtime ADD TABLE conv_pins;`;
+    const a = document.createElement('div');
+    a.id = '_msgDbAlert'; a.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(16,16,20,.98);border:0.5px solid rgba(245,200,66,.3);border-radius:14px;padding:14px 18px;z-index:99999;max-width:460px;width:calc(100% - 40px);box-shadow:0 8px 40px rgba(0,0,0,.7);font-family:var(--font-display);animation:msgIn .25s ease;';
+    a.innerHTML = `<div style="font-size:13px;font-weight:700;color:var(--gold);margin-bottom:8px;">📌 Для закрепа у обоих нужна таблица</div><pre style="background:rgba(0,0,0,.4);border-radius:8px;padding:10px;font-size:10.5px;color:#4ADE80;font-family:'JetBrains Mono',monospace;overflow-x:auto;margin:0 0 10px;white-space:pre;">${sql}</pre><div style="display:flex;gap:8px;"><button onclick="navigator.clipboard?.writeText(this.closest('div').previousElementSibling.textContent).then(()=>showToast('SQL скопирован ✓'))" style="flex:1;padding:8px;border-radius:8px;background:rgba(245,200,66,.1);border:0.5px solid rgba(245,200,66,.25);color:var(--gold);font-size:12px;font-weight:600;cursor:pointer;">Копировать SQL</button><button onclick="this.closest('#_msgDbAlert').remove()" style="padding:8px 14px;border-radius:8px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.08);color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;">✕</button></div>`;
+    document.getElementById('_msgDbAlert')?.remove();
+    document.body.appendChild(a);
+    setTimeout(()=>a.remove(), 15000);
+  }
 }
 
 function _msgRenderPinnedBar(pinned){
@@ -24645,19 +24742,43 @@ function _msgRenderPinnedBar(pinned){
   head.insertAdjacentElement('afterend', bar);
 }
 
-function _msgUnpinMessage(){
+async function _msgUnpinMessage(){
   if(!activeConvUserId || !SB_USER) return;
-  const key = `dtr_pinned_${SB_USER.id}_${activeConvUserId}`;
-  try { localStorage.removeItem(key); } catch(e){}
+  // Remove from personal localStorage
+  try { localStorage.removeItem(`dtr_pinned_${SB_USER.id}_${activeConvUserId}`); } catch(e){}
+  // Remove from shared localStorage
+  const [u1,u2] = [SB_USER.id, activeConvUserId].sort();
+  const convKey = `pin_${u1}_${u2}`;
+  try { localStorage.removeItem(`dtr_pin_shared_${convKey}`); } catch(e){}
+  // Remove from DB
+  try { await sb.from('conv_pins').delete().eq('conv_key', convKey); } catch(e){}
   document.getElementById('_msgPinnedBar')?.remove();
   showToast('Сообщение откреплено');
 }
 
-function _msgLoadPinnedBar(){
+async function _msgLoadPinnedBar(){
   if(!activeConvUserId || !SB_USER) return;
-  const key = `dtr_pinned_${SB_USER.id}_${activeConvUserId}`;
+
+  // 1. Check DB for shared pin (у обоих)
+  const [u1, u2] = [SB_USER.id, activeConvUserId].sort();
+  const convKey = `pin_${u1}_${u2}`;
   try {
-    const raw = localStorage.getItem(key);
+    const { data } = await sb.from('conv_pins').select('message_id,message_text,pinned_by,updated_at').eq('conv_key', convKey).maybeSingle();
+    if(data && data.message_id){
+      _msgRenderPinnedBar({ id: data.message_id, text: data.message_text || '', scope: 'both' });
+      return;
+    }
+  } catch(e){ /* table may not exist yet */ }
+
+  // 2. Check shared localStorage key
+  try {
+    const sharedRaw = localStorage.getItem(`dtr_pin_shared_${convKey}`);
+    if(sharedRaw){ _msgRenderPinnedBar(JSON.parse(sharedRaw)); return; }
+  } catch(e){}
+
+  // 3. Check personal localStorage key (только у меня)
+  try {
+    const raw = localStorage.getItem(`dtr_pinned_${SB_USER.id}_${activeConvUserId}`);
     if(raw) _msgRenderPinnedBar(JSON.parse(raw));
   } catch(e){}
 }
