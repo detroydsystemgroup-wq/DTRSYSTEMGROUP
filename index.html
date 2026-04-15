@@ -20741,7 +20741,7 @@ function appendMessage(msg, isMine){
   el.appendChild(div);
 
   // Scroll
-  if(_msgIsAtBottom){
+  if(_msgIsAtBottom || isMine){
     _msgScrollToBottom();
   } else if(!isMine){
     _msgUnreadOffscreen++;
@@ -20846,6 +20846,8 @@ async function sendMsg(toUserId){
   // Optimistic
   const optId = 'opt-'+Date.now();
   appendMessage({id:optId, content:finalText, content_type:'text', created_at:new Date().toISOString(), from_user_id:SB_USER.id}, true);
+  // Always scroll to bottom when user sends a message
+  setTimeout(function(){ if(typeof _msgScrollToBottom==='function') _msgScrollToBottom(); }, 30);
 
   // Insert to DB — refresh token first to prevent RLS 42501
   try {
@@ -37778,9 +37780,15 @@ window.renderCollabView=renderCollabView;
 
   window.usrSearchOpenProfile = function(id, name, av, avUrl){
     closeUserSearchModal();
-    if(typeof openUserProfile === 'function'){
-      openUserProfile(id, name, av, avUrl);
-    }
+    // Switch to messages tab and open the conversation directly
+    if(typeof showTab === 'function') showTab('messages');
+    setTimeout(function(){
+      if(typeof openConv === 'function'){
+        openConv(id, name, av, avUrl);
+      } else if(typeof openUserProfile === 'function'){
+        openUserProfile(id, name, av, avUrl);
+      }
+    }, 150);
   };
 
   // Hotkey: Ctrl+U — open user search
@@ -39531,6 +39539,8 @@ async function _msgSendFile(toUserId){
   const { file } = _msgPendingFile; // capture file FIRST
   // Don't clear preview yet — user needs to see it's sending
 
+  // Force scroll to bottom when user is about to send
+  _msgIsAtBottom = true;
   const sendBtn = document.getElementById('msgSendBtn');
   if(sendBtn){ sendBtn.classList.add('uploading'); }
   // Disable attach button during upload
@@ -39880,6 +39890,8 @@ function _msgStopRecording(cancel){
 
 async function _msgSendVoice(blob, toUserId, duration){
   if(!SB_USER) return;
+  // Force scroll to bottom when user is about to send
+  _msgIsAtBottom = true;
   const sendBtn = document.getElementById('msgSendBtn');
   if(sendBtn){ sendBtn.classList.add('uploading'); }
 
