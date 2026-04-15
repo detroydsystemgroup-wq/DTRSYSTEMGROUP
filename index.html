@@ -1804,7 +1804,7 @@ body { transition:background .28s,color .28s; }
 .up-close:hover{background:rgba(0,0,0,.6);}
 
 /* ══ MESSAGES TAB — v4 Premium Telegram-style ══════════════ */
-.msg-layout{display:grid;grid-template-columns:300px 1fr;height:calc(100vh - 148px);min-height:520px;gap:0;border-radius:18px;overflow:hidden;overflow-x:hidden;position:relative;border:0.5px solid rgba(245,200,66,.08);box-shadow:0 8px 48px rgba(0,0,0,.5);transition:grid-template-columns .28s cubic-bezier(.4,0,.2,1);}
+.msg-layout{display:grid;grid-template-columns:300px 1fr;height:calc(100vh - 148px);min-height:0;gap:0;border-radius:18px;overflow:hidden;overflow-x:hidden;position:relative;border:0.5px solid rgba(245,200,66,.08);box-shadow:0 8px 48px rgba(0,0,0,.5);transition:grid-template-columns .28s cubic-bezier(.4,0,.2,1);}
 /* Collapsed sidebar state */
 .msg-layout.sidebar-collapsed{grid-template-columns:0px 1fr;}
 .msg-layout.sidebar-collapsed #msgList{opacity:0;pointer-events:none;min-width:0;overflow:hidden;}
@@ -19733,7 +19733,15 @@ function _buildArenaHTML(cats, results){
   }
   // Start ticker when arena tab is shown
   const _origShowTab = window.showTab;
-  window.showTab = function(name, el){
+  
+// Resize listener for msg-layout fitting
+window.addEventListener('resize', function(){
+  if(typeof _msgFitLayout==='function' && document.querySelector('.stab[data-tab="messages"].active')){
+    _msgFitLayout();
+  }
+});
+
+window.showTab = function(name, el){
     const res = _origShowTab ? _origShowTab(name, el) : undefined;
     if(name==='leagues') _arStartTicker();
     return res;
@@ -23694,6 +23702,19 @@ function showToast(msg,icon='✅',isAch=false,sub=''){
 }
 
 // ══ TABS ════════════════════════════════════════════════════
+
+// ── Fit msg-layout to fill exact available space ──
+function _msgFitLayout(){
+  const layout = document.getElementById('msgLayout');
+  if(!layout) return;
+  const rect = layout.getBoundingClientRect();
+  const available = window.innerHeight - rect.top - 1;
+  if(available > 200){
+    layout.style.height = available + 'px';
+    layout.style.minHeight = '0';
+  }
+}
+
 function showTab(name,el,skipHistory){
   document.querySelectorAll('.tc').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.stab').forEach(b=>b.classList.remove('active'));
@@ -23780,6 +23801,8 @@ function showTab(name,el,skipHistory){
     const _ud = document.getElementById('msgUnreadDot');
     if(_ud) _ud.style.display = 'none';
     if(typeof _msgRestoreSidebarState==='function') _msgRestoreSidebarState();
+    // Fit layout to exact available space (eliminates bottom gap)
+    setTimeout(_msgFitLayout, 20);
     renderMsgTab();
     setTimeout(()=>{
       staggerList('.msg-conv', 30, 'row');
@@ -27343,6 +27366,8 @@ body.dtr-fs-active[data-fs-tab="messages"] .msg-chat-head {
   position: relative !important;
 }
 /* z-index hacks removed — fixed via overflow on tc.active */
+/* Ensure all modals work in both modes */
+._dtr-modal-above-all { z-index: 99999 !important; }
 body.dtr-fs-active[data-fs-tab="messages"] .msg-chat-name {
   font-size: 16px !important;
 }
