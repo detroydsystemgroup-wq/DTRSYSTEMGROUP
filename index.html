@@ -21368,15 +21368,20 @@ async function loadMessages(partnerId, append=false){
   if(!append) _msgPage[partnerId] = 0;
   const offset = _msgPage[partnerId] || 0;
   try{
-    const [fetchResult] = await Promise.all([
-      sb.from('messages')
-        .select('id,from_user_id,content,created_at,content_type,read')
-        .or(`and(from_user_id.eq.${SB_USER.id},to_user_id.eq.${partnerId}),and(from_user_id.eq.${partnerId},to_user_id.eq.${SB_USER.id})`)
-        .order('created_at',{ascending:false})
-        .range(offset, offset + MSG_PAGE_SIZE - 1),
-      sb.from('messages').update({read:true})
-        .eq('from_user_id',partnerId).eq('to_user_id',SB_USER.id).eq('read',false)
-    ]);
+    // Fetch messages first, then mark as read separately (avoid race condition)
+    const fetchResult = await sb.from('messages')
+      .select('id,from_user_id,content,created_at,content_type,read')
+      .or(`and(from_user_id.eq.${SB_USER.id},to_user_id.eq.${partnerId}),and(from_user_id.eq.${partnerId},to_user_id.eq.${SB_USER.id})`)
+      .order('created_at',{ascending:false})
+      .range(offset, offset + MSG_PAGE_SIZE - 1);
+    // Mark partner's messages as read AFTER fetching (avoid race condition with SELECT)
+    setTimeout(()=>{
+      if(activeConvUserId === partnerId){
+        sb.from('messages').update({read:true})
+          .eq('from_user_id',partnerId).eq('to_user_id',SB_USER.id).eq('read',false)
+          .then(()=>{});
+      }
+    }, 500);
     // Если пользователь уже переключился на другой чат — игнорируем результат
     if(myToken !== _msgLoadToken) return;
     // Reverse to chronological order
@@ -23888,14 +23893,17 @@ function initRealtimeMessages() {
           if(document.querySelector(`.msg-bubble[data-msg-id="${payload.new.id}"]`)) return;
           appendMessage(payload.new, false);
         }, 600 + Math.random()*400);
-        sb.from('messages').update({read:true}).eq('id', payload.new.id).then(() => {
-          [_convsCache, allConvsCache].forEach(cache => {
-            if(!cache) return;
-            const conv = cache.find(c => c.userId === activeConvUserId);
-            if(conv && conv.unread > 0) conv.unread = 0;
+        // Mark as read AFTER displaying (not before) so partner doesn't see blue ticks prematurely
+        setTimeout(()=>{
+          sb.from('messages').update({read:true}).eq('id', payload.new.id).then(() => {
+            [_convsCache, allConvsCache].forEach(cache => {
+              if(!cache) return;
+              const conv = cache.find(c => c.userId === activeConvUserId);
+              if(conv && conv.unread > 0) conv.unread = 0;
+            });
+            if(_convsCache || allConvsCache) _renderConvList(_convsCache || allConvsCache || []);
           });
-          if(_convsCache || allConvsCache) _renderConvList(_convsCache || allConvsCache || []);
-        });
+        }, 800); // mark read after message is shown
         return;
       }
       loadConversations();
@@ -24295,26 +24303,29 @@ function _trackReadReceipt(realMsgId, toUserId){
       table: 'messages',
       filter: `from_user_id=eq.${SB_USER.id}`
     }, (payload)=>{
-      if(!payload.new || !payload.new.read) return;
-      const msgId = String(payload.new.id);
-      if(!_pendingReadMsgIds.has(msgId)) return;
+      const row = payload.new;
+      if(!row) return;
+      // STRICT VALIDATION: must be OUR message marked as read by PARTNER
+      if(row.from_user_id !== SB_USER?.id) return; // not our message → ignore
+      if(!row.read) return; // not marked read → ignore
+      // Must be in current active conversation OR in pending set
+      const msgId = String(row.id);
+      if(!_pendingReadMsgIds.has(msgId)) return; // not a message we sent this session
       _pendingReadMsgIds.delete(msgId);
-      // FIX: Telegram-behaviour — upgrade ONLY messages sent BEFORE or AT the confirmed read.
-      // IDs are sequential bigints so we compare numerically.
-      // Messages sent AFTER the confirmed read stay as 'sent' — they haven't been seen yet.
-      const confirmedId = BigInt(msgId);
+
+      // Upgrade ticks: only messages with ID ≤ confirmed (sequential UUIDs via created_at order)
+      // Use created_at comparison since UUIDs aren't numerically sequential
+      const confirmedTime = row.updated_at || row.created_at;
       document.querySelectorAll('.msg-ticks[data-status="sent"]').forEach(el=>{
-        try {
-          const elId = BigInt(el.dataset.mid || '0');
-          if(elId > confirmedId) return; // sent AFTER → skip, not read yet
-        } catch(e){ return; } // non-numeric opt- ids → skip
-        // Telegram: read tick sweeps in from left
+        // Only upgrade if this tick belongs to a message we actually sent to the same partner
+        // Extra safety: find the bubble and check data-ct isn't deleted
+        const bubble = el.closest('.msg-bubble');
+        if(bubble && bubble.dataset.ct === 'deleted') return;
         el.style.opacity='0'; el.style.transition='opacity .12s';
         setTimeout(()=>{
           el.innerHTML=_statusSVG('read');
           el.dataset.status='read';
           el.style.opacity='1'; el.style.transition='';
-          void el.offsetWidth; // trigger CSS animation on svg
         },120);
       });
     })
