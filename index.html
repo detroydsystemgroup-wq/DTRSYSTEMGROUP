@@ -1890,26 +1890,25 @@ body { transition:background .28s,color .28s; }
 .msg-ticks{display:inline-flex;align-items:center;color:var(--cyan);}
 .msg-bubble.new-msg{animation:newMsgPop .5s cubic-bezier(.34,1.4,.64,1) both;}
 @keyframes newMsgPop{0%{transform:scale(.9);opacity:0;}100%{transform:scale(1);opacity:1;}}
-.msg-bubble-reactions{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px;margin-bottom:2px;}
+.msg-bubble-reactions{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;clear:both;}
 /* Telegram-style reaction pill */
 .r-pill{
-  display:inline-flex;flex-direction:row;align-items:center;gap:3px;
-  height:24px;padding:0 7px 0 5px;
-  border-radius:12px;
-  background:rgba(255,255,255,.08);
-  border:0.5px solid rgba(255,255,255,.12);
-  font-size:13px;cursor:pointer;
-  transition:background .15s,border-color .15s,transform .14s;
+  display:inline-flex;flex-direction:row;align-items:center;gap:4px;
+  height:26px;padding:0 8px 0 6px;
+  border-radius:13px;
+  background:rgba(0,0,0,.25);
+  border:0.5px solid rgba(255,255,255,.15);
+  cursor:pointer;
+  transition:background .12s,transform .12s;
   user-select:none;position:relative;flex-shrink:0;
-  vertical-align:middle;
 }
-.r-pill:hover{background:rgba(245,200,66,.12);border-color:rgba(245,200,66,.28);transform:scale(1.05);}
-.r-pill.reacted{background:rgba(245,200,66,.16);border-color:rgba(245,200,66,.35);}
-.r-pill .r-emoji{font-size:13px;line-height:1;flex-shrink:0;}
-.r-pill .r-avatars{display:inline-flex;flex-direction:row;align-items:center;margin-left:1px;height:16px;}
-.r-pill .r-av{width:16px;height:16px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(0,0,0,.4);margin-left:-4px;flex-shrink:0;background:rgba(255,255,255,.15);display:inline-flex;align-items:center;justify-content:center;font-size:8px;}
+.r-pill:hover{background:rgba(0,0,0,.4);transform:scale(1.05);}
+.r-pill.reacted{background:rgba(245,200,66,.22);border-color:rgba(245,200,66,.45);}
+.r-pill .r-emoji{font-size:14px;line-height:1;flex-shrink:0;}
+.r-pill .r-avatars{display:inline-flex;flex-direction:row;align-items:center;}
+.r-pill .r-av{width:16px;height:16px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(0,0,0,.5);margin-left:-3px;flex-shrink:0;background:rgba(255,255,255,.2);display:inline-flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#fff;}
 .r-pill .r-av:first-child{margin-left:0;}
-.r-pill .r-count{font-size:11px;font-weight:700;font-family:var(--font-mono);color:rgba(255,255,255,.7);margin-left:1px;line-height:1;}
+.r-pill .r-count{font-size:11.5px;font-weight:700;font-family:var(--font-mono);color:rgba(255,255,255,.85);}
 /* Who reacted tooltip */
 .r-pill .r-tooltip{
   position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
@@ -22398,23 +22397,11 @@ async function _fetchRxAvatars(userIds){
 }
 
 function _renderRxPill(msgId, emoji, reactors){
-  // reactors = [{user_id, ...}]
   const mine = reactors.some(r => r.user_id === SB_USER?.id);
   const n = reactors.length;
-  // Build avatar stack (max 3)
-  const avHtml = reactors.slice(0,3).map(r => {
-    const u = _rxAvatarCache[r.user_id];
-    if(u?.avUrl) return `<img class="r-av" src="${esc(u.avUrl)}" onerror="this.style.display='none'" alt="">`;
-    if(u?.av && u.av !== '🎯') return `<span class="r-av" style="display:flex;align-items:center;justify-content:center;font-size:8px;">${esc(u.av)}</span>`;
-    return `<span class="r-av" style="display:flex;align-items:center;justify-content:center;font-size:8px;background:rgba(245,200,66,.2);">?</span>`;
-  }).join('');
-  // Tooltip with names
   const names = reactors.map(r => _rxAvatarCache[r.user_id]?.name || '?').join(', ');
-  return `<span class="r-pill${mine?' reacted':''}" onclick="_addRx('${msgId}','${emoji}')">
-    <span class="r-emoji">${emoji}</span>
-    <span class="r-avatars">${avHtml}</span>
-    ${n > 1 ? `<span class="r-count">${n}</span>` : ''}
-    <span class="r-tooltip">${esc(names)}</span>
+  return `<span class="r-pill${mine?' reacted':''}" onclick="_addRx('${msgId}','${emoji}')" title="${esc(names)}">
+    <span class="r-emoji">${emoji}</span>${n > 1 ? `<span class="r-count">${n}</span>` : ''}
   </span>`;
 }
 
@@ -22443,14 +22430,14 @@ async function _loadVisibleReactions(msgs){
     Object.entries(byMsg).forEach(([msgId, byEmoji]) => {
       const bub = document.querySelector(`.msg-bubble[data-msg-id="${CSS.escape(msgId)}"]`);
       if(!bub) return;
-      const row = bub.closest('.msg-row') || bub.parentElement;
-      // Place reactions BELOW the bubble (outside it), like Telegram
-      let rEl = row.querySelector('.msg-bubble-reactions');
+      let rEl = bub.querySelector('.msg-bubble-reactions');
       if(!rEl){
         rEl = document.createElement('div');
         rEl.className='msg-bubble-reactions';
-        // Insert after bubble div
-        bub.insertAdjacentElement('afterend', rEl);
+        // Insert before reaction popup (inside bubble, at the bottom)
+        const popup = bub.querySelector('.reaction-popup');
+        if(popup) bub.insertBefore(rEl, popup);
+        else bub.appendChild(rEl);
       }
       rEl.innerHTML = Object.entries(byEmoji).map(([emoji, reactors]) =>
         _renderRxPill(msgId, emoji, reactors)
@@ -22502,12 +22489,13 @@ async function _refreshRx(msgId){
     });
     const bub = document.querySelector(`.msg-bubble[data-msg-id="${CSS.escape(msgId)}"]`);
     if(!bub) return;
-    const row = bub.closest('.msg-row') || bub.parentElement;
-    let rEl = row.querySelector('.msg-bubble-reactions');
+    let rEl = bub.querySelector('.msg-bubble-reactions');
     if(!rEl){
       rEl = document.createElement('div');
       rEl.className='msg-bubble-reactions';
-      bub.insertAdjacentElement('afterend', rEl);
+      const popup = bub.querySelector('.reaction-popup');
+      if(popup) bub.insertBefore(rEl, popup);
+      else bub.appendChild(rEl);
     }
     rEl.innerHTML = Object.keys(byEmoji).length
       ? Object.entries(byEmoji).map(([emoji, reactors]) => _renderRxPill(msgId, emoji, reactors)).join('')
