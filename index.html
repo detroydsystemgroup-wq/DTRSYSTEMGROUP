@@ -42069,63 +42069,66 @@ window._gcDoCreate=async function(){
   var name=nameEl.value.trim();
   if(!name){nameEl.focus();nameEl.style.borderColor='rgba(239,68,68,.5)';return;}
   var desc=descEl?descEl.value.trim():'';
-  // Strip non-emoji leftover text from button
   var emoji='👥';
   if(emojiEl){
     var stored=emojiEl.dataset.emoji;
     if(stored&&stored.trim())emoji=stored.trim();
-    else{
-      // Take first emoji char from textContent
-      var raw=(emojiEl.textContent||'').trim();
-      if(raw)emoji=Array.from(raw)[0]||'👥';
-    }
+    else{var raw=(emojiEl.textContent||'').trim();if(raw)emoji=Array.from(raw)[0]||'👥';}
   }
   var rows=document.querySelectorAll('#gcMemberList .gm-member-row.selected');
   var members=[];
   rows.forEach(function(r){members.push({id:r.dataset.uid,name:r.dataset.name,av:r.dataset.av});});
   if(!members.length){_toast('Выбери хотя бы одного участника','⚠️');return;}
-  var myUid=_myId();
-  if(!myUid){_toast('Сначала войди в аккаунт','⚠️');return;}
   var btn=document.getElementById('gcCreateBtn');
   if(btn){btn.disabled=true;btn.textContent='Создаём…';}
   try{
-    // Refresh session before write operations
-    try{await sb.auth.refreshSession();}catch(ex){}
-    // 1. Create group
+    // Force session refresh to ensure fresh JWT is attached
+    var sess=null;
+    try{
+      var sr=await sb.auth.refreshSession();
+      sess=sr&&sr.data&&sr.data.session;
+      console.log('[DTR] session after refresh, user id:', sess&&sess.user&&sess.user.id);
+    }catch(ex){console.warn('[DTR] refreshSession failed:',ex);}
+
+    // Get current user id from live session (not stale SB_USER)
+    var myUid=sess&&sess.user&&sess.user.id;
+    if(!myUid){
+      // Fallback to getUser
+      try{var gu=await sb.auth.getUser();myUid=gu&&gu.data&&gu.data.user&&gu.data.user.id;}catch(ex){}
+    }
+    if(!myUid){myUid=_myId();}
+    console.log('[DTR] creating group as uid:', myUid);
+    if(!myUid){_toast('Ошибка авторизации — перезайди в аккаунт','⚠️');if(btn){btn.disabled=false;btn.textContent='Создать группу';}return;}
+
+    // 1. Create group — use service-level insert via supabase client (JWT is fresh now)
     var r1=await sb.from('group_chats').insert({
       name:name,description:desc,avatar_emoji:emoji,owner_id:myUid
     }).select('id').single();
+    console.log('[DTR] group_chats insert result:', r1.data, r1.error);
     if(r1.error){
-      console.error('[DTR] group_chats insert error:',r1.error);
-      var ec1=r1.error.code||'';
-      var em1=r1.error.message||'';
-      if(ec1==='42P01'||em1.includes('does not exist')){
-        _grpHandleTableMissing();
-        if(btn){btn.disabled=false;btn.textContent='Создать группу';}
-        return;
-      }
+      var ec1=r1.error.code||'';var em1=r1.error.message||'';
+      if(ec1==='42P01'||em1.includes('does not exist')){_grpHandleTableMissing();if(btn){btn.disabled=false;btn.textContent='Создать группу';}return;}
       throw r1.error;
     }
     var groupId=r1.data.id;
-    // 2. Add owner + selected members in one batch
-    var memberInserts=[{group_id:groupId,user_id:myUid,role:'owner'}];
-    members.forEach(function(m){
-      if(m.id&&m.id!==myUid)
-        memberInserts.push({group_id:groupId,user_id:m.id,role:'member'});
-    });
-    var r2=await sb.from('group_members').insert(memberInserts);
-    if(r2.error){
-      console.error('[DTR] group_members insert error:',r2.error);
-      // Try inserting owner only as fallback
-      var r2b=await sb.from('group_members').insert({group_id:groupId,user_id:myUid,role:'owner'});
-      if(r2b.error)throw r2b.error;
+
+    // 2. Add owner first, then members one by one (more reliable than batch on fresh table)
+    await sb.from('group_members').insert({group_id:groupId,user_id:myUid,role:'owner'});
+    for(var mi=0;mi<members.length;mi++){
+      var m=members[mi];
+      if(m.id&&m.id!==myUid){
+        var rm=await sb.from('group_members').insert({group_id:groupId,user_id:m.id,role:'member'});
+        if(rm.error)console.warn('[DTR] add member failed:',m.id,rm.error);
+      }
     }
-    // 3. System message — fire-and-forget, don't block on error
+
+    // 3. System message
     sb.from('group_messages').insert({
       group_id:groupId,from_user_id:myUid,
       content:'Группа «'+name+'» создана',
       content_type:'text',is_system:true
     }).then(null,function(e){console.warn('[DTR] system msg:',e);});
+
     document.getElementById('_grpCreateModal')&&document.getElementById('_grpCreateModal').remove();
     _toast('Группа «'+name+'» создана 🎉','✅');
     _grpDbReady=true;
@@ -42134,9 +42137,9 @@ window._gcDoCreate=async function(){
   }catch(e){
     console.error('[DTR] create group error:',JSON.stringify(e),e);
     var msg='Ошибка создания группы';
-    if(e&&e.code==='42501')msg='Нет прав — проверь RLS политики';
-    else if(e&&e.code==='23503')msg='Ошибка внешнего ключа — проверь SQL';
-    else if(e&&e.message)msg=e.message.slice(0,80);
+    if(e&&e.code==='42501')msg='Ошибка RLS — выполни новый SQL из файла';
+    else if(e&&e.code==='23503')msg='Ошибка FK — проверь SQL схему';
+    else if(e&&e.message)msg=e.message.slice(0,100);
     _toast(msg,'⚠️');
     if(btn){btn.disabled=false;btn.textContent='Создать группу';}
   }
