@@ -14379,6 +14379,145 @@ html[data-theme="light"] .nav-icon-btn:hover {
 }
 /* tgShimmer removed — using clean spinner instead */
 
+
+/* ═══════════════════════════════════════════════════
+   TELEGRAM-EXACT CHAT STYLES
+   ═══════════════════════════════════════════════════ */
+
+/* Message container */
+.msg-messages {
+  padding: 12px 16px 8px !important;
+  gap: 0 !important;
+}
+
+/* Own message bubble — Telegram green */
+.msg-bubble.mine {
+  background: linear-gradient(135deg, #2b5c3e, #1e4a2f) !important;
+  border: none !important;
+  border-radius: 18px 18px 4px 18px !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,.25) !important;
+  max-width: 72% !important;
+  padding: 8px 12px 6px !important;
+}
+
+/* Partner bubble — Telegram dark grey */
+.msg-bubble.theirs {
+  background: #212121 !important;
+  border: none !important;
+  border-radius: 18px 18px 18px 4px !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,.25) !important;
+  max-width: 72% !important;
+  padding: 8px 12px 6px !important;
+}
+
+/* Message text */
+.msg-bubble span {
+  font-size: 14.5px !important;
+  line-height: 1.5 !important;
+  letter-spacing: -.01em !important;
+  word-break: break-word !important;
+}
+
+/* Time + ticks */
+.msg-bubble-time {
+  font-size: 10.5px !important;
+  opacity: 1 !important;
+  color: rgba(255,255,255,.45) !important;
+  margin-top: 3px !important;
+  float: right !important;
+  margin-left: 8px !important;
+  padding-top: 0 !important;
+  line-height: 1.2 !important;
+  position: relative !important;
+  bottom: -1px !important;
+}
+
+/* Grouped messages — tighter spacing */
+.msg-row { margin-bottom: 1px !important; }
+.msg-row + .msg-row.mine   { margin-top: 2px !important; }
+.msg-row + .msg-row.theirs { margin-top: 2px !important; }
+
+/* Send button loading state */
+.msg-send.uploading {
+  pointer-events: none !important;
+  background: linear-gradient(145deg, var(--gold-d), var(--gold)) !important;
+}
+.msg-send.uploading::before {
+  content: '';
+  position: absolute;
+  width: 16px; height: 16px;
+  border: 2px solid rgba(9,9,11,.25);
+  border-top-color: #09090B;
+  border-radius: 50%;
+  animation: msgSpinDot .65s linear infinite;
+}
+.msg-send.uploading svg { opacity: 0 !important; }
+
+/* Input area */
+.msg-input-area {
+  padding: 8px 12px 10px !important;
+  gap: 8px !important;
+}
+.msg-input {
+  font-size: 15px !important;
+  line-height: 1.4 !important;
+}
+
+/* Voice bubble */
+.msg-voice-bubble {
+  min-width: 180px !important;
+  gap: 10px !important;
+}
+
+/* File bubble */
+.msg-file-bubble {
+  gap: 10px !important;
+  min-width: 200px !important;
+}
+
+/* Online dot — always visible */
+#msgOnlineDot {
+  box-shadow: 0 0 0 2px rgba(9,9,11,.9) !important;
+}
+
+/* Smooth scrolling for entire messages area */
+.msg-messages {
+  scroll-behavior: auto !important;
+}
+
+/* Reply bar */
+#_msgReplyBar {
+  border-top: 0.5px solid rgba(255,255,255,.06) !important;
+}
+
+/* Forwarded label style */
+.msg-fwd-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gold);
+  margin-bottom: 4px;
+  opacity: .85;
+}
+
+@keyframes tgBubbleIn {
+  0%   { opacity:0; transform: scale(.9) translateY(6px); }
+  60%  { transform: scale(1.02) translateY(-1px); }
+  100% { opacity:1; transform: scale(1) translateY(0); }
+}
+@keyframes tgBubbleInL {
+  0%   { opacity:0; transform: scale(.9) translateY(6px) translateX(-8px); }
+  60%  { transform: scale(1.02) translateY(-1px) translateX(1px); }
+  100% { opacity:1; transform: scale(1) translateY(0) translateX(0); }
+}
+
+.msg-row.mine   { animation: tgBubbleIn  .25s cubic-bezier(.34,1.3,.64,1) both; }
+.msg-row.theirs { animation: tgBubbleInL .22s cubic-bezier(.34,1.3,.64,1) both; }
+.msg-row + .msg-row.mine,
+.msg-row + .msg-row.theirs { animation-duration: .15s; }
+
 </style>
 </head>
 <body>
@@ -20237,8 +20376,21 @@ function _renderConvList(convs){
     const isUnread = cv.unread > 0;
     const isActive = cv.userId === activeConvUserId;
     let _pv = cv.lastMsg || '';
-    if(_pv.startsWith('{')){try{const _j=JSON.parse(_pv);if(_j.t!==undefined)_pv=_j.t;else if(_j.url&&_j.duration!==undefined)_pv='🎤 Голосовое';else if(_j.url&&_j.name)_pv='📎 '+_j.name;}catch(e){}}
-    if(_pv==='__deleted__')_pv='🚫 Удалено';
+    const _lt = cv.lastMsgType || 'text';
+    if(_lt === 'image') _pv = '🖼️ Изображение';
+    else if(_lt === 'voice') _pv = '🎤 Голосовое';
+    else if(_lt === 'file'){
+      try{ const _fm=JSON.parse(_pv); _pv='📎 '+(_fm.name||'Файл'); }catch(e){ _pv='📎 Файл'; }
+    } else if(_pv.startsWith('{')){
+      try{
+        const _j=JSON.parse(_pv);
+        if(_j.t!==undefined) _pv=_j.t;
+        else if(_j.url&&_j.duration!==undefined) _pv='🎤 Голосовое';
+        else if(_j.url&&_j.name) _pv='📎 '+_j.name;
+        else if(_j.url) _pv='🖼️ Изображение';
+      }catch(e){}
+    }
+    if(_pv==='__deleted__') _pv='🚫 Удалено';
     const preview = cv.lastMsgMine ? `<span style="color:var(--t3)">Вы: </span>${esc(_pv.slice(0,38))}` : esc(_pv.slice(0,42));
     return `
     <div class="msg-conv${isActive?' active':''}${isUnread?' has-unread':''}"
@@ -20334,10 +20486,9 @@ async function _msgDoDeleteConv(userId, scope){
 }
 
 // ── FIX 5: Local conversation cache update (avoids full 500-msg reload) ──
-function _msgUpdateConvCache(partnerId, lastMsg, isMine){
+function _msgUpdateConvCache(partnerId, lastMsg, isMine, contentType){
   const cache = _convsCache || allConvsCache;
   if(!cache) return;
-  // FIX 4: strip JSON envelope from reply/forward messages for sidebar preview
   let _cleanMsg = lastMsg || '';
   if(_cleanMsg.startsWith('{')){
     try{
@@ -20352,6 +20503,7 @@ function _msgUpdateConvCache(partnerId, lastMsg, isMine){
   if(cv){
     cv.lastMsg = _cleanMsg;
     cv.lastMsgMine = isMine;
+    if(contentType) cv.lastMsgType = contentType;
     cv.lastTime = new Date().toISOString();
     if(isMine) cv.unread = 0; // our message — no unread for us
   }
@@ -20607,43 +20759,70 @@ async function loadConversations(){
   if(!el || !SB_USER || _convsLoading) return;
   _convsLoading = true;
   try {
-    // FIX 9: separate unread count query (not capped at 500) + recent messages for preview
-    const [msgResult, unreadResult] = await Promise.all([
-      sb.from('messages')
-        .select('id,from_user_id,to_user_id,content,created_at,read')
-        .or(`from_user_id.eq.${SB_USER.id},to_user_id.eq.${SB_USER.id}`)
-        .order('created_at',{ascending:false})
-        .limit(500),
-      sb.from('messages')
-        .select('from_user_id')
-        .eq('to_user_id', SB_USER.id)
-        .eq('read', false)
+    // ── Strategy: get the LAST message per partner, not last N messages total ──
+    // This guarantees ALL conversations are shown regardless of message count
+    const uid = SB_USER.id;
+
+    // Step 1: Get ALL partner IDs (deduplicated) — paginated to handle many chats
+    const [sentR, recvR] = await Promise.all([
+      sb.from('messages').select('to_user_id').eq('from_user_id', uid),
+      sb.from('messages').select('from_user_id').eq('to_user_id', uid)
     ]);
-    // Build unread counts from full unread query
-    const unreadCounts = {};
-    (unreadResult.data||[]).forEach(m => {
-      unreadCounts[m.from_user_id] = (unreadCounts[m.from_user_id]||0) + 1;
-    });
-    const data = msgResult.data;
-    const partnerIds = new Set();
-    const convMap = {};
-    (data||[]).forEach(msg => {
-      const partnerId = msg.from_user_id === SB_USER.id ? msg.to_user_id : msg.from_user_id;
-      const isMine = msg.from_user_id === SB_USER.id;
-      partnerIds.add(partnerId);
-      if(!convMap[partnerId]){
-        convMap[partnerId] = { userId:partnerId, name:'?', av:'🎯', lastMsg:msg.content||'', lastTime:msg.created_at, lastMsgMine:isMine,
-          unread: unreadCounts[partnerId] || 0 // FIX 9: use full count, not capped
-        };
-      }
-      // Don't double-count from loop (already have correct count above)
-    });
-    if(partnerIds.size > 0){
-      const ids = [...partnerIds];
-      const {data:partnerUsers} = await sb.from('users').select('id,username,avatar,avatar_url').in('id',ids);
-      (partnerUsers||[]).forEach(u=>{ if(convMap[u.id]){ convMap[u.id].name=u.username||'?'; convMap[u.id].av=u.avatar||'🎯'; convMap[u.id].avUrl=u.avatar_url||null; }});
+    const partnerSet = new Set();
+    (sentR.data||[]).forEach(m => partnerSet.add(m.to_user_id));
+    (recvR.data||[]).forEach(m => partnerSet.add(m.from_user_id));
+    const partnerIds = [...partnerSet];
+
+    if(partnerIds.length === 0){
+      allConvsCache = []; _convsCache = []; _renderConvList([]); return;
     }
-    const convs = Object.values(convMap).sort((a,b)=>new Date(b.lastTime)-new Date(a.lastTime));
+
+    // Step 2: For each partner get last message + unread count in parallel
+    const convPromises = partnerIds.map(async (pid) => {
+      const [lastR, unreadR] = await Promise.all([
+        sb.from('messages')
+          .select('id,from_user_id,to_user_id,content,content_type,created_at,read')
+          .or(`and(from_user_id.eq.${uid},to_user_id.eq.${pid}),and(from_user_id.eq.${pid},to_user_id.eq.${uid})`)
+          .order('created_at', {ascending:false})
+          .limit(1)
+          .single(),
+        sb.from('messages')
+          .select('id', {count:'exact', head:true})
+          .eq('from_user_id', pid)
+          .eq('to_user_id', uid)
+          .eq('read', false)
+      ]);
+      const msg = lastR.data;
+      if(!msg) return null;
+      const isMine = msg.from_user_id === uid;
+      return {
+        userId: pid,
+        name: '?', av: '🎯', avUrl: null,
+        lastMsg: msg.content || '',
+        lastMsgType: msg.content_type || 'text',
+        lastTime: msg.created_at,
+        lastMsgMine: isMine,
+        unread: unreadR.count || 0
+      };
+    });
+
+    const results = (await Promise.all(convPromises)).filter(Boolean);
+
+    // Step 3: Fetch user info for all partners in one batch
+    if(partnerIds.length > 0){
+      const {data:users} = await sb.from('users')
+        .select('id,username,avatar,avatar_url')
+        .in('id', partnerIds);
+      const uMap = {};
+      (users||[]).forEach(u => { uMap[u.id] = u; });
+      results.forEach(c => {
+        const u = uMap[c.userId];
+        if(u){ c.name = u.username||'?'; c.av = u.avatar||'🎯'; c.avUrl = u.avatar_url||null; }
+      });
+    }
+
+    // Sort by most recent
+    const convs = results.sort((a,b) => new Date(b.lastTime) - new Date(a.lastTime));
     allConvsCache = convs;
     _convsCache = convs;
     _renderConvList(convs);
@@ -24011,8 +24190,18 @@ function _msgForward(rawContent, contentType, fromName){
       var insertContent, insertType;
       
       if(contentType==='image' || contentType==='voice' || contentType==='file'){
-        // Forward media AS-IS with same content_type — keeps the original file/voice/image
-        insertContent = rawContent;
+        // Wrap media in JSON with fwd metadata so recipient sees "Переслано от"
+        // Format: { url: <original_content>, fwd: { fromName } }
+        var mediaPayload;
+        try { mediaPayload = JSON.parse(rawContent); } catch(e){ mediaPayload = null; }
+        if(mediaPayload && mediaPayload.url){
+          // Already JSON (voice with duration) — just add fwd
+          mediaPayload.fwd = { fromName: fwdName };
+          insertContent = JSON.stringify(mediaPayload);
+        } else {
+          // Plain URL (image/file) — wrap it
+          insertContent = JSON.stringify({ url: rawContent, fwd: { fromName: fwdName } });
+        }
         insertType = contentType;
       } else {
         // Text forward — wrap in JSON with fwd metadata
