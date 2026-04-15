@@ -20589,12 +20589,18 @@ CREATE TABLE IF NOT EXISTS message_reactions (
   user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   emoji text NOT NULL,
   created_at timestamptz DEFAULT now(),
-  UNIQUE(message_id, user_id, emoji)
+  UNIQUE(message_id, user_id)
 );
 ALTER TABLE message_reactions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "reactions_select" ON message_reactions;
+DROP POLICY IF EXISTS "reactions_insert" ON message_reactions;
+DROP POLICY IF EXISTS "reactions_update" ON message_reactions;
+DROP POLICY IF EXISTS "reactions_delete" ON message_reactions;
 DROP POLICY IF EXISTS "reactions_all" ON message_reactions;
-CREATE POLICY "reactions_all" ON message_reactions FOR ALL USING (true) WITH CHECK (true);
--- Enable Realtime for reactions:
+CREATE POLICY "reactions_select" ON message_reactions FOR SELECT USING (true);
+CREATE POLICY "reactions_insert" ON message_reactions FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "reactions_update" ON message_reactions FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "reactions_delete" ON message_reactions FOR DELETE USING (auth.uid() = user_id);
 ALTER PUBLICATION supabase_realtime ADD TABLE message_reactions;` },
     rls_error: { title:'RLS блокирует сообщения', sql:`-- Вставь в Supabase → SQL Editor:
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
@@ -20825,15 +20831,36 @@ function _msgUpdateConvCache(partnerId, lastMsg, isMine, contentType){
     }catch(e){}
   }
   if(_cleanMsg === '__deleted__') _cleanMsg = '🚫 Удалено';
-  const cv = cache.find(c => c.userId === partnerId);
+  let cv = cache.find(c => c.userId === partnerId);
   if(cv){
     cv.lastMsg = _cleanMsg;
     cv.lastMsgMine = isMine;
     if(contentType) cv.lastMsgType = contentType;
     cv.lastTime = new Date().toISOString();
-    if(isMine) cv.unread = 0; // our message — no unread for us
+    if(isMine) cv.unread = 0;
+  } else {
+    // New conversation — add to cache immediately from partner cache
+    const partnerInfo = _msgPartnerAvCache || {};
+    cache.unshift({
+      userId: partnerId,
+      name: partnerInfo._name || '?',
+      av: partnerInfo.av || '🎯',
+      avUrl: partnerInfo.avUrl || null,
+      lastMsg: _cleanMsg,
+      lastMsgMine: isMine,
+      lastMsgType: contentType || 'text',
+      lastTime: new Date().toISOString(),
+      unread: 0
+    });
+    // Also fetch fresh data for this partner
+    sb.from('users').select('id,username,avatar,avatar_url').eq('id', partnerId).single()
+      .then(({data:u})=>{
+        if(!u) return;
+        const entry = (_convsCache||allConvsCache||[]).find(c=>c.userId===partnerId);
+        if(entry){ entry.name=u.username||'?'; entry.av=u.avatar||'🎯'; entry.avUrl=u.avatar_url||null; }
+        _renderConvList(_convsCache||allConvsCache||[]);
+      }).catch(()=>{});
   }
-  // Sort: most recent first
   cache.sort((a,b) => new Date(b.lastTime) - new Date(a.lastTime));
   _convsCache = cache;
   allConvsCache = cache;
