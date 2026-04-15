@@ -580,7 +580,7 @@ input, button, select, textarea {
 .fg{margin-bottom:13px;}
 .fl{font-size:11px;font-weight:600;color:var(--t2);letter-spacing:.06em;display:block;margin-bottom:6px;text-transform:uppercase;}
 .fi{width:100%;padding:11px 14px;background:var(--card);border:0.5px solid var(--border);border-radius:10px;color:var(--t1);font-size:15px;font-family:var(--font-display);transition:border-color .2s;outline:none;}
-.fi:focus{border-color:rgba(245,200,66,.4);box-shadow:0 0 0 1px rgba(245,200,66,.15);}
+.fi:focus{border-color:rgba(245,200,66,.22);box-shadow:none;}
 .fi::placeholder{color:var(--t3);}
 .av-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:4px;}
 .av-opt{width:40px;height:40px;border-radius:10px;background:var(--card);border:0.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;transition:background-color .2s,border-color .2s,color .2s,box-shadow .2s,opacity .2s;}
@@ -656,11 +656,25 @@ input, button, select, textarea {
   }
 }
 
-/* Global focus-visible — keyboard navigation ring (WCAG 2.4.11: min 2px, min 3:1 contrast) */
-*:focus-visible {
+/* Global focus-visible — keyboard navigation ring (WCAG 2.4.11: min 2px, min 3:1 contrast)
+   Applied only to interactive controls, NOT to text inputs/textareas/contenteditable */
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="radio"]:focus-visible,
+[role="checkbox"]:focus-visible {
   outline: none;
   border-radius: var(--r-btn, 8px);
   box-shadow: 0 0 0 2px rgba(245,200,66,.85);
+}
+/* Inputs/textareas get a subtle border-only focus, no glow ring */
+input:focus-visible,
+textarea:focus-visible,
+[contenteditable]:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 /* Remove default outline only when focus-visible is defined */
 *:focus:not(:focus-visible) {
@@ -3186,7 +3200,7 @@ body {
   box-shadow: 0 24px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.04) !important;
 }
 .a-tab.active { color: var(--gold) !important; border-bottom-color: var(--gold) !important; }
-.fi:focus { border-color: rgba(245,200,66,.5) !important; box-shadow: 0 0 0 1px rgba(245,200,66,.18) !important; }
+.fi:focus { border-color: rgba(245,200,66,.22) !important; box-shadow: none !important; }
 
 /* ── Achievement full cards ── */
 .ach2 {
@@ -3453,8 +3467,8 @@ button, select, input, textarea { font-family: var(--font-body); }
 /* --- Focus rings --- */
 .fi:focus, .msg-input:focus {
   outline: none;
-  border-color: rgba(245,200,66,.5);
-  box-shadow: 0 0 0 3px rgba(245,200,66,.07);
+  border-color: rgba(245,200,66,.22);
+  box-shadow: none;
 }
 
 /* --- Manage active shadow (tighten) --- */
@@ -4338,7 +4352,9 @@ body.focus-mode #focusModeBtn { background: rgba(245,200,66,.1); border-color: r
   font-family: var(--font-body);
   letter-spacing: -.02em;
   caret-color: var(--gold);
+  box-shadow: none !important;
 }
+#cmdInput:focus, #cmdInput:focus-visible { outline: none; box-shadow: none !important; }
 #cmdInput::placeholder { color: var(--t3); font-weight: 400; }
 
 .cmd-esc-badge {
@@ -5938,8 +5954,8 @@ body.timer-ended { animation: timerEndFlash .8s ease 2; }
   transition: border-color .18s, background .18s;
 }
 .pub-url-wrap:focus-within {
-  border-color: rgba(245,200,66,.3);
-  background: rgba(245,200,66,.03);
+  border-color: rgba(245,200,66,.18);
+  background: rgba(245,200,66,.02);
 }
 .pub-url-wrap input {
   flex: 1;
@@ -6596,10 +6612,13 @@ body, input, select, textarea, button {
 }
 
 /* ── Interactive gold language — override any remaining blues ─ */
-.av-opt:hover, .av-opt.sel,
+.av-opt:hover, .av-opt.sel {
+  border-color: rgba(245,200,66,.5) !important;
+}
 .fi:focus, .msg-search-input:focus,
 .msg-input-wrap.focused {
-  border-color: rgba(245,200,66,.5) !important;
+  border-color: rgba(245,200,66,.22) !important;
+  box-shadow: none !important;
 }
 
 /* ── Stat sidebar label ────────────────────────────────────── */
@@ -7089,9 +7108,9 @@ body {
   transition: border-color .15s, box-shadow .15s !important;
 }
 .fi:focus {
-  border-color: rgba(239,192,48,.55) !important;
-  box-shadow: 0 0 0 3px rgba(239,192,48,.08) !important;
-  background: rgba(239,192,48,.025) !important;
+  border-color: rgba(239,192,48,.25) !important;
+  box-shadow: none !important;
+  background: rgba(239,192,48,.015) !important;
 }
 .fi::placeholder { color: var(--t3) !important; }
 .fl {
@@ -7395,8 +7414,9 @@ body {
 .fi:focus-visible,
 .btn:focus-visible,
 .stab:focus-visible {
-  outline: 2px solid var(--gold) !important;
-  outline-offset: 2px !important;
+  outline: none !important;
+  border-color: rgba(245,200,66,.3) !important;
+  box-shadow: none !important;
 }
 
 /* ── 25. LIGHT THEME ───────────────────────────────────────── */
@@ -7689,7 +7709,7 @@ body {
 .hab-field:last-child{margin-bottom:0;}
 .hab-flbl{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t2);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
 .hab-inp{width:100%;padding:12px 16px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.1);border-radius:12px;color:var(--t1);font-size:15px;font-family:var(--font-display);outline:none;transition:border-color .2s,box-shadow .2s;}
-.hab-inp:focus{border-color:rgba(245,200,66,.35);box-shadow:0 0 0 1px rgba(245,200,66,.12);}
+.hab-inp:focus{border-color:rgba(245,200,66,.22);box-shadow:none;}
 .hab-inp::placeholder{color:var(--t3);}
 
 /* emoji picker */
@@ -8847,7 +8867,7 @@ body {
   border-radius: 12px; padding: 10px 14px;
   margin-bottom: 16px; transition: border-color .18s;
 }
-.soc-search-bar:focus-within { border-color: rgba(245,200,66,.4); }
+.soc-search-bar:focus-within { border-color: rgba(245,200,66,.22); }
 .soc-search-bar svg { flex-shrink: 0; color: var(--t3); }
 .soc-search-input {
   flex: 1; background: none; border: none; outline: none;
@@ -9423,8 +9443,8 @@ body {
   transition: border-color .22s ease, box-shadow .32s var(--ease-spring), background .2s ease !important;
 }
 .fi:focus {
-  border-color: rgba(245,200,66,.55) !important;
-  box-shadow: 0 0 0 4px rgba(245,200,66,.07), 0 1px 4px rgba(0,0,0,.3) !important;
+  border-color: rgba(245,200,66,.25) !important;
+  box-shadow: none !important;
   background: rgba(22,22,26,.98) !important;
 }
 
@@ -21398,7 +21418,7 @@ function _msgShowNewConvModal(){
           <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t3);pointer-events:none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <input id="_msgNewConvSearch" type="text" placeholder="Найди участника лиги…"
             style="width:100%;padding:9px 12px 9px 32px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.08);border-radius:12px;color:var(--t1);font-size:13px;font-family:var(--font-display);outline:none;box-sizing:border-box;"
-            onfocus="this.style.borderColor='rgba(245,200,66,.3)'" onblur="this.style.borderColor='rgba(255,255,255,.08)'"
+            onfocus="this.style.borderColor='rgba(245,200,66,.18)'" onblur="this.style.borderColor='rgba(255,255,255,.08)'"
             oninput="_msgSearchUsers(this.value)" autocomplete="off">
         </div>
       </div>
@@ -21480,7 +21500,7 @@ function _msgOpenSearch(){
       <input id="_msgSearchInput" type="text" placeholder="Поиск в переписке…"
         style="width:100%;padding:8px 10px 8px 32px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.08);border-radius:12px;color:var(--t1);font-size:13px;font-family:var(--font-display);outline:none;box-sizing:border-box;transition:border-color .2s;"
         oninput="_msgDoSearch(this.value)"
-        onfocus="this.style.borderColor='rgba(245,200,66,.3)'"
+        onfocus="this.style.borderColor='rgba(245,200,66,.18)'"
         onblur="this.style.borderColor='rgba(255,255,255,.08)'"
         onkeydown="if(event.key==='Escape')_msgCloseSearch();if(event.key==='Enter')_msgSearchNav(1);">
     </div>
@@ -27524,7 +27544,7 @@ body.dtr-fs-active #dtr-fs-exit-wrap { display: flex !important; }
   border-radius: 9px; transition: border-color .18s, background .18s;
 }
 .kb6-sbq:focus-within {
-  border-color: rgba(245,200,66,.3); background: rgba(245,200,66,.04);
+  border-color: rgba(245,200,66,.18); background: rgba(245,200,66,.02);
 }
 .kb6-sbq input {
   flex: 1; background: none; border: none; outline: none;
@@ -27768,7 +27788,9 @@ body.dtr-fs-active #dtr-fs-exit-wrap { display: flex !important; }
   width: 100%; background: none; border: none; outline: none;
   font-size: 26px; font-weight: 800; color: var(--t1); font-family: inherit;
   letter-spacing: -.04em; padding: 0; line-height: 1.2;
+  box-shadow: none !important;
 }
+#kb6etitle:focus, #kb6etitle:focus-visible { outline: none; box-shadow: none !important; }
 #kb6etitle::placeholder { color: rgba(255,255,255,.12); }
 .kb6-ed-tags {
   display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
@@ -27800,7 +27822,9 @@ body.dtr-fs-active #dtr-fs-exit-wrap { display: flex !important; }
   outline: none; min-height: 240px; color: var(--t1);
   caret-color: var(--gold); line-height: 1.8; font-size: 15px;
   font-family: inherit; transition: font-family .3s, font-size .3s;
+  box-shadow: none !important;
 }
+#kb6area:focus, #kb6area:focus-visible { outline: none; box-shadow: none !important; }
 #kb6area:empty::before {
   content: attr(data-ph); color: rgba(255,255,255,.14); pointer-events: none;
 }
@@ -28142,7 +28166,7 @@ body.kb6-focus-active { overflow: hidden; }
   color: var(--t1); font-size: 14px; outline: none; font-family: inherit;
   transition: border-color .18s;
 }
-.kb6-modal-inp:focus { border-color: rgba(245,200,66,.4); }
+.kb6-modal-inp:focus { border-color: rgba(245,200,66,.22); box-shadow: none; }
 .kb6-modal-actions { display: flex; gap: 8px; margin-top: 16px; }
 .kb6-btn {
   padding: 10px 18px; border-radius: 11px; font-size: 13px; font-weight: 700;
