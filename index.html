@@ -1736,8 +1736,14 @@ body { transition:background .28s,color .28s; }
 .sw-btn-skip:hover{color:var(--t1);}
 
 /* ══ USER PROFILE MODAL ════════════════════════════════════ */
-#userProfileOv{display:none;position:fixed;inset:0;z-index:600;align-items:center;justify-content:center;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);}
-#userProfileOv.show{display:flex;animation:fadeIn .22s ease both;}
+#userProfileOv{
+  display:flex;position:fixed;inset:0;z-index:600;
+  align-items:center;justify-content:center;
+  background:rgba(0,0,0,.72);backdrop-filter:blur(6px);
+  opacity:0;pointer-events:none;
+  transition:opacity .18s ease;
+}
+#userProfileOv.show{opacity:1;pointer-events:all;}
 .up-modal{
   background:linear-gradient(180deg,rgba(16,14,22,.99) 0%,rgba(10,10,14,1) 100%);
   border:0.5px solid rgba(245,200,66,.12);
@@ -12562,7 +12568,9 @@ html[data-theme="light"] .nav-icon-btn:hover {
 /* ━━ KEYFRAMES ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 @keyframes upOvIn      { from{opacity:0} to{opacity:1} }
 @keyframes upModalIn {
-  0%   { opacity:0; transform:scale(.88) translateY(36px); }
+  from { opacity:0; transform:scale(.97) translateY(6px); }
+  to   { opacity:1; transform:none; }
+}
   55%  { opacity:1; transform:scale(1.016) translateY(-6px); }
   80%  { transform:scale(.996) translateY(2px); }
   100% { transform:scale(1) translateY(0); }
@@ -12634,7 +12642,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
     0 0 0 1px rgba(255,255,255,.04),
     0 64px 160px rgba(0,0,0,.96),
     inset 0 1px 0 rgba(245,200,66,.12) !important;
-  animation: upModalIn .34s cubic-bezier(.34,1.1,.64,1) both !important;
+  animation: upModalIn .2s cubic-bezier(.25,.46,.45,.94) both !important;
 }
 
 /* ━━ COVER ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
@@ -20775,8 +20783,9 @@ function _renderConvList(convs){
   const totalUnread = convs.reduce((s,c)=> s + (_isBlocked(c.userId) ? 0 : c.unread), 0);
   const badge = document.getElementById('msgTabBadge');
   if(badge){ badge.style.display=totalUnread>0?'inline':'none'; badge.textContent=totalUnread>9?'9+':String(totalUnread); }
+  // Dot controlled by flag only — never auto-hide here
   const dot = document.getElementById('msgUnreadDot');
-  if(dot){ dot.style.display = (totalUnread>0 && document.querySelector('.stab[data-tab="messages"]')?.getAttribute('aria-selected')!=='true') ? 'block' : 'none'; }
+  if(dot && _msgNewMsgFlag) dot.style.display = 'block';
 }
 
 
@@ -21582,6 +21591,7 @@ function _msgStartConv(userId, name, av, avUrl){
 }
 
 const _mutedChats = new Set(JSON.parse(localStorage.getItem('dtr_muted_chats')||'[]'));
+let _msgNewMsgFlag = false; // true = new unread message arrived, dot stays on
 function _saveMuted(){ try{localStorage.setItem('dtr_muted_chats',JSON.stringify([..._mutedChats]));}catch(e){} }
 function _isMuted(uid){ return _mutedChats.has(uid); }
 
@@ -23751,7 +23761,8 @@ function showTab(name,el,skipHistory){
     }, 80);
   }
   if(name==='messages'){
-    // Hide the red unread dot when switching to messages
+    // Hide red dot only when user actively opens messages tab
+    _msgNewMsgFlag = false;
     const _ud = document.getElementById('msgUnreadDot');
     if(_ud) _ud.style.display = 'none';
     if(typeof _msgRestoreSidebarState==='function') _msgRestoreSidebarState();
@@ -24449,14 +24460,10 @@ function initRealtimeMessages() {
       if(_isBlocked(payload.new.from_user_id)) return;
 
       // ── Instant red dot notification ──
-      if(payload.new.from_user_id !== activeConvUserId || !document.hasFocus()){
-        const dot = document.getElementById('msgUnreadDot');
-        if(dot && !document.querySelector('.stab[data-tab="messages"].active')){
-          dot.style.display = 'block';
-        }
-        // Also play sound
-        if(typeof _playMsgSound === 'function') _playMsgSound();
-      }
+      _msgNewMsgFlag = true;
+      const _dot = document.getElementById('msgUnreadDot');
+      if(_dot) _dot.style.display = 'block';
+      if(typeof _playMsgSound === 'function') _playMsgSound();
 
       if (payload.new.from_user_id === activeConvUserId) {
         // FIX 8: prevent duplicate — skip if message already rendered (e.g. from loadMessages)
@@ -24852,13 +24859,17 @@ function _msgRenderPinnedBar(pinned){
   bar.id = '_msgPinnedBar';
   bar.style.cssText = 'display:flex;align-items:center;gap:10px;padding:7px 16px;background:rgba(245,200,66,.06);border-bottom:0.5px solid rgba(245,200,66,.15);cursor:pointer;flex-shrink:0;';
   bar.innerHTML = `
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.8"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>
+    <!-- Clean modern pin icon -->
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--gold)" stroke="none" style="flex-shrink:0;opacity:.9">
+      <path d="M16 2a2 2 0 0 1 2 2v1.17a2 2 0 0 1-.59 1.42L15 9l1 5-2 2-3-4-3 4-2-2 1-5-2.41-2.41A2 2 0 0 1 4 5.17V4a2 2 0 0 1 2-2h10z" opacity=".15"/>
+      <path d="M16.5 3.5h-9A1 1 0 0 0 6.5 4.5v.67a1 1 0 0 0 .29.71L9 8l-1 5 4 2 4-2-1-5 2.21-2.12A1 1 0 0 0 17.5 5.17V4.5a1 1 0 0 0-1-1zM12 15v6" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+    </svg>
     <div style="flex:1;min-width:0;">
-      <div style="font-size:9.5px;font-weight:700;color:var(--gold);letter-spacing:.05em;text-transform:uppercase;margin-bottom:1px;">Закреплено</div>
-      <div style="font-size:12px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="_msgPinnedText"></div>
+      <div style="font-size:9px;font-weight:800;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin-bottom:1px;line-height:1;">ЗАКРЕПЛЕНО</div>
+      <div style="font-size:12.5px;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.85;" id="_msgPinnedText"></div>
     </div>
-    <button onclick="event.stopPropagation();_msgUnpinMessage()" style="width:22px;height:22px;border-radius:50%;background:none;border:none;color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="Открепить">
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    <button onclick="event.stopPropagation();_msgUnpinMessage()" style="width:22px;height:22px;border-radius:50%;background:none;border:none;color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:color .15s;" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--t3)'" title="Открепить">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>`;
   bar.querySelector('#_msgPinnedText').textContent = pinned.text;
   // Click → scroll to pinned message
