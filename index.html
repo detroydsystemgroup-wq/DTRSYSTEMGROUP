@@ -20767,15 +20767,30 @@ function _renderConvList(convs){
     }
     row.appendChild(right);
 
-    // Hover delete btn
-    const delBtn = document.createElement('button');
-    delBtn.style.cssText = 'position:absolute;right:8px;bottom:8px;width:20px;height:20px;border-radius:50%;background:rgba(239,68,68,.12);border:0.5px solid rgba(239,68,68,.2);color:var(--red);display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .15s;';
-    delBtn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>';
-    delBtn.title = 'Удалить диалог';
-    delBtn.onclick = (e)=>{ e.stopPropagation(); _msgDeleteConv(cv.userId, cv.name); };
-    row.onmouseenter = ()=>{ delBtn.style.opacity='1'; };
-    row.onmouseleave = ()=>{ delBtn.style.opacity='0'; };
-    row.appendChild(delBtn);
+    // Right-click context menu — clean, no overlapping buttons
+    row.oncontextmenu = (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      document.getElementById('_convCtxMenu')?.remove();
+      const m = document.createElement('div');
+      m.id = '_convCtxMenu';
+      m.style.cssText = `position:fixed;left:${Math.min(e.clientX,window.innerWidth-180)}px;top:${Math.min(e.clientY,window.innerHeight-120)}px;background:var(--card);border:0.5px solid var(--border);border-radius:12px;padding:5px;min-width:170px;z-index:99999;box-shadow:0 8px 32px rgba(0,0,0,.6);animation:msgIn .15s ease both;`;
+      const items = [
+        { label: _isBlocked(cv.userId) ? '✅ Разблокировать' : '🚫 Заблокировать', fn: ()=>_msgBlockUser(cv.userId, cv.name), danger: false },
+        { label: '🗑️ Удалить диалог', fn: ()=>_msgDeleteConv(cv.userId, cv.name), danger: true },
+      ];
+      items.forEach(it=>{
+        const btn = document.createElement('button');
+        btn.style.cssText = `display:flex;align-items:center;gap:8px;width:100%;padding:9px 12px;border-radius:8px;background:none;border:none;font-size:13px;font-family:var(--font-body);color:${it.danger?'var(--red)':'var(--t1)'};cursor:pointer;text-align:left;`;
+        btn.textContent = it.label;
+        btn.onmouseenter = ()=>{ btn.style.background=it.danger?'rgba(239,68,68,.1)':'rgba(255,255,255,.05)'; };
+        btn.onmouseleave = ()=>{ btn.style.background='none'; };
+        btn.onclick = (ev)=>{ ev.stopPropagation(); m.remove(); it.fn(); };
+        m.appendChild(btn);
+      });
+      m.addEventListener('click', ev=>ev.stopPropagation());
+      document.body.appendChild(m);
+      setTimeout(()=>document.addEventListener('click',()=>m.remove(),{once:true}),10);
+    };
 
     el.appendChild(row);
   });
