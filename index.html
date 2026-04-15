@@ -1758,7 +1758,7 @@ body { transition:background .28s,color .28s; }
 .msg-chat{display:flex;flex-direction:column;overflow:hidden;min-height:0;background:var(--bg);position:relative;}
 .msg-chat::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 20% 80%,rgba(245,200,66,.025) 0%,transparent 55%),radial-gradient(ellipse at 80% 20%,rgba(34,197,94,.015) 0%,transparent 55%);pointer-events:none;z-index:0;}
 .msg-chat-head{padding:12px 18px;border-bottom:0.5px solid rgba(255,255,255,.05);display:flex;align-items:center;gap:12px;background:rgba(9,9,11,.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);position:relative;z-index:5;flex-shrink:0;}
-.msg-chat-av{width:38px;height:38px;border-radius:13px;background:linear-gradient(135deg,rgba(245,200,66,.16),rgba(245,200,66,.04));border:0.5px solid rgba(245,200,66,.22);display:flex;align-items:center;justify-content:center;font-size:18px;overflow:hidden;flex-shrink:0;}
+.msg-chat-av{width:38px;height:38px;border-radius:13px;background:linear-gradient(135deg,rgba(245,200,66,.16),rgba(245,200,66,.04));border:0.5px solid rgba(245,200,66,.22);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;position:relative;}
 .msg-chat-name{font-size:14.5px;font-weight:700;color:var(--t1);letter-spacing:-.02em;}
 .msg-chat-sub{font-size:11px;color:var(--t3);margin-top:1px;display:flex;align-items:center;gap:5px;}
 .msg-chat-sub.online-sub{color:var(--green);}
@@ -13981,8 +13981,10 @@ html[data-theme="light"] .nav-icon-btn:hover {
 }
 
 /* Upload progress on send button */
-.msg-send.uploading{background:linear-gradient(145deg,var(--gold-d),var(--gold));color:#09090B;}
-.msg-send.uploading svg{animation:spin .8s linear infinite;}
+.msg-send.uploading{background:linear-gradient(145deg,var(--gold-d),var(--gold));color:#09090B;pointer-events:none;}
+.msg-send.uploading svg{display:none !important;}
+.msg-send.uploading::after{content:'';display:block;width:18px;height:18px;border:2.5px solid rgba(9,9,11,.3);border-top-color:#09090B;border-radius:50%;animation:msgSpinDot .7s linear infinite;}
+@keyframes msgSpinDot{to{transform:rotate(360deg);}}
 
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 #_msgCtxMenu.open{opacity:1!important;transform:scale(1)!important;}
@@ -14375,16 +14377,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
   0%   { background-position:-200% 0; }
   100% { background-position:200%  0; }
 }
-.msg-send.uploading {
-  background: linear-gradient(90deg,
-    rgba(245,200,66,.6) 0%,
-    rgba(245,200,66,1)  40%,
-    rgba(245,200,66,.6) 80%,
-    rgba(245,200,66,.6) 100%
-  ) !important;
-  background-size: 200% 100% !important;
-  animation: tgShimmer 1.2s linear infinite !important;
-}
+/* tgShimmer removed — using clean spinner instead */
 
 </style>
 </head>
@@ -20239,7 +20232,7 @@ function _renderConvList(convs){
   }
   el.innerHTML = convs.map((cv,i) => {
     const avHtml = cv.avUrl
-      ? `<img src="${cv.avUrl}" class="img-cover" style="border-radius:13px;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">` 
+      ? `<img src="${cv.avUrl}" class="img-cover" style="border-radius:13px;width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.display='none'">` 
       : esc(cv.av || '🎯');
     const isUnread = cv.unread > 0;
     const isActive = cv.userId === activeConvUserId;
@@ -20429,12 +20422,24 @@ function _msgToggleSendBtn(val){
 
 function _msgScrollToBottom(){
   const el = document.getElementById('msgMessages');
-  if(el){ el.scrollTop = 999999; }
+  if(!el) return;
+  const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+  if(dist < 2){ el.scrollTop = el.scrollHeight; }
+  else {
+    const dur = Math.min(200, dist * 0.18);
+    const start = el.scrollTop, target = el.scrollHeight;
+    const t0 = performance.now();
+    (function step(now){
+      const p = Math.min((now-t0)/dur, 1);
+      el.scrollTop = start + (target - start) * (1 - Math.pow(1-p, 4));
+      if(p < 1) requestAnimationFrame(step);
+    })(performance.now());
+  }
   _msgIsAtBottom = true;
   _msgUnreadOffscreen = 0;
   _msgUpdateScrollBadge();
-  const sb = document.getElementById('msgScrollDown');
-  if(sb) sb.classList.remove('visible');
+  const sbtn = document.getElementById('msgScrollDown');
+  if(sbtn) sbtn.classList.remove('visible');
 }
 
 function appendMessage(msg, isMine){
@@ -20486,7 +20491,7 @@ function appendMessage(msg, isMine){
 
   // Scroll
   if(_msgIsAtBottom){
-    el.scrollTop = 999999;
+    _msgScrollToBottom();
   } else if(!isMine){
     _msgUnreadOffscreen++;
     _msgUpdateScrollBadge();
@@ -20681,7 +20686,7 @@ async function openConv(userId, name, av, avUrl){
         </button>`:''}
         <div class="msg-chat-av" style="position:relative;cursor:pointer;" onclick="openUserProfile('${esc(userId)}','${escAttr(name)}','${escAttr(av||'')}','${escAttr(avUrl||'')}')">
           ${avDisplay}
-          <div id="msgOnlineDot" style="position:absolute;bottom:-2px;right:-2px;width:10px;height:10px;border-radius:50%;background:var(--t3);border:2.5px solid var(--bg);transition:background .4s;box-shadow:0 0 0 0.5px rgba(0,0,0,.3);"></div>
+          <div id="msgOnlineDot" style="position:absolute;bottom:-3px;right:-3px;width:12px;height:12px;border-radius:50%;background:var(--t3);border:2.5px solid rgba(9,9,11,.95);transition:background .4s;z-index:3;box-shadow:0 1px 4px rgba(0,0,0,.5);"></div>
         </div>
         <div class="msg-chat-info" style="cursor:pointer;" onclick="openUserProfile('${esc(userId)}','${escAttr(name)}','${escAttr(av||'')}','${escAttr(avUrl||'')}')">
           <div class="msg-chat-name">${esc(name)}</div>
@@ -21291,7 +21296,7 @@ async function loadMessages(partnerId, append=false){
 
     if(!append){
       // Initial load: scroll after DOM paint
-      requestAnimationFrame(()=>{ elNow.scrollTop = elNow.scrollHeight + 9999; });
+      requestAnimationFrame(()=>{ elNow.scrollTop = elNow.scrollHeight + 9999; }); // instant on initial load
     }
     // else append=true (load older): don't scroll — user is reading old messages
     // Apply real read status from DB to already-rendered messages
@@ -23743,17 +23748,34 @@ function msgContentHTML(msg) {
     return `<span style="color:rgba(255,255,255,.3);font-style:italic;font-size:13px;">🚫 Сообщение удалено</span>`;
   }
 
+  // FIX 1: Extract forward/reply metadata for ALL content types (image/voice/file)
+  // Media forwards are encoded as JSON: { url, fwd: { fromName } }
+  let _fwdBlock = '';
+  let _mediaUrl = txt;
+  if(txt.startsWith('{')){
+    try {
+      const _p = JSON.parse(txt);
+      if(_p.fwd && _p.fwd.fromName){
+        _fwdBlock = `<div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;font-size:10.5px;color:rgba(255,255,255,.55);">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
+          Переслано от: <span style="color:var(--gold);font-weight:600;">${esc(_p.fwd.fromName)}</span>
+        </div>`;
+      }
+      // Extract actual url for media
+      if(_p.url) _mediaUrl = _p.url;
+      else if(_p.t) _mediaUrl = _p.t; // text fallback
+    } catch(e){}
+  }
+
   if(ct === 'image'){
-    // FIX 4: escape src to prevent attribute injection
-    const safeUrl = esc(txt);
-    return `<img src="${safeUrl}" style="max-width:240px;max-height:200px;border-radius:12px;display:block;margin-bottom:2px;cursor:pointer;object-fit:cover;" onclick="window.open(this.src,'_blank')" loading="lazy" onerror="this.style.display='none'">`;
+    const safeUrl = esc(_mediaUrl || txt);
+    return _fwdBlock + `<img src="${safeUrl}" style="max-width:240px;max-height:200px;border-radius:12px;display:block;margin-bottom:2px;cursor:pointer;object-fit:cover;" onclick="window.open(this.src,'_blank')" loading="lazy" onerror="this.style.display='none'">`;
   }
 
   if(ct === 'voice'){
     const vid = 'v_'+Math.random().toString(36).slice(2);
-    // FIX 6: parse JSON content to get url + duration
-    let voiceUrl2 = txt, voiceDur = 0;
-    try { const vj = JSON.parse(txt); voiceUrl2 = vj.url || txt; voiceDur = vj.duration || 0; } catch(e){}
+    let voiceUrl2 = _mediaUrl || txt, voiceDur = 0;
+    try { const vj = JSON.parse(txt); voiceUrl2 = vj.url || _mediaUrl || txt; voiceDur = vj.duration || 0; } catch(e){}
     // Generate fake waveform bars (visual only, real audio plays on click)
     const bars = Array.from({length:30},(_,i)=>{
       const h = 4 + Math.round(Math.abs(Math.sin(i*0.7))*20);
@@ -23761,7 +23783,7 @@ function msgContentHTML(msg) {
     }).join('');
     const safeVoiceUrl = esc(voiceUrl2); // FIX 4: escape voice URL
     const durStr = voiceDur > 0 ? Math.floor(voiceDur/60)+':'+(voiceDur%60).toString().padStart(2,'0') : '0:00';
-    return `
+    return _fwdBlock + `
       <audio id="${vid}" src="${safeVoiceUrl}" preload="none" style="display:none"></audio>
       <div class="msg-voice-bubble">
         <button class="msg-voice-play" id="${vid}_btn" onclick="_msgVoiceToggle('${vid}')" title="Воспроизвести">
@@ -23773,14 +23795,14 @@ function msgContentHTML(msg) {
   }
 
   if(ct === 'file'){
-    let meta = { name: txt, size: 0, url: txt };
-    try { meta = JSON.parse(txt); } catch(e){}
+    let meta = { name: txt, size: 0, url: _mediaUrl || txt };
+    try { const _fm = JSON.parse(txt); meta = { name: _fm.name||txt, size: _fm.size||0, url: _fm.url||_mediaUrl||txt }; } catch(e){}
     // FIX 4: escape all user-supplied strings before HTML injection
     const safeName = esc(meta.name || 'Файл');
     const safeUrl  = esc(meta.url || txt);
     const icon = _msgFileIcon('application/octet-stream', meta.name || 'file');
     const sizeStr = meta.size ? _msgFmtSize(meta.size) : '';
-    return `
+    return _fwdBlock + `
       <div class="msg-file-bubble">
         <div class="msg-file-icon">${icon}</div>
         <div class="msg-file-info">
