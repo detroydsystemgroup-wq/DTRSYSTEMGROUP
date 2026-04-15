@@ -20812,11 +20812,8 @@ async function _msgViewFile(url, name){
 }
 
 async function sendMsg(toUserId){
-  console.log('[DTR] sendMsg called, toUserId=', toUserId);
   const input = document.getElementById('msgInput');
-  if(!input){ console.error('[DTR] sendMsg: input not found'); return; }
-  if(!SB_USER){ console.error('[DTR] sendMsg: SB_USER is null'); return; }
-  if(!toUserId){ console.error('[DTR] sendMsg: toUserId is empty'); return; }
+  if(!input || !SB_USER || !toUserId) return;
 
   // File pending?
   if(_msgPendingFile && _msgPendingFile.file){
@@ -20849,65 +20846,87 @@ async function sendMsg(toUserId){
   // Always scroll to bottom when user sends a message
   setTimeout(function(){ if(typeof _msgScrollToBottom==='function') _msgScrollToBottom(); }, 30);
 
-  // Insert to DB — refresh token first to prevent RLS 42501
+  // Insert to DB with aggressive retry strategy
+  let realId = null;
+  let insertError = null;
+
+  // Helper to swap optimistic bubble to real ID
+  const _confirmSent = (id) => {
+    const row = document.querySelector(`.msg-row[data-msg-id="${optId}"]`);
+    if(row) row.dataset.msgId = id;
+    const bub = document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
+    if(bub){
+      bub.dataset.msgId = id; bub.style.opacity = '1';
+      const rp = bub.querySelector('.reaction-popup'); if(rp) rp.id = 'rp-'+id;
+      const ticks = bub.querySelector('.msg-ticks');
+      if(ticks){ ticks.dataset.mid=id; ticks.innerHTML=_statusSVG('sent'); ticks.dataset.status='sent'; }
+    }
+    if(typeof _trackReadReceipt==='function') _trackReadReceipt(id, toUserId);
+    if(typeof _msgUpdateConvCache==='function') _msgUpdateConvCache(toUserId, text, true);
+  };
+
+  // Attempt 1: full insert with all columns
   try {
-    try { await sb.auth.refreshSession(); } catch(_re){}
-    const ins = await sb.from('messages').insert({
-      from_user_id: SB_USER.id,
-      to_user_id: toUserId,
-      content: finalText,
-      content_type: 'text',
-      read: false
+    try { await sb.auth.refreshSession(); } catch(e){}
+    const r1 = await sb.from('messages').insert({
+      from_user_id: SB_USER.id, to_user_id: toUserId,
+      content: finalText, content_type: 'text', read: false
     }).select('id').single();
+    if(!r1.error && r1.data?.id){ realId = r1.data.id; }
+    else { insertError = r1.error; }
+  } catch(e){ insertError = e; }
 
-    let realId = ins.data?.id;
+  // Attempt 2: without optional columns (content_type, read)
+  if(!realId && insertError){
+    const code = insertError?.code || '';
+    const msg2 = insertError?.message || '';
+    if(code === '42703' || msg2.includes('column') || msg2.includes('content_type') || msg2.includes('read')){
+      try {
+        const r2 = await sb.from('messages').insert({
+          from_user_id: SB_USER.id, to_user_id: toUserId, content: finalText
+        }).select('id').single();
+        if(!r2.error && r2.data?.id){ realId = r2.data.id; insertError = null; }
+        else { insertError = r2.error; }
+      } catch(e){ insertError = e; }
+    }
+  }
 
-    if(ins.error){
-      // Retry without optional columns
-      if((ins.error.code==='42703')||(ins.error.message||'').includes('column')){
-        const ins2 = await sb.from('messages').insert({from_user_id:SB_USER.id, to_user_id:toUserId, content:finalText}).select('id').single();
-        if(ins2.error) throw ins2.error;
-        realId = ins2.data?.id;
-      } else throw ins.error;
+  // Attempt 3: RLS error — refresh session and retry
+  if(!realId && insertError){
+    const emsg = insertError?.message || '';
+    const ecode = insertError?.code || '';
+    if(ecode === '42501' || emsg.includes('row-level') || emsg.includes('policy') || emsg.includes('permission')){
+      try {
+        await sb.auth.refreshSession();
+        const r3 = await sb.from('messages').insert({
+          from_user_id: SB_USER.id, to_user_id: toUserId, content: finalText
+        }).select('id').single();
+        if(!r3.error && r3.data?.id){ realId = r3.data.id; insertError = null; }
+        else { insertError = r3.error; }
+      } catch(e){ insertError = e; }
     }
+  }
 
-    if(realId){
-      // Swap opt id → real id
-      const row = document.querySelector(`.msg-row[data-msg-id="${optId}"]`);
-      if(row) row.dataset.msgId = realId;
-      const bub = document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
-      if(bub){
-        bub.dataset.msgId = realId;
-        const rp = bub.querySelector('.reaction-popup');
-        if(rp) rp.id = 'rp-'+realId;
-        const ticks = bub.querySelector('.msg-ticks');
-        if(ticks){ ticks.dataset.mid=realId; ticks.innerHTML=_statusSVG('sent'); ticks.dataset.status='sent'; }
-      }
-      if(typeof _trackReadReceipt==='function') _trackReadReceipt(realId, toUserId);
-      if(typeof _msgUpdateConvCache==='function') _msgUpdateConvCache(toUserId, text, true);
-    }
-  } catch(err){
-    console.error('[DTR] sendMsg:', err?.message, err?.code);
-    const em=err?.message||'';
-    if(em.includes('row-level')||em.includes('policy')||em.includes('permission')||err?.code==='42501'){
-      try{await sb.auth.refreshSession();
-        const r2=await sb.from('messages').insert({from_user_id:SB_USER.id,to_user_id:toUserId,content:finalText,content_type:'text',read:false}).select('id').single();
-        if(!r2.error&&r2.data?.id){const ro=document.querySelector('.msg-row[data-msg-id="'+optId+'"]');if(ro)ro.dataset.msgId=r2.data.id;const bu=document.querySelector('.msg-bubble[data-msg-id="'+optId+'"]');if(bu){bu.dataset.msgId=r2.data.id;bu.style.opacity='1';const t=bu.querySelector('.msg-ticks');if(t){t.dataset.mid=r2.data.id;t.innerHTML=_statusSVG('sent');t.dataset.status='sent';}}if(typeof _trackReadReceipt==='function')_trackReadReceipt(r2.data.id,toUserId);if(typeof _msgUpdateConvCache==='function')_msgUpdateConvCache(toUserId,text,true);return;}
-      }catch(e2){console.warn('[DTR] Retry:',e2);}
-    }
+  if(realId){
+    _confirmSent(realId);
+  } else {
+    // All attempts failed
+    console.error('[DTR] sendMsg failed:', insertError?.message, insertError?.code);
     const bub = document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
     if(bub){
       bub.style.opacity = '.5';
-      const e2 = document.createElement('div');
-      e2.style.cssText = 'font-size:10px;color:#ef4444;margin-top:4px;cursor:pointer;';
-      e2.textContent = '⚠️ Ошибка — нажми для повтора';
-      e2.onclick = ()=>{ bub.style.opacity='1'; e2.remove(); input.value=text; sendMsg(toUserId); };
-      bub.appendChild(e2);
+      const errEl = document.createElement('div');
+      errEl.style.cssText = 'font-size:10px;color:#ef4444;margin-top:4px;cursor:pointer;';
+      errEl.textContent = '⚠️ Ошибка — нажми для повтора';
+      errEl.onclick = ()=>{ bub.style.opacity='1'; errEl.remove(); input.value=text; sendMsg(toUserId); };
+      bub.appendChild(errEl);
     }
-    if(err?.code==='42501'||(err?.message||'').includes('row-level')||(err?.message||'').includes('policy')){
+    // Show RLS fix if it's a permissions error
+    const ec = insertError?.code||'', em2 = insertError?.message||'';
+    if(ec==='42501'||em2.includes('row-level')||em2.includes('policy')||em2.includes('permission')){
       if(typeof _msgShowDbAlert==='function') _msgShowDbAlert('rls_error');
     }
-    showToast('Не доставлено','⚠️');
+    showToast('Не доставлено — проверь настройки БД','⚠️');
   }
 }
 
