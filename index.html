@@ -1830,6 +1830,22 @@ body { transition:background .28s,color .28s; }
 .msg-conv-av{position:relative;flex-shrink:0;}
 .msg-conv-av-ring{width:46px;height:46px;border-radius:13px;background:linear-gradient(135deg,rgba(245,200,66,.16),rgba(245,200,66,.04));border:0.5px solid rgba(245,200,66,.16);display:flex;align-items:center;justify-content:center;font-size:20px;overflow:hidden;transition:border-color .2s;}
 .msg-conv.active .msg-conv-av-ring{border-color:rgba(245,200,66,.35);}
+
+/* ── Blocked user indicator in chat ── */
+.msg-blocked-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: rgba(239,68,68,.06);
+  border-top: 0.5px solid rgba(239,68,68,.15);
+  flex-shrink: 0;
+  font-size: 12.5px;
+  color: var(--red);
+  font-weight: 600;
+}
+
 .msg-conv-unread-pip{position:absolute;bottom:-2px;right:-2px;width:11px;height:11px;border-radius:50%;background:var(--gold);border:2px solid #09090B;box-shadow:0 0 10px rgba(245,200,66,.8);animation:pipGlow 2s ease infinite;}
 @keyframes pipGlow{0%,100%{box-shadow:0 0 6px rgba(245,200,66,.6);}50%{box-shadow:0 0 16px rgba(245,200,66,.95);}}
 .msg-conv-info{flex:1;min-width:0;}
@@ -20694,7 +20710,9 @@ function _renderConvList(convs){
           ${_isMuted(cv.userId)?'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>':''}
           <div class="msg-conv-time">${fmtMsgTime(cv.lastTime)}</div>
         </div>
-        ${cv.unread>0?`<div class="msg-conv-badge${_isMuted(cv.userId)?' muted':''}">${cv.unread>9?'9+':cv.unread}</div>`:''}
+        ${_isBlocked(cv.userId)
+          ? '<div style="font-size:11px;color:var(--red);opacity:.8;font-weight:700;" title="Заблокирован">🚫</div>'
+          : cv.unread>0?`<div class="msg-conv-badge${_isMuted(cv.userId)?' muted':''}">${cv.unread>9?'9+':cv.unread}</div>`:''}
       </div>
       <button class="conv-del-btn" onclick="event.stopPropagation();_msgDeleteConv('${esc(cv.userId)}','${escAttr(cv.name)}')"
         style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:rgba(239,68,68,.1);border:0.5px solid rgba(239,68,68,.2);color:var(--red);display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .15s,background .15s;" title="Удалить диалог"
@@ -21260,6 +21278,13 @@ async function openConv(userId, name, av, avUrl){
       <div id="msgFilePreviewBar" style="display:none;padding:8px 14px;background:rgba(245,200,66,.06);border-top:0.5px solid rgba(245,200,66,.15);border-bottom:0.5px solid rgba(255,255,255,.04);flex-shrink:0;"></div>
 
       <!-- Voice recording overlay (shown during recording) -->
+      <!-- Blocked user banner -->
+      ${_isBlocked('${esc(userId)}') ? `
+      <div class="msg-blocked-banner">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+        Вы заблокировали этого пользователя
+        <button onclick="_msgBlockUser('${esc(userId)}','${escAttr(name)}')" style="margin-left:8px;padding:3px 10px;border-radius:6px;background:rgba(239,68,68,.12);border:0.5px solid rgba(239,68,68,.25);color:var(--red);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-display);">Разблокировать</button>
+      </div>` : ''}
       <!-- Voice recording bar — built by _msgShowRecUI() on first record -->
       <div class="msg-input-area">
         <!-- Attach button -->
@@ -21470,6 +21495,54 @@ const _mutedChats = new Set(JSON.parse(localStorage.getItem('dtr_muted_chats')||
 function _saveMuted(){ try{localStorage.setItem('dtr_muted_chats',JSON.stringify([..._mutedChats]));}catch(e){} }
 function _isMuted(uid){ return _mutedChats.has(uid); }
 
+// ── Blocked users ──
+const _blockedUsers = new Set(JSON.parse(localStorage.getItem('dtr_blocked_users')||'[]'));
+function _saveBlocked(){ try{localStorage.setItem('dtr_blocked_users',JSON.stringify([..._blockedUsers]));}catch(e){} }
+function _isBlocked(uid){ return _blockedUsers.has(uid); }
+
+function _msgBlockUser(userId, name){
+  if(_isBlocked(userId)){
+    // Unblock
+    _blockedUsers.delete(userId);
+    _saveBlocked();
+    _renderConvList(_convsCache||allConvsCache||[]);
+    showToast(`${name} разблокирован ✅`);
+  } else {
+    // Confirm before blocking
+    const ov = document.createElement('div');
+    ov.id = '_msgBlockModal';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .15s ease;';
+    ov.innerHTML = `
+      <div style="background:var(--card);border:0.5px solid var(--border);border-radius:18px;padding:22px;width:100%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,.6);animation:msgIn .2s cubic-bezier(.34,1.3,.64,1) both;">
+        <div style="text-align:center;margin-bottom:16px;">
+          <div style="width:52px;height:52px;border-radius:50%;background:rgba(239,68,68,.1);border:0.5px solid rgba(239,68,68,.2);display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 10px;">🚫</div>
+          <div style="font-family:var(--font-display);font-size:15px;font-weight:700;color:var(--t1);">Заблокировать ${esc(name)}?</div>
+          <div style="font-size:12px;color:var(--t3);margin-top:6px;line-height:1.5;">Пользователь не сможет отправлять вам сообщения. Вы сможете разблокировать его в любой момент.</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button id="_blockCancelBtn" style="flex:1;padding:10px;border-radius:10px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.08);color:var(--t2);font-size:13px;font-weight:600;font-family:var(--font-display);cursor:pointer;">Отмена</button>
+          <button id="_blockConfirmBtn" style="flex:1;padding:10px;border-radius:10px;background:rgba(239,68,68,.12);border:0.5px solid rgba(239,68,68,.3);color:var(--red);font-size:13px;font-weight:600;font-family:var(--font-display);cursor:pointer;">Заблокировать</button>
+        </div>
+      </div>`;
+    ov.querySelector('#_blockCancelBtn').onclick = ()=> ov.remove();
+    ov.querySelector('#_blockConfirmBtn').onclick = ()=>{
+      ov.remove();
+      _blockedUsers.add(userId);
+      _saveBlocked();
+      // If blocked user is currently open — close that chat
+      if(activeConvUserId === userId){
+        const chatArea = document.getElementById('msgChatArea');
+        if(chatArea){ chatArea.innerHTML = ''; }
+        activeConvUserId = null;
+      }
+      _renderConvList(_convsCache||allConvsCache||[]);
+      showToast(`${name} заблокирован 🚫`);
+    };
+    ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove(); });
+    document.body.appendChild(ov);
+  }
+}
+
 // ══ SEARCH IN CHAT ══════════════════════════════════════════
 let _msgSearchActive = false;
 let _searchMatches = [], _searchIdx = 0;
@@ -21669,6 +21742,15 @@ function _msgOpenMenu(e, userId){
         _saveMuted();
         _renderConvList(_convsCache||allConvsCache||[]);
       }
+    },
+    {sep:true},
+    {
+      icon: _isBlocked(userId)
+        ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9 12h6"/></svg>'
+        : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>',
+      label: _isBlocked(userId) ? 'Разблокировать' : 'Заблокировать',
+      action: ()=> _msgBlockUser(userId, _convsCache?.find(c=>c.userId===userId)?.name || 'пользователя'),
+      danger: !_isBlocked(userId)
     },
     {sep:true},
     {
