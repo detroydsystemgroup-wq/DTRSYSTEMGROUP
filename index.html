@@ -21585,35 +21585,24 @@ async function _msgExecuteClear(userId){
   ov?.remove();
   if(!SB_USER) return;
 
-  try {
-    if(scope === 'me'){
-      // ── "Только у меня": fetch all message IDs in this conversation,
-      // then hide them locally via localStorage — partner sees nothing changed ──
-      const { data: msgs } = await sb.from('messages')
-        .select('id')
-        .or(`and(from_user_id.eq.${SB_USER.id},to_user_id.eq.${userId}),and(from_user_id.eq.${userId},to_user_id.eq.${SB_USER.id})`);
-      if(msgs && msgs.length > 0){
-        const KEY = 'dtr_hidden_msgs_' + SB_USER.id;
-        const hidden = new Set(JSON.parse(localStorage.getItem(KEY)||'[]'));
-        msgs.forEach(m => hidden.add(String(m.id)));
-        localStorage.setItem(KEY, JSON.stringify([...hidden]));
-      }
-    } else {
-      // ── "У обоих": delete from DB (own messages only via RLS),
-      // partner's messages in that chat also deleted from their side via RLS ──
+  // Always set local clear timestamp first (instant visual feedback)
+  const clearKey = `dtr_clear_${SB_USER.id}_${userId}`;
+  try { localStorage.setItem(clearKey, new Date().toISOString()); } catch(e){}
+
+  if(scope === 'both'){
+    // Also delete from DB for partner to see deletion
+    try {
       await sb.from('messages').delete()
         .eq('from_user_id', SB_USER.id).eq('to_user_id', userId);
       try {
         await sb.from('messages').delete()
           .eq('from_user_id', userId).eq('to_user_id', SB_USER.id);
-      } catch(rlsErr){
-        showToast('Ваши сообщения удалены. У собеседника — только его', 'ℹ️');
-      }
+      } catch(e){}
+    } catch(e){
+      console.warn('clear both error:', e);
+      // Local clear already applied — just warn
+      showToast('Удалено только у вас. Проверь RLS в Supabase', 'ℹ️');
     }
-  } catch(e){
-    console.warn('clear history error:', e);
-    showToast('Не удалось очистить историю', '⚠️');
-    return;
   }
 
   // FIX 1: proper empty state with context about what was deleted
@@ -21783,12 +21772,19 @@ async function loadMessages(partnerId, append=false){
     // Build with grouping + date separators (Telegram model: gap>5min breaks group)
     // Filter out locally hidden messages (deleted only for me) — user-specific, persistent
     const hiddenMsgs = _msgGetHiddenIds();
+    // Filter by clear timestamp: messages before this time are hidden locally for this conv
+    let clearBefore = null;
+    try {
+      const cts = localStorage.getItem(`dtr_clear_${SB_USER.id}_${partnerId}`);
+      if(cts) clearBefore = new Date(cts);
+    } catch(e){}
 
     const chunks = [];
     let lastDate='', lastSender='', lastTs=0;
     const GAP = 5*60*1000;
     data.forEach((msg,i)=>{
       if(hiddenMsgs.has(String(msg.id))) return; // hidden only for me
+      if(clearBefore && new Date(msg.created_at) < clearBefore) return; // cleared locally
       const mine = msg.from_user_id === SB_USER.id;
       const d = new Date(msg.created_at);
       const isToday = d.toDateString()===new Date().toDateString();
@@ -24616,16 +24612,17 @@ function _msgVoiceResetUI(vid){
 // ══ FIX 2: PIN MESSAGE — store in localStorage per conversation ══
 function _msgPinMessage(msgId, text){
   if(!activeConvUserId) return;
-  // Ask scope: only me or both
-  const existMod = document.getElementById('_msgPinScopeModal');
-  if(existMod) existMod.remove();
+  document.getElementById('_msgPinScopeModal')?.remove();
   const mod = document.createElement('div');
   mod.id = '_msgPinScopeModal';
   mod.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .15s ease;';
+  // Store msgId and text on the element to avoid inline JS escaping issues
+  mod.dataset.pinMsgId = String(msgId);
+  mod.dataset.pinText  = (text||'').slice(0,120);
   mod.innerHTML = `
     <div style="background:var(--card);border:0.5px solid var(--border);border-radius:18px;padding:22px;width:100%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,.6);animation:msgIn .2s cubic-bezier(.34,1.3,.64,1) both;">
       <div style="font-family:var(--font-display);font-size:15px;font-weight:700;color:var(--t1);margin-bottom:6px;">📌 Закрепить сообщение</div>
-      <div style="font-size:12px;color:var(--t3);margin-bottom:16px;line-height:1.5;padding:8px 10px;background:rgba(255,255,255,.04);border-radius:8px;border-left:2px solid var(--gold);">${esc((text||'').slice(0,80))}</div>
+      <div style="font-size:12px;color:var(--t3);margin-bottom:16px;line-height:1.5;padding:8px 10px;background:rgba(255,255,255,.04);border-radius:8px;border-left:2px solid var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="_pinPreview"></div>
       <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:16px;">
         <label style="display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:10px;border:0.5px solid rgba(255,255,255,.07);cursor:pointer;transition:background .12s;" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background='none'">
           <input type="radio" name="pinScope" value="me" checked style="accent-color:var(--gold);width:15px;height:15px;">
@@ -24637,17 +24634,28 @@ function _msgPinMessage(msgId, text){
         </label>
       </div>
       <div style="display:flex;gap:8px;">
-        <button onclick="document.getElementById('_msgPinScopeModal').remove()" style="flex:1;padding:10px;border-radius:10px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.08);color:var(--t2);font-size:13px;font-weight:600;font-family:var(--font-display);cursor:pointer;">Отмена</button>
-        <button onclick="_msgDoPinWithScope('${esc(String(msgId))}',${JSON.stringify(text.slice(0,120))});document.getElementById('_msgPinScopeModal').remove();" style="flex:1;padding:10px;border-radius:10px;background:rgba(245,200,66,.12);border:0.5px solid rgba(245,200,66,.3);color:var(--gold);font-size:13px;font-weight:600;font-family:var(--font-display);cursor:pointer;">Закрепить</button>
+        <button id="_pinCancelBtn" style="flex:1;padding:10px;border-radius:10px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.08);color:var(--t2);font-size:13px;font-weight:600;font-family:var(--font-display);cursor:pointer;">Отмена</button>
+        <button id="_pinConfirmBtn" style="flex:1;padding:10px;border-radius:10px;background:rgba(245,200,66,.12);border:0.5px solid rgba(245,200,66,.3);color:var(--gold);font-size:13px;font-weight:600;font-family:var(--font-display);cursor:pointer;">Закрепить</button>
       </div>
     </div>`;
+  // Set preview text safely
+  mod.querySelector('#_pinPreview').textContent = (text||'').slice(0,80);
+  // Wire buttons via addEventListener — no inline JS
+  mod.querySelector('#_pinCancelBtn').onclick = ()=> mod.remove();
+  mod.querySelector('#_pinConfirmBtn').onclick = ()=>{
+    const scope = mod.querySelector('input[name="pinScope"]:checked')?.value || 'me';
+    const mid   = mod.dataset.pinMsgId;
+    const ptxt  = mod.dataset.pinText;
+    mod.remove();
+    _msgDoPinWithScope(mid, ptxt, scope);
+  };
   mod.addEventListener('click', e=>{ if(e.target===mod) mod.remove(); });
   document.body.appendChild(mod);
 }
 
-async function _msgDoPinWithScope(msgId, text){
-  const mod = document.getElementById('_msgPinScopeModal');
-  const scope = mod?.querySelector('input[name="pinScope"]:checked')?.value || 'me';
+async function _msgDoPinWithScope(msgId, text, scope){
+  // scope passed directly — no need to read from removed modal
+  scope = scope || 'me';
   if(!activeConvUserId || !SB_USER) return;
 
   const pinned = { id: msgId, text: text, pinnedAt: new Date().toISOString(), scope };
