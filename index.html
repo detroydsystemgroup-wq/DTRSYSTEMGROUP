@@ -42077,58 +42077,39 @@ window._gcDoCreate=async function(){
   }
   var rows=document.querySelectorAll('#gcMemberList .gm-member-row.selected');
   var members=[];
-  rows.forEach(function(r){members.push({id:r.dataset.uid,name:r.dataset.name,av:r.dataset.av});});
+  rows.forEach(function(r){if(r.dataset.uid)members.push(r.dataset.uid);});
   if(!members.length){_toast('Выбери хотя бы одного участника','⚠️');return;}
   var btn=document.getElementById('gcCreateBtn');
   if(btn){btn.disabled=true;btn.textContent='Создаём…';}
   try{
-    // Force session refresh to ensure fresh JWT is attached
-    var sess=null;
-    try{
-      var sr=await sb.auth.refreshSession();
-      sess=sr&&sr.data&&sr.data.session;
-      console.log('[DTR] session after refresh, user id:', sess&&sess.user&&sess.user.id);
-    }catch(ex){console.warn('[DTR] refreshSession failed:',ex);}
-
-    // Get current user id from live session (not stale SB_USER)
-    var myUid=sess&&sess.user&&sess.user.id;
-    if(!myUid){
-      // Fallback to getUser
-      try{var gu=await sb.auth.getUser();myUid=gu&&gu.data&&gu.data.user&&gu.data.user.id;}catch(ex){}
-    }
-    if(!myUid){myUid=_myId();}
-    console.log('[DTR] creating group as uid:', myUid);
+    // Always refresh session first
+    try{await sb.auth.refreshSession();}catch(ex){console.warn('[DTR] refresh:',ex);}
+    // Get live uid
+    var myUid=null;
+    try{var gu=await sb.auth.getUser();myUid=gu&&gu.data&&gu.data.user&&gu.data.user.id;}catch(ex){}
+    if(!myUid)myUid=_myId();
     if(!myUid){_toast('Ошибка авторизации — перезайди в аккаунт','⚠️');if(btn){btn.disabled=false;btn.textContent='Создать группу';}return;}
+    console.log('[DTR] create_group rpc uid=',myUid,'name=',name,'members=',members);
 
-    // 1. Create group — use service-level insert via supabase client (JWT is fresh now)
-    var r1=await sb.from('group_chats').insert({
-      name:name,description:desc,avatar_emoji:emoji,owner_id:myUid
-    }).select('id').single();
-    console.log('[DTR] group_chats insert result:', r1.data, r1.error);
-    if(r1.error){
-      var ec1=r1.error.code||'';var em1=r1.error.message||'';
-      if(ec1==='42P01'||em1.includes('does not exist')){_grpHandleTableMissing();if(btn){btn.disabled=false;btn.textContent='Создать группу';}return;}
-      throw r1.error;
-    }
-    var groupId=r1.data.id;
-
-    // 2. Add owner first, then members one by one (more reliable than batch on fresh table)
-    await sb.from('group_members').insert({group_id:groupId,user_id:myUid,role:'owner'});
-    for(var mi=0;mi<members.length;mi++){
-      var m=members[mi];
-      if(m.id&&m.id!==myUid){
-        var rm=await sb.from('group_members').insert({group_id:groupId,user_id:m.id,role:'member'});
-        if(rm.error)console.warn('[DTR] add member failed:',m.id,rm.error);
+    // Call SECURITY DEFINER RPC — bypasses RLS completely
+    var rpc=await sb.rpc('create_group',{
+      p_name:name,
+      p_description:desc,
+      p_emoji:emoji,
+      p_owner_id:myUid,
+      p_member_ids:members
+    });
+    console.log('[DTR] create_group rpc result:',rpc.data,rpc.error);
+    if(rpc.error){
+      var ec=rpc.error.code||'';var em=rpc.error.message||'';
+      // RPC function not found — SQL not executed yet
+      if(ec==='PGRST202'||ec==='42883'||em.includes('function')){
+        _grpHandleTableMissing();
+        if(btn){btn.disabled=false;btn.textContent='Создать группу';}return;
       }
+      throw rpc.error;
     }
-
-    // 3. System message
-    sb.from('group_messages').insert({
-      group_id:groupId,from_user_id:myUid,
-      content:'Группа «'+name+'» создана',
-      content_type:'text',is_system:true
-    }).then(null,function(e){console.warn('[DTR] system msg:',e);});
-
+    var groupId=rpc.data;
     document.getElementById('_grpCreateModal')&&document.getElementById('_grpCreateModal').remove();
     _toast('Группа «'+name+'» создана 🎉','✅');
     _grpDbReady=true;
@@ -42137,9 +42118,9 @@ window._gcDoCreate=async function(){
   }catch(e){
     console.error('[DTR] create group error:',JSON.stringify(e),e);
     var msg='Ошибка создания группы';
-    if(e&&e.code==='42501')msg='Ошибка RLS — выполни новый SQL из файла';
-    else if(e&&e.code==='23503')msg='Ошибка FK — проверь SQL схему';
-    else if(e&&e.message)msg=e.message.slice(0,100);
+    if(e&&e.code==='42501')msg='Нет прав. Выполни SQL заново.';
+    else if(e&&(e.code==='PGRST202'||e.code==='42883'))msg='Функция create_group не найдена — выполни SQL';
+    else if(e&&e.message)msg=e.message.slice(0,120);
     _toast(msg,'⚠️');
     if(btn){btn.disabled=false;btn.textContent='Создать группу';}
   }
