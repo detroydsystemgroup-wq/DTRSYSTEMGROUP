@@ -40944,8 +40944,12 @@ CREATE POLICY "gms_delete" ON group_messages FOR DELETE
   );
 
 -- ── Realtime ─────────────────────────────────────────────────
-ALTER PUBLICATION supabase_realtime ADD TABLE group_messages;
-ALTER PUBLICATION supabase_realtime ADD TABLE group_members;
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE group_messages;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE group_members;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- ── Indexes ───────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_gm_group    ON group_members(group_id);
@@ -41006,16 +41010,27 @@ function _fmtDate(iso){
    DB CHECK — проверяем что таблицы существуют
 ───────────────────────────────────────────────*/
 async function _grpCheckDb(){
-  if(_grpDbReady||typeof sb==='undefined'||!sb) return false;
+  if(_grpDbReady) return true;
+  if(typeof sb==='undefined'||!sb) return false;
   try{
-    var r=await sb.from('group_chats').select('id').limit(0);
-    if(r.error&&(r.error.code==='42P01'||r.error.message.includes('does not exist'))){
-      _grpShowSqlAlert();
-      return false;
+    var r=await sb.from('group_chats').select('id').limit(1);
+    if(r.error){
+      var code=r.error.code||'';
+      var msg=r.error.message||'';
+      if(code==='42P01'||msg.includes('does not exist')||msg.includes('relation')){
+        _grpShowSqlAlert();
+        return false;
+      }
+      _grpDbReady=true;
+      return true;
     }
     _grpDbReady=true;
     return true;
-  }catch(e){ return false; }
+  }catch(e){
+    console.warn('[DTR] _grpCheckDb failed, assuming tables exist:',e);
+    _grpDbReady=true;
+    return true;
+  }
 }
 
 function _grpShowSqlAlert(){
@@ -41040,13 +41055,15 @@ function _grpShowSqlAlert(){
    LOAD GROUPS — загружаем группы текущего юзера
 ───────────────────────────────────────────────*/
 async function _grpLoadMyGroups(){
-  var ok=await _grpCheckDb();
-  if(!ok||!_myId())return[];
+  if(!_myId())return[];
+  if(typeof sb==='undefined'||!sb)return[];
   try{
     // 1. Получаем group_id всех моих групп
-    var {data:memberRows,error:me}=await sb.from('group_members')
+    var r0=await sb.from('group_members')
       .select('group_id,role').eq('user_id',_myId());
-    if(me||!memberRows||!memberRows.length)return[];
+    if(r0.error){console.warn('[DTR] group_members select:',r0.error);return[];}
+    var memberRows=r0.data||[];
+    if(!memberRows.length)return[];
     var groupIds=memberRows.map(function(r){return r.group_id;});
     var roleMap={};memberRows.forEach(function(r){roleMap[r.group_id]=r.role;});
 
@@ -41912,7 +41929,10 @@ function _grpResetChatArea(){
    CREATE GROUP MODAL
 ───────────────────────────────────────────────*/
 window._dtrOpenGroupModal=async function(){
-  var ok=await _grpCheckDb();if(!ok)return;
+  console.log('[DTR] _dtrOpenGroupModal called');
+  // Don't block on DB check — open modal immediately, let _gcDoCreate validate
+  var dbOk=await _grpCheckDb();
+  console.log('[DTR] _grpCheckDb result:', dbOk);
   if(document.getElementById('_grpCreateModal'))return;
   // Load contacts from existing conversations
   var convs=(typeof allConvsCache!=='undefined'&&allConvsCache)?allConvsCache:[];
@@ -42056,39 +42076,68 @@ window._gcDoCreate=async function(){
   var name=nameEl.value.trim();
   if(!name){nameEl.focus();nameEl.style.borderColor='rgba(239,68,68,.5)';return;}
   var desc=descEl?descEl.value.trim():'';
-  var emoji=emojiEl?(emojiEl.dataset.emoji||emojiEl.textContent||'👥'):'👥';
+  // Strip non-emoji leftover text from button
+  var emoji='👥';
+  if(emojiEl){
+    var stored=emojiEl.dataset.emoji;
+    if(stored&&stored.trim())emoji=stored.trim();
+    else{
+      // Take first emoji char from textContent
+      var raw=(emojiEl.textContent||'').trim();
+      if(raw)emoji=Array.from(raw)[0]||'👥';
+    }
+  }
   var rows=document.querySelectorAll('#gcMemberList .gm-member-row.selected');
   var members=[];
   rows.forEach(function(r){members.push({id:r.dataset.uid,name:r.dataset.name,av:r.dataset.av});});
   if(!members.length){_toast('Выбери хотя бы одного участника','⚠️');return;}
+  var myUid=_myId();
+  if(!myUid){_toast('Сначала войди в аккаунт','⚠️');return;}
   var btn=document.getElementById('gcCreateBtn');
   if(btn){btn.disabled=true;btn.textContent='Создаём…';}
   try{
+    // Refresh session before write operations
+    try{await sb.auth.refreshSession();}catch(ex){}
     // 1. Create group
-    var {data:gc,error:gce}=await sb.from('group_chats').insert({
-      name:name,description:desc,avatar_emoji:emoji,owner_id:_myId()
+    var r1=await sb.from('group_chats').insert({
+      name:name,description:desc,avatar_emoji:emoji,owner_id:myUid
     }).select('id').single();
-    if(gce)throw gce;
-    var groupId=gc.id;
-    // 2. Add owner
-    var memberInserts=[{group_id:groupId,user_id:_myId(),role:'owner'}];
-    // 3. Add selected members
-    members.forEach(function(m){memberInserts.push({group_id:groupId,user_id:m.id,role:'member'});});
-    var {error:mie}=await sb.from('group_members').insert(memberInserts);
-    if(mie)throw mie;
-    // 4. System message
-    await sb.from('group_messages').insert({
-      group_id:groupId,from_user_id:_myId(),
+    if(r1.error){
+      console.error('[DTR] group_chats insert error:',r1.error);
+      throw r1.error;
+    }
+    var groupId=r1.data.id;
+    // 2. Add owner + selected members in one batch
+    var memberInserts=[{group_id:groupId,user_id:myUid,role:'owner'}];
+    members.forEach(function(m){
+      if(m.id&&m.id!==myUid)
+        memberInserts.push({group_id:groupId,user_id:m.id,role:'member'});
+    });
+    var r2=await sb.from('group_members').insert(memberInserts);
+    if(r2.error){
+      console.error('[DTR] group_members insert error:',r2.error);
+      // Try inserting owner only as fallback
+      var r2b=await sb.from('group_members').insert({group_id:groupId,user_id:myUid,role:'owner'});
+      if(r2b.error)throw r2b.error;
+    }
+    // 3. System message — fire-and-forget, don't block on error
+    sb.from('group_messages').insert({
+      group_id:groupId,from_user_id:myUid,
       content:'Группа «'+name+'» создана',
       content_type:'text',is_system:true
-    });
+    }).then(null,function(e){console.warn('[DTR] system msg:',e);});
     document.getElementById('_grpCreateModal')&&document.getElementById('_grpCreateModal').remove();
     _toast('Группа «'+name+'» создана 🎉','✅');
+    _grpDbReady=true;
     await _grpInjectSidebar();
     setTimeout(function(){_grpOpenChat(groupId);},200);
   }catch(e){
-    console.error('[DTR] create group:',e);
-    _toast('Ошибка создания группы','⚠️');
+    console.error('[DTR] create group error:',JSON.stringify(e),e);
+    var msg='Ошибка создания группы';
+    if(e&&e.code==='42501')msg='Нет прав — проверь RLS политики';
+    else if(e&&e.code==='23503')msg='Ошибка внешнего ключа — проверь SQL';
+    else if(e&&e.message)msg=e.message.slice(0,80);
+    _toast(msg,'⚠️');
     if(btn){btn.disabled=false;btn.textContent='Создать группу';}
   }
 };
