@@ -214,7 +214,7 @@ a, button, input, select, textarea,
 .nb, .stab, .kpi, .card, .si, .lg-row, .mg-item,
 .ach2, .ai, .nav-user, .a-tab, .seg-btn,
 .arena-mode-btn, .mg-item, .csg-item, .gl-row,
-.av-opt, .fi, .msg-conv, .msg-bubble, .r-pill,
+.av-opt, .fi, .msg-conv, .msg-bubble,
 .hm-cell, .timer-mode-btn, .ctx-item, .up-btn {
   transition-property: color, background-color, border-color, box-shadow, opacity;
   transition-duration: .18s;
@@ -1828,7 +1828,7 @@ body { transition:background .28s,color .28s; }
 .msg-conv.active{background:rgba(245,200,66,.07);}
 .msg-conv.active::before{content:'';position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:0 3px 3px 0;background:linear-gradient(180deg,var(--gold),var(--gold-d));}
 .msg-conv-av{position:relative;flex-shrink:0;}
-.msg-conv-av-ring{width:46px;height:46px;border-radius:13px;background:rgba(30,30,36,1);border:0.5px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:20px;overflow:hidden;transition:border-color .2s;flex-shrink:0;}
+.msg-conv-av-ring{width:46px;height:46px;border-radius:13px;background:rgba(30,30,36,1);border:0.5px solid rgba(255,255,255,.08);display:block;position:relative;overflow:hidden;transition:border-color .2s;flex-shrink:0;}
 .msg-conv.active .msg-conv-av-ring{border-color:rgba(245,200,66,.5);}
 
 /* ── Blocked user indicator in chat ── */
@@ -1890,52 +1890,7 @@ body { transition:background .28s,color .28s; }
 .msg-ticks{display:inline-flex;align-items:center;color:var(--cyan);}
 .msg-bubble.new-msg{animation:newMsgPop .5s cubic-bezier(.34,1.4,.64,1) both;}
 @keyframes newMsgPop{0%{transform:scale(.9);opacity:0;}100%{transform:scale(1);opacity:1;}}
-.msg-bubble-reactions{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;clear:both;}
 /* Telegram-style reaction pill */
-.r-pill{
-  display:inline-flex;flex-direction:row;align-items:center;gap:4px;
-  height:26px;padding:0 8px 0 6px;
-  border-radius:13px;
-  background:rgba(0,0,0,.25);
-  border:0.5px solid rgba(255,255,255,.15);
-  cursor:pointer;
-  transition:background .12s,transform .12s;
-  user-select:none;position:relative;flex-shrink:0;
-}
-.r-pill:hover{background:rgba(0,0,0,.4);transform:scale(1.05);}
-.r-pill.reacted{background:rgba(245,200,66,.22);border-color:rgba(245,200,66,.45);}
-.r-pill .r-emoji{font-size:14px;line-height:1;flex-shrink:0;}
-.r-pill .r-avatars{display:inline-flex;flex-direction:row;align-items:center;}
-.r-pill .r-av{width:16px;height:16px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(0,0,0,.5);margin-left:-3px;flex-shrink:0;background:rgba(255,255,255,.2);display:inline-flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#fff;}
-.r-pill .r-av:first-child{margin-left:0;}
-.r-pill .r-count{font-size:11.5px;font-weight:700;font-family:var(--font-mono);color:rgba(255,255,255,.85);}
-/* Who reacted tooltip */
-.r-pill .r-tooltip{
-  position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
-  background:rgba(18,18,22,.96);border:0.5px solid rgba(255,255,255,.12);
-  border-radius:8px;padding:6px 10px;
-  font-size:11px;color:var(--t1);white-space:nowrap;
-  pointer-events:none;opacity:0;transition:opacity .15s;z-index:1000;
-  box-shadow:0 4px 16px rgba(0,0,0,.5);
-}
-.r-pill:hover .r-tooltip{opacity:1;}
-.reaction-popup{
-  position:fixed;
-  transform:translateX(-50%) scale(.88) translateY(4px);
-  opacity:0;pointer-events:none;
-  background:rgba(28,28,32,.98);
-  border:0.5px solid rgba(255,255,255,.12);
-  border-radius:28px;padding:8px 14px;
-  display:flex;flex-direction:row;gap:8px;
-  box-shadow:0 8px 32px rgba(0,0,0,.7);
-  z-index:99999;
-  transition:opacity .15s,transform .18s cubic-bezier(.34,1.56,.64,1);
-  white-space:nowrap;
-  backdrop-filter:blur(12px);
-}
-.reaction-popup.open{opacity:1;pointer-events:all;transform:translateX(-50%) scale(1) translateY(0);}
-.r-pop-btn{font-size:22px;cursor:pointer;background:none;border:none;padding:3px;border-radius:50%;transition:transform .15s;line-height:1;}
-.r-pop-btn:hover{transform:scale(1.35);}
 .msg-typing-row{display:flex;align-items:flex-end;gap:8px;padding:4px 0 6px;flex-shrink:0;animation:msgIn .25s ease both;}
 .msg-typing-bubble{display:inline-flex;align-items:center;gap:5px;padding:11px 15px;background:rgba(22,22,26,.96);border:0.5px solid rgba(255,255,255,.07);border-radius:17px 17px 17px 4px;box-shadow:0 2px 10px rgba(0,0,0,.3);}
 .t-dot{width:6px;height:6px;border-radius:50%;background:var(--t3);animation:tBounce 1.4s ease infinite;}
@@ -20725,10 +20680,11 @@ function _renderConvList(convs){
     return;
   }
   el.innerHTML = convs.map((cv,i) => {
-    // Show real avatar image if avUrl exists, else show emoji
+    // Show real avatar image if avUrl exists, else show emoji centered
+    const _avEmoji = cv.av || '👤';
     const avHtml = cv.avUrl
-      ? `<img src="${cv.avUrl}" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit;" onerror="this.parentElement.innerHTML='<span style=\"font-size:20px;line-height:1;\">${esc(cv.av||'👤')}</span>'">`
-      : `<span style="font-size:20px;line-height:1;">${esc(cv.av || '👤')}</span>`;
+      ? `<img src="${cv.avUrl}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML='<div style=\"position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px;\">${esc(_avEmoji)}</div>'">`
+      : `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px;">${esc(_avEmoji)}</div>`;
     const isUnread = cv.unread > 0;
     const isActive = cv.userId === activeConvUserId;
     let _pv = cv.lastMsg || '';
@@ -21018,9 +20974,7 @@ function appendMessage(msg, isMine){
       ondblclick="_showRxPopup(event,this)">
       ${bodyHtml}
       <div class="msg-bubble-time">${timeStr}${ticks}</div>
-      <div class="reaction-popup" id="rp-${esc(msgId)}">
-        ${['❤️','🔥','👏','😂','🤔','👍'].map(e=>`<button class="r-pop-btn" onclick="_addRx('${esc(msgId)}','${e}');event.stopPropagation()" type="button">${e}</button>`).join('')}
-      </div>
+
     </div>`;
 
   el.appendChild(div);
@@ -21156,7 +21110,6 @@ async function sendMsg(toUserId){
     const bub = document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
     if(bub){
       bub.dataset.msgId = id; bub.style.opacity = '1';
-      const rp = bub.querySelector('.reaction-popup'); if(rp) rp.id = 'rp-'+id;
       const ticks = bub.querySelector('.msg-ticks');
       if(ticks){ ticks.dataset.mid=id; ticks.innerHTML=_statusSVG('sent'); ticks.dataset.status='sent'; }
     }
@@ -21164,7 +21117,7 @@ async function sendMsg(toUserId){
     if(typeof _msgUpdateConvCache==='function') _msgUpdateConvCache(toUserId, text, true);
   };
 
-  // Attempt 1: full insert with all columns
+  // Attempt 1: refresh session + full insert
   try {
     try { await sb.auth.refreshSession(); } catch(e){}
     const r1 = await sb.from('messages').insert({
@@ -21175,35 +21128,30 @@ async function sendMsg(toUserId){
     else { insertError = r1.error; }
   } catch(e){ insertError = e; }
 
-  // Attempt 2: without optional columns (content_type, read)
-  if(!realId && insertError){
-    const code = insertError?.code || '';
-    const msg2 = insertError?.message || '';
-    if(code === '42703' || msg2.includes('column') || msg2.includes('content_type') || msg2.includes('read')){
-      try {
-        const r2 = await sb.from('messages').insert({
-          from_user_id: SB_USER.id, to_user_id: toUserId, content: finalText
-        }).select('id').single();
-        if(!r2.error && r2.data?.id){ realId = r2.data.id; insertError = null; }
-        else { insertError = r2.error; }
-      } catch(e){ insertError = e; }
-    }
+  // Attempt 2: minimal columns only (no content_type, no read)
+  if(!realId){
+    try {
+      const r2 = await sb.from('messages').insert({
+        from_user_id: SB_USER.id, to_user_id: toUserId, content: finalText
+      }).select('id').single();
+      if(!r2.error && r2.data?.id){ realId = r2.data.id; insertError = null; }
+      else { insertError = r2.error; }
+    } catch(e){ insertError = e; }
   }
 
-  // Attempt 3: RLS error — refresh session and retry
-  if(!realId && insertError){
-    const emsg = insertError?.message || '';
-    const ecode = insertError?.code || '';
-    if(ecode === '42501' || emsg.includes('row-level') || emsg.includes('policy') || emsg.includes('permission')){
-      try {
-        await sb.auth.refreshSession();
-        const r3 = await sb.from('messages').insert({
-          from_user_id: SB_USER.id, to_user_id: toUserId, content: finalText
-        }).select('id').single();
-        if(!r3.error && r3.data?.id){ realId = r3.data.id; insertError = null; }
-        else { insertError = r3.error; }
-      } catch(e){ insertError = e; }
-    }
+  // Attempt 3: sign out / sign in token refresh + minimal insert
+  if(!realId){
+    try {
+      const { data: session } = await sb.auth.getSession();
+      if(session?.session) {
+        await sb.auth.setSession(session.session);
+      }
+      const r3 = await sb.from('messages').insert({
+        from_user_id: SB_USER.id, to_user_id: toUserId, content: finalText
+      }).select('id').single();
+      if(!r3.error && r3.data?.id){ realId = r3.data.id; insertError = null; }
+      else { insertError = r3.error; }
+    } catch(e){ insertError = e; }
   }
 
   if(realId){
@@ -21214,11 +21162,21 @@ async function sendMsg(toUserId){
     const bub = document.querySelector(`.msg-bubble[data-msg-id="${optId}"]`);
     if(bub){
       bub.style.opacity = '.5';
+      const ec = insertError?.code||'', em = (insertError?.message||'').slice(0,60);
+      const isRLS = ec==='42501'||em.includes('row-level')||em.includes('policy');
       const errEl = document.createElement('div');
-      errEl.style.cssText = 'font-size:10px;color:#ef4444;margin-top:4px;cursor:pointer;';
-      errEl.textContent = '⚠️ Ошибка — нажми для повтора';
+      errEl.style.cssText = 'font-size:10px;color:#ef4444;margin-top:4px;cursor:pointer;display:flex;align-items:center;gap:4px;';
+      errEl.innerHTML = isRLS
+        ? '🔒 RLS — <span style="text-decoration:underline">нажми для повтора</span>'
+        : '⚠️ <span style="text-decoration:underline">Ошибка — нажми для повтора</span>';
+      errEl.title = em || ec;
       errEl.onclick = ()=>{ bub.style.opacity='1'; errEl.remove(); input.value=text; sendMsg(toUserId); };
       bub.appendChild(errEl);
+    }
+    // If RLS — show the SQL fix dialog once
+    const ec2=insertError?.code||'', em2=insertError?.message||'';
+    if((ec2==='42501'||em2.includes('row-level')||em2.includes('policy')) && typeof _msgShowDbAlert==='function'){
+      if(!window._rlsAlertShown){ window._rlsAlertShown=true; _msgShowDbAlert('rls_error'); setTimeout(()=>{window._rlsAlertShown=false;},120000); }
     }
     showToast('Не доставлено ⚠️');
   }
@@ -21991,12 +21949,9 @@ async function loadMessages(partnerId, append=false){
   ${!mine?`<div class="msg-av-micro${isLastInGroup?'':' ghost'}" style="background:none;border:none;overflow:hidden;">${isLastInGroup?_msgGetPartnerAvatar():'&nbsp;'}</div>`:''}
   <div class="msg-bubble${mine?' mine':' theirs'}" data-msg-id="${esc(msg.id)}" data-ct="${esc(ct)}" data-raw="${esc(txt)}" style="border-radius:${radius}"
     oncontextmenu="_msgShowBubbleCtx(event,this)"
-    ondblclick="_showRxPopup(event,this)">
+>
     ${body}
     <div class="msg-bubble-time">${timeStr}${ticks}</div>
-    <div class="reaction-popup" id="rp-${esc(msg.id)}">
-      ${['❤️','🔥','👏','😂','🤔','👍'].map(e=>`<button class="r-pop-btn" onclick="_addRx('${esc(msg.id)}','${e}');event.stopPropagation()" type="button">${e}</button>`).join('')}
-    </div>
   </div>
 </div>`);
     });
@@ -22026,7 +21981,6 @@ async function loadMessages(partnerId, append=false){
     // Apply real read status from DB to already-rendered messages
     _applyReadStatusFromDB(data || []);
     // Load reactions for all visible messages
-    _loadVisibleReactions(data || []);
   }catch(e){
     console.error('loadMessages error:', e?.message || e);
     const elNow=document.getElementById('msgMessages');
@@ -22390,156 +22344,6 @@ function _msgGetPartnerAvatar(){
 }
 
 // ── Reaction popup (existing) ──
-function _showRxPopup(e,bub){
-  e.preventDefault();
-  e.stopPropagation();
-  const id = bub.dataset.msgId; if(!id) return;
-  // Close any open popups
-  document.querySelectorAll('.reaction-popup.open').forEach(p=>{
-    p.classList.remove('open');
-    p.style.cssText='';
-  });
-  const p = document.getElementById('rp-'+id); if(!p) return;
-  // Position using fixed coords relative to bubble
-  const rect = bub.getBoundingClientRect();
-  const popW = 290;
-  let left = rect.left + rect.width / 2;
-  left = Math.min(Math.max(left, popW/2 + 10), window.innerWidth - popW/2 - 10);
-  const top = rect.top > 70 ? rect.top - 56 : rect.bottom + 8;
-  p.style.left = left + 'px';
-  p.style.top  = top + 'px';
-  p.style.zIndex = '99999';
-  p.classList.add('open');
-  const close = (ev)=>{
-    if(!p.contains(ev.target)){
-      p.classList.remove('open');
-      p.style.cssText='';
-    }
-  };
-  setTimeout(()=>document.addEventListener('click', close, {once:true}), 50);
-}
-
-// ── Load reactions for all visible messages (batch) ──
-// Cache of user avatars for reactions {userId: {name, avUrl, av}}
-const _rxAvatarCache = {};
-
-async function _fetchRxAvatars(userIds){
-  const missing = userIds.filter(id => !_rxAvatarCache[id]);
-  if(missing.length === 0) return;
-  try {
-    const {data} = await sb.from('users').select('id,username,avatar,avatar_url').in('id', missing);
-    (data||[]).forEach(u => {
-      _rxAvatarCache[u.id] = { name: u.username||'?', av: u.avatar||'🎯', avUrl: u.avatar_url||null };
-    });
-  } catch(e){}
-}
-
-function _renderRxPill(msgId, emoji, reactors){
-  const mine = reactors.some(r => r.user_id === SB_USER?.id);
-  const n = reactors.length;
-  const names = reactors.map(r => _rxAvatarCache[r.user_id]?.name || '?').join(', ');
-  return `<span class="r-pill${mine?' reacted':''}" onclick="_addRx('${msgId}','${emoji}')" title="${esc(names)}">
-    <span class="r-emoji">${emoji}</span>${n > 1 ? `<span class="r-count">${n}</span>` : ''}
-  </span>`;
-}
-
-async function _loadVisibleReactions(msgs){
-  if(!msgs || msgs.length === 0 || !SB_USER) return;
-  try {
-    const ids = msgs.map(m => m.id).filter(id => id && !String(id).startsWith('opt-'));
-    if(ids.length === 0) return;
-    const { data } = await sb.from('message_reactions')
-      .select('message_id,emoji,user_id')
-      .in('message_id', ids);
-    if(!data || data.length === 0) return;
-
-    // Fetch avatars for all reactors
-    const allUserIds = [...new Set(data.map(r => r.user_id))];
-    await _fetchRxAvatars(allUserIds);
-
-    // Group: byMsg[msgId][emoji] = [reactors]
-    const byMsg = {};
-    data.forEach(r => {
-      if(!byMsg[r.message_id]) byMsg[r.message_id] = {};
-      if(!byMsg[r.message_id][r.emoji]) byMsg[r.message_id][r.emoji] = [];
-      byMsg[r.message_id][r.emoji].push(r);
-    });
-
-    Object.entries(byMsg).forEach(([msgId, byEmoji]) => {
-      const bub = document.querySelector(`.msg-bubble[data-msg-id="${CSS.escape(msgId)}"]`);
-      if(!bub) return;
-      let rEl = bub.querySelector('.msg-bubble-reactions');
-      if(!rEl){
-        rEl = document.createElement('div');
-        rEl.className='msg-bubble-reactions';
-        // Insert before reaction popup (inside bubble, at the bottom)
-        const popup = bub.querySelector('.reaction-popup');
-        if(popup) bub.insertBefore(rEl, popup);
-        else bub.appendChild(rEl);
-      }
-      rEl.innerHTML = Object.entries(byEmoji).map(([emoji, reactors]) =>
-        _renderRxPill(msgId, emoji, reactors)
-      ).join('');
-    });
-  } catch(e){ console.warn('loadVisibleReactions:', e); }
-}
-
-async function _addRx(msgId, emoji){
-  document.querySelectorAll('.reaction-popup.open').forEach(p=>p.classList.remove('open'));
-  if(!SB_USER) return;
-  try {
-    // One reaction per user: check if user already reacted to this message
-    const {data:existing} = await sb.from('message_reactions')
-      .select('id,emoji')
-      .eq('message_id', msgId)
-      .eq('user_id', SB_USER.id)
-      .maybeSingle();
-
-    if(existing){
-      if(existing.emoji === emoji){
-        // Same emoji — toggle off
-        await sb.from('message_reactions').delete().eq('id', existing.id);
-      } else {
-        // Different emoji — replace (update)
-        await sb.from('message_reactions').update({emoji}).eq('id', existing.id);
-      }
-    } else {
-      // No reaction yet — insert
-      await sb.from('message_reactions').insert({message_id:msgId, user_id:SB_USER.id, emoji});
-    }
-    _refreshRx(msgId);
-  } catch(err){
-    console.warn('[DTR] reaction error:', err?.message);
-  }
-}
-async function _refreshRx(msgId){
-  try {
-    const {data} = await sb.from('message_reactions').select('emoji,user_id').eq('message_id', msgId);
-    if(!data) return;
-    // Fetch avatars
-    const userIds = [...new Set(data.map(r => r.user_id))];
-    await _fetchRxAvatars(userIds);
-    // Group by emoji
-    const byEmoji = {};
-    data.forEach(r => {
-      if(!byEmoji[r.emoji]) byEmoji[r.emoji] = [];
-      byEmoji[r.emoji].push(r);
-    });
-    const bub = document.querySelector(`.msg-bubble[data-msg-id="${CSS.escape(msgId)}"]`);
-    if(!bub) return;
-    let rEl = bub.querySelector('.msg-bubble-reactions');
-    if(!rEl){
-      rEl = document.createElement('div');
-      rEl.className='msg-bubble-reactions';
-      const popup = bub.querySelector('.reaction-popup');
-      if(popup) bub.insertBefore(rEl, popup);
-      else bub.appendChild(rEl);
-    }
-    rEl.innerHTML = Object.keys(byEmoji).length
-      ? Object.entries(byEmoji).map(([emoji, reactors]) => _renderRxPill(msgId, emoji, reactors)).join('')
-      : '';
-  } catch(e){}
-}
 
 /* Emoji mini-picker */
 const _EMOJIS=['😊','😂','❤️','🔥','👍','🎉','😭','🙌','✨','💪','🏆','💯','😎','🤯','🫡','👀','🥳','😤','🤝','⚡'];
@@ -24610,11 +24414,19 @@ function initRealtimeMessages() {
       // Drop messages from blocked users entirely
       if(_isBlocked(payload.new.from_user_id)) return;
 
+      // ── Instant red dot notification ──
+      if(payload.new.from_user_id !== activeConvUserId || !document.hasFocus()){
+        const dot = document.getElementById('msgUnreadDot');
+        if(dot && !document.querySelector('.stab[data-tab="messages"].active')){
+          dot.style.display = 'block';
+        }
+        // Also play sound
+        if(typeof _playMsgSound === 'function') _playMsgSound();
+      }
+
       if (payload.new.from_user_id === activeConvUserId) {
         // FIX 8: prevent duplicate — skip if message already rendered (e.g. from loadMessages)
         if(document.querySelector(`.msg-bubble[data-msg-id="${payload.new.id}"]`)) return;
-        // Play notification sound
-        _playMsgSound();
         // Show typing then append with slight delay (Telegram feel)
         _msgShowTyping();
         setTimeout(()=>{
@@ -27586,7 +27398,6 @@ body.dtr-fs-active[data-fs-tab="messages"] .tc.active {
 }
 /* All modals, menus, popups must be above FS bar (z:99975) */
 body.dtr-fs-active #_msgCtxMenu,
-body.dtr-fs-active .reaction-popup.open,
 body.dtr-fs-active #_msgDelMsgModal,
 body.dtr-fs-active #_msgDelConvModal,
 body.dtr-fs-active #_msgForwardModal,
