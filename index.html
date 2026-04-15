@@ -1755,7 +1755,7 @@ body { transition:background .28s,color .28s; }
 .msg-conv-badge{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:linear-gradient(135deg,var(--gold),var(--gold-d));color:#09090B;font-size:11px;font-weight:800;font-family:var(--font-mono);display:flex;align-items:center;justify-content:center;animation:badgePop .3s cubic-bezier(.34,1.56,.64,1) both;}
 @keyframes badgePop{0%{transform:scale(0);opacity:0;}100%{transform:scale(1);opacity:1;}}
 .msg-conv-badge.muted{background:rgba(255,255,255,.1)!important;color:var(--t3)!important;}
-.msg-chat{display:flex;flex-direction:column;overflow:hidden;min-height:0;background:var(--bg);position:relative;}
+.msg-chat{display:flex;flex-direction:column;overflow:hidden;min-height:0;background:var(--bg);position:relative;flex:1;}
 .msg-chat::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 20% 80%,rgba(245,200,66,.025) 0%,transparent 55%),radial-gradient(ellipse at 80% 20%,rgba(34,197,94,.015) 0%,transparent 55%);pointer-events:none;z-index:0;}
 .msg-chat-head{padding:12px 18px;border-bottom:0.5px solid rgba(255,255,255,.05);display:flex;align-items:center;gap:12px;background:rgba(9,9,11,.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);position:relative;z-index:5;flex-shrink:0;}
 .msg-chat-av{width:38px;height:38px;border-radius:13px;background:linear-gradient(135deg,rgba(245,200,66,.16),rgba(245,200,66,.04));border:0.5px solid rgba(245,200,66,.22);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;position:relative;}
@@ -20230,7 +20230,13 @@ let _msgTypingTimer = null;
 let _msgReplyTo = null;
 function _msgCancelReply(){ _msgReplyTo=null; var b=document.getElementById('_msgReplyBar'); if(b)b.remove(); }
 function _msgScrollToId(id){ var el=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(id))+'"]'); if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.style.background='rgba(245,200,66,.12)';setTimeout(function(){el.style.background='';},1200);} }
-function _msgSetReply(mid,text,mine,author){ _msgReplyTo={id:String(mid),text:(text||'').slice(0,100),isMine:mine,authorName:author||''}; document.getElementById('_msgReplyBar')?.remove(); var ia=document.querySelector('.msg-input-area'); if(!ia)return; var b=document.createElement('div'); b.id='_msgReplyBar'; b.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(9,9,11,.96);border-top:0.5px solid rgba(255,255,255,.06);flex-shrink:0;'; b.innerHTML='<div style="width:3px;height:30px;border-radius:2px;background:var(--gold);flex-shrink:0;"></div><div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:700;color:var(--gold);">'+esc(author||'')+'</div><div style="font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc((text||'').slice(0,80))+'</div></div><button onclick="_msgCancelReply()" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'; ia.parentNode.insertBefore(b,ia); document.getElementById('msgInput')?.focus(); }
+function _msgSetReply(mid,text,mine,author,ct){ _msgReplyTo={id:String(mid),text:(text||'').slice(0,100),isMine:mine,authorName:author||'',contentType:ct||'text'}; document.getElementById('_msgReplyBar')?.remove(); var ia=document.querySelector('.msg-input-area'); if(!ia)return; var b=document.createElement('div'); b.id='_msgReplyBar'; b.style.cssText='display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(9,9,11,.96);border-top:0.5px solid rgba(255,255,255,.06);flex-shrink:0;'; // Show appropriate icon for media types in reply bar
+  var _barText = text||'';
+  var _barIcon = '';
+  if(ct==='image') { _barText='🖼️ Изображение'; }
+  else if(ct==='voice') { _barText='🎤 Голосовое сообщение'; }
+  else if(ct==='file') { try { var _fn=JSON.parse(text||'{}'); _barText='📎 '+(_fn.name||'Файл'); } catch(e){ _barText='📎 Файл'; } }
+  b.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" style="flex-shrink:0;opacity:.8"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg><div style="flex:1;min-width:0;"><div style="font-size:10.5px;font-weight:700;color:var(--gold);margin-bottom:1px;">'+esc(author||'')+'</div><div style="font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(_barText.slice(0,80))+'</div></div><button onclick="_msgCancelReply()" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:4px;display:flex;align-items:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'; ia.parentNode.insertBefore(b,ia); document.getElementById('msgInput')?.focus(); }
 
 
 // ══ DB SETUP CHECK ══════════════════════════════════════════
@@ -20290,6 +20296,20 @@ CREATE POLICY "messages_update" ON messages FOR UPDATE USING (auth.uid() = to_us
     missing_columns: { title:'Нужно добавить колонки в messages', sql:`-- Вставь в Supabase → SQL Editor:
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS content_type text DEFAULT 'text';
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS read boolean DEFAULT false;` },
+    reactions_table: { title:'Нужна таблица реакций', sql:`-- Создай таблицу реакций в Supabase SQL Editor:
+CREATE TABLE IF NOT EXISTS message_reactions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  message_id uuid NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  emoji text NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(message_id, user_id, emoji)
+);
+ALTER TABLE message_reactions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "reactions_all" ON message_reactions;
+CREATE POLICY "reactions_all" ON message_reactions FOR ALL USING (true) WITH CHECK (true);
+-- Enable Realtime for reactions:
+ALTER PUBLICATION supabase_realtime ADD TABLE message_reactions;` },
     rls_error: { title:'RLS блокирует сообщения', sql:`-- Вставь в Supabase → SQL Editor:
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "messages_all" ON messages;
@@ -20750,7 +20770,7 @@ async function sendMsg(toUserId){
   let finalText = text;
   try {
     if(typeof _msgReplyTo!=='undefined' && _msgReplyTo && _msgReplyTo.id){
-      finalText = JSON.stringify({t:text, r:{replyToId:_msgReplyTo.id, replyAuthor:_msgReplyTo.authorName, replyText:_msgReplyTo.text}});
+      finalText = JSON.stringify({t:text, r:{replyToId:_msgReplyTo.id, replyAuthor:_msgReplyTo.authorName, replyText:_msgReplyTo.text, replyType:_msgReplyTo.contentType||'text'}});
     }
   } catch(e){}
   if(typeof _msgCancelReply==='function') _msgCancelReply();
@@ -21482,15 +21502,14 @@ async function loadMessages(partnerId, append=false){
     }
 
     // Build with grouping + date separators (Telegram model: gap>5min breaks group)
-    // Filter out locally hidden messages (deleted only for me)
-    let hiddenMsgs = new Set();
-    try { hiddenMsgs = new Set(JSON.parse(sessionStorage.getItem('dtr_hidden_msgs')||'[]')); } catch(e){}
+    // Filter out locally hidden messages (deleted only for me) — user-specific, persistent
+    const hiddenMsgs = _msgGetHiddenIds();
 
     const chunks = [];
     let lastDate='', lastSender='', lastTs=0;
     const GAP = 5*60*1000;
     data.forEach((msg,i)=>{
-      if(hiddenMsgs.has(String(msg.id))) return; // skip locally hidden
+      if(hiddenMsgs.has(String(msg.id))) return; // hidden only for me
       const mine = msg.from_user_id === SB_USER.id;
       const d = new Date(msg.created_at);
       const isToday = d.toDateString()===new Date().toDateString();
@@ -21561,6 +21580,8 @@ async function loadMessages(partnerId, append=false){
     // else append=true (load older): don't scroll — user is reading old messages
     // Apply real read status from DB to already-rendered messages
     _applyReadStatusFromDB(data || []);
+    // Load reactions for all visible messages
+    _loadVisibleReactions(data || []);
   }catch(e){
     console.error('loadMessages:',e);
     const elNow=document.getElementById('msgMessages');
@@ -21600,7 +21621,7 @@ function _msgShowBubbleCtx(e, bub){
     // Reply
     {icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>', label:'Ответить', action:function(){
       const authorName = isMine ? (P?.name || 'Вы') : (_msgPartnerAvCache?._name || 'Собеседник');
-      if(typeof _msgSetReply==='function') _msgSetReply(msgId, txtFull, isMine, authorName);
+      if(typeof _msgSetReply==='function') _msgSetReply(msgId, txtFull, isMine, authorName, contentType);
     }},
     // Copy
     {icon:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>', label:'Копировать', action:function(){
@@ -21811,41 +21832,63 @@ async function _msgSaveEdit(){
 
 async function _msgDeleteMsg(msgId, bub, scope='both'){
   if(!bub) bub = document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(msgId))+'"]');
-  // Animate out
+  // Animate out immediately
   const row = bub?.closest('.msg-row') ?? (bub ? bub.parentElement : null);
-  if(row){ row.style.transition='all .22s'; row.style.opacity='0'; row.style.transform='scale(.92) translateX('+(bub?.classList.contains('mine')?'10px':'-10px')+')'; setTimeout(()=>row.remove(),220); }
+  if(row){
+    row.style.transition='all .2s cubic-bezier(.4,0,.2,1)';
+    row.style.opacity='0';
+    row.style.transform='scale(.92)';
+    setTimeout(()=>row.remove(), 200);
+  }
 
   if(!SB_USER || !msgId || String(msgId).startsWith('opt-')){
-    showToast('Сообщение удалено у вас');
+    showToast('Удалено у вас');
     return;
   }
+
+  const mid = String(msgId);
+
   try {
     if(scope === 'me'){
-      // Soft-delete only for OWN messages (RLS allows UPDATE own messages only)
-      // For received messages — hide locally only (localStorage tombstone)
-      const isMineMsg = bub?.classList.contains('mine');
-      if(isMineMsg){
-        await sb.from('messages').update({ content: '__deleted__', content_type: 'deleted' })
-          .eq('id', msgId).eq('from_user_id', SB_USER.id);
-      } else {
-        // Can't update partner's message — store local tombstone in sessionStorage
-        try {
-          const hidden = JSON.parse(sessionStorage.getItem('dtr_hidden_msgs')||'[]');
-          hidden.push(String(msgId));
-          sessionStorage.setItem('dtr_hidden_msgs', JSON.stringify(hidden));
-        } catch(e){}
-      }
-      showToast('Удалено только у вас', '🗑️');
+      // ── TELEGRAM BEHAVIOUR: "удалить только у меня" ──
+      // Store in localStorage so it persists across page reloads
+      // NEVER touch the DB — partner keeps seeing the message as-is
+      try {
+        const KEY = 'dtr_hidden_msgs_' + SB_USER.id;
+        const hidden = new Set(JSON.parse(localStorage.getItem(KEY)||'[]'));
+        hidden.add(mid);
+        localStorage.setItem(KEY, JSON.stringify([...hidden]));
+      } catch(e){}
+      showToast('Удалено только у вас 🗑️');
+      // Update conv preview locally without reloading
+      await loadConversations();
+
     } else {
-      // Delete own message for both sides
-      await sb.from('messages').delete().eq('id', msgId).eq('from_user_id', SB_USER.id);
-      showToast('Сообщение удалено у обоих', '🗑️');
+      // ── "удалить у обоих" — remove from DB (partner loses it too) ──
+      const isMine = bub?.classList.contains('mine');
+      if(isMine){
+        await sb.from('messages').delete().eq('id', mid).eq('from_user_id', SB_USER.id);
+      } else {
+        // Can't delete partner's message via RLS — show info
+        showToast('Можно удалить только свои сообщения', 'ℹ️');
+        return;
+      }
+      showToast('Сообщение удалено у обоих 🗑️');
+      await loadConversations();
     }
-    await loadConversations();
   } catch(e){
     console.warn('[DTR] Delete msg:', e);
     showToast('Не удалось удалить', '⚠️');
   }
+}
+
+// ── Get the user-specific hidden messages set ──
+function _msgGetHiddenIds(){
+  if(!SB_USER) return new Set();
+  try {
+    const KEY = 'dtr_hidden_msgs_' + SB_USER.id;
+    return new Set(JSON.parse(localStorage.getItem(KEY)||'[]'));
+  } catch(e){ return new Set(); }
 }
 
 
@@ -21910,6 +21953,44 @@ function _showRxPopup(e,bub){
   p.classList.add('open');
   setTimeout(()=>document.addEventListener('click',()=>p.classList.remove('open'),{once:true}),20);
 }
+
+// ── Load reactions for all visible messages (batch) ──
+async function _loadVisibleReactions(msgs){
+  if(!msgs || msgs.length === 0 || !SB_USER) return;
+  try {
+    const ids = msgs.map(m => m.id).filter(id => id && !String(id).startsWith('opt-'));
+    if(ids.length === 0) return;
+    const { data } = await sb.from('message_reactions')
+      .select('message_id,emoji,user_id')
+      .in('message_id', ids);
+    if(!data || data.length === 0) return;
+
+    // Group by message_id
+    const byMsg = {};
+    data.forEach(r => {
+      if(!byMsg[r.message_id]) byMsg[r.message_id] = [];
+      byMsg[r.message_id].push(r);
+    });
+
+    // Render reactions for each message
+    Object.entries(byMsg).forEach(([msgId, reactions]) => {
+      const counts = {};
+      reactions.forEach(r => {
+        if(!counts[r.emoji]) counts[r.emoji] = { n:0, mine:false };
+        counts[r.emoji].n++;
+        if(r.user_id === SB_USER.id) counts[r.emoji].mine = true;
+      });
+      const bub = document.querySelector(`.msg-bubble[data-msg-id="${CSS.escape(msgId)}"]`);
+      if(!bub) return;
+      let rEl = bub.querySelector('.msg-bubble-reactions');
+      if(!rEl){ rEl = document.createElement('div'); rEl.className='msg-bubble-reactions'; bub.insertBefore(rEl, bub.querySelector('.reaction-popup')); }
+      rEl.innerHTML = Object.entries(counts).map(([e,{n,mine}]) =>
+        `<span class="r-pill${mine?' reacted':''}" onclick="_addRx('${msgId}','${e}')">${e}${n>1?`<span class="r-count">${n}</span>`:''}</span>`
+      ).join('');
+    });
+  } catch(e){ console.warn('loadVisibleReactions:', e); }
+}
+
 async function _addRx(msgId,emoji){
   document.querySelectorAll('.reaction-popup.open').forEach(p=>p.classList.remove('open'));
   if(!SB_USER) return;
@@ -21918,7 +21999,11 @@ async function _addRx(msgId,emoji){
     if(ex){ await sb.from('message_reactions').delete().eq('id',ex.id); showToast('Реакция убрана','👋'); }
     else { await sb.from('message_reactions').insert({message_id:msgId,user_id:SB_USER.id,emoji}); showToast(emoji,''); }
     _refreshRx(msgId);
-  }catch(err){ /* table may not exist yet */ }
+  }catch(err){
+    if(err?.code==='42P01' || (err?.message||'').includes('does not exist')){
+      if(typeof _msgShowDbAlert==='function') _msgShowDbAlert('reactions_table');
+    } else { console.warn('[DTR] reaction error:', err?.message); }
+  }
 }
 async function _refreshRx(msgId){
   try{
@@ -23985,6 +24070,17 @@ function initRealtimeMessages() {
     })
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages',filter:'to_user_id=eq.'+SB_USER.id},function(p){var u=p.new;if(!u)return;var b=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(u.id))+'"]');if(!b)return;if(u.content_type==='deleted'||u.content==='__deleted__'){var s=b.querySelector('span');if(s)s.innerHTML='<span style="color:rgba(255,255,255,.3);font-style:italic;">🚫 Удалено</span>';}else{var s=b.querySelector('span');if(s&&u.content)s.innerHTML=esc(u.content).replace(/(https?:\/\/[^\s&<"']+)/g,'<a href="$1" target="_blank" style="color:inherit;opacity:.8;text-decoration:underline">$1</a>');}})
     .on('postgres_changes',{event:'DELETE',schema:'public',table:'messages'},function(p){var did=p.old&&p.old.id;if(!did)return;var b=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(did))+'"]');if(b){var r=b.closest('.msg-row');if(r){r.style.transition='all .2s';r.style.opacity='0';setTimeout(function(){r.remove();},200);}}loadConversations();})
+    .on('postgres_changes',{
+      event: '*',
+      schema: 'public',
+      table: 'message_reactions'
+    }, function(payload){
+      // Refresh reactions for the affected message
+      const row = payload.new || payload.old;
+      if(row && row.message_id){
+        _refreshRx(String(row.message_id));
+      }
+    })
     .subscribe();
 
   if (usersRealtimeChannel) { sb.removeChannel(usersRealtimeChannel); }
@@ -24031,9 +24127,9 @@ function msgContentHTML(msg) {
   const txt = msg.content || '';
   const isMine = msg.from_user_id === SB_USER?.id;
 
-  // FIX: render deleted message as grey tombstone
+  // Render old DB-level deletions (legacy — new deletes are local-only)
   if(ct === 'deleted' || txt === '__deleted__'){
-    return `<span style="color:rgba(255,255,255,.3);font-style:italic;font-size:13px;">🚫 Сообщение удалено</span>`;
+    return `<span style="color:rgba(255,255,255,.3);font-style:italic;font-size:13px;display:block;">🚫 Сообщение удалено</span>`;
   }
 
   // FIX 1: Extract forward/reply metadata for ALL content types (image/voice/file)
@@ -24114,14 +24210,40 @@ function msgContentHTML(msg) {
       // Reply block
       if(parsed.r){
         const r = parsed.r;
+        // Smart reply preview — detect media type from replyText
+        const _rt = r.replyText || '';
+        let _replyPreview = _rt;
+        let _replyThumb = '';
+        // Use replyType if available (set when replying to media)
+        const _rtype = r.replyType || 'text';
+        if(_rtype === 'image' || _rt.includes('.jpg')||_rt.includes('.png')||_rt.includes('.jpeg')||_rt.includes('.webp')||_rt.includes('.gif')){
+          _replyPreview = '🖼️ Изображение';
+          // Show thumbnail for images
+          const _imgUrl = _rt.startsWith('http') ? _rt : (() => { try { return JSON.parse(_rt).url || ''; } catch(e){ return ''; } })();
+          if(_imgUrl) _replyThumb = `<img src="${esc(_imgUrl)}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0;" onerror="this.remove()">`;
+        } else if(_rtype === 'voice' || (!_rt && _rtype === 'voice')){
+          _replyPreview = '🎤 Голосовое сообщение';
+        } else if(_rtype === 'file'){
+          // Extract filename from JSON or show generic
+          try { const _fj=JSON.parse(_rt); _replyPreview = '📎 '+(_fj.name||'Файл'); } catch(e){ _replyPreview = '📎 Файл'; }
+        } else if(!_rt || _rt.startsWith('http') || _rt.startsWith('{')){
+          if(_rt.startsWith('{')){
+            try { const _rj=JSON.parse(_rt); 
+              if(_rj.url && _rj.duration!==undefined) _replyPreview='🎤 Голосовое';
+              else if(_rj.url && _rj.name) _replyPreview='📎 '+_rj.name;
+              else if(_rj.url) _replyPreview='🖼️ Изображение';
+            } catch(e){ _replyPreview = '📎 Медиафайл'; }
+          } else { _replyPreview = _rt || '📎 Медиафайл'; }
+        }
         replyBlock = `<div onclick="event.stopPropagation();_msgScrollToId('${esc(String(r.replyToId))}')"
-          style="display:flex;gap:8px;align-items:stretch;margin-bottom:6px;cursor:pointer;border-radius:8px;background:rgba(255,255,255,.06);padding:7px 10px;transition:background .15s;"
-          onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='rgba(255,255,255,.06)'">
-          <div style="width:3px;border-radius:2px;background:var(--gold);flex-shrink:0;"></div>
-          <div style="min-width:0;flex:1;">
-            <div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:2px;">${esc(r.replyAuthor||'')}</div>
-            <div style="font-size:11.5px;color:rgba(255,255,255,.55);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc((r.replyText||'').slice(0,80))}</div>
+          style="display:flex;gap:8px;align-items:stretch;margin-bottom:7px;cursor:pointer;border-radius:8px;background:rgba(255,255,255,.07);padding:7px 10px;transition:background .15s;max-width:100%;"
+          onmouseenter="this.style.background='rgba(255,255,255,.12)'" onmouseleave="this.style.background='rgba(255,255,255,.07)'">
+          <div style="width:3px;border-radius:2px;background:var(--gold);flex-shrink:0;min-height:24px;"></div>
+          <div style="min-width:0;flex:1;display:flex;flex-direction:column;justify-content:center;gap:1px;">
+            <div style="font-size:11px;font-weight:700;color:var(--gold);">${esc(r.replyAuthor||'')}</div>
+            <div style="font-size:12px;color:rgba(255,255,255,.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(_replyPreview.slice(0,80))}</div>
           </div>
+          ${_replyThumb}
         </div>`;
       }
       // Forward block
@@ -26572,44 +26694,178 @@ body.dtr-fs-active[data-fs-tab="manage"] .mg-emo { font-size: 36px !important; }
    6. СООБЩЕНИЯ — Immersive Chat
    Accent: Cyan. Feel: iMessage / Telegram
 ══════════════════════════════════════════════════════════════════════ */
-body.dtr-fs-active[data-fs-tab="messages"] .tc.active {
-  background: linear-gradient(160deg, #060810 0%, #070A14 50%, #05070E 100%) !important;
-  overflow: hidden !important;
-}
+/* ════════════════════════════════════════════════
+   MESSAGES — FULLSCREEN MODE
+   ════════════════════════════════════════════════ */
 body.dtr-fs-active[data-fs-tab="messages"] #dtr-fs-exit-wrap {
-  background: linear-gradient(90deg, rgba(6,8,16,.98) 0%, rgba(7,10,20,.95) 100%) !important;
-  border-bottom-color: rgba(6,182,212,.2) !important;
-  box-shadow: 0 1px 0 rgba(6,182,212,.1), 0 4px 32px rgba(0,0,0,.5) !important;
+  background: linear-gradient(90deg,rgba(6,8,16,.99),rgba(7,10,20,.97)) !important;
+  border-bottom-color: rgba(6,182,212,.15) !important;
+  box-shadow: 0 1px 0 rgba(6,182,212,.08),0 4px 24px rgba(0,0,0,.6) !important;
 }
 body.dtr-fs-active[data-fs-tab="messages"] #dtr-fs-section-name { color: #06B6D4 !important; }
 
-body.dtr-fs-active[data-fs-tab="messages"] #tab-messages { padding: 0 !important; }
+/* Tab container fills screen */
+body.dtr-fs-active[data-fs-tab="messages"] #tab-messages {
+  padding: 0 !important;
+  height: calc(100dvh - 48px) !important;
+  overflow: hidden !important;
+  display: flex !important;
+}
+
+/* Msg layout: full height, no rounded corners */
 body.dtr-fs-active[data-fs-tab="messages"] .msg-layout {
-  height: calc(100dvh - 56px) !important;
-  min-height: calc(100dvh - 56px) !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  max-height: 100% !important;
   border-radius: 0 !important;
   border: none !important;
+  flex: 1 !important;
+  grid-template-columns: 320px 1fr !important;
 }
+
+/* Sidebar */
 body.dtr-fs-active[data-fs-tab="messages"] .msg-list {
-  border-right-color: rgba(6,182,212,.1) !important;
-  min-width: 300px !important;
-  max-width: 340px !important;
+  border-right: 0.5px solid rgba(6,182,212,.12) !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  background: rgba(5,7,12,.98) !important;
+}
+body.dtr-fs-active[data-fs-tab="messages"] .msg-sidebar-toggle {
+  display: none !important;
 }
 body.dtr-fs-active[data-fs-tab="messages"] .msg-list-head {
-  background: linear-gradient(180deg, rgba(6,182,212,.06), rgba(6,182,212,.02)) !important;
-  border-bottom-color: rgba(6,182,212,.1) !important;
+  background: rgba(6,8,14,.97) !important;
+  border-bottom: 0.5px solid rgba(6,182,212,.1) !important;
+  padding: 14px 14px 10px !important;
+}
+body.dtr-fs-active[data-fs-tab="messages"] .msg-list-head-title {
+  color: #06B6D4 !important;
+}
+body.dtr-fs-active[data-fs-tab="messages"] .msg-conv-list {
+  background: transparent !important;
 }
 body.dtr-fs-active[data-fs-tab="messages"] .msg-conv.active {
-  background: rgba(6,182,212,.08) !important;
-  border-left: 2px solid #06B6D4 !important;
+  background: rgba(6,182,212,.09) !important;
 }
+body.dtr-fs-active[data-fs-tab="messages"] .msg-conv.active::before {
+  background: #06B6D4 !important;
+}
+
+/* Chat area */
+body.dtr-fs-active[data-fs-tab="messages"] .msg-chat {
+  background: #060810 !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+body.dtr-fs-active[data-fs-tab="messages"] .msg-chat-head {
+  background: rgba(6,8,14,.97) !important;
+  border-bottom: 0.5px solid rgba(6,182,212,.1) !important;
+  backdrop-filter: blur(24px) !important;
+}
+body.dtr-fs-active[data-fs-tab="messages"] .msg-chat-name {
+  font-size: 16px !important;
+}
+
+/* Messages area */
+body.dtr-fs-active[data-fs-tab="messages"] .msg-messages {
+  padding: 16px 20px 10px !important;
+}
+
+/* Own bubbles — cyan accent */
 body.dtr-fs-active[data-fs-tab="messages"] .msg-bubble.mine {
-  background: linear-gradient(135deg, rgba(6,182,212,.2), rgba(6,182,212,.14)) !important;
-  border-color: rgba(6,182,212,.25) !important;
+  background: #0e4a5a !important;
+  border: none !important;
 }
-body.dtr-fs-active[data-fs-tab="messages"] .msg-send-bar {
+
+/* Input area */
+body.dtr-fs-active[data-fs-tab="messages"] .msg-input-area {
+  background: rgba(6,8,14,.97) !important;
+  border-top: 0.5px solid rgba(6,182,212,.1) !important;
+  padding: 10px 16px 12px !important;
+}
+body.dtr-fs-active[data-fs-tab="messages"] .msg-input {
+  background: rgba(255,255,255,.05) !important;
+  border: 0.5px solid rgba(6,182,212,.15) !important;
+  border-radius: 22px !important;
+  padding: 10px 16px !important;
+}
+body.dtr-fs-active[data-fs-tab="messages"] .msg-input:focus {
+  border-color: rgba(6,182,212,.35) !important;
+  box-shadow: 0 0 0 2px rgba(6,182,212,.08) !important;
+}
+body.dtr-fs-active[data-fs-tab="messages"] .msg-input-wrap {
+  border-color: transparent !important;
+}
+body.dtr-fs-active[data-fs-tab="messages"] .msg-send {
+  background: rgba(6,182,212,.15) !important;
+  color: #06B6D4 !important;
+}
+body.dtr-fs-active[data-fs-tab="messages"] .msg-send:hover {
+  background: rgba(6,182,212,.25) !important;
+}
+
+/* Collapsed sidebar state in FS */
+body.dtr-fs-active[data-fs-tab="messages"] .msg-layout.sidebar-collapsed {
+  grid-template-columns: 0px 1fr !important;
+}
+
+/* Voice rec bar in FS */
+body.dtr-fs-active[data-fs-tab="messages"] #msgVoiceRecUI.active {
+  background: rgba(6,8,14,.98) !important;
   border-top-color: rgba(6,182,212,.12) !important;
-  background: rgba(6,8,16,.95) !important;
+}
+
+/* Ticks color in FS */
+body.dtr-fs-active[data-fs-tab="messages"] .msg-ticks[data-status="read"] svg path,
+body.dtr-fs-active[data-fs-tab="messages"] .msg-ticks[data-status="read"] svg polyline {
+  stroke: #06B6D4 !important;
+}
+
+/* Scroll down btn */
+body.dtr-fs-active[data-fs-tab="messages"] .msg-scroll-down {
+  background: rgba(6,182,212,.2) !important;
+  border-color: rgba(6,182,212,.3) !important;
+  color: #06B6D4 !important;
+}
+
+/* Reply/edit bars */
+body.dtr-fs-active[data-fs-tab="messages"] #_msgReplyBar {
+  background: rgba(6,8,14,.97) !important;
+  border-top-color: rgba(6,182,212,.15) !important;
+}
+body.dtr-fs-active[data-fs-tab="messages"] #_msgEditBar {
+  background: rgba(6,182,212,.05) !important;
+  border-top-color: rgba(6,182,212,.2) !important;
+}
+
+/* Pinned bar */
+body.dtr-fs-active[data-fs-tab="messages"] #_msgPinnedBar {
+  background: rgba(6,8,14,.97) !important;
+  border-bottom-color: rgba(6,182,212,.12) !important;
+}
+
+/* Search bar */
+body.dtr-fs-active[data-fs-tab="messages"] #_msgSearchBar {
+  background: rgba(6,8,14,.97) !important;
+  border-bottom-color: rgba(6,182,212,.1) !important;
+}
+
+/* Unread badge */
+body.dtr-fs-active[data-fs-tab="messages"] .msg-conv-badge {
+  background: #06B6D4 !important;
+  color: #060810 !important;
+}
+
+/* File/voice bubbles */
+body.dtr-fs-active[data-fs-tab="messages"] .msg-voice-play {
+  background: rgba(6,182,212,.2) !important;
+  color: #06B6D4 !important;
+}
+body.dtr-fs-active[data-fs-tab="messages"] .msg-voice-waveform span {
+  background: rgba(6,182,212,.5) !important;
+}
+body.dtr-fs-active[data-fs-tab="messages"] .msg-voice-waveform.playing span {
+  background: #06B6D4 !important;
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -28746,6 +29002,16 @@ function dtrEnterFS(){
 
   // KB: адаптируем
   if(tabName === 'knowledge' && typeof _kbRenderAll === 'function') _kbRenderAll();
+
+  // Messages: ensure layout reflows correctly in FS
+  if(tabName === 'messages'){
+    // Re-render conv list to update scrollable height
+    if(typeof _renderConvList === 'function' && (_convsCache||allConvsCache)){
+      _renderConvList(_convsCache||allConvsCache||[]);
+    }
+    // Re-scroll to bottom
+    setTimeout(()=>{ if(typeof _msgScrollToBottom==='function') _msgScrollToBottom(); }, 100);
+  }
 
   document.querySelector('.tc.active')?.scrollTo(0,0);
   document.addEventListener('keydown', _dtrFsEscHandler);
