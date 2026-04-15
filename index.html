@@ -1890,11 +1890,35 @@ body { transition:background .28s,color .28s; }
 .msg-ticks{display:inline-flex;align-items:center;color:var(--cyan);}
 .msg-bubble.new-msg{animation:newMsgPop .5s cubic-bezier(.34,1.4,.64,1) both;}
 @keyframes newMsgPop{0%{transform:scale(.9);opacity:0;}100%{transform:scale(1);opacity:1;}}
-.msg-bubble-reactions{display:flex;flex-wrap:wrap;gap:3px;margin-top:6px;clear:both;}
-.r-pill{display:inline-flex;align-items:center;gap:3px;padding:3px 7px;border-radius:20px;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.09);font-size:12px;cursor:pointer;transition:background .18s,border-color .18s,transform .15s;user-select:none;}
-.r-pill:hover{background:rgba(245,200,66,.1);border-color:rgba(245,200,66,.24);transform:scale(1.08);}
-.r-pill.reacted{background:rgba(245,200,66,.14);border-color:rgba(245,200,66,.3);}
-.r-count{font-size:11px;font-weight:700;font-family:var(--font-mono);color:var(--t2);}
+.msg-bubble-reactions{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;clear:both;}
+/* Telegram-style reaction pill */
+.r-pill{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 8px 3px 4px;
+  border-radius:20px;
+  background:rgba(255,255,255,.07);
+  border:0.5px solid rgba(255,255,255,.1);
+  font-size:13px;cursor:pointer;
+  transition:background .15s,border-color .15s,transform .14s;
+  user-select:none;position:relative;
+}
+.r-pill:hover{background:rgba(245,200,66,.12);border-color:rgba(245,200,66,.28);transform:scale(1.06);}
+.r-pill.reacted{background:rgba(245,200,66,.16);border-color:rgba(245,200,66,.35);}
+.r-pill .r-emoji{font-size:14px;line-height:1;}
+.r-pill .r-avatars{display:flex;align-items:center;margin-left:1px;}
+.r-pill .r-av{width:16px;height:16px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(0,0,0,.3);margin-left:-4px;flex-shrink:0;background:rgba(255,255,255,.1);}
+.r-pill .r-av:first-child{margin-left:0;}
+.r-pill .r-count{font-size:11px;font-weight:700;font-family:var(--font-mono);color:var(--t2);margin-left:2px;}
+/* Who reacted tooltip */
+.r-pill .r-tooltip{
+  position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+  background:rgba(18,18,22,.96);border:0.5px solid rgba(255,255,255,.12);
+  border-radius:8px;padding:6px 10px;
+  font-size:11px;color:var(--t1);white-space:nowrap;
+  pointer-events:none;opacity:0;transition:opacity .15s;z-index:1000;
+  box-shadow:0 4px 16px rgba(0,0,0,.5);
+}
+.r-pill:hover .r-tooltip{opacity:1;}
 .reaction-popup{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%) scale(.85);opacity:0;pointer-events:none;background:var(--card);border:0.5px solid rgba(255,255,255,.1);border-radius:28px;padding:8px 14px;display:flex;gap:9px;box-shadow:0 8px 32px rgba(0,0,0,.6);z-index:200;transition:opacity .15s,transform .18s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;}
 .reaction-popup.open{opacity:1;pointer-events:all;transform:translateX(-50%) scale(1);}
 .r-pop-btn{font-size:22px;cursor:pointer;background:none;border:none;padding:2px;border-radius:50%;transition:transform .15s;}
@@ -20689,7 +20713,9 @@ function _renderConvList(convs){
       }catch(e){}
     }
     if(_pv==='__deleted__') _pv='🚫 Удалено';
-    const preview = cv.lastMsgMine ? `<span style="color:var(--t3)">Вы: </span>${esc(_pv.slice(0,38))}` : esc(_pv.slice(0,42));
+    const preview = _isBlocked(cv.userId)
+      ? '<span style="color:var(--red);font-size:11px;">🚫 Заблокирован</span>'
+      : cv.lastMsgMine ? `<span style="color:var(--t3)">Вы: </span>${esc(_pv.slice(0,38))}` : esc(_pv.slice(0,42));
     return `
     <div class="msg-conv${isActive?' active':''}${isUnread?' has-unread':''}"
       onclick="openConv('${esc(cv.userId)}','${escAttr(cv.name)}','${escAttr(cv.av||'🎯')}','${escAttr(cv.avUrl||'')}')"
@@ -20721,7 +20747,7 @@ function _renderConvList(convs){
       </button>
     </div>`;
   }).join('');
-  const totalUnread = convs.reduce((s,c)=>s+c.unread,0);
+  const totalUnread = convs.reduce((s,c)=> s + (_isBlocked(c.userId) ? 0 : c.unread), 0);
   const badge = document.getElementById('msgTabBadge');
   if(badge){ badge.style.display=totalUnread>0?'inline':'none'; badge.textContent=totalUnread>9?'9+':totalUnread; }
 }
@@ -21856,6 +21882,7 @@ async function loadMessages(partnerId, append=false){
     data.forEach((msg,i)=>{
       if(hiddenMsgs.has(String(msg.id))) return; // hidden only for me
       if(clearBefore && new Date(msg.created_at) < clearBefore) return; // cleared locally
+      if(!mine && _isBlocked(msg.from_user_id)) return; // blocked user — hide their messages
       const mine = msg.from_user_id === SB_USER.id;
       const d = new Date(msg.created_at);
       const isToday = d.toDateString()===new Date().toDateString();
@@ -22301,6 +22328,41 @@ function _showRxPopup(e,bub){
 }
 
 // ── Load reactions for all visible messages (batch) ──
+// Cache of user avatars for reactions {userId: {name, avUrl, av}}
+const _rxAvatarCache = {};
+
+async function _fetchRxAvatars(userIds){
+  const missing = userIds.filter(id => !_rxAvatarCache[id]);
+  if(missing.length === 0) return;
+  try {
+    const {data} = await sb.from('users').select('id,username,avatar,avatar_url').in('id', missing);
+    (data||[]).forEach(u => {
+      _rxAvatarCache[u.id] = { name: u.username||'?', av: u.avatar||'🎯', avUrl: u.avatar_url||null };
+    });
+  } catch(e){}
+}
+
+function _renderRxPill(msgId, emoji, reactors){
+  // reactors = [{user_id, ...}]
+  const mine = reactors.some(r => r.user_id === SB_USER?.id);
+  const n = reactors.length;
+  // Build avatar stack (max 3)
+  const avHtml = reactors.slice(0,3).map(r => {
+    const u = _rxAvatarCache[r.user_id];
+    if(u?.avUrl) return `<img class="r-av" src="${esc(u.avUrl)}" onerror="this.style.display='none'" alt="">`;
+    if(u?.av && u.av !== '🎯') return `<span class="r-av" style="display:flex;align-items:center;justify-content:center;font-size:8px;">${esc(u.av)}</span>`;
+    return `<span class="r-av" style="display:flex;align-items:center;justify-content:center;font-size:8px;background:rgba(245,200,66,.2);">?</span>`;
+  }).join('');
+  // Tooltip with names
+  const names = reactors.map(r => _rxAvatarCache[r.user_id]?.name || '?').join(', ');
+  return `<span class="r-pill${mine?' reacted':''}" onclick="_addRx('${msgId}','${emoji}')">
+    <span class="r-emoji">${emoji}</span>
+    <span class="r-avatars">${avHtml}</span>
+    ${n > 1 ? `<span class="r-count">${n}</span>` : ''}
+    <span class="r-tooltip">${esc(names)}</span>
+  </span>`;
+}
+
 async function _loadVisibleReactions(msgs){
   if(!msgs || msgs.length === 0 || !SB_USER) return;
   try {
@@ -22311,55 +22373,79 @@ async function _loadVisibleReactions(msgs){
       .in('message_id', ids);
     if(!data || data.length === 0) return;
 
-    // Group by message_id
+    // Fetch avatars for all reactors
+    const allUserIds = [...new Set(data.map(r => r.user_id))];
+    await _fetchRxAvatars(allUserIds);
+
+    // Group: byMsg[msgId][emoji] = [reactors]
     const byMsg = {};
     data.forEach(r => {
-      if(!byMsg[r.message_id]) byMsg[r.message_id] = [];
-      byMsg[r.message_id].push(r);
+      if(!byMsg[r.message_id]) byMsg[r.message_id] = {};
+      if(!byMsg[r.message_id][r.emoji]) byMsg[r.message_id][r.emoji] = [];
+      byMsg[r.message_id][r.emoji].push(r);
     });
 
-    // Render reactions for each message
-    Object.entries(byMsg).forEach(([msgId, reactions]) => {
-      const counts = {};
-      reactions.forEach(r => {
-        if(!counts[r.emoji]) counts[r.emoji] = { n:0, mine:false };
-        counts[r.emoji].n++;
-        if(r.user_id === SB_USER.id) counts[r.emoji].mine = true;
-      });
+    Object.entries(byMsg).forEach(([msgId, byEmoji]) => {
       const bub = document.querySelector(`.msg-bubble[data-msg-id="${CSS.escape(msgId)}"]`);
       if(!bub) return;
       let rEl = bub.querySelector('.msg-bubble-reactions');
       if(!rEl){ rEl = document.createElement('div'); rEl.className='msg-bubble-reactions'; bub.insertBefore(rEl, bub.querySelector('.reaction-popup')); }
-      rEl.innerHTML = Object.entries(counts).map(([e,{n,mine}]) =>
-        `<span class="r-pill${mine?' reacted':''}" onclick="_addRx('${msgId}','${e}')">${e}${n>1?`<span class="r-count">${n}</span>`:''}</span>`
+      rEl.innerHTML = Object.entries(byEmoji).map(([emoji, reactors]) =>
+        _renderRxPill(msgId, emoji, reactors)
       ).join('');
     });
   } catch(e){ console.warn('loadVisibleReactions:', e); }
 }
 
-async function _addRx(msgId,emoji){
+async function _addRx(msgId, emoji){
   document.querySelectorAll('.reaction-popup.open').forEach(p=>p.classList.remove('open'));
   if(!SB_USER) return;
-  try{
-    const {data:ex}=await sb.from('message_reactions').select('id').eq('message_id',msgId).eq('user_id',SB_USER.id).eq('emoji',emoji).maybeSingle();
-    if(ex){ await sb.from('message_reactions').delete().eq('id',ex.id); showToast('Реакция убрана','👋'); }
-    else { await sb.from('message_reactions').insert({message_id:msgId,user_id:SB_USER.id,emoji}); showToast(emoji,''); }
+  try {
+    // One reaction per user: check if user already reacted to this message
+    const {data:existing} = await sb.from('message_reactions')
+      .select('id,emoji')
+      .eq('message_id', msgId)
+      .eq('user_id', SB_USER.id)
+      .maybeSingle();
+
+    if(existing){
+      if(existing.emoji === emoji){
+        // Same emoji — toggle off
+        await sb.from('message_reactions').delete().eq('id', existing.id);
+      } else {
+        // Different emoji — replace (update)
+        await sb.from('message_reactions').update({emoji}).eq('id', existing.id);
+      }
+    } else {
+      // No reaction yet — insert
+      await sb.from('message_reactions').insert({message_id:msgId, user_id:SB_USER.id, emoji});
+    }
     _refreshRx(msgId);
-  }catch(err){
+  } catch(err){
     console.warn('[DTR] reaction error:', err?.message);
   }
 }
 async function _refreshRx(msgId){
-  try{
-    const {data}=await sb.from('message_reactions').select('emoji,user_id').eq('message_id',msgId);
-    const counts={};
-    (data||[]).forEach(r=>{if(!counts[r.emoji])counts[r.emoji]={n:0,mine:false};counts[r.emoji].n++;if(r.user_id===SB_USER.id)counts[r.emoji].mine=true;});
-    const bub=document.querySelector(`.msg-bubble[data-msg-id="${CSS.escape(msgId)}"]`);
+  try {
+    const {data} = await sb.from('message_reactions').select('emoji,user_id').eq('message_id', msgId);
+    if(!data) return;
+    // Fetch avatars
+    const userIds = [...new Set(data.map(r => r.user_id))];
+    await _fetchRxAvatars(userIds);
+    // Group by emoji
+    const byEmoji = {};
+    data.forEach(r => {
+      if(!byEmoji[r.emoji]) byEmoji[r.emoji] = [];
+      byEmoji[r.emoji].push(r);
+    });
+    const bub = document.querySelector(`.msg-bubble[data-msg-id="${CSS.escape(msgId)}"]`);
     if(!bub) return;
-    let rEl=bub.querySelector('.msg-bubble-reactions');
-    if(!rEl){rEl=document.createElement('div');rEl.className='msg-bubble-reactions';bub.insertBefore(rEl,bub.querySelector('.reaction-popup'));}
-    rEl.innerHTML=Object.keys(counts).length?Object.entries(counts).map(([e,{n,mine}])=>`<span class="r-pill${mine?' reacted':''}" onclick="_addRx('${msgId}','${e}')">${e}${n>1?`<span class="r-count">${n}</span>`:''}</span>`).join(''):'';
-  }catch(e){}
+    let rEl = bub.querySelector('.msg-bubble-reactions');
+    if(!rEl){ rEl = document.createElement('div'); rEl.className='msg-bubble-reactions'; bub.insertBefore(rEl, bub.querySelector('.reaction-popup')); }
+    rEl.innerHTML = Object.keys(byEmoji).length
+      ? Object.entries(byEmoji).map(([emoji, reactors]) => _renderRxPill(msgId, emoji, reactors)).join('')
+      : '';
+  } catch(e){}
 }
 
 /* Emoji mini-picker */
@@ -24409,6 +24495,9 @@ function initRealtimeMessages() {
       table: 'messages',
       filter: `to_user_id=eq.${SB_USER.id}`
     }, (payload) => {
+      // Drop messages from blocked users entirely
+      if(_isBlocked(payload.new.from_user_id)) return;
+
       if (payload.new.from_user_id === activeConvUserId) {
         // FIX 8: prevent duplicate — skip if message already rendered (e.g. from loadMessages)
         if(document.querySelector(`.msg-bubble[data-msg-id="${payload.new.id}"]`)) return;
