@@ -21909,8 +21909,8 @@ async function loadMessages(partnerId, append=false){
     data.forEach((msg,i)=>{
       if(hiddenMsgs.has(String(msg.id))) return; // hidden only for me
       if(clearBefore && new Date(msg.created_at) < clearBefore) return; // cleared locally
-      if(!mine && _isBlocked(msg.from_user_id)) return; // blocked user — hide their messages
       const mine = msg.from_user_id === SB_USER.id;
+      if(!mine && _isBlocked(msg.from_user_id)) return; // blocked user — hide their messages
       const d = new Date(msg.created_at);
       const isToday = d.toDateString()===new Date().toDateString();
       const isYest  = d.toDateString()===new Date(Date.now()-86400000).toDateString();
@@ -21983,7 +21983,7 @@ async function loadMessages(partnerId, append=false){
     // Load reactions for all visible messages
     _loadVisibleReactions(data || []);
   }catch(e){
-    console.error('loadMessages:',e);
+    console.error('loadMessages error:', e?.message || e);
     const elNow=document.getElementById('msgMessages');
     if(elNow) elNow.innerHTML='<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:13px;padding:32px">Не удалось загрузить</div>';
   }
