@@ -21136,7 +21136,7 @@ async function _msgViewFile(url, name){
   try {
     const r = await fetch(url);
     const buf = await r.arrayBuffer();
-    // Try UTF-8 first, then CP1251 if it fails
+    // Try UTF-8, fallback to Windows-1251 (common for Cyrillic .txt files)
     let text;
     try {
       text = new TextDecoder('utf-8', {fatal:true}).decode(buf);
@@ -21146,6 +21146,22 @@ async function _msgViewFile(url, name){
     }
     const el = document.getElementById('_msgFileContent');
     if(el) el.textContent = text;
+    // FIX: programmatic download so file is saved with correct UTF-8 encoding
+    // (avoids Supabase Content-Disposition:inline + browser encoding mismatch)
+    const dlBtn = ov.querySelector('a[download]');
+    if(dlBtn){
+      dlBtn.removeAttribute('href');
+      dlBtn.addEventListener('click', function(e){
+        e.preventDefault();
+        const utf8 = new TextEncoder().encode(text);
+        const blob = new Blob([utf8], {type:'text/plain;charset=utf-8'});
+        const objUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objUrl; a.download = name || 'file.txt';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(function(){ URL.revokeObjectURL(objUrl); }, 1000);
+      });
+    }
   } catch(e){
     const el = document.getElementById('_msgFileContent');
     if(el) el.innerHTML = '<div style="color:var(--red);text-align:center;padding:40px;">Не удалось загрузить файл</div>';
@@ -41630,6 +41646,9 @@ var _grpCache      = {};     // {groupId: {chat, members, messages}}
 var _grpRtChannel  = null;   // Realtime channel
 var _grpMembersMap = {};     // {userId: userObj} — кеш профилей
 var _grpDbReady    = false;  // флаг что таблицы существуют
+// FIX: session-level set of deleted/left group IDs — prevents re-appearing after sidebar refresh
+var _grpDeletedIds = new Set();
+var _grpInjectPending = false; // debounce flag
 
 /* ─────────────────────────────────────────────
    HELPERS
@@ -41739,7 +41758,9 @@ async function _grpLoadMyGroups(){
     var lastMsgs=await Promise.all(lastMsgPromises);
     var lastMap={};lastMsgs.forEach(function(x){lastMap[x.id]=x.row;});
 
-    return chats.map(function(c){
+    // FIX: filter out groups that were deleted/left this session
+    var validChats = chats.filter(function(c){ return !_grpDeletedIds.has(c.id); });
+    return validChats.map(function(c){
       var lm=lastMap[c.id];
       return{
         id:c.id,name:c.name,description:c.description||'',
@@ -41750,18 +41771,21 @@ async function _grpLoadMyGroups(){
         lastMine:lm&&lm.from_user_id===_myId()
       };
     });
-  }catch(e){console.warn('[DTR] _grpLoadMyGroups:',e);return[];}
+  }catch(e){return[];}
 }
 
 /* ─────────────────────────────────────────────
    INJECT GROUPS INTO SIDEBAR
 ───────────────────────────────────────────────*/
 async function _grpInjectSidebar(){
+  if(_grpInjectPending) return; // FIX: debounce — prevent parallel calls
+  _grpInjectPending = true;
+  setTimeout(function(){ _grpInjectPending = false; }, 1500);
   var list=document.getElementById('msgConvList');
-  if(!list)return;
+  if(!list){ _grpInjectPending=false; return; }
   // Only run if user is authenticated
-  if(typeof SB_USER==='undefined'||!SB_USER||!SB_USER.id){return;}
-  if(typeof sb==='undefined'||!sb)return;
+  if(typeof SB_USER==='undefined'||!SB_USER||!SB_USER.id){ _grpInjectPending=false; return; }
+  if(typeof sb==='undefined'||!sb){ _grpInjectPending=false; return; }
   list.querySelectorAll('.dtr-group-conv').forEach(function(el){el.remove();});
   var groups=await _grpLoadMyGroups();
   if(!groups.length)return;
@@ -42530,6 +42554,26 @@ function _grpSubscribeRealtime(groupId){
   if(typeof sb==='undefined'||!sb)return;
   try{
     _grpRtChannel=sb.channel('grp_v2_'+groupId)
+      // FIX: listen for group deletion by owner
+      .on('postgres_changes',{event:'DELETE',schema:'public',table:'group_chats',filter:'id=eq.'+groupId},function(){
+        _grpDeletedIds.add(groupId);
+        delete _grpCache[groupId];
+        if(_grpRtChannel){try{sb.removeChannel(_grpRtChannel);}catch(e){}_grpRtChannel=null;}
+        document.querySelectorAll('[data-group-id="'+groupId+'"]').forEach(function(el){el.remove();});
+        if(_grpActiveId===groupId){_grpActiveId=null;_grpResetChatArea();}
+        _toast('Группа была удалена','ℹ️');
+      })
+      // FIX: listen for being kicked from group
+      .on('postgres_changes',{event:'DELETE',schema:'public',table:'group_members',filter:'group_id=eq.'+groupId},function(payload){
+        var old=payload.old;
+        if(!old||old.user_id!==_myId())return; // not about us
+        _grpDeletedIds.add(groupId);
+        delete _grpCache[groupId];
+        if(_grpRtChannel){try{sb.removeChannel(_grpRtChannel);}catch(e){}_grpRtChannel=null;}
+        document.querySelectorAll('[data-group-id="'+groupId+'"]').forEach(function(el){el.remove();});
+        if(_grpActiveId===groupId){_grpActiveId=null;_grpResetChatArea();}
+        _toast('Вас удалили из группы','ℹ️');
+      })
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'group_messages',filter:'group_id=eq.'+groupId},function(payload){
         var msg=payload.new;
         if(!msg||msg.from_user_id===_myId())return;
@@ -42799,17 +42843,17 @@ window._grpLeave=async function(groupId){
   if(!confirm('Покинуть группу?'))return;
   try{
     await sb.from('group_members').delete().eq('group_id',groupId).eq('user_id',_myId());
-    await sb.from('group_messages').insert({
+    try{await sb.from('group_messages').insert({
       group_id:groupId,from_user_id:_myId(),
       content:_myName()+' покинул группу',
       content_type:'text',is_system:true
-    });
+    });}catch(e){}
     _grpActiveId=null;
+    _grpDeletedIds.add(groupId); // FIX: mark as left so it won't re-appear
     if(_grpRtChannel){try{await sb.removeChannel(_grpRtChannel);}catch(e){}_grpRtChannel=null;}
     delete _grpCache[groupId];
     document.getElementById('_grpInfoModal')&&document.getElementById('_grpInfoModal').remove();
-    document.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"]')&&
-      document.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"]').remove();
+    document.querySelectorAll('[data-group-id="'+groupId+'"]').forEach(function(el){el.remove();});
     _toast('Вы покинули группу');
     _grpResetChatArea();
   }catch(e){_toast('Ошибка','⚠️');console.error(e);}
@@ -42821,11 +42865,11 @@ window._grpDelete=async function(groupId){
     // Cascade deletes members + messages via FK ON DELETE CASCADE
     await sb.from('group_chats').delete().eq('id',groupId);
     _grpActiveId=null;
+    _grpDeletedIds.add(groupId); // FIX: mark as deleted so it won't re-appear
     if(_grpRtChannel){try{await sb.removeChannel(_grpRtChannel);}catch(e){}_grpRtChannel=null;}
     delete _grpCache[groupId];
     document.getElementById('_grpInfoModal')&&document.getElementById('_grpInfoModal').remove();
-    document.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"]')&&
-      document.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"]').remove();
+    document.querySelectorAll('[data-group-id="'+groupId+'"]').forEach(function(el){el.remove();});
     _toast('Группа удалена','🗑️');
     _grpResetChatArea();
   }catch(e){_toast('Ошибка удаления','⚠️');console.error(e);}
