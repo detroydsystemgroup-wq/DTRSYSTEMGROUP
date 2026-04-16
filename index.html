@@ -41756,32 +41756,16 @@ body.dtr-fs-active[data-fs-tab="messages"] .msg-tab-action {
   flex-shrink: 0;
 }
 
-/* ══ GROUP MODAL PREMIUM OVERRIDES ═══════════════════════════ */
-#_grpInfoModal > div {
-  background: #0F0F14 !important;
-  border-color: rgba(255,255,255,.08) !important;
-  border-radius: 24px !important;
-  box-shadow: 0 32px 80px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.06) !important;
-}
-#_grpInfoModal > div > div:first-child {
-  background: linear-gradient(160deg, rgba(26,159,255,.07) 0%, transparent 70%) !important;
-  border-bottom-color: rgba(255,255,255,.06) !important;
-  padding: 18px 20px 16px !important;
-}
-#_grpInfoModal > div > div:nth-child(2) { padding: 18px 20px !important; }
-#_grpInfoModal > div > div:last-child {
-  padding: 14px 20px 18px !important;
-  background: rgba(255,255,255,.015) !important;
-  border-top-color: rgba(255,255,255,.06) !important;
-}
-#grpEmojiSel { width:72px !important; height:72px !important; border-radius:18px !important; cursor:pointer !important; transition:transform .15s, box-shadow .15s !important; }
+/* ══ GROUP MODAL PREMIUM ═══════════════════════════════════ */
+#_grpInfoModal > div { background:#0F0F14 !important; border-color:rgba(255,255,255,.08) !important; border-radius:24px !important; box-shadow:0 32px 80px rgba(0,0,0,.85),inset 0 1px 0 rgba(255,255,255,.06) !important; }
+#_grpInfoModal > div > div:first-child { background:linear-gradient(160deg,rgba(26,159,255,.07) 0%,transparent 70%) !important; padding:18px 20px 16px !important; }
+#_grpInfoModal > div > div:nth-child(2) { padding:18px 20px !important; }
+#_grpInfoModal > div > div:last-child { padding:14px 20px 18px !important; background:rgba(255,255,255,.015) !important; }
+#grpEmojiSel { width:72px !important; height:72px !important; border-radius:18px !important; cursor:pointer !important; transition:transform .15s,box-shadow .15s !important; }
 #grpEmojiSel:hover { transform:scale(1.04) !important; box-shadow:0 0 0 2px rgba(26,159,255,.4) !important; }
-.gm-field { background:rgba(255,255,255,.04) !important; border:0.5px solid rgba(255,255,255,.1) !important; border-radius:12px !important; color:var(--t1) !important; font-size:14px !important; transition:border-color .18s !important; }
+.gm-field { background:rgba(255,255,255,.04) !important; border:0.5px solid rgba(255,255,255,.1) !important; border-radius:12px !important; color:var(--t1) !important; font-size:14px !important; }
 .gm-field:focus { border-color:rgba(26,159,255,.5) !important; background:rgba(26,159,255,.03) !important; outline:none !important; }
-#grpMembersList > div { border-radius:12px !important; padding:9px 10px !important; }
 #_grpInfoModal button[onclick*="_grpSaveInfo"] { background:linear-gradient(145deg,#C89F28,#F5C842) !important; border-radius:12px !important; font-weight:800 !important; box-shadow:0 4px 16px rgba(245,200,66,.25) !important; }
-#_grpInfoModal button[onclick*="_grpSaveInfo"]:hover { opacity:.88 !important; }
-/* ═══════════════════════════════════════════════════════════ */
 </style>
 <script>
 (function(){
@@ -42213,21 +42197,17 @@ async function _grpLoadMemberCount(groupId){
 ───────────────────────────────────────────────*/
 async function _grpOpenChat(groupId){
   _grpActiveId=groupId;
-  // Auto-switch to groups tab
-  if(typeof _msgSwitchTab==='function' && _msgActiveTab!=='groups'){
-    _msgSwitchTab('groups');
-  }
-  // Reset compose state
-  _grpReplyTo=null; _grpFwd=null;
+  if(typeof _msgSwitchTab==='function'&&_msgActiveTab!=='groups')_msgSwitchTab('groups');
+  _grpReplyTo=null;_grpFwd=null;
   if(_grpPendingFile){window._grpClearFile&&window._grpClearFile();}
   var oldReplyBar=document.getElementById('_grpReplyBar');if(oldReplyBar)oldReplyBar.remove();
 
-  // ── INSTANT: unsubscribe WITHOUT await (fire & forget) ──────
+  // Fire-and-forget unsubscribe — no await
   if(_grpRtChannel){try{sb.removeChannel(_grpRtChannel);}catch(e){}_grpRtChannel=null;}
 
-  // ── INSTANT: highlight sidebar immediately ───────────────────
-  document.querySelectorAll('[data-conv-uid]').forEach(function(el){
-    el.classList.toggle('active',el.dataset.convUid===groupId);
+  // Instant sidebar highlight
+  document.querySelectorAll('[data-conv-uid]').forEach(function(e){
+    e.classList.toggle('active',e.dataset.convUid===groupId);
   });
 
   // Mobile: show chat instantly
@@ -42237,48 +42217,58 @@ async function _grpOpenChat(groupId){
     if(li)li.style.display='none';
   }
 
-  // ── INSTANT: render from cache if available ──────────────────
+  // ── INSTANT from sidebar card data (no DB needed for header) ──
+  _grpEnsureUI();
+  var _sideCard=document.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"]');
+  if(_sideCard){
+    var _sName=(_sideCard.querySelector('.msg-conv-name')||{}).textContent||'';
+    var _sImg=_sideCard.querySelector('.msg-conv-av-ring img');
+    var _sEmoji=_sideCard.querySelector('.msg-conv-av-ring span');
+    var _avEl=document.getElementById('grpHeadAv');
+    var _nameEl=document.getElementById('grpHeadName');
+    var _subEl=document.getElementById('grpChatSub');
+    if(_avEl){
+      _avEl.onclick=function(){window._grpOpenInfo(groupId);};
+      _avEl.innerHTML=_sImg
+        ?'<img src="'+_sImg.src+'" style="width:100%;height:100%;object-fit:cover;border-radius:13px;" onerror="this.hidden=true">'
+        :(_sEmoji?'<span style="font-size:20px;">'+_sEmoji.textContent+'</span>':'<span style="font-size:20px;">👥</span>');
+    }
+    if(_nameEl)_nameEl.textContent=_sName;
+    if(_subEl)_subEl.textContent='Загрузка…';
+    var _msgEl=document.getElementById('grpMessages');
+    if(_msgEl)_msgEl.innerHTML='';
+    // Restore btn placeholder
+    var _btns=document.getElementById('grpHeadBtns');
+    if(_btns)_btns.innerHTML='<button class="msg-chat-btn" onclick="window._grpOpenInfo(\''+groupId+'\',true)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Управление</button>';
+  }
+
+  // ── If cached: update header fully + load messages ───────────
   var _cached=_grpCache[groupId];
-  if(_cached&&_cached.chat&&_cached.members){
-    var _co=_cached.chat,_mo=_cached.members;
-    var _io=_co.owner_id===_myId();
-    var _ro=(_mo.find(function(m){return m.user_id===_myId();})||{}).role||'member';
-    _grpRenderChatUI(_co,_mo,_io,_ro);
-    _grpLoadMessages(groupId,false);   // no await — messages load in bg
+  if(_cached&&_cached.chat){
+    _grpUpdateHeader(_cached.chat,_cached.members||[],_cached.chat.owner_id===_myId(),(_cached.members||[]).find(function(m){return m.user_id===_myId();})||{role:'member'}.role||'member');
+    _grpLoadMessages(groupId,false);
     _grpSubscribeRealtime(groupId);
-    // Silently refresh cache in background
+    // Bg refresh
     (async function(){
       try{
-        var [{data:chat2},{data:members2}]=await Promise.all([
+        var [{data:c2},{data:m2}]=await Promise.all([
           sb.from('group_chats').select('*').eq('id',groupId).single(),
           sb.from('group_members').select('user_id,role,joined_at').eq('group_id',groupId)
         ]);
-        if(!chat2)return;
-        var uids2=(members2||[]).map(function(m){return m.user_id;});
-        var {data:uRows2}=uids2.length?await sb.from('users').select('id,username,avatar,avatar_url').in('id',uids2):{data:[]};
-        var uMap2={};(uRows2||[]).forEach(function(u){uMap2[u.id]=u;});
-        var mEnr2=(members2||[]).map(function(m){var u=uMap2[m.user_id]||{};return{user_id:m.user_id,role:m.role,joined_at:m.joined_at,username:u.username||'?',avatar:u.avatar||'👤',avatar_url:u.avatar_url||null};});
-        _grpCache[groupId]={chat:chat2,members:mEnr2};
-        // Update header if still on same group
-        if(_grpActiveId===groupId){
-          var _headName=document.querySelector('.msg-chat-name');
-          if(_headName)_headName.textContent=chat2.name;
-        }
+        if(!c2||_grpActiveId!==groupId)return;
+        var u2=(m2||[]).map(function(m){return m.user_id;});
+        var {data:ur2}=u2.length?await sb.from('users').select('id,username,avatar,avatar_url').in('id',u2):{data:[]};
+        var um2={};(ur2||[]).forEach(function(u){um2[u.id]=u;});
+        var me2=(m2||[]).map(function(m){var u=um2[m.user_id]||{};return{user_id:m.user_id,role:m.role,joined_at:m.joined_at,username:u.username||'?',avatar:u.avatar||'👤',avatar_url:u.avatar_url||null};});
+        _grpCache[groupId]={chat:c2,members:me2};
+        var io2=c2.owner_id===_myId(),mr2=(me2.find(function(m){return m.user_id===_myId();})||{}).role||'member';
+        _grpUpdateHeader(c2,me2,io2,mr2);
       }catch(e){}
     })();
     return;
   }
 
-  // ── FIRST OPEN: show skeleton, then load ─────────────────────
-  var _msgArea=document.getElementById('grpMessages');
-  if(_msgArea){
-    _msgArea.innerHTML='<div style="flex:1;display:flex;align-items:center;justify-content:center;">'
-      +'<div style="display:flex;flex-direction:column;gap:8px;align-items:center;opacity:.35;">'
-      +'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
-      +'<div style="font-size:12px;color:var(--t3);">Загрузка…</div>'
-      +'</div></div>';
-  }
-
+  // ── First open: load everything ──────────────────────────────
   try{
     var [{data:chat,error:ce},{data:members,error:me}]=await Promise.all([
       sb.from('group_chats').select('*').eq('id',groupId).single(),
@@ -42288,16 +42278,11 @@ async function _grpOpenChat(groupId){
     var uids=(members||[]).map(function(m){return m.user_id;});
     var {data:userRows}=uids.length?await sb.from('users').select('id,username,avatar,avatar_url').in('id',uids):{data:[]};
     var usersMap={};(userRows||[]).forEach(function(u){usersMap[u.id]=u;});
-    var membersEnriched=(members||[]).map(function(m){
-      var u=usersMap[m.user_id]||{};
-      return{user_id:m.user_id,role:m.role,joined_at:m.joined_at,
-        username:u.username||'?',avatar:u.avatar||'👤',avatar_url:u.avatar_url||null};
-    });
+    var membersEnriched=(members||[]).map(function(m){var u=usersMap[m.user_id]||{};return{user_id:m.user_id,role:m.role,joined_at:m.joined_at,username:u.username||'?',avatar:u.avatar||'👤',avatar_url:u.avatar_url||null};});
     _grpCache[groupId]={chat:chat,members:membersEnriched};
     var isOwner=chat.owner_id===_myId();
-    var myRole=(members||[]).find(function(m){return m.user_id===_myId();})||{};
-    myRole=myRole.role||'member';
-    _grpRenderChatUI(chat,membersEnriched,isOwner,myRole);
+    var myRole=(membersEnriched.find(function(m){return m.user_id===_myId();})||{}).role||'member';
+    _grpUpdateHeader(chat,membersEnriched,isOwner,myRole);
     await _grpLoadMessages(groupId,false);
     _grpSubscribeRealtime(groupId);
   }catch(e){console.error('[DTR] _grpOpenChat:',e);_toast('Ошибка загрузки группы','⚠️');}
@@ -42319,81 +42304,64 @@ async function _grpOpenChat(groupId){
 /* ── expose all functions globally so inline onclick can find them ── */
 var _grpFwd = null; // message being forwarded
 
-function _grpRenderChatUI(chat,members,isOwner,myRole){
+/* ── ENSURE GROUP CHAT UI (built once, reused) ── */
+var _grpUIBuilt = false;
+function _grpEnsureUI(){
   var area=document.getElementById('msgChatArea');
-  if(!area)return;
-  var memberCount=members.length;
-  var previewNames=members.slice(0,3).map(function(m){return(m.username||'?').split(' ')[0];}).join(', ');
+  if(!area||_grpUIBuilt)return;
+  _grpUIBuilt=true;
   var backBtn=window.innerWidth<=600
-    ?'<button style="width:32px;height:32px;border-radius:9px;background:none;border:none;color:var(--t2);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;" onclick="document.getElementById(\'msgChatArea\').style.display=\'none\';document.getElementById(\'msgList\').style.display=\'\';">'
-    +'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>':'';
-
+    ?'<button style="width:32px;height:32px;border-radius:9px;background:none;border:none;color:var(--t2);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;" onclick="document.getElementById(\'msgChatArea\').style.display=\'none\';document.getElementById(\'msgList\').style.display=\'\';">'    +'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>':'';
   area.innerHTML=
-    '<div class="msg-chat-head" id="grpChatHead">'
-      +backBtn
-      +(function(){
-        var av=chat.avatar_url
-          ?'<img src="'+_esc(chat.avatar_url)+'" style="width:100%;height:100%;object-fit:cover;border-radius:13px;" onerror="this.hidden=true">'
-          :'<span style="font-size:20px;">'+_esc(chat.avatar_emoji||'👥')+'</span>';
-        return'<div class="msg-chat-av" style="background:rgba(26,159,255,.12);border-color:rgba(26,159,255,.3);overflow:hidden;padding:0;cursor:pointer;" onclick="window._grpOpenInfo(\''+_esc(chat.id)+'\')">'+av+'</div>';
-      })()
-      +'<div class="msg-chat-info" style="cursor:pointer;" onclick="window._grpOpenInfo(\''+_esc(chat.id)+'\')">'
-        +'<div class="msg-chat-name">'+_esc(chat.name)+'</div>'
-        +'<div class="msg-chat-sub" id="grpChatSub" style="color:var(--blue);">'+memberCount+' участников · '+_esc(previewNames)+'</div>'
-      +'</div>'
-      +'<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">'
-        +(isOwner||myRole==='admin'
-          ?'<button class="msg-chat-btn" onclick="window._grpOpenInfo(\''+_esc(chat.id)+'\',true)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Управление</button>'
-          :'<button class="msg-chat-btn" onclick="window._grpOpenInfo(\''+_esc(chat.id)+'\')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Инфо</button>')
-      +'</div>'
-    +'</div>'
-    /* Pinned message bar — hidden by default */
-    +'<div id="grpPinBar" style="display:none;align-items:center;gap:10px;padding:7px 16px;background:rgba(26,159,255,.08);border-bottom:0.5px solid rgba(26,159,255,.18);flex-shrink:0;cursor:pointer;transition:background .15s;" onclick="window._grpScrollToMsg(document.getElementById(\'grpPinBar\').dataset.msgId)">'
-      +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>'
-      +'<div style="flex:1;min-width:0;">'
-        +'<div style="font-size:10px;font-weight:700;color:var(--blue);letter-spacing:.03em;margin-bottom:1px;">ЗАКРЕПЛЕНО</div>'
-        +'<div id="grpPinText" style="font-size:12px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>'
-      +'</div>'
-      +'<button id="grpPinClose" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:4px;display:flex;align-items:center;flex-shrink:0;" onclick="event.stopPropagation();window._grpUnpinMsg()" title="Открепить">'
-        +'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
-      +'</button>'
-    +'</div>'
-    +'<div class="msg-messages" id="grpMessages" style="flex:1;overflow-y:auto;padding:14px 18px 8px;display:flex;flex-direction:column;gap:0;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.06) transparent;min-height:0;"></div>'
-    +'<button class="msg-scroll-down" id="grpScrollDown" onclick="window._grpScrollToBottom()">'
-      +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>'
-      +'<span id="grpScrollBadge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--gold);color:#09090B;font-size:11px;font-weight:800;font-family:var(--font-mono);padding:1px 4px;border-radius:8px;min-width:16px;text-align:center;line-height:1.4;"></span>'
-    +'</button>'
-    /* File input */
-    +'<input type="file" id="grpFileInput" style="display:none;" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip,.rar" onchange="window._grpFileSelected(this)">'
-    /* File preview bar */
-    +'<div id="grpFilePrev" style="display:none;padding:8px 14px;background:rgba(245,200,66,.06);border-top:0.5px solid rgba(245,200,66,.15);flex-shrink:0;align-items:center;gap:10px;"></div>'
-    /* Input area */
-    +'<div class="msg-input-area" id="grpInputArea">'
-      +'<button style="width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background .15s,color .15s;" onclick="document.getElementById(\'grpFileInput\').click()" title="Прикрепить файл">'
-        +'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>'
-      +'</button>'
-      +'<div class="msg-input-wrap" id="grpInputWrap">'
-        +'<textarea class="msg-input" id="grpInput" placeholder="Сообщение…" rows="1" maxlength="4000"'
-          +' oninput="this.style.height=\'auto\';this.style.height=Math.min(this.scrollHeight,120)+\'px\';window._grpToggleSend(this.value)"'
-          +' onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();window._grpSendMsg();}"'
-          +' onfocus="document.getElementById(\'grpInputWrap\').classList.add(\'focused\')"'
-          +' onblur="document.getElementById(\'grpInputWrap\').classList.remove(\'focused\')"></textarea>'
-        +'<button class="msg-emoji-btn" type="button" onclick="window._grpToggleEmoji()">😊</button>'
-      +'</div>'
-      +'<button class="msg-send" id="grpSendBtn" onclick="window._grpSendMsg()" type="button">'
-        +'<svg id="grpSendIcoArrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>'
-      +'</button>'
-    +'</div>';
-
+    '<div class="msg-chat-head" id="grpChatHead">'      +backBtn      +'<div class="msg-chat-av" id="grpHeadAv" style="background:rgba(26,159,255,.12);border-color:rgba(26,159,255,.3);overflow:hidden;padding:0;cursor:pointer;"></div>'      +'<div class="msg-chat-info" id="grpHeadInfo" style="cursor:pointer;">'        +'<div class="msg-chat-name" id="grpHeadName"></div>'        +'<div class="msg-chat-sub" id="grpChatSub" style="color:var(--blue);"></div>'      +'</div>'      +'<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;" id="grpHeadBtns"></div>'    +'</div>'    +'<div id="grpPinBar" style="display:none;align-items:center;gap:10px;padding:7px 16px;background:rgba(26,159,255,.08);border-bottom:0.5px solid rgba(26,159,255,.18);flex-shrink:0;cursor:pointer;" onclick="window._grpScrollToMsg(document.getElementById(\'grpPinBar\').dataset.msgId)">'      +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>'      +'<div style="flex:1;min-width:0;"><div style="font-size:10px;font-weight:700;color:var(--blue);letter-spacing:.03em;margin-bottom:1px;">ЗАКРЕПЛЕНО</div><div id="grpPinText" style="font-size:12px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div></div>'      +'<button id="grpPinClose" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:4px;display:flex;align-items:center;flex-shrink:0;" onclick="event.stopPropagation();window._grpUnpinMsg()">'        +'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'      +'</button>'    +'</div>'    +'<div class="msg-messages" id="grpMessages" style="flex:1;overflow-y:auto;padding:14px 18px 8px;display:flex;flex-direction:column;gap:0;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.06) transparent;min-height:0;"></div>'    +'<button class="msg-scroll-down" id="grpScrollDown" onclick="window._grpScrollToBottom()">'      +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>'      +'<span id="grpScrollBadge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--gold);color:#09090B;font-size:11px;font-weight:800;font-family:var(--font-mono);padding:1px 4px;border-radius:8px;min-width:16px;text-align:center;line-height:1.4;"></span>'    +'</button>'    +'<input type="file" id="grpFileInput" style="display:none;" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip,.rar" onchange="window._grpFileSelected(this)">'    +'<div id="grpFilePrev" style="display:none;padding:8px 14px;background:rgba(245,200,66,.06);border-top:0.5px solid rgba(245,200,66,.15);flex-shrink:0;align-items:center;gap:10px;"></div>'    +'<div class="msg-input-area" id="grpInputArea">'      +'<button style="width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;" onclick="document.getElementById(\'grpFileInput\').click()" title="Прикрепить файл">'        +'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>'      +'</button>'      +'<div class="msg-input-wrap" id="grpInputWrap">'        +'<textarea class="msg-input" id="grpInput" placeholder="Сообщение…" rows="1" maxlength="4000"'          +' oninput="this.style.height=\'auto\';this.style.height=Math.min(this.scrollHeight,120)+\'px\';window._grpToggleSend(this.value)"'          +' onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();window._grpSendMsg();}"'          +' onfocus="document.getElementById(\'grpInputWrap\').classList.add(\'focused\')"'          +' onblur="document.getElementById(\'grpInputWrap\').classList.remove(\'focused\')"></textarea>'        +'<button class="msg-emoji-btn" type="button" onclick="window._grpToggleEmoji()">😊</button>'      +'</div>'      +'<button class="msg-send" id="grpSendBtn" onclick="window._grpSendMsg()" type="button">'        +'<svg id="grpSendIcoArrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>'      +'</button>'    +'</div>';
+  // Scroll listener
   var el=document.getElementById('grpMessages');
-  if(el){
-    el.addEventListener('scroll',function(){
-      var fb=el.scrollHeight-el.scrollTop-el.clientHeight;
-      var btn=document.getElementById('grpScrollDown');
-      if(btn)btn.classList.toggle('visible',fb>120);
-    },{passive:true});
+  if(el){el.addEventListener('scroll',function(){var fb=el.scrollHeight-el.scrollTop-el.clientHeight;var btn=document.getElementById('grpScrollDown');if(btn)btn.classList.toggle('visible',fb>120);},{passive:true});}
+}
+
+/* ── UPDATE HEADER ONLY (instant, no innerHTML rebuild) ── */
+function _grpUpdateHeader(chat,members,isOwner,myRole){
+  // Avatar
+  var avEl=document.getElementById('grpHeadAv');
+  if(avEl){
+    avEl.onclick=function(){window._grpOpenInfo(chat.id);};
+    avEl.innerHTML=chat.avatar_url
+      ?'<img src="'+_esc(chat.avatar_url)+'" style="width:100%;height:100%;object-fit:cover;border-radius:13px;" onerror="this.hidden=true">'
+      :'<span style="font-size:20px;">'+_esc(chat.avatar_emoji||'👥')+'</span>';
+  }
+  // Name
+  var nameEl=document.getElementById('grpHeadName');
+  if(nameEl)nameEl.textContent=chat.name;
+  // Subtitle
+  var subEl=document.getElementById('grpChatSub');
+  if(subEl){
+    var memberCount=members.length;
+    var previewNames=members.slice(0,3).map(function(m){return(m.username||'?').split(' ')[0];}).join(', ');
+    subEl.textContent=memberCount+' участников · '+previewNames;
+  }
+  // Info click
+  var infoEl=document.getElementById('grpHeadInfo');
+  if(infoEl)infoEl.onclick=function(){window._grpOpenInfo(chat.id);};
+  // Buttons
+  var btnsEl=document.getElementById('grpHeadBtns');
+  if(btnsEl){
+    if(isOwner||myRole==='admin'){
+      btnsEl.innerHTML='<button class="msg-chat-btn" onclick="window._grpOpenInfo(\''+_esc(chat.id)+'\',true)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Управление</button>';
+    } else {
+      btnsEl.innerHTML='<button class="msg-chat-btn" onclick="window._grpOpenInfo(\''+_esc(chat.id)+'\')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Инфо</button>';
+    }
   }
 }
+
+/* ── RENDER CHAT UI = ensure structure + update header ── */
+function _grpRenderChatUI(chat,members,isOwner,myRole){
+  _grpEnsureUI();
+  _grpUpdateHeader(chat,members,isOwner,myRole);
+  // Clear messages for new group
+  var msgEl=document.getElementById('grpMessages');
+  if(msgEl)msgEl.innerHTML='';
+}
+
 
 /* ── LOAD MESSAGES ── */
 var _grpPage={};
@@ -43281,15 +43249,22 @@ window._grpSaveInfo=async function(groupId){
       var ext2=(imgFile.name||'img.jpg').split('.').pop().toLowerCase()||'jpg';
       var imgPath='group_avatars/'+groupId+'.'+ext2;
       // Use 'chat-files' bucket with user-scoped path so storage RLS passes
-      var _bkts=[{b:'avatars',p:'group_avatars/'+groupId+'.'+ext2},{b:'avatars',p:_myId()+'/grp_'+groupId+'.'+ext2},{b:'chat-files',p:'group_avatars/'+_myId()+'/grp_'+groupId+'.'+ext2}];
+      var buckets=['chat-files','avatars'];
       var uploaded=false;
-      for(var bi=0;bi<_bkts.length;bi++){
+      for(var bi=0;bi<buckets.length;bi++){
+        var bkt=buckets[bi];
+        var bktPath=(bkt==='chat-files'?'group_avatars/':'')+_myId()+'/grp_'+groupId+'.'+ext2;
         try{
-          var {error:upErr2}=await sb.storage.from(_bkts[bi].b).upload(_bkts[bi].p,imgFile,{upsert:true,contentType:imgFile.type||'image/jpeg'});
-          if(!upErr2){var {data:urlData2}=sb.storage.from(_bkts[bi].b).getPublicUrl(_bkts[bi].p);newAvatarUrl=(urlData2&&urlData2.publicUrl||null);if(newAvatarUrl)newAvatarUrl=newAvatarUrl.split('?')[0]+'?t='+Date.now();uploaded=true;break;}
+          var {error:upErr2}=await sb.storage.from(bkt).upload(bktPath,imgFile,{upsert:true,contentType:imgFile.type||'image/jpeg'});
+          if(!upErr2){
+            var {data:urlData2}=sb.storage.from(bkt).getPublicUrl(bktPath);
+            newAvatarUrl=(urlData2&&urlData2.publicUrl||null);
+            if(newAvatarUrl)newAvatarUrl=newAvatarUrl.split('?')[0]+'?t='+Date.now();
+            uploaded=true;break;
+          }
         }catch(bex){}
       }
-      if(!uploaded){_toast('Не удалось загрузить фото — проверь Storage buckets','⚠️');return;}
+      if(!uploaded){_toast('Не удалось загрузить фото группы — проверь настройки Storage','⚠️');return;}
     }catch(ex){console.warn('[DTR] group avatar upload ex:',ex);}
   }
   try{
@@ -43772,30 +43747,24 @@ else{_grpBoot();}
 
 })();
 </script>
-
 <script>
 (function(){
-  var _grpAvatarObs=new MutationObserver(function(){
-    var sel=document.getElementById('grpEmojiSel');
-    var inp=document.getElementById('grpAvatarInput');
-    if(sel&&inp&&!sel.dataset.patchedClick){
-      sel.dataset.patchedClick='1';
-      if(!sel.querySelector('.grp-cam-ov')){
-        var ov=document.createElement('div');
-        ov.className='grp-cam-ov';
+  new MutationObserver(function(){
+    var sel=document.getElementById('grpEmojiSel'),inp=document.getElementById('grpAvatarInput');
+    if(sel&&inp&&!sel.dataset.pc){
+      sel.dataset.pc='1';
+      if(!sel.querySelector('.gcov')){
+        var ov=document.createElement('div');ov.className='gcov';
         ov.style.cssText='position:absolute;inset:0;border-radius:17px;background:rgba(0,0,0,.52);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .18s;pointer-events:none;';
-        ov.innerHTML='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
-        sel.style.position='relative';
-        sel.appendChild(ov);
+        ov.innerHTML='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
+        sel.style.position='relative';sel.appendChild(ov);
         sel.addEventListener('mouseenter',function(){ov.style.opacity='1';});
         sel.addEventListener('mouseleave',function(){ov.style.opacity='0';});
       }
       sel.onclick=function(e){e.stopPropagation();inp.click();};
     }
-  });
-  _grpAvatarObs.observe(document.body,{childList:true,subtree:true});
+  }).observe(document.body,{childList:true,subtree:true});
 })();
 </script>
-
 </body>
 </html>
