@@ -17445,14 +17445,14 @@ function _doRenderAll(){
 
 function renderNav(){
   const avEl=document.getElementById('navAv');
-  if(P.avatarUrl){const cbUrl=P.avatarUrl.startsWith("data:")?P.avatarUrl:(P.avatarUrl);avEl.innerHTML=`<img src="${cbUrl}" style="width:26px;height:26px;object-fit:cover;border-radius:7px;display:block" onerror="this.style.display='none'">`;}
+  if(P.avatarUrl){const cbUrl=P.avatarUrl.startsWith("data:")?P.avatarUrl:(P.avatarUrl);avEl.innerHTML=`<img src="${cbUrl}" style="width:26px;height:26px;object-fit:cover;border-radius:7px;display:block" onerror="this.hidden=true">`;}
   else{avEl.innerHTML=P.avatar;}
   document.getElementById('navUname').textContent=P.name;
 }
 function renderHeader(){
   const avEl=document.getElementById('profAv');
   if(P.avatarUrl){
-    avEl.innerHTML=`<img src="${P.avatarUrl}" style="width:100%;height:100%;border-radius:10px;object-fit:cover" onerror="this.style.display='none'">`;
+    avEl.innerHTML=`<img src="${P.avatarUrl}" style="width:100%;height:100%;border-radius:10px;object-fit:cover" onerror="this.hidden=true">`;
   } else {
     avEl.textContent=P.avatar;
   }
@@ -18817,7 +18817,7 @@ function renderAvEl(av, avUrl, size=40, radius=10, border='0.5px solid var(--bor
     `display:flex;align-items:center;justify-content:center;` +
     `font-size:${Math.round(size*0.44)}px;flex-shrink:0;overflow:hidden;`;
   if (avUrl) {
-    return `<div style="${sty}"><img src="${avUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:${radius}px" onerror="this.parentNode.textContent='${av}'"></div>`;
+    return `<div style="${sty}"><img src="${avUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:${radius}px" onerror="this.hidden=true"></div>`;
   }
   return `<div style="${sty}">${av||'🎯'}</div>`;
 }
@@ -19405,8 +19405,8 @@ function _buildArenaHTML(cats, results){
       const totalHrs = p.hrs > 0 ? (p.hrs>=100?Math.round(p.hrs):p.hrs.toFixed(1))+'ч' : null;
 
       const av = isMe
-        ? (P.avatarUrl ? `<img src="${P.avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:${isTop3?10:7}px" onerror="this.style.display='none'">` : `<span style="font-size:${isTop3?19:15}px">${P.avatar}</span>`)
-        : (p.avUrl    ? `<img src="${p.avUrl}"    style="width:100%;height:100%;object-fit:cover;border-radius:${isTop3?10:7}px" onerror="this.parentNode.textContent='${p.av}'">` : `<span style="font-size:${isTop3?19:15}px">${p.av}</span>`);
+        ? (P.avatarUrl ? `<img src="${P.avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:${isTop3?10:7}px" onerror="this.hidden=true">` : `<span style="font-size:${isTop3?19:15}px">${P.avatar}</span>`)
+        : (p.avUrl    ? `<img src="${p.avUrl}"    style="width:100%;height:100%;object-fit:cover;border-radius:${isTop3?10:7}px" onerror="this.hidden=true">` : `<span style="font-size:${isTop3?19:15}px">${p.av}</span>`);
 
       const nameColor = isMe ? cat.color : isTop3 ? pc.txt : 'var(--t1)';
       const statColor = isMe ? cat.color : isTop3 ? pc.txt : 'var(--t2)';
@@ -20147,7 +20147,7 @@ async function openUserProfile(userId, name, av, avUrl){
       avEl.style.border = `2.5px solid ${accentColor}66`;
       avEl.style.boxShadow = `0 8px 32px rgba(0,0,0,.5),0 0 0 4px ${accentColor}12,0 0 28px ${accentColor}22`;
       if(u?.avatar_url){
-        avEl.innerHTML = `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:18px" onerror="this.parentNode.textContent='${u?.avatar||'🎯'}'">`;
+        avEl.innerHTML = `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:18px" onerror="this.hidden=true">`;
       } else {
         avEl.textContent = u?.avatar || av || '🎯';
       }
@@ -20811,7 +20811,7 @@ function _renderConvList(convs){
   }
   el.innerHTML = convs.map((cv,i) => {
     const avHtml = cv.avUrl
-      ? `<img src="${cv.avUrl}" class="img-cover" style="border-radius:13px;width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.display='none'">` 
+      ? `<img src="${cv.avUrl}" class="img-cover" style="border-radius:13px;width:100%;height:100%;object-fit:cover;display:block;" onerror="this.hidden=true">` 
       : esc(cv.av || '🎯');
     const isUnread = cv.unread > 0;
     const isActive = cv.userId === activeConvUserId;
@@ -20834,7 +20834,7 @@ function _renderConvList(convs){
     const preview = cv.lastMsgMine ? `<span style="color:var(--t3)">Вы: </span>${esc(_pv.slice(0,38))}` : esc(_pv.slice(0,42));
     return `
     <div class="msg-conv${isActive?' active':''}${isUnread?' has-unread':''}"
-      onclick="openConv('${esc(cv.userId)}','${escAttr(cv.name)}','${escAttr(cv.av||'🎯')}','${escAttr(cv.avUrl||'')}')"
+      data-last-time="${new Date(cv.lastTime).getTime()||0}" onclick="openConv('${esc(cv.userId)}','${escAttr(cv.name)}','${escAttr(cv.av||'🎯')}','${escAttr(cv.avUrl||'')}')"
       data-conv-uid="${esc(cv.userId)}"
       style="position:relative;animation:fadeUp .18s ${i*.03}s ease both"
       onmouseenter="this.querySelector('.conv-del-btn').style.opacity='1'"
@@ -21394,7 +21394,7 @@ async function openConv(userId, name, av, avUrl){
     if(!area) return;
 
     const avDisplay = avUrl
-      ? `<img src="${avUrl}" class="img-cover" style="border-radius:13px;width:100%;height:100%;object-fit:cover" onerror="this.parentElement.textContent='${escAttr(av||'🎯')}'">` 
+      ? `<img src="${avUrl}" class="img-cover" style="border-radius:13px;width:100%;height:100%;object-fit:cover" onerror="this.hidden=true">` 
       : esc(av||'🎯');
 
     area.innerHTML = `
@@ -21622,7 +21622,7 @@ async function _msgSearchUsers(q){
       }
       res.innerHTML = data.map(u=>{
         const avHtml = u.avatar_url
-          ? `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:11px;" onerror="this.style.display='none'">`
+          ? `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:11px;" onerror="this.hidden=true">`
           : `<span style="font-size:18px">${u.avatar||'👤'}</span>`;
         return `<div onclick="_msgStartConv('${u.id}','${escAttr(u.username||'?')}','${escAttr(u.avatar||'👤')}','${escAttr(u.avatar_url||'')}')"
           style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;cursor:pointer;transition:background .12s;"
@@ -22382,7 +22382,7 @@ function _startOnlinePolling(userId){
 let _msgPartnerAvCache = { av: '👤', avUrl: null, _name: 'Собеседник' }; // FIX 2: include _name
 function _msgGetPartnerAvatar(){
   const { av, avUrl } = _msgPartnerAvCache;
-  if(avUrl) return `<img src="${avUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:9px;" onerror="this.style.display='none'">`;
+  if(avUrl) return `<img src="${avUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:9px;" onerror="this.hidden=true">`;
   return `<span style="font-size:13px;line-height:1;">${av||'👤'}</span>`;
 }
 
@@ -24571,7 +24571,7 @@ function initRealtimeMessages() {
         });
       });
       document.querySelectorAll(`[data-uid="${updated.id}"]`).forEach(el => {
-        if (updated.avatar_url) el.innerHTML = `<img src="${updated.avatar_url}" class="img-cover" style="border-radius:50%" onerror="this.parentNode.textContent='${updated.avatar||'🎯'}'">`;
+        if (updated.avatar_url) el.innerHTML = `<img src="${updated.avatar_url}" class="img-cover" style="border-radius:50%" onerror="this.hidden=true">`;
         else el.textContent = updated.avatar || '🎯';
       });
     })
@@ -24629,7 +24629,7 @@ function msgContentHTML(msg) {
 
   if(ct === 'image'){
     const safeUrl = esc(_mediaUrl || txt);
-    return _fwdBlock + `<img src="${safeUrl}" style="max-width:240px;max-height:200px;border-radius:12px;display:block;margin-bottom:2px;cursor:pointer;object-fit:cover;" onclick="window.open(this.src,'_blank')" loading="lazy" onerror="this.style.display='none'">`;
+    return _fwdBlock + `<img src="${safeUrl}" style="max-width:240px;max-height:200px;border-radius:12px;display:block;margin-bottom:2px;cursor:pointer;object-fit:cover;" onclick="window.open(this.src,'_blank')" loading="lazy" onerror="this.hidden=true">`;
   }
 
   if(ct === 'voice'){
@@ -24696,7 +24696,7 @@ function msgContentHTML(msg) {
           _replyPreview = '🖼️ Изображение';
           // Show thumbnail for images
           const _imgUrl = _rt.startsWith('http') ? _rt : (() => { try { return JSON.parse(_rt).url || ''; } catch(e){ return ''; } })();
-          if(_imgUrl) _replyThumb = `<img src="${esc(_imgUrl)}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0;" onerror="this.remove()">`;
+          if(_imgUrl) _replyThumb = `<img src="${esc(_imgUrl)}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0;" onerror="this.hidden=true">`;
         } else if(_rtype === 'voice' || (!_rt && _rtype === 'voice')){
           _replyPreview = '🎤 Голосовое сообщение';
         } else if(_rtype === 'file'){
@@ -24885,7 +24885,7 @@ function _msgForward(rawContent, contentType, fromName){
     btn.onmouseenter = function(){ btn.style.background='rgba(255,255,255,.04)'; };
     btn.onmouseleave = function(){ btn.style.background='none'; };
     const avHtml = c.avUrl
-      ? '<img src="'+esc(c.avUrl)+'" style="width:100%;height:100%;object-fit:cover;border-radius:9px;" onerror="this.style.display=\'none\'">'
+      ? '<img src="'+esc(c.avUrl)+'" style="width:100%;height:100%;object-fit:cover;border-radius:9px;" onerror="this.hidden=true">'
       : esc(c.av||'🎯');
     btn.innerHTML = '<div style="width:36px;height:36px;border-radius:9px;background:var(--panel);border:0.5px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;overflow:hidden;">'+avHtml+'</div><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(c.name)+'</div></div>';
     
@@ -25769,7 +25769,7 @@ async function uploadAvatarPhoto(){
 
 function getAvatarDisplay(size=48){
   if(P.avatarUrl){
-    return `<img src="${P.avatarUrl}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;border:2px solid var(--blue)" onerror="this.style.display='none'">`;
+    return `<img src="${P.avatarUrl}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;border:2px solid var(--blue)" onerror="this.hidden=true">`;
   }
   return null;
 }
@@ -33595,7 +33595,7 @@ function _lrnRenderSidebar(){
         :_auth.authors.map(a=>{
           let avInner;
           if(a.avatarLoading) avInner=`<div class="lrn-auth-av-spinner"></div>`;
-          else if(a.avatarUrl) avInner=`<img src="${a.avatarUrl}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:9px" onerror="this.style.display='none'">`;
+          else if(a.avatarUrl) avInner=`<img src="${a.avatarUrl}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:9px" onerror="this.hidden=true">`;
           else avInner=_lrnInitial(a.name);
           return `<a class="lrn-auth-row" href="${a.url}" target="_blank" rel="noopener">
             <div class="lrn-auth-av" style="background:${a.avatarUrl?'transparent':a.color};overflow:hidden">${avInner}</div>
@@ -33666,7 +33666,7 @@ function _lrnRenderMain(){
     var domain=_lrnDomain(link.url), favicon=_lrnFavicon(link.url);
     var pinSvg=_svgP?_svgP(isPinned):'📌';
     var thumbHtml=thumb
-      ? '<img src="'+thumb+'" alt="" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'
+      ? '<img src="'+thumb+'" alt="" loading="lazy" onerror="this.hidden=true">'
       : '';
     var icoStyle=thumb?'display:none':'display:flex';
     var playHtml=isYT
@@ -33684,7 +33684,7 @@ function _lrnRenderMain(){
       +'</div>'
       +'<div class="lrn-card-body">'
         +'<div class="lrn-card-ttl">'+link.name+'</div>'
-        +'<div class="lrn-card-meta"><img src="'+favicon+'" alt="" onerror="this.style.display=\'none\'" loading="lazy"><span>'+domain+'</span></div>'
+        +'<div class="lrn-card-meta"><img src="'+favicon+'" alt="" onerror="this.hidden=true" loading="lazy"><span>'+domain+'</span></div>'
         +(catId?'<div class="lrn-card-acts">'
           +'<button class="lrn-card-act" onclick="event.stopPropagation();lrnEditLink(\''+catId+'\',\''+link.id+'\')">'+svgEdit+' Изменить</button>'
           +'<button class="lrn-card-act del" onclick="event.stopPropagation();lrnDeleteLink(\''+catId+'\',\''+link.id+'\')">'+svgTrash+'</button>'
@@ -34342,7 +34342,7 @@ window._svcRenderMain = function(){
                     width="36"
                     height="36"
                     style="width:36px;height:36px;object-fit:contain;display:block"
-                    onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('beforeend','<span style=\\'font-size:24px;line-height:1\\'>🔗</span>')"
+                    onerror="this.hidden=true"
                   >
                 </div>
                 <span class="svc-tile-name">${svc.name}</span>
@@ -34880,7 +34880,7 @@ window._cmatRenderMain=function(){
     const isPinned=window._pinIs?window._pinIs('cmat_items',item.id,room.id):false;
     return `<div class="lrn-card" style="position:relative" onclick="window.open('${item.url}','_blank','noopener')" style="cursor:pointer">
       <div class="lrn-thumb">
-        ${thumb?`<img src="${thumb}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`:``}
+        ${thumb?`<img src="${thumb}" alt="" loading="lazy" onerror="this.hidden=true">`:``}
         <div class="lrn-thumb-ico" style="${thumb?'display:none':'display:flex'}">${isYT?svgPlay:svgLink}</div>
         ${isYT?`<div class="lrn-thumb-play"><div class="lrn-thumb-play-btn">${svgPlay}</div></div>`:''}
         <div class="lrn-yt-badge">${d}</div>
@@ -34892,7 +34892,7 @@ window._cmatRenderMain=function(){
       </div>
       <div class="lrn-card-body">
         <div class="lrn-card-ttl">${item.title}</div>
-        <div class="lrn-card-meta"><img src="${f}" alt="" onerror="this.style.display='none'" loading="lazy"><span>${d}</span></div>
+        <div class="lrn-card-meta"><img src="${f}" alt="" onerror="this.hidden=true" loading="lazy"><span>${d}</span></div>
         <div style="margin-top:6px;padding-top:6px;border-top:0.5px solid rgba(255,255,255,.04);display:flex;align-items:center;justify-content:space-between">
           ${authorChip(item.user_id)}<span style="font-size:10px;color:var(--t3)">${date}</span>
         </div>
@@ -34911,7 +34911,7 @@ window._cmatRenderMain=function(){
     return `<div style="position:relative">
       <a class="svc-tile" href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none">
         <div style="width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);overflow:hidden;flex-shrink:0">
-          <img src="https://www.google.com/s2/favicons?domain=${d}&sz=128" alt="${item.title}" width="36" height="36" style="width:36px;height:36px;object-fit:contain;display:block" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('beforeend','<span style=\\'font-size:24px;line-height:1\\'>&#128279;</span>')">
+          <img src="https://www.google.com/s2/favicons?domain=${d}&sz=128" alt="${item.title}" width="36" height="36" style="width:36px;height:36px;object-fit:contain;display:block" onerror="this.hidden=true">
         </div>
         <span class="svc-tile-name">${item.title}</span>
         <div style="margin-top:3px">${authorChip(item.user_id)}</div>
@@ -35351,7 +35351,7 @@ function socRelTime(iso){
 function socAvHtml(av, avUrl, size=38, radius=10){
   const s = `width:${size}px;height:${size}px;border-radius:${radius}px;background:var(--card);border:0.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:${Math.round(size*.52)}px;flex-shrink:0;overflow:hidden`;
   if(avUrl){
-    return `<div style="${s}"><img src="${avUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:${radius}px" onerror="this.parentNode.textContent='${(av||'🎯').replace(/'/g,'')}'"></div>`;
+    return `<div style="${s}"><img src="${avUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:${radius}px" onerror="this.hidden=true"></div>`;
   }
   return `<div style="${s}">${av||'🎯'}</div>`;
 }
@@ -35514,7 +35514,7 @@ function socEventHTML(ev){
 
   // ── Avatar HTML ──
   const avInner = ev.avatarUrl
-    ? `<img src="${ev.avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.parentNode.textContent='${(ev.avatar||'🎯').replace(/'/g,'')}'"> `
+    ? `<img src="${ev.avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.hidden=true"> `
     : esc(ev.avatar||'🎯');
   const avHTML = `<div class="soc-card-av" onclick="socOpenUserProfile('${uid}')">${avInner}</div>`;
 
@@ -35897,7 +35897,7 @@ async function socSearchUsers(query){
       }
 
       const avHtml = u.avatar_url
-        ? `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:9px" onerror="this.parentNode.textContent='${(u.avatar||'🎯').replace(/'/g,'')}'">`
+        ? `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:9px" onerror="this.hidden=true">`
         : esc(u.avatar||'🎯');
 
       return `<div class="soc-user-row" style="border-radius:0;border-left:none;border-right:none;border-top:none;border-bottom:0.5px solid var(--border);margin-bottom:0">
@@ -36054,7 +36054,7 @@ function _socShowPublicProfile(u){
   </button>`;
 
   const avHtml = u.avatar_url
-    ? `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:14px" onerror="this.parentNode.textContent='${(u.avatar||'🎯').replace(/'/g,'')}'">` 
+    ? `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:14px" onerror="this.hidden=true">` 
     : esc(u.avatar||'🎯');
 
   // Inject into existing up-modal or create one
@@ -38313,7 +38313,7 @@ window.renderCollabView=renderCollabView;
 
       res.innerHTML = users.map(function(u){
         var avHtml = u.avatar_url
-          ? '<img src="' + u.avatar_url + '" onerror="this.style.display=\'none\'">'
+          ? '<img src="' + u.avatar_url + '" onerror="this.hidden=true">'
           : (u.avatar || '🎯');
         var meta = [];
         if(u.streak) meta.push('🔥 ' + u.streak);
@@ -41534,10 +41534,13 @@ CREATE TABLE IF NOT EXISTS group_chats (
   name        text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 50),
   description text DEFAULT '',
   avatar_emoji text DEFAULT '👥',
+  avatar_url  text DEFAULT NULL,
   owner_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at  timestamptz DEFAULT now(),
   updated_at  timestamptz DEFAULT now()
 );
+-- Migration for existing installs:
+ALTER TABLE group_chats ADD COLUMN IF NOT EXISTS avatar_url text DEFAULT NULL;
 
 -- 2. Участники
 CREATE TABLE IF NOT EXISTS group_members (
@@ -41744,7 +41747,7 @@ async function _grpLoadMyGroups(){
 
     // 2. Загружаем мета групп
     var {data:chats,error:ce}=await sb.from('group_chats')
-      .select('id,name,description,avatar_emoji,owner_id,created_at,updated_at')
+      .select('id,name,description,avatar_emoji,avatar_url,owner_id,created_at,updated_at')
       .in('id',groupIds).order('updated_at',{ascending:false});
     if(ce||!chats)return[];
 
@@ -41764,7 +41767,7 @@ async function _grpLoadMyGroups(){
       var lm=lastMap[c.id];
       return{
         id:c.id,name:c.name,description:c.description||'',
-        emoji:c.avatar_emoji||'👥',owner_id:c.owner_id,
+        emoji:c.avatar_emoji||'👥',avatar_url:c.avatar_url||null,owner_id:c.owner_id,
         role:roleMap[c.id]||'member',
         lastMsg:lm?lm.content:'',
         lastTime:lm?lm.created_at:c.created_at,
@@ -41778,35 +41781,42 @@ async function _grpLoadMyGroups(){
    INJECT GROUPS INTO SIDEBAR
 ───────────────────────────────────────────────*/
 async function _grpInjectSidebar(){
-  if(_grpInjectPending) return; // FIX: debounce — prevent parallel calls
+  if(_grpInjectPending) return;
   _grpInjectPending = true;
   setTimeout(function(){ _grpInjectPending = false; }, 1500);
   var list=document.getElementById('msgConvList');
   if(!list){ _grpInjectPending=false; return; }
-  // Only run if user is authenticated
   if(typeof SB_USER==='undefined'||!SB_USER||!SB_USER.id){ _grpInjectPending=false; return; }
   if(typeof sb==='undefined'||!sb){ _grpInjectPending=false; return; }
-  list.querySelectorAll('.dtr-group-conv').forEach(function(el){el.remove();});
   var groups=await _grpLoadMyGroups();
-  if(!groups.length)return;
   var empty=list.querySelector('.msg-empty');
-  if(empty)empty.style.display='none';
-  groups.forEach(function(g,idx){
+  if(groups.length&&empty)empty.style.display='none';
+
+  // FIX: smart diff-update — no full remove/recreate to prevent jumping
+  var existingIds=new Set();
+  list.querySelectorAll('.dtr-group-conv').forEach(function(el){existingIds.add(el.dataset.groupId);});
+  var newIds=new Set(groups.map(function(g){return g.id;}));
+
+  // Remove cards for groups no longer in list
+  list.querySelectorAll('.dtr-group-conv').forEach(function(el){
+    if(!newIds.has(el.dataset.groupId))el.remove();
+  });
+
+  if(!groups.length){ _grpInjectPending=false; return; }
+
+  groups.forEach(function(g){
     var preview=_grpPreviewText(g.lastMsg,g.lastMine);
-    var div=document.createElement('div');
-    div.className='msg-conv dtr-group-conv';
-    div.dataset.convUid=g.id;
-    div.dataset.groupId=g.id;
-    div.style.cssText='animation:fadeUp .2s '+(idx*0.04)+'s ease both;';
-    if(_grpActiveId===g.id)div.classList.add('active');
-    div.onclick=function(){_grpOpenChat(g.id);};
-    div.innerHTML=
+    // Build avatar HTML — image if available, else emoji
+    var avInner=g.avatar_url
+      ?'<img src="'+_esc(g.avatar_url)+'" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" onerror="this.hidden=true">'
+      :'<span style="font-size:22px;line-height:1;">'+_esc(g.emoji||'👥')+'</span>';
+    var innerHtml=
       '<div class="msg-conv-av">'
-        +'<div class="msg-conv-av-ring is-group" style="font-size:22px;position:relative;">'
-          +_esc(g.emoji)
+        +'<div class="msg-conv-av-ring is-group" style="font-size:22px;position:relative;overflow:hidden;padding:0;">'
+          +avInner
           +'<div style="position:absolute;bottom:-3px;right:-3px;background:var(--blue);color:#fff;'
           +'font-size:7px;font-weight:800;border-radius:5px;padding:1px 3px;border:1.5px solid #09090B;'
-          +'line-height:1.2;font-family:var(--font-mono);" id="grp-cnt-'+g.id+'"></div>'
+          +'line-height:1.2;font-family:var(--font-mono);z-index:2;" id="grp-cnt-'+g.id+'"></div>'
         +'</div>'
       +'</div>'
       +'<div class="msg-conv-info">'
@@ -41820,10 +41830,36 @@ async function _grpInjectSidebar(){
         +'<div class="msg-conv-preview" id="grp-prev-'+g.id+'">'+_esc(preview)+'</div>'
       +'</div>'
       +'<div class="msg-conv-time" id="grp-time-'+g.id+'">'+_fmtTime(g.lastTime)+'</div>';
-    list.prepend(div);
-    // Load member count async
+
+    if(existingIds.has(g.id)){
+      // Update in place — no DOM removal, no animation flicker
+      var el=list.querySelector('.dtr-group-conv[data-group-id="'+g.id+'"]');
+      if(el){ el.innerHTML=innerHtml; if(_grpActiveId===g.id)el.classList.add('active'); else el.classList.remove('active'); }
+    } else {
+      // New card — insert at correct sorted position
+      var div=document.createElement('div');
+      div.className='msg-conv dtr-group-conv';
+      div.dataset.convUid=g.id;
+      div.dataset.groupId=g.id;
+      div.dataset.lastTime=new Date(g.lastTime).getTime()||0;
+      div.style.animation='fadeUp .2s ease both';
+      if(_grpActiveId===g.id)div.classList.add('active');
+      div.onclick=function(){_grpOpenChat(g.id);};
+      div.innerHTML=innerHtml;
+      // Insert before first DM/group that is older than this group
+      var inserted=false;
+      var gTime=new Date(g.lastTime).getTime()||0;
+      var allItems=list.querySelectorAll('.msg-conv');
+      for(var i=0;i<allItems.length;i++){
+        var item=allItems[i];
+        var itemTime=parseInt(item.dataset.lastTime||'0');
+        if(gTime>itemTime){list.insertBefore(div,item);inserted=true;break;}
+      }
+      if(!inserted)list.appendChild(div);
+    }
     _grpLoadMemberCount(g.id);
   });
+  _grpInjectPending=false;
 }
 
 function _grpPreviewText(content,isMine){
@@ -41921,7 +41957,12 @@ function _grpRenderChatUI(chat,members,isOwner,myRole){
   area.innerHTML=
     '<div class="msg-chat-head" id="grpChatHead">'
       +backBtn
-      +'<div class="msg-chat-av" style="background:rgba(26,159,255,.12);border-color:rgba(26,159,255,.3);font-size:20px;cursor:pointer;" onclick="window._grpOpenInfo(\''+_esc(chat.id)+'\')">'+_esc(chat.avatar_emoji||'👥')+'</div>'
+      +(function(){
+        var av=chat.avatar_url
+          ?'<img src="'+_esc(chat.avatar_url)+'" style="width:100%;height:100%;object-fit:cover;border-radius:13px;" onerror="this.hidden=true">'
+          :'<span style="font-size:20px;">'+_esc(chat.avatar_emoji||'👥')+'</span>';
+        return'<div class="msg-chat-av" style="background:rgba(26,159,255,.12);border-color:rgba(26,159,255,.3);overflow:hidden;padding:0;cursor:pointer;" onclick="window._grpOpenInfo(\''+_esc(chat.id)+'\')">'+av+'</div>';
+      })()
       +'<div class="msg-chat-info" style="cursor:pointer;" onclick="window._grpOpenInfo(\''+_esc(chat.id)+'\')">'
         +'<div class="msg-chat-name">'+_esc(chat.name)+'</div>'
         +'<div class="msg-chat-sub" id="grpChatSub" style="color:var(--blue);">'+memberCount+' участников · '+_esc(previewNames)+'</div>'
@@ -42071,12 +42112,22 @@ function _grpBuildMessagesHTML(msgs,members,groupId){
     var mem=mMap[msg.from_user_id]||{};
     var memberName=mem.username||'?';
     var memberAv=mem.avatar||'👤';
+    var memberAvUrl=mem.avatar_url||null;
     var nameColor=mine?'var(--gold)':_memberColor(msg.from_user_id);
-    /* Avatar for others */
+    /* Avatar for others — show photo if available, else emoji */
     var avHtml='';
     if(!mine){
+      var avContent=memberAvUrl
+        ?'<img src="'+_esc(memberAvUrl)+'" style="width:100%;height:100%;object-fit:cover;border-radius:10px;" onerror="this.hidden=true">'
+        :'<span style="font-size:12px;">'+_esc(memberAv)+'</span>';
       avHtml=isLast
-        ?'<div class="msg-av-micro" title="'+_esc(memberName)+'" style="background:none;border:none;font-size:12px;cursor:pointer;" onclick="typeof openUserProfile===\'function\'&&openUserProfile(\''+_esc(msg.from_user_id)+'\',\''+_esc(memberName)+'\',\''+_esc(memberAv)+'\',\'\')">'+_esc(memberAv)+'</div>'
+        ?'<div class="msg-av-micro" title="'+_esc(memberName)+'"'
+          +' data-uid="'+_esc(msg.from_user_id)+'"'
+          +' data-name="'+_esc(memberName)+'"'
+          +' data-av="'+_esc(memberAv)+'"'
+          +' data-avurl="'+_esc(memberAvUrl||'')+'"'
+          +' style="background:none;border:none;overflow:hidden;cursor:pointer;padding:0;"'
+          +' onclick="typeof openUserProfile===\'function\'&&openUserProfile(this.dataset.uid,this.dataset.name,this.dataset.av,this.dataset.avurl)">'+avContent+'</div>'
         :'<div class="msg-av-micro ghost"></div>';
     }
     /* Sender name (first in chain, not mine) */
@@ -42110,7 +42161,7 @@ function _grpBuildMessagesHTML(msgs,members,groupId){
       }catch(ex){/* plain text */}
       bodyHtml=replyHtml+'<span>'+_esc(txt)+'</span>';
     } else if(ct==='image'){
-      bodyHtml='<img src="'+_esc(txt)+'" style="max-width:240px;max-height:200px;border-radius:10px;display:block;cursor:pointer;" onclick="window.open(\''+_esc(txt)+'\',\'_blank\')" onerror="this.style.display=\'none\'">';
+      bodyHtml='<img src="'+_esc(txt)+'" style="max-width:240px;max-height:200px;border-radius:10px;display:block;cursor:pointer;" onclick="window.open(\''+_esc(txt)+'\',\'_blank\')" onerror="this.hidden=true">';
     } else if(ct==='voice'){
       bodyHtml='<div style="display:flex;align-items:center;gap:8px;min-width:160px;padding:4px 0;">'
         +'<button onclick="var a=document.getElementById(\'va_'+_esc(msg.id)+'\');if(a){if(a.paused)a.play();else a.pause();}" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.12);border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s;">'
@@ -42692,8 +42743,16 @@ window._grpOpenInfo=async function(groupId,editMode){
         // Emoji + name
         +(canManage&&editMode
           ?'<div style="display:flex;gap:12px;margin-bottom:14px;">'
-              +'<div style="position:relative;">'
-                +'<div id="grpEmojiSel" style="width:52px;height:52px;border-radius:14px;background:rgba(26,159,255,.12);border:0.5px solid rgba(26,159,255,.3);display:flex;align-items:center;justify-content:center;font-size:26px;cursor:pointer;transition:transform .15s;" onclick="_grpPickEmoji(\''+groupId+'\')" title="Изменить аватарку">'+_esc(chat.avatar_emoji||'👥')+'</div>'
+              +'<div style="position:relative;display:flex;flex-direction:column;gap:5px;align-items:center;">'
+                +'<div id="grpEmojiSel" style="width:52px;height:52px;border-radius:14px;background:rgba(26,159,255,.12);border:0.5px solid rgba(26,159,255,.3);display:flex;align-items:center;justify-content:center;font-size:26px;cursor:pointer;transition:transform .15s;overflow:hidden;padding:0;" onclick="_grpPickEmoji(\''+groupId+'\')" title="Эмодзи / фото">'
+                  +(chat.avatar_url
+                    ?'<img id="grpAvatarPreview" src="'+_esc(chat.avatar_url)+'" style="width:100%;height:100%;object-fit:cover;border-radius:13px;">'
+                    :'<span id="grpAvatarPreview" style="font-size:26px;">'+_esc(chat.avatar_emoji||'👥')+'</span>')
+                +'</div>'
+                +'<label style="font-size:9px;color:var(--blue);cursor:pointer;text-align:center;font-weight:700;letter-spacing:.04em;white-space:nowrap;" title="Загрузить фото группы">'
+                  +'<input type="file" id="grpAvatarInput" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="window._grpPreviewAvatar(this)">'
+                  +'📷 Фото'
+                +'</label>'
               +'</div>'
               +'<div style="flex:1;">'
                 +'<input id="grpEditName" type="text" value="'+_esc(chat.name)+'" maxlength="50" placeholder="Название группы" class="gm-field" style="margin-bottom:8px;">'
@@ -42701,7 +42760,12 @@ window._grpOpenInfo=async function(groupId,editMode){
               +'</div>'
             +'</div>'
           :'<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;padding:14px;background:rgba(255,255,255,.03);border-radius:14px;border:0.5px solid rgba(255,255,255,.06);">'
-              +'<div style="width:56px;height:56px;border-radius:16px;background:rgba(26,159,255,.12);border:0.5px solid rgba(26,159,255,.3);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;">'+_esc(chat.avatar_emoji||'👥')+'</div>'
+              +(function(){
+              var vav=chat.avatar_url
+                ?'<img src="'+_esc(chat.avatar_url)+'" style="width:100%;height:100%;object-fit:cover;border-radius:15px;" onerror="this.hidden=true">'
+                :'<span style="font-size:28px;">'+_esc(chat.avatar_emoji||'👥')+'</span>';
+              return'<div style="width:56px;height:56px;border-radius:16px;background:rgba(26,159,255,.12);border:0.5px solid rgba(26,159,255,.3);display:flex;align-items:center;justify-content:center;overflow:hidden;padding:0;flex-shrink:0;">'+vav+'</div>';
+            })()
               +'<div style="flex:1;min-width:0;">'
                 +'<div style="font-size:17px;font-weight:700;color:var(--t1);letter-spacing:-.02em;margin-bottom:4px;">'+_esc(chat.name)+'</div>'
                 +(chat.description?'<div style="font-size:13px;color:var(--t2);line-height:1.5;">'+_esc(chat.description)+'</div>':'')
@@ -42763,6 +42827,20 @@ window._grpOpenInfo=async function(groupId,editMode){
   document.body.appendChild(ov);
 };
 
+/* Preview selected image for group avatar */
+window._grpPreviewAvatar=function(input){
+  var file=input&&input.files&&input.files[0];if(!file)return;
+  if(file.size>5*1024*1024){typeof _toast==='function'&&_toast('Файл слишком большой (макс 5MB)','⚠️');return;}
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var el=document.getElementById('grpEmojiSel');
+    if(!el)return;
+    el.innerHTML='<img src="'+e.target.result+'" style="width:100%;height:100%;object-fit:cover;border-radius:13px;">';
+    el.dataset.pendingImgFile='1'; // flag for _grpSaveInfo
+  };
+  reader.readAsDataURL(file);
+};
+
 /* Emoji picker for group avatar */
 window._grpPickEmoji=function(groupId){
   var existing=document.getElementById('_grpEmojiPickerInfo');if(existing){existing.remove();return;}
@@ -42795,25 +42873,60 @@ window._grpSaveInfo=async function(groupId){
   if(!name){nameEl.style.borderColor='rgba(239,68,68,.5)';nameEl.focus();return;}
   var desc=descEl?descEl.value.trim():'';
   var emoji=emojiEl?(emojiEl.dataset.emoji||emojiEl.textContent||'👥'):'👥';
+  // FIX3: upload group image if one was selected
+  var newAvatarUrl=null;
+  var avatarInput=document.getElementById('grpAvatarInput');
+  var emojiElPending=document.getElementById('grpEmojiSel');
+  if(avatarInput&&avatarInput.files&&avatarInput.files[0]){
+    var imgFile=avatarInput.files[0];
+    try{
+      var ext2=(imgFile.name||'img.jpg').split('.').pop().toLowerCase()||'jpg';
+      var imgPath='group_avatars/'+groupId+'.'+ext2;
+      var {error:upErr}=await sb.storage.from('avatars').upload(imgPath,imgFile,{upsert:true,contentType:imgFile.type||'image/jpeg'});
+      if(!upErr){
+        var {data:urlData}=sb.storage.from('avatars').getPublicUrl(imgPath);
+        newAvatarUrl=urlData&&urlData.publicUrl||null;
+        // Add cache-busting param so old image doesn't linger
+        if(newAvatarUrl)newAvatarUrl=newAvatarUrl.split('?')[0]+'?t='+Date.now();
+      }else{console.warn('[DTR] group avatar upload:',upErr);}
+    }catch(ex){console.warn('[DTR] group avatar upload ex:',ex);}
+  }
   try{
-    var {error}=await sb.from('group_chats').update({name:name,description:desc,avatar_emoji:emoji,updated_at:new Date().toISOString()}).eq('id',groupId);
+    var updatePayload={name:name,description:desc,avatar_emoji:emoji,updated_at:new Date().toISOString()};
+    if(newAvatarUrl!==null)updatePayload.avatar_url=newAvatarUrl;
+    var {error}=await sb.from('group_chats').update(updatePayload).eq('id',groupId);
     if(error)throw error;
     // Update local cache
     if(_grpCache[groupId]&&_grpCache[groupId].chat){
       _grpCache[groupId].chat.name=name;
       _grpCache[groupId].chat.description=desc;
       _grpCache[groupId].chat.avatar_emoji=emoji;
+      if(newAvatarUrl!==null)_grpCache[groupId].chat.avatar_url=newAvatarUrl;
     }
-    // Update header
+    // Update header avatar
+    var headAv=document.querySelector('#grpChatHead .msg-chat-av');
+    if(headAv){
+      var finalUrl=newAvatarUrl||(_grpCache[groupId]&&_grpCache[groupId].chat&&_grpCache[groupId].chat.avatar_url)||null;
+      headAv.style.overflow='hidden';headAv.style.padding='0';
+      headAv.innerHTML=finalUrl
+        ?'<img src="'+_esc(finalUrl)+'" style="width:100%;height:100%;object-fit:cover;border-radius:13px;" onerror="this.hidden=true">'
+        :'<span style="font-size:20px;">'+_esc(emoji)+'</span>';
+    }
     var headName=document.querySelector('.msg-chat-name');
     if(headName)headName.textContent=name;
-    var headAv=document.querySelector('#grpChatHead .msg-chat-av');
-    if(headAv)headAv.textContent=emoji;
-    // Update sidebar
+    // Update sidebar card
     var sidebarName=document.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"] .msg-conv-name');
     if(sidebarName)sidebarName.textContent=name;
-    var sidebarAv=document.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"] .msg-conv-av-ring');
-    if(sidebarAv){var cnt=sidebarAv.querySelector('div');sidebarAv.textContent=emoji;if(cnt)sidebarAv.appendChild(cnt);}
+    var sidebarRing=document.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"] .msg-conv-av-ring');
+    if(sidebarRing){
+      var cntBadge=sidebarRing.querySelector('[id^="grp-cnt-"]');
+      var finalSbUrl=newAvatarUrl||(_grpCache[groupId]&&_grpCache[groupId].chat&&_grpCache[groupId].chat.avatar_url)||null;
+      sidebarRing.style.overflow='hidden';sidebarRing.style.padding='0';
+      sidebarRing.innerHTML=finalSbUrl
+        ?'<img src="'+_esc(finalSbUrl)+'" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" onerror="this.hidden=true">'
+        :'<span style="font-size:22px;line-height:1;">'+_esc(emoji)+'</span>';
+      if(cntBadge)sidebarRing.appendChild(cntBadge);
+    }
     _toast('Группа обновлена','✅');
     document.getElementById('_grpInfoModal')&&document.getElementById('_grpInfoModal').remove();
   }catch(e){_toast('Ошибка сохранения','⚠️');console.error(e);}
@@ -42982,7 +43095,7 @@ window._dtrOpenGroupModal=async function(){
         +'<div id="gcMemberList">'
           +(convs.length?convs.map(function(cv,idx){
             var avHtml=cv.avUrl
-              ?'<img src="'+cv.avUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:11px;" onerror="this.style.display=\'none\'">'
+              ?'<img src="'+cv.avUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:11px;" onerror="this.hidden=true">'
               :'<span style="font-size:16px;">'+_esc(cv.av||'👤')+'</span>';
             return'<div class="gm-member-row" data-uid="'+_esc(cv.userId)+'" data-name="'+_esc(cv.name||'')+'" data-av="'+_esc(cv.av||'👤')+'" onclick="_gcToggleMember(this)" style="user-select:none;">'
               +'<div class="gm-member-check" id="gcc-'+_esc(cv.userId)+'">'
