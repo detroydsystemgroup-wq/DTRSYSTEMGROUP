@@ -41781,9 +41781,14 @@ async function _grpLoadMyGroups(){
    INJECT GROUPS INTO SIDEBAR
 ───────────────────────────────────────────────*/
 async function _grpInjectSidebar(){
-  if(_grpInjectPending) return;
+  if(_grpInjectPending){
+    // FIX: queue one retry after current inject finishes
+    setTimeout(function(){ if(!_grpInjectPending) _grpInjectSidebar(); }, 350);
+    return;
+  }
   _grpInjectPending = true;
-  setTimeout(function(){ _grpInjectPending = false; }, 1500);
+  // FIX: 300ms debounce — shorter window, function also resets at end
+  var _dbt=setTimeout(function(){ _grpInjectPending = false; }, 300);
   var list=document.getElementById('msgConvList');
   if(!list){ _grpInjectPending=false; return; }
   if(typeof SB_USER==='undefined'||!SB_USER||!SB_USER.id){ _grpInjectPending=false; return; }
@@ -41860,6 +41865,7 @@ async function _grpInjectSidebar(){
     _grpLoadMemberCount(g.id);
   });
   _grpInjectPending=false;
+  clearTimeout(_dbt);
 }
 
 function _grpPreviewText(content,isMine){
@@ -42685,7 +42691,7 @@ function _grpSubscribeRealtime(groupId){
         var members=(_grpCache[groupId]&&_grpCache[groupId].members)||[];
         if(!members.find(function(m){return m.user_id===msg.from_user_id;})){
           sb.from('users').select('id,username,avatar,avatar_url').eq('id',msg.from_user_id).single()
-            .then(function(r){if(r.data)members.push({user_id:r.data.id,username:r.data.username,avatar:r.data.avatar,role:'member'});_grpAppendMessage(msg);});
+            .then(function(r){if(r.data)members.push({user_id:r.data.id,username:r.data.username,avatar:r.data.avatar,avatar_url:r.data.avatar_url||null,role:'member'});_grpAppendMessage(msg);});
           return;
         }
         _grpAppendMessage(msg);
@@ -43244,8 +43250,18 @@ window._gcDoCreate=async function(){
     document.getElementById('_grpCreateModal')&&document.getElementById('_grpCreateModal').remove();
     _toast('Группа «'+name+'» создана 🎉','✅');
     _grpDbReady=true;
+    // FIX: reset debounce so sidebar injection is never blocked after creation
+    _grpInjectPending=false;
     await _grpInjectSidebar();
-    setTimeout(function(){_grpOpenChat(groupId);},200);
+    // Also add the card directly in case inject is still blocked
+    setTimeout(function(){
+      var list=document.getElementById('msgConvList');
+      if(list&&!list.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"]')){
+        _grpInjectPending=false;
+        _grpInjectSidebar();
+      }
+      _grpOpenChat(groupId);
+    },400);
   }catch(e){
     console.error('[DTR] create group error:',JSON.stringify(e),e);
     var msg='Ошибка создания группы';
@@ -43265,8 +43281,11 @@ function _grpPatchShowTab(){
   if(typeof orig!=='function')return;
   window.showTab=function(tab){
     orig.apply(this,arguments);
-    if(tab==='messages'&&typeof SB_USER!=='undefined'&&SB_USER&&SB_USER.id)
+    if(tab==='messages'&&typeof SB_USER!=='undefined'&&SB_USER&&SB_USER.id){
+      // FIX: reset debounce so tab switch always refreshes sidebar
+      _grpInjectPending=false;
       setTimeout(_grpInjectSidebar,300);
+    }
   };
 }
 
@@ -43276,8 +43295,10 @@ function _grpPatchLoadConvs(){
   window.loadConversations=function(){
     var p=orig.apply(this,arguments);
     var inject=function(){
-      if(typeof SB_USER!=='undefined'&&SB_USER&&SB_USER.id)
+      if(typeof SB_USER!=='undefined'&&SB_USER&&SB_USER.id){
+        _grpInjectPending=false; // FIX: allow inject after conv reload
         setTimeout(_grpInjectSidebar,150);
+      }
     };
     if(p&&typeof p.then==='function')p.then(inject);else inject();
     return p;
