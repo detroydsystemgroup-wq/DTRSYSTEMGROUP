@@ -7479,6 +7479,10 @@ body {
 
 
 /* ── layout ── */
+@keyframes habPulse100{
+  0%  { opacity:.55; stroke-width:1.5; }
+  100%{ opacity:0;   stroke-width:0.5; r:52; }
+}
 #tab-habits{width:100%;}
 @media(min-width:601px){#tab-habits{grid-column:1/-1;width:100%;}}
 #hab-root{padding:0 0 40px;}
@@ -30774,18 +30778,50 @@ function mkRing(pct,color,size=34){
 }
 
 // ── Arc SVG (hero score) ─────────────────────────────────────
-function mkArc(pct,size=80){
-  const r=34,cx=size/2,cy=size/2;
-  const circ=2*Math.PI*r;
-  const fill=circ*(pct/100);
+function mkArc(pct,size=96,totalSegs,doneSegs){
+  // Segmented arc: each segment = 1 habit
+  // Falls back to smooth arc if no segment data
+  const cx=size/2, cy=size/2;
+  const R=size/2-8;
   const color=pct===100?'#22C55E':pct>=70?'#F5C842':pct>=40?'#F97316':'#EF4444';
-  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="transform:rotate(-90deg)">
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="1"/>
-    <circle id="hab-arc-fill" cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="1"
-      stroke-dasharray="${fill.toFixed(2)} ${(circ-fill).toFixed(2)}"
-      stroke-linecap="butt"
-      data-color-100="#22C55E" data-color-70="#F5C842" data-color-40="#F97316" data-color-0="#EF4444"
-      style="transition:stroke-dasharray 700ms cubic-bezier(.4,0,.2,1),stroke 400ms ease"/>
+  const trackColor='rgba(255,255,255,.08)';
+
+  const n=totalSegs||Math.max(1,Math.round(pct/10)||1);
+  const done=doneSegs!=null?doneSegs:Math.round(pct/100*n);
+
+  // 270° arc from 135° to 405° (bottom-left to bottom-right, open at bottom)
+  const startDeg=135, sweepDeg=270;
+  const gapDeg=n>1?3:0;
+  const segDeg=(sweepDeg-(n-1)*gapDeg)/n;
+
+  function polarToXY(deg,r){
+    const rad=deg*Math.PI/180;
+    return{x:cx+r*Math.cos(rad),y:cy+r*Math.sin(rad)};
+  }
+  function describeArc(startDeg,endDeg,r,strokeW){
+    const s=polarToXY(startDeg,r),e=polarToXY(endDeg,r);
+    const large=endDeg-startDeg>180?1:0;
+    return `M${s.x.toFixed(2)},${s.y.toFixed(2)} A${r},${r} 0 ${large},1 ${e.x.toFixed(2)},${e.y.toFixed(2)}`;
+  }
+
+  let paths='';
+  for(let i=0;i<n;i++){
+    const sD=startDeg+i*(segDeg+gapDeg);
+    const eD=sD+segDeg;
+    const filled=i<done;
+    paths+=`<path d="${describeArc(sD,eD,R,0)}"
+      fill="none"
+      stroke="${filled?color:trackColor}"
+      stroke-width="3"
+      stroke-linecap="round"
+      style="transition:stroke .4s ease ${i*35}ms"/>`;
+  }
+
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" id="hab-arc-svg">
+    ${paths}
+    <circle id="hab-arc-fill" cx="${cx}" cy="${cy}" r="0" fill="none"
+      data-pct="${pct}" data-color="${color}" data-n="${n}" data-done="${done}"
+      data-r="${R}" data-circ="${(2*Math.PI*R).toFixed(2)}"/>
   </svg>`;
 }
 
@@ -30959,7 +30995,7 @@ function render(){
 
       <!-- Left: Arc ring — dominant number -->
       <div style="position:relative;flex-shrink:0;width:96px;height:96px">
-        ${mkArc(todayPct,96)}
+        ${mkArc(todayPct,96,totalToday,doneToday)}
         <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px">
           <div id="hab-hero-pct" style="font-family:var(--font-mono);font-size:26px;font-weight:400;line-height:1;color:${heroColor};letter-spacing:-.04em">${todayPct}%</div>
           <div style="font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)">сегодня</div>
@@ -31182,24 +31218,38 @@ window.habToggle=function(hid,key){
   const todayPct=totalToday?Math.round(doneToday/totalToday*100):0;
   const heroColor=todayPct===100?'#22C55E':todayPct>=70?'#F5C842':todayPct>=40?'#F97316':'#EF4444';
 
+  const arcSvg=document.getElementById('hab-arc-svg');
+  if(arcSvg){
+    const newSvg=mkArc(todayPct,96,totalToday,doneToday);
+    const tmp=document.createElement('div');tmp.innerHTML=newSvg;
+    const ns=tmp.firstElementChild;
+    // Copy position/style then replace content
+    arcSvg.innerHTML=ns.innerHTML;
+  }
   const arcEl=document.getElementById('hab-arc-fill');
   if(arcEl){
-    const circ=2*Math.PI*34;
+    const circ=parseFloat(arcEl.dataset.circ)||2*Math.PI*34;
     arcEl.setAttribute('stroke-dasharray',`${(circ*todayPct/100).toFixed(2)} ${(circ*(1-todayPct/100)).toFixed(2)}`);
     arcEl.setAttribute('stroke',heroColor);
+  }
+  // Update centre glow
+  const glowDisc=arcEl?.closest('svg')?.querySelector('circle:nth-child(3)');
+  if(glowDisc){
+    const dimColor=heroColor+'1e';
+    glowDisc.setAttribute('fill',dimColor);
   }
   const heroPct=document.getElementById('hab-hero-pct');
   if(heroPct){ heroPct.style.color=heroColor; heroPct.textContent=todayPct+'%'; }
   const heroTitle=document.getElementById('hab-hero-title');
-  if(heroTitle) heroTitle.textContent=todayPct===100?'🏆 Идеальный день!':todayPct>=70?'💪 Отличный прогресс':todayPct>=40?'⚡ Продолжай!':totalToday>0?'🎯 Начни сейчас':'Добавь привычки';
+  if(heroTitle) heroTitle.textContent=todayPct===100?'Идеальный день 🏆':todayPct>=70?'Отличный прогресс 💪':todayPct>=40?'Продолжай! ⚡':totalToday>0?'Начни сейчас 🎯':'Добавь привычки';
   const heroSub=document.getElementById('hab-hero-sub');
   if(heroSub) heroSub.textContent=`${doneToday} из ${totalToday} привычек выполнено`;
   const segBar=document.getElementById('hab-hero-segbar');
   if(segBar){
-    const n=Math.max(1,Math.min(totalToday||1,12));
+    const n=Math.max(1,Math.min(totalToday||1,16));
     segBar.innerHTML=Array.from({length:n},(_,i)=>{
       const on=i<doneToday;
-      return `<div style="display:inline-block;width:calc(${100/n}% - ${Math.ceil(3*(n-1)/n)}px);height:4px;border-radius:2px;background:${on?heroColor:'rgba(255,255,255,.07)'};margin-right:${i<n-1?'3px':'0'};${on?`transition:background-color .5s cubic-bezier(.4,0,.2,1) ${i*45}ms`:'transition:background-color .5s'}"></div>`;
+      return `<div style="flex:1;height:6px;border-radius:3px;background:${on?heroColor:'rgba(255,255,255,.07)'};${on?`transition:background .5s ${i*40}ms`:''}"></div>`;
     }).join('');
   }
 
