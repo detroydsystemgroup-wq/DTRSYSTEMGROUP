@@ -58,6 +58,8 @@
 <meta name="twitter:title" content="DTR Progress Club">
 <meta name="twitter:description" content="Геймифицированный трекер саморазвития с лигами и соревнованием.">
 <title>DTR Progress Club</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%AF%3C/text%3E%3C/svg%3E">
+<link rel="shortcut icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%AF%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -26119,8 +26121,8 @@ function injectPWAManifest(){
     name: 'DTR Progress Club',
     short_name: 'DTR',
     description: 'Геймифицированный трекер саморазвития с лигами и соревнованием',
-    start_url: location.pathname || '/',
-    scope: '/',
+    start_url: location.origin + (location.pathname || '/'),
+    scope: location.origin + '/',
     display: 'standalone',
     orientation: 'portrait',
     background_color: '#080808',
@@ -42835,24 +42837,60 @@ window._grpDownloadFile=async function(url,name){
 window._grpUploadAndSend=async function(groupId){
   if(!_grpPendingFile||!_grpPendingFile.file)return;
   var file=_grpPendingFile.file;
+  var fileName=file.name;
+  var fileType=file.type;
   var btn=document.getElementById('grpSendBtn');
-  if(btn)btn.style.opacity='.5';
+  if(btn){btn.style.opacity='.5';btn.disabled=true;}
+
+  /* ── 1. Show optimistic placeholder immediately (like Telegram) ────────── */
+  var optId='opt_file_'+Date.now();
+  var ct=fileType.startsWith('image/')?'image':fileType.startsWith('audio/')||fileType.startsWith('video/')?'voice':'file';
+  var previewContent='';
+  if(ct==='image'){
+    /* Show local base64 preview instantly */
+    previewContent=await new Promise(function(res){
+      var r=new FileReader();r.onload=function(){res(r.result);};r.readAsDataURL(file);
+    });
+  } else if(ct==='voice'){
+    previewContent='';
+  } else {
+    previewContent=JSON.stringify({name:fileName,url:'',size:file.size});
+  }
+  var optMsg={id:optId,from_user_id:_myId(),content:previewContent,content_type:ct,is_system:false,created_at:new Date().toISOString(),_uploading:true};
+  _grpAppendMessage(optMsg);
+  /* Mark bubble as uploading */
+  var _optBub=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(optId)+'"]');
+  if(_optBub){
+    _optBub.style.opacity='0.7';
+    if(ct!=='image'){
+      var _lbl=document.createElement('div');
+      _lbl.id='_opt_lbl_'+optId;
+      _lbl.style.cssText='font-size:10px;color:rgba(255,255,255,.5);margin-top:3px;';
+      _lbl.textContent='\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430\u2026';
+      _optBub.appendChild(_lbl);
+    }
+  }
+  window._grpClearFile();
+  requestAnimationFrame(function(){var el=document.getElementById('grpMessages');if(el)el.scrollTop=el.scrollHeight+9999;});
+
   try{
     try{await sb.auth.refreshSession();}catch(ex){}
-    var ext=file.name.split('.').pop()||'bin';
+    /* ── 2. Upload file to storage ───────────────────────────── */
+    var ext=fileName.split('.').pop()||'bin';
     var path='group_files/'+groupId+'/'+Date.now()+'_'+Math.random().toString(36).slice(2)+'.'+ext;
-    var {data:upData,error:upErr}=await sb.storage.from('chat-files').upload(path,file,{contentType:file.type,upsert:false});
     var fileUrl='';
+    var {data:upData,error:upErr}=await sb.storage.from('chat-files').upload(path,file,{contentType:fileType,upsert:false});
     if(upErr){
-      // FIX: fallback to 'messages' bucket if 'chat-files' unavailable
-      var {data:upData2,error:upErr2}=await sb.storage.from('messages').upload(path,file,{contentType:file.type,upsert:false});
+      var {data:upData2,error:upErr2}=await sb.storage.from('messages').upload(path,file,{contentType:fileType,upsert:false});
       if(upErr2){
-        if(file.type.startsWith('image/')&&file.size<500*1024){
-          fileUrl=await new Promise(function(res){var r=new FileReader();r.onload=function(){res(r.result);};r.readAsDataURL(file);});
+        /* Fallback: base64 for small images */
+        if(fileType.startsWith('image/')&&file.size<500*1024){
+          fileUrl=previewContent||(await new Promise(function(res){var r=new FileReader();r.onload=function(){res(r.result);};r.readAsDataURL(file);}));
         } else {
-          typeof showToast==='function'&&showToast('Ошибка загрузки файла','⚠️');
-          window._grpClearFile();
-          if(btn)btn.style.opacity='';
+          typeof _toast==='function'&&_toast('\u041e\u0448\u0438\u0431\u043a\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0438 \u0444\u0430\u0439\u043b\u0430','\u26a0\ufe0f');
+          /* Remove placeholder */
+          var _bad=document.querySelector('.msg-row[data-msg-id="'+CSS.escape(optId)+'"]');if(_bad)_bad.remove();
+          if(btn){btn.style.opacity='';btn.disabled=false;}
           return;
         }
       } else {
@@ -42863,19 +42901,65 @@ window._grpUploadAndSend=async function(groupId){
       var {data:urlData}=sb.storage.from('chat-files').getPublicUrl(path);
       fileUrl=urlData&&urlData.publicUrl||'';
     }
-    var ct=file.type.startsWith('image/')?'image':file.type.startsWith('audio/')||file.type.startsWith('video/')?'voice':'file';
-    var content=ct==='image'?fileUrl:ct==='voice'?fileUrl:JSON.stringify({name:file.name,url:fileUrl,size:file.size});
-    var {error}=await sb.from('group_messages').insert({
-      group_id:groupId,from_user_id:_myId(),content:content,content_type:ct
-    });
-    if(error)throw error;
-    window._grpClearFile();
-    _grpUpdateSidebarPreview(groupId,'📎 '+file.name,true,new Date().toISOString());
+
+    /* ── 3. Build final content string ───────────────────────────────── */
+    var finalContent=ct==='image'?fileUrl:ct==='voice'?fileUrl:JSON.stringify({name:fileName,url:fileUrl,size:file.size});
+
+    /* ── 4. Update optimistic bubble with real URL (before DB write) ────────── */
+    var _bub=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(optId)+'"]');
+    if(_bub){
+      /* Re-render bubble content with real URL */
+      var _tmpMembers=(_grpCache[groupId]&&_grpCache[groupId].members)||[];
+      var _tmpMsg={id:optId,from_user_id:_myId(),content:finalContent,content_type:ct,is_system:false,created_at:new Date().toISOString()};
+      var _tmpHtml=_grpBuildMessagesHTML([_tmpMsg],_tmpMembers,groupId);
+      var _tmpDiv=document.createElement('div');_tmpDiv.innerHTML=_tmpHtml;
+      var _newBub=_tmpDiv.querySelector('.msg-bubble');
+      if(_newBub){
+        _newBub.style.opacity='1';
+        _bub.innerHTML=_newBub.innerHTML;
+        _bub.dataset.raw=finalContent;
+        _bub.dataset.ct=ct;
+        _bub.style.opacity='1';
+      }
+    }
+    /* Remove loading label if any */
+    var _lbl2=document.getElementById('_opt_lbl_'+optId);
+    if(_lbl2)_lbl2.remove();
+
+    /* ── 5. Insert to DB ────────────────────────────────────────── */
+    var {data:insData,error:insErr}=await sb.from('group_messages').insert({
+      group_id:groupId,from_user_id:_myId(),content:finalContent,content_type:ct
+    }).select('id').single();
+    if(insErr)throw insErr;
+
+    /* ── 6. Replace optId with real DB id ──────────────────────────────── */
+    if(insData&&insData.id){
+      var _row=document.querySelector('.msg-row[data-msg-id="'+CSS.escape(optId)+'"]');
+      if(_row)_row.dataset.msgId=insData.id;
+      var _bub2=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(optId)+'"]');
+      if(_bub2)_bub2.dataset.msgId=insData.id;
+    }
+    /* Show checkmark tick */
+    var _tickBub=document.querySelector('.msg-bubble[data-msg-id="'+(insData&&insData.id?CSS.escape(insData.id):CSS.escape(optId))+'"]');
+    if(_tickBub){
+      var _time=_tickBub.querySelector('.msg-bubble-time');
+      if(_time&&!_time.querySelector('.msg-ticks')){
+        var _tick=document.createElement('span');
+        _tick.className='msg-ticks';
+        _tick.style.color='rgba(255,255,255,.55)';
+        _tick.innerHTML='<svg width="16" height="10" viewBox="0 0 16 10" fill="none"><path d="M1 5l3 3 7-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        _time.appendChild(_tick);
+      }
+    }
+    _grpUpdateSidebarPreview(groupId,ct==='image'?'\ud83d\uddbc\ufe0f \u0424\u043e\u0442\u043e':ct==='voice'?'\ud83c\udfa4 \u0413\u043e\u043b\u043e\u0441\u043e\u0432\u043e\u0435':'\ud83d\udcce '+fileName,true,new Date().toISOString());
   }catch(e){
     console.error('[DTR] _grpUploadAndSend:',e);
-    typeof showToast==='function'&&showToast('Ошибка отправки файла','⚠️');
+    /* On error: remove optimistic bubble and show toast */
+    var _errRow=document.querySelector('.msg-row[data-msg-id="'+CSS.escape(optId)+'"]');
+    if(_errRow){_errRow.style.transition='opacity .2s';_errRow.style.opacity='0';setTimeout(function(){_errRow.remove();},200);}
+    typeof _toast==='function'&&_toast('\u041e\u0448\u0438\u0431\u043a\u0430 \u043e\u0442\u043f\u0440\u0430\u0432\u043a\u0438 \u2014 \u043f\u043e\u043f\u0440\u043e\u0431\u0443\u0439 \u0435\u0449\u0451','\u26a0\ufe0f');
   }
-  if(btn)btn.style.opacity='';
+  if(btn){btn.style.opacity='';btn.disabled=false;}
 };
 
 /* ── APPEND MESSAGE ── */
