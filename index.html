@@ -41755,6 +41755,85 @@ body.dtr-fs-active[data-fs-tab="messages"] .msg-tab-action {
   letter-spacing: .01em;
   flex-shrink: 0;
 }
+
+/* ══ GROUP MODAL PREMIUM OVERRIDES ═════════════════════════ */
+#_grpInfoModal > div {
+  background: #0F0F14 !important;
+  border-color: rgba(255,255,255,.08) !important;
+  border-radius: 24px !important;
+  box-shadow: 0 32px 80px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.06) !important;
+}
+/* Header */
+#_grpInfoModal > div > div:first-child {
+  background: linear-gradient(160deg, rgba(26,159,255,.07) 0%, transparent 70%) !important;
+  border-bottom-color: rgba(255,255,255,.06) !important;
+  padding: 18px 20px 16px !important;
+}
+/* Body */
+#_grpInfoModal > div > div:nth-child(2) {
+  padding: 18px 20px !important;
+}
+/* Footer */
+#_grpInfoModal > div > div:last-child {
+  padding: 14px 20px 18px !important;
+  background: rgba(255,255,255,.015) !important;
+  border-top-color: rgba(255,255,255,.06) !important;
+}
+/* Avatar container in edit mode */
+#grpEmojiSel {
+  width: 72px !important;
+  height: 72px !important;
+  border-radius: 18px !important;
+  cursor: pointer !important;
+  transition: transform .15s, box-shadow .15s !important;
+}
+#grpEmojiSel:hover {
+  transform: scale(1.04) !important;
+  box-shadow: 0 0 0 2px rgba(26,159,255,.4) !important;
+}
+/* Upload label */
+#grpAvatarLabel {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: .03em !important;
+}
+/* Input fields */
+.gm-field {
+  background: rgba(255,255,255,.04) !important;
+  border: 0.5px solid rgba(255,255,255,.1) !important;
+  border-radius: 12px !important;
+  color: var(--t1) !important;
+  font-size: 14px !important;
+  transition: border-color .18s !important;
+}
+.gm-field:focus {
+  border-color: rgba(26,159,255,.5) !important;
+  background: rgba(26,159,255,.03) !important;
+  outline: none !important;
+}
+/* Member rows */
+#grpMembersList > div {
+  border-radius: 12px !important;
+  padding: 9px 10px !important;
+}
+/* Section labels */
+#_grpInfoModal [style*="text-transform:uppercase"] {
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  letter-spacing: .07em !important;
+}
+/* Save button */
+#_grpInfoModal button[onclick*="_grpSaveInfo"] {
+  background: linear-gradient(145deg, #C89F28, #F5C842) !important;
+  border-radius: 12px !important;
+  font-weight: 800 !important;
+  box-shadow: 0 4px 16px rgba(245,200,66,.25) !important;
+  transition: opacity .15s !important;
+}
+#_grpInfoModal button[onclick*="_grpSaveInfo"]:hover {
+  opacity: 0.88 !important;
+}
+/* ═══════════════════════════════════════════════════════════ */
 </style>
 <script>
 (function(){
@@ -42099,10 +42178,6 @@ async function _grpInjectSidebar(){
     if(!newIds.has(el.dataset.groupId))el.remove();
   });
 
-  // Always sync visibility of empty state
-  var _grpEmptyEl = document.getElementById('msgGroupsEmpty');
-  if(_grpEmptyEl) _grpEmptyEl.style.display = groups.length ? 'none' : 'flex';
-
   if(!groups.length){
     list.querySelectorAll('.dtr-group-conv').forEach(function(el){el.remove();});
     _grpInjectPending=false;
@@ -42379,7 +42454,7 @@ async function _grpLoadMessages(groupId,append){
 }
 
 /* ── BUILD HTML ── */
-function _grpBuildMessagesHTML(msgs,members,groupId){
+function _grpBuildMessagesHTML(msgs,members,groupId,_initLastDate){
   if(!msgs||!msgs.length)
     return'<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center;">'
       +'<div style="font-size:36px;opacity:.2">👥</div>'
@@ -42395,7 +42470,7 @@ function _grpBuildMessagesHTML(msgs,members,groupId){
     return colorIdx[uid];
   }
   var chunks=[];
-  var lastDate='',lastSender='',lastTs=0;
+  var lastDate=_initLastDate||'',lastSender='',lastTs=0;
   var GAP=5*60*1000;
   msgs.forEach(function(msg,i){
     if(msg.is_system){
@@ -42730,7 +42805,11 @@ function _grpAppendMessage(msg){
   var rows=el.querySelectorAll('.msg-row');
   var prev=rows[rows.length-1];
   var mine=msg.from_user_id===_myId();
-  var html=_grpBuildMessagesHTML([msg],members,groupId);
+  // Don't repeat date separator if already shown for today
+  var _existSeps=el.querySelectorAll('.msg-date-sep-label');
+  var _existLastDate='';
+  if(_existSeps.length){var _ls=_existSeps[_existSeps.length-1];if(!(_ls.style&&_ls.style.color))_existLastDate=(_ls.textContent||'').trim();}
+  var html=_grpBuildMessagesHTML([msg],members,groupId,_existLastDate);
   var tmp=document.createElement('div');tmp.innerHTML=html;
   var newRow=tmp.querySelector('.msg-row');
   if(newRow){
@@ -43214,22 +43293,24 @@ window._grpSaveInfo=async function(groupId){
       var ext2=(imgFile.name||'img.jpg').split('.').pop().toLowerCase()||'jpg';
       var imgPath='group_avatars/'+groupId+'.'+ext2;
       // Use 'chat-files' bucket with user-scoped path so storage RLS passes
-      var buckets=['chat-files','avatars'];
+      var _bkts=[
+        {b:'avatars',p:'group_avatars/'+groupId+'.'+ext2},
+        {b:'avatars',p:_myId()+'/grp_'+groupId+'.'+ext2},
+        {b:'chat-files',p:'group_avatars/'+_myId()+'/grp_'+groupId+'.'+ext2}
+      ];
       var uploaded=false;
-      for(var bi=0;bi<buckets.length;bi++){
-        var bkt=buckets[bi];
-        var bktPath=(bkt==='chat-files'?'group_avatars/':'')+_myId()+'/grp_'+groupId+'.'+ext2;
+      for(var bi=0;bi<_bkts.length;bi++){
         try{
-          var {error:upErr2}=await sb.storage.from(bkt).upload(bktPath,imgFile,{upsert:true,contentType:imgFile.type||'image/jpeg'});
+          var {error:upErr2}=await sb.storage.from(_bkts[bi].b).upload(_bkts[bi].p,imgFile,{upsert:true,contentType:imgFile.type||'image/jpeg'});
           if(!upErr2){
-            var {data:urlData2}=sb.storage.from(bkt).getPublicUrl(bktPath);
+            var {data:urlData2}=sb.storage.from(_bkts[bi].b).getPublicUrl(_bkts[bi].p);
             newAvatarUrl=(urlData2&&urlData2.publicUrl||null);
             if(newAvatarUrl)newAvatarUrl=newAvatarUrl.split('?')[0]+'?t='+Date.now();
             uploaded=true;break;
           }
         }catch(bex){}
       }
-      if(!uploaded){_toast('Не удалось загрузить фото группы — проверь настройки Storage','⚠️');return;}
+      if(!uploaded){_toast('Не удалось загрузить фото — проверь Storage buckets в Supabase','⚠️');return;}
     }catch(ex){console.warn('[DTR] group avatar upload ex:',ex);}
   }
   try{
@@ -43710,6 +43791,37 @@ function _grpBoot(){
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',_grpBoot);}
 else{_grpBoot();}
 
+})();
+</script>
+<script>
+/* ── GROUP AVATAR CLICK-TO-UPLOAD PATCH ────────────────────── */
+(function(){
+  // After modal opens, make avatar clickable for file upload
+  var _grpAvatarObserver = new MutationObserver(function(){
+    var emojiSel = document.getElementById('grpEmojiSel');
+    var avatarInput = document.getElementById('grpAvatarInput');
+    if(emojiSel && avatarInput && !emojiSel.dataset.patchedClick){
+      emojiSel.dataset.patchedClick = '1';
+      emojiSel.style.cursor = 'pointer';
+      emojiSel.style.position = 'relative';
+      // Add camera overlay
+      if(!emojiSel.querySelector('.grp-cam-ov')){
+        var ov = document.createElement('div');
+        ov.className = 'grp-cam-ov';
+        ov.style.cssText = 'position:absolute;inset:0;border-radius:17px;background:rgba(0,0,0,.52);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .18s;pointer-events:none;';
+        ov.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
+        emojiSel.appendChild(ov);
+        emojiSel.addEventListener('mouseenter', function(){ ov.style.opacity = '1'; });
+        emojiSel.addEventListener('mouseleave', function(){ ov.style.opacity = '0'; });
+      }
+      // Click on avatar → open file picker (not emoji picker)
+      emojiSel.onclick = function(e){
+        e.stopPropagation();
+        avatarInput.click();
+      };
+    }
+  });
+  _grpAvatarObserver.observe(document.body, {childList:true, subtree:true});
 })();
 </script>
 </body>
