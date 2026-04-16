@@ -42030,7 +42030,28 @@ async function _grpLoadMyGroups(){
       return[];
     }
     var memberRows=r0.data||[];
-    if(!memberRows.length)return[];
+    // FALLBACK: RLS may block SELECT by user_id but allow by group_id.
+    // Try finding groups where user is owner, then verify membership per group.
+    if(!memberRows.length){
+      var rOwned=await sb.from('group_chats')
+        .select('id').eq('owner_id',_myId()).order('updated_at',{ascending:false});
+      if(!rOwned.error && rOwned.data && rOwned.data.length){
+        memberRows=rOwned.data.map(function(g){return{group_id:g.id,role:'owner'};});
+      } else {
+        // Last resort: try group_members filtered by each group_id using group_chats list
+        var rAllGrps=await sb.from('group_chats')
+          .select('id').order('updated_at',{ascending:false}).limit(50);
+        if(!rAllGrps.error && rAllGrps.data && rAllGrps.data.length){
+          var checks=await Promise.all(rAllGrps.data.map(function(g){
+            return sb.from('group_members')
+              .select('group_id,role').eq('group_id',g.id).eq('user_id',_myId()).limit(1)
+              .then(function(r){ return r.data&&r.data[0]||null; });
+          }));
+          memberRows=checks.filter(Boolean);
+        }
+        if(!memberRows.length)return[];
+      }
+    }
     var groupIds=memberRows.map(function(r){return r.group_id;});
     var roleMap={};memberRows.forEach(function(r){roleMap[r.group_id]=r.role;});
 
