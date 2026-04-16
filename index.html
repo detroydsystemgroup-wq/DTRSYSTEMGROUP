@@ -31957,42 +31957,51 @@ function _lrnInjectCSS(){
 .lrn-new-cat-btn:hover::before{ transform:translateX(100%); }
 .lrn-new-cat-btn:active{ transform:scale(.96) translateY(0); }
 
-/* ── Section (category block) ── */
-.lrn-sec{
-  margin-bottom:28px;
-  border-radius:0;
-  border:none;
-  background:transparent;
-  position:relative;
-  overflow:visible;
-}
-.lrn-sec:hover{ box-shadow:none; border-color:transparent; }
-/* Remove old accent bars */
-.lrn-sec::before, .lrn-sec::after{ display:none !important; }
+/* ══════════════════════════════════════════════════════════════
+   SECTION SEPARATION SYSTEM — применяется ко всем режимам
+   Каждая категория = карточка с чёткими границами
+   ══════════════════════════════════════════════════════════════ */
 
-/* Category header — clean, editorial */
+.lrn-sec{
+  margin-bottom:24px;
+  border-radius:20px;
+  border:0.5px solid rgba(255,255,255,.07);
+  background:var(--card-bg, #0D0D12);
+  position:relative;
+  overflow:hidden;
+  transition:border-color .2s, box-shadow .2s;
+}
+.lrn-sec:hover{
+  border-color:rgba(255,255,255,.1);
+  box-shadow:0 6px 32px rgba(0,0,0,.35);
+}
+/* Цветная полоска сверху — по ширине иконки */
+.lrn-sec::before{
+  content:'';
+  position:absolute;
+  top:0; left:0; right:0;
+  height:1.5px;
+  background:linear-gradient(90deg, var(--sec-c,var(--gold)) 0%, transparent 60%);
+  opacity:.7;
+  pointer-events:none;
+}
+.lrn-sec::after{ display:none !important; }
+
+/* Category header */
 .lrn-sec-hdr{
   display:flex;
   align-items:center;
   gap:14px;
-  padding:0 0 14px 0;
-  border-bottom:0.5px solid rgba(255,255,255,.06);
-  background:transparent;
-  margin-bottom:18px;
+  padding:16px 20px 15px;
+  border-bottom:0.5px solid rgba(255,255,255,.05);
+  background:rgba(255,255,255,.015);
+  margin-bottom:0;
   position:relative;
   z-index:1;
 }
-/* Colored left bar replaces old accent bar — on the header line */
-.lrn-sec-hdr::before{
-  content:'';
-  position:absolute;
-  left:0; bottom:0;
-  width:48px; height:1.5px;
-  background:var(--sec-c, var(--gold));
-  border-radius:2px;
-}
+.lrn-sec-hdr::before{ display:none !important; }
 
-/* Category icon — larger, rounder, glowing */
+/* Category icon */
 .lrn-sec-icon{
   width:40px;
   height:40px;
@@ -32005,45 +32014,42 @@ function _lrnInjectCSS(){
   box-shadow:0 0 0 1px rgba(255,255,255,.04);
 }
 .lrn-sec:hover .lrn-sec-icon{
-  transform:scale(1.1) rotate(-4deg);
+  transform:scale(1.08) rotate(-3deg);
   box-shadow:0 4px 14px rgba(0,0,0,.3);
 }
 
 .lrn-sec-info{ flex:1; min-width:0; }
 .lrn-sec-name{
-  font-size:15px;
+  font-size:13px;
   font-weight:800;
   color:var(--t1);
-  letter-spacing:-.03em;
+  letter-spacing:-.01em;
   line-height:1.2;
   text-transform:uppercase;
 }
 .lrn-sec-sub{
   font-size:11px;
   color:var(--t3);
-  letter-spacing:.02em;
+  letter-spacing:.01em;
   margin-top:3px;
 }
 
-/* Count pill — minimal badge */
+/* Count badge */
 .lrn-sec-cnt{
-  font-size:10px;
+  font-size:11px;
   font-weight:700;
   color:var(--sec-c, var(--gold));
   font-family:var(--font-mono);
-  background:transparent;
+  background:rgba(255,255,255,.04);
   border:0.5px solid var(--sec-c, var(--gold));
   border-radius:20px;
   padding:3px 10px;
   letter-spacing:.02em;
   line-height:1;
-  opacity:.7;
-  transition:opacity .15s,background .15s;
+  opacity:.75;
+  transition:opacity .15s;
 }
-.lrn-sec:hover .lrn-sec-cnt{
-  opacity:1;
-  background:rgba(255,255,255,.05);
-}
+.lrn-sec:hover .lrn-sec-cnt{ opacity:1; }
 
 .lrn-sec-acts{
   display:flex;
@@ -32053,52 +32059,31 @@ function _lrnInjectCSS(){
 }
 .lrn-sec:hover .lrn-sec-acts{ opacity:1; }
 .lrn-sec-btn{
-  width:30px;
-  height:30px;
-  border-radius:10px;
+  width:30px;height:30px;border-radius:9px;
   border:0.5px solid rgba(255,255,255,.08);
   background:rgba(255,255,255,.03);
-  color:var(--t3);
-  cursor:pointer;
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  color:var(--t3);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
   transition:all .12s;
 }
 .lrn-sec-btn:hover{ background:rgba(255,255,255,.08); color:var(--t2); }
-.lrn-sec-btn.del:hover{
-  background:rgba(255,69,58,.1);
-  color:var(--red);
-  border-color:rgba(255,69,58,.2);
-}
+.lrn-sec-btn.del:hover{ background:rgba(255,69,58,.1); color:var(--red); border-color:rgba(255,69,58,.2); }
 
-/* Card grid — tighter, symmetric */
+/* Card grid inside section */
 .lrn-row-wrap{
-  padding:0;
-  position:relative;
-  z-index:1;
+  padding:18px 18px 18px;
+  position:relative;z-index:1;
 }
 .lrn-row{
   display:grid;
   grid-template-columns:repeat(4,1fr);
-  grid-auto-rows:auto;
-  gap:16px;
+  gap:14px;
 }
 .lrn-row .lrn-card,
-.lrn-row .lrn-add-card{
-  width:100%;
-  min-width:0;
-}
-@media(max-width:1100px){
-  .lrn-row{ grid-template-columns:repeat(3,1fr); }
-}
-@media(max-width:700px){
-  .lrn-row{ grid-template-columns:repeat(2,1fr); gap:10px; }
-}
-@media(max-width:480px){
-  .lrn-row{ grid-template-columns:1fr; }
-  .lrn-card-acts{ opacity:1 !important; transform:none !important; }
-}
+.lrn-row .lrn-add-card{ width:100%; min-width:0; }
+@media(max-width:1100px){ .lrn-row{ grid-template-columns:repeat(3,1fr); } }
+@media(max-width:700px){ .lrn-row{ grid-template-columns:repeat(2,1fr); gap:10px; } .lrn-row-wrap{ padding:12px; } }
+@media(max-width:480px){ .lrn-row{ grid-template-columns:1fr; } .lrn-card-acts{ opacity:1 !important; } }
 
 /* ── Card — premium redesign ── */
 .lrn-card{
@@ -32258,7 +32243,7 @@ function _lrnInjectCSS(){
 .lrn-card-act:hover{ background:rgba(255,255,255,.09);color:var(--t1); }
 .lrn-card-act.del:hover{ background:rgba(255,69,58,.1);color:var(--red);border-color:rgba(255,69,58,.2); }
 
-/* ── Add card — dashed, symmetric ── */
+/* ── Add card — dashed, symmetric with real cards ── */
 .lrn-add-card{
   cursor:pointer;
   border-radius:16px;
@@ -32269,19 +32254,22 @@ function _lrnInjectCSS(){
   align-items:center;
   justify-content:center;
   gap:10px;
-  min-height:140px;
-  transition:border-color .2s,background .2s,transform .2s cubic-bezier(.34,1.4,.64,1);
+  aspect-ratio:3/4;
+  min-height:160px;
+  transition:border-color .2s,background .2s,transform .2s cubic-bezier(.34,1.4,.64,1),box-shadow .2s;
   color:var(--t3);
   font-size:12px;
   font-weight:600;
   font-family:var(--font-display);
   letter-spacing:.03em;
+  width:100%;
 }
 .lrn-add-card:hover{
-  border-color:rgba(245,200,66,.35);
+  border-color:rgba(245,200,66,.4);
   background:rgba(245,200,66,.04);
   color:var(--gold);
-  transform:translateY(-4px);
+  transform:translateY(-5px);
+  box-shadow:0 12px 32px rgba(0,0,0,.3);
 }
 .lrn-add-card-icon{
   width:36px;height:36px;border-radius:10px;
@@ -33055,41 +33043,32 @@ function _lrnInjectCSS(){
 
 /* Services grid — card-block style (mirrors lrn-sec) */
 .svc-section{
-  margin-bottom:16px;
-  border-radius:18px;
-  border:0.5px solid var(--border);
-  background:var(--card-bg);
+  margin-bottom:24px;
+  border-radius:20px;
+  border:0.5px solid rgba(255,255,255,.07);
+  background:var(--card-bg, #0D0D12);
   position:relative;
   overflow:hidden;
   transition:box-shadow .2s, border-color .2s;
 }
 .svc-section:hover{
-  box-shadow:0 4px 28px rgba(0,0,0,.4);
-  border-color:rgba(255,255,255,.08);
+  border-color:rgba(255,255,255,.1);
+  box-shadow:0 6px 32px rgba(0,0,0,.35);
 }
-/* Colored left accent bar */
+/* Top accent line */
 .svc-section::before{
   content:'';
   position:absolute;
-  left:0; top:0; bottom:0;
-  width:3px;
-  background:var(--svc-c, #06B6D4);
-  border-radius:0;
-  opacity:.85;
-}
-/* Top ambient glow from accent color */
-.svc-section::after{
-  content:'';
-  position:absolute;
   top:0; left:0; right:0;
-  height:1px;
-  background:linear-gradient(90deg,var(--svc-c,#06B6D4) 0%,transparent 60%);
-  opacity:.35;
+  height:1.5px;
+  background:linear-gradient(90deg, var(--svc-c,#06B6D4) 0%, transparent 60%);
+  opacity:.7;
   pointer-events:none;
 }
+.svc-section::after{ display:none !important; }
 .svc-section-hdr{
   display:flex;align-items:center;justify-content:space-between;
-  padding:14px 20px;
+  padding:16px 20px 15px;
   border-bottom:0.5px solid rgba(255,255,255,.05);
   background:rgba(255,255,255,.015);
   gap:12px;
@@ -33277,7 +33256,18 @@ function _lrnInjectCSS(){
 
 /* ── svc-section content padding (no extra wrapper needed) ── */
 .svc-section > .svc-grid{
-  padding-bottom:20px;
+  padding:18px 18px 18px;
+}
+
+/* ══ UNIVERSAL SECTION SEPARATOR ══════════════════════════
+   Невидимый разделитель между всеми секциями категорий
+   Работает для lrn-sec, svc-section, pins-block
+═══════════════════════════════════════════════════════════ */
+.lrn-sec + .lrn-sec,
+.svc-section + .svc-section,
+.pins-block + .lrn-sec,
+.pins-block + .svc-section {
+  margin-top: 0; /* gap уже задан margin-bottom */
 }
 
 /* ── Mode bar polish ── */
