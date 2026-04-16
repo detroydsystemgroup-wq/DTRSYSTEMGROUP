@@ -42010,6 +42010,30 @@ function _grpShowSqlAlert(){
 /* ─────────────────────────────────────────────
    LOAD GROUPS — загружаем группы текущего юзера
 ───────────────────────────────────────────────*/
+
+/* ── DTR Group ID local cache — bypasses RLS on group_members(user_id) ── */
+function _grpSaveKnownId(id){
+  if(!id)return;
+  try{
+    var key='dtr_grp_ids_'+(typeof SB_USER!=='undefined'&&SB_USER?SB_USER.id:'x');
+    var arr=JSON.parse(localStorage.getItem(key)||'[]');
+    if(!arr.includes(id)){arr.push(id);localStorage.setItem(key,JSON.stringify(arr));}
+  }catch(e){}
+}
+function _grpGetKnownIds(){
+  try{
+    var key='dtr_grp_ids_'+(typeof SB_USER!=='undefined'&&SB_USER?SB_USER.id:'x');
+    return JSON.parse(localStorage.getItem(key)||'[]');
+  }catch(e){return[];}
+}
+function _grpRemoveKnownId(id){
+  try{
+    var key='dtr_grp_ids_'+(typeof SB_USER!=='undefined'&&SB_USER?SB_USER.id:'x');
+    var arr=JSON.parse(localStorage.getItem(key)||'[]').filter(function(x){return x!==id;});
+    localStorage.setItem(key,JSON.stringify(arr));
+  }catch(e){}
+}
+
 async function _grpLoadMyGroups(){
   if(!_myId())return[];
   if(typeof sb==='undefined'||!sb)return[];
@@ -42030,29 +42054,34 @@ async function _grpLoadMyGroups(){
       return[];
     }
     var memberRows=r0.data||[];
-    // FALLBACK: RLS may block SELECT by user_id but allow by group_id.
-    // Try finding groups where user is owner, then verify membership per group.
+
+    // ── FALLBACK: RLS blocks SELECT by user_id, returns [] without error.
+    // Strategy: query group_members by group_id (RLS allows), using IDs saved locally.
     if(!memberRows.length){
-      var rOwned=await sb.from('group_chats')
-        .select('id').eq('owner_id',_myId()).order('updated_at',{ascending:false});
-      if(!rOwned.error && rOwned.data && rOwned.data.length){
-        memberRows=rOwned.data.map(function(g){return{group_id:g.id,role:'owner'};});
-      } else {
-        // Last resort: try group_members filtered by each group_id using group_chats list
-        var rAllGrps=await sb.from('group_chats')
-          .select('id').order('updated_at',{ascending:false}).limit(50);
-        if(!rAllGrps.error && rAllGrps.data && rAllGrps.data.length){
-          var checks=await Promise.all(rAllGrps.data.map(function(g){
-            return sb.from('group_members')
-              .select('group_id,role').eq('group_id',g.id).eq('user_id',_myId()).limit(1)
-              .then(function(r){ return r.data&&r.data[0]||null; });
-          }));
-          memberRows=checks.filter(Boolean);
-        }
-        if(!memberRows.length)return[];
+      var knownIds=_grpGetKnownIds();
+      if(knownIds.length){
+        var checks=await Promise.all(knownIds.map(function(gid){
+          return sb.from('group_members')
+            .select('group_id,role').eq('group_id',gid).eq('user_id',_myId()).limit(1)
+            .then(function(r){return r.data&&r.data[0]||null;});
+        }));
+        memberRows=checks.filter(Boolean);
       }
+      // Also try owner fallback — group_chats by owner_id
+      if(!memberRows.length){
+        var rOwned=await sb.from('group_chats')
+          .select('id').eq('owner_id',_myId()).limit(50);
+        if(!rOwned.error&&rOwned.data&&rOwned.data.length){
+          rOwned.data.forEach(function(g){_grpSaveKnownId(g.id);});
+          memberRows=rOwned.data.map(function(g){return{group_id:g.id,role:'owner'};});
+        }
+      }
+      if(!memberRows.length)return[];
     }
+
     var groupIds=memberRows.map(function(r){return r.group_id;});
+    // Save all found IDs for future fallback
+    groupIds.forEach(function(id){_grpSaveKnownId(id);});
     var roleMap={};memberRows.forEach(function(r){roleMap[r.group_id]=r.role;});
 
     // 2. Загружаем мета групп
@@ -42207,6 +42236,7 @@ async function _grpLoadMemberCount(groupId){
 ───────────────────────────────────────────────*/
 async function _grpOpenChat(groupId){
   _grpActiveId=groupId;
+  _grpSaveKnownId(groupId);  // persist for sidebar fallback
   // Auto-switch to groups tab when opening a group chat
   if(typeof _msgSwitchTab==='function' && _msgActiveTab!=='groups'){
     _msgSwitchTab('groups');
@@ -43603,6 +43633,7 @@ window._gcDoCreate=async function(){
       throw rpc.error;
     }
     var groupId=rpc.data;
+    _grpSaveKnownId(groupId);  // persist so sidebar can find it even under RLS
     document.getElementById('_grpCreateModal')&&document.getElementById('_grpCreateModal').remove();
     _toast('Группа «'+name+'» создана 🎉','✅');
     _grpDbReady=true;
