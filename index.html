@@ -529,6 +529,9 @@ input, button, select, textarea {
 [data-theme="light"] .stab.active { color: var(--gold-d); box-shadow: inset 0 -2.5px 0 0 var(--gold-d); }
 [data-theme="light"] .fi { background: #F5F4F0; border-color: rgba(0,0,0,.12); color: var(--t1); }
 [data-theme="light"] .si { background: #F5F4F0; border-color: rgba(0,0,0,.07); }
+[data-theme="light"] .msg-section-head { background: rgba(248,247,244,.97) !important; }
+[data-theme="light"] .msg-section-label { color: rgba(0,0,0,.4); }
+[data-theme="light"] .msg-section-action { background: rgba(245,200,66,.08) !important; border-color: rgba(200,159,40,.2) !important; }
 [data-theme="light"] .msg-bubble.mine { background: var(--msg-mine-bg) !important; }
 [data-theme="light"] .msg-bubble.theirs { background: var(--msg-theirs-bg) !important; border: 0.5px solid rgba(0,0,0,.08) !important; }
 [data-theme="light"] .msg-bubble span { color: #111 !important; }
@@ -15436,50 +15439,57 @@ html[data-theme="light"] .nav-icon-btn:hover {
 
         <!-- ── LEFT: Conversations ── -->
         <div class="msg-list" id="msgList">
+          <!-- ── HEADER ── -->
           <div class="msg-list-head">
-            <!-- Title row -->
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 14px 8px;">
-              <div class="msg-list-head-title">
-                <span class="msg-list-head-title-icon">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                </span>
-                Сообщения
-              </div>
-              <!-- Header action buttons -->
-              <div style="display:flex;align-items:center;gap:5px;">
-                <!-- Создать группу -->
-                <button class="msg-new-group-btn" onclick="_dtrOpenGroupModal()" title="Создать группу">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                  Группа
-                </button>
-                <!-- "Найти пользователей" button -->
-                <button onclick="(function(){var ov=document.getElementById('userSearchOv');if(ov){ov.style.display='flex';setTimeout(function(){var inp=document.getElementById('usrSearchInput');if(inp)inp.focus();},80);}else{_msgShowNewConvModal();}})()"
-                  style="display:flex;align-items:center;gap:5px;height:28px;padding:0 10px;border-radius:7px;background:rgba(245,200,66,.09);border:0.5px solid rgba(245,200,66,.25);color:var(--gold);font-size:11px;font-weight:700;font-family:var(--font-display);cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s;"
-                  onmouseover="this.style.background='rgba(245,200,66,.18)';this.style.borderColor='rgba(245,200,66,.45)'"
-                  onmouseout="this.style.background='rgba(245,200,66,.09)';this.style.borderColor='rgba(245,200,66,.25)'"
-                  title="Найти пользователей">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                  Найти
-                </button>
-              </div>
+            <!-- Tab bar — Личные / Группы -->
+            <div class="msg-tab-bar" id="msgTabBar">
+              <button class="msg-tab-btn active" id="msgTabDMs" onclick="_msgSwitchTab('dms')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                Личные
+                <span class="msg-tab-badge" id="msgTabDMsBadge"></span>
+              </button>
+              <button class="msg-tab-btn" id="msgTabGroups" onclick="_msgSwitchTab('groups')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Группы
+                <span class="msg-tab-badge msg-tab-badge--blue" id="msgTabGroupsBadge"></span>
+              </button>
             </div>
-            <!-- Search row -->
-            <div style="padding:0 10px 10px;">
-              <div class="msg-search-wrap">
+            <!-- Search + action row -->
+            <div style="display:flex;align-items:center;gap:6px;padding:0 10px 10px;">
+              <div class="msg-search-wrap" style="flex:1;">
                 <svg class="msg-search-ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input class="msg-search-input" type="text" placeholder="Поиск по имени…"
+                <input class="msg-search-input" id="msgSearchInput" type="text" placeholder="Поиск…"
                   oninput="debouncedFilterConvs(this.value)"
                   aria-label="Поиск по диалогам">
               </div>
+              <!-- Contextual action button — changes based on active tab -->
+              <button class="msg-tab-action" id="msgTabAction"
+                onclick="_msgTabActionClick()"
+                title="Новый чат">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
             </div>
           </div>
+
+          <!-- ── DMs PANEL ── -->
           <div class="msg-conv-list" id="msgConvList">
-            <div class="msg-empty">
+            <div class="msg-empty" id="msgDMsEmpty">
               <div class="msg-empty-icon">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               </div>
-              <div style="font-size:14px;font-weight:700;color:var(--t1);margin-bottom:5px">Нет диалогов</div>
+              <div style="font-size:14px;font-weight:700;color:var(--t1);margin-bottom:5px">Нет личных чатов</div>
               <div style="font-size:12px;color:var(--t3);line-height:1.6">Открой профиль участника лиги<br>и нажми <span style="color:var(--gold);font-weight:600">«Написать»</span></div>
+            </div>
+          </div>
+
+          <!-- ── GROUPS PANEL ── -->
+          <div class="msg-conv-list" id="grpConvList" style="display:none;">
+            <div class="msg-empty" id="msgGroupsEmpty">
+              <div class="msg-empty-icon" style="background:rgba(26,159,255,.1);border-color:rgba(26,159,255,.2);">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </div>
+              <div style="font-size:14px;font-weight:700;color:var(--t1);margin-bottom:5px">Нет групп</div>
+              <div style="font-size:12px;color:var(--t3);line-height:1.6">Создай группу и общайся<br>с несколькими участниками</div>
             </div>
           </div>
         </div>
@@ -20797,19 +20807,26 @@ function _upgradeStatus(msgId, newStatus, delay=0){
 
 // ── Render conversation list ──
 function _renderConvList(convs){
-  const el = document.getElementById('msgConvList');
+  const el = document.getElementById('dmConvList');
   if(!el) return;
+  const emptyState = document.getElementById('dmEmptyState');
   if(!convs || convs.length === 0){
-    el.innerHTML = `<div class="msg-empty">
-      <div class="msg-empty-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
-      <div style="font-size:14px;font-weight:700;color:var(--t1);margin-bottom:5px">Нет диалогов</div>
-      <div style="font-size:12px;color:var(--t3);line-height:1.6">Открой профиль участника лиги<br>и нажми <span style="color:var(--gold);font-weight:600">«Написать»</span></div>
-    </div>`;
+    if(emptyState) emptyState.style.display='flex';
+    // Remove old DM conv items
+    el.querySelectorAll('.msg-conv:not(.dtr-group-conv)').forEach(n=>n.remove());
     const badge = document.getElementById('msgTabBadge');
     if(badge) badge.style.display='none';
+    const cnt = document.getElementById('dmCount');
+    if(cnt) cnt.textContent='';
+    _updateMsgTotalBadge();
     return;
   }
-  el.innerHTML = convs.map((cv,i) => {
+  if(emptyState) emptyState.style.display='none';
+  // Remove old DM items before re-render
+  el.querySelectorAll('.msg-conv:not(.dtr-group-conv)').forEach(n=>n.remove());
+  const dmFragment = document.createDocumentFragment();
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = convs.map((cv,i) => {
     const avHtml = cv.avUrl
       ? `<img src="${cv.avUrl}" class="img-cover" style="border-radius:13px;width:100%;height:100%;object-fit:cover;display:block;" onerror="this.hidden=true">` 
       : esc(cv.av || '🎯');
@@ -20861,12 +20878,84 @@ function _renderConvList(convs){
       </button>
     </div>`;
   }).join('');
+  // Insert DM items into section body
+  Array.from(tempDiv.children).forEach(node => el.appendChild(node));
   const totalUnread = convs.reduce((s,c)=>s+c.unread,0);
   const badge = document.getElementById('msgTabBadge');
   if(badge){ badge.style.display=totalUnread>0?'inline':'none'; badge.textContent=totalUnread>9?'9+':totalUnread; }
+  // Update DM tab badge with unread count
+  if(typeof _updateMsgTabBadges === 'function') _updateMsgTabBadges(totalUnread, 0);
 }
 
 
+
+// ── Update total unread badge in header ──
+function _updateMsgTotalBadge(){
+  const dms = document.querySelectorAll('#dmConvList .msg-conv');
+  const grps = document.querySelectorAll('#grpConvList .dtr-group-conv');
+  let total = 0;
+  document.querySelectorAll('#dmConvList .msg-conv-badge').forEach(b=>{
+    total += parseInt(b.textContent)||0;
+  });
+  const tb = document.getElementById('msgTotalBadge');
+  if(tb){ tb.style.display=total>0?'inline':'none'; tb.textContent=total>9?'9+':total; }
+}
+
+// ══ MSG TAB SYSTEM ═══════════════════════════════════════════
+var _msgActiveTab = 'dms'; // 'dms' | 'groups'
+
+function _msgSwitchTab(tab){
+  _msgActiveTab = tab;
+  var dmPanel  = document.getElementById('msgConvList');
+  var grpPanel = document.getElementById('grpConvList');
+  var btnDMs   = document.getElementById('msgTabDMs');
+  var btnGrps  = document.getElementById('msgTabGroups');
+  var action   = document.getElementById('msgTabAction');
+  var search   = document.getElementById('msgSearchInput');
+  if(search) search.value='';
+  // Reset filter
+  debouncedFilterConvs('');
+
+  if(tab === 'dms'){
+    if(dmPanel)  dmPanel.style.display  = '';
+    if(grpPanel) grpPanel.style.display = 'none';
+    if(btnDMs){  btnDMs.classList.add('active');    btnDMs.classList.remove('groups-tab'); }
+    if(btnGrps){ btnGrps.classList.remove('active','groups-tab'); }
+    if(action){  action.classList.remove('blue'); action.title='Написать'; }
+  } else {
+    if(dmPanel)  dmPanel.style.display  = 'none';
+    if(grpPanel) grpPanel.style.display = '';
+    if(btnGrps){ btnGrps.classList.add('active','groups-tab'); }
+    if(btnDMs){  btnDMs.classList.remove('active'); }
+    if(action){  action.classList.add('blue'); action.title='Создать группу'; }
+    // Inject groups if not yet loaded
+    if(typeof _grpInjectSidebar==='function'){
+      _grpInjectPending=false;
+      _grpInjectSidebar();
+    }
+  }
+}
+
+function _msgTabActionClick(){
+  if(_msgActiveTab === 'dms'){
+    var ov=document.getElementById('userSearchOv');
+    if(ov){ov.style.display='flex';setTimeout(function(){var inp=document.getElementById('usrSearchInput');if(inp)inp.focus();},80);}
+    else{if(typeof _msgShowNewConvModal==='function')_msgShowNewConvModal();}
+  } else {
+    if(typeof _dtrOpenGroupModal==='function') _dtrOpenGroupModal();
+  }
+}
+
+// Update tab badges
+function _updateMsgTabBadges(dmUnread, grpUnread){
+  var dmB  = document.getElementById('msgTabDMsBadge');
+  var grpB = document.getElementById('msgTabGroupsBadge');
+  if(dmB){  dmB.textContent  = dmUnread  > 0 ? (dmUnread  > 9 ? '9+' : dmUnread)  : ''; }
+  if(grpB){ grpB.textContent = grpUnread > 0 ? (grpUnread > 9 ? '9+' : grpUnread) : ''; }
+}
+
+// When a group chat is opened — auto-switch to groups tab if not there
+var _origOpenChat = null;
 
 // ══ FIX 4: DELETE CONVERSATION from sidebar ═══════════════════
 function _msgDeleteConv(userId, name){
@@ -21371,6 +21460,10 @@ async function loadConversations(){
 
 // ── Open conversation ──
 async function openConv(userId, name, av, avUrl){
+  // Auto-switch to DMs tab when opening a direct chat
+  if(typeof _msgSwitchTab==='function' && _msgActiveTab!=='dms'){
+    _msgSwitchTab('dms');
+  }
   try{
     if(window.innerWidth <= 600){
       const chat = document.getElementById('msgChatArea');
@@ -22498,8 +22591,13 @@ let _fDebounce=null;
 function debouncedFilterConvs(q){
   clearTimeout(_fDebounce);
   _fDebounce=setTimeout(()=>{
-    const cache=_convsCache||allConvsCache;if(!cache)return;
     const qt=(q||'').trim().toLowerCase();
+    // Filter group cards by name
+    document.querySelectorAll('#grpConvList .dtr-group-conv').forEach(function(el){
+      var name=(el.querySelector('.msg-conv-name')||{}).textContent||'';
+      el.style.display=(!qt||name.toLowerCase().includes(qt))?'':'none';
+    });
+    const cache=_convsCache||allConvsCache;if(!cache)return;
     _renderConvList(qt?cache.filter(c=>(c.name||'').toLowerCase().includes(qt)):cache);
   },180);
 }
@@ -27224,6 +27322,18 @@ body.dtr-fs-active[data-fs-tab="messages"] .msg-list-head {
   background: rgba(6,8,14,.97) !important;
   border-bottom: 0.5px solid rgba(6,182,212,.1) !important;
   padding: 14px 14px 10px !important;
+}
+body.dtr-fs-active[data-fs-tab="messages"] .msg-section-head {
+  background: rgba(6,8,14,.97) !important;
+}
+body.dtr-fs-active[data-fs-tab="messages"] .msg-section-action {
+  background: rgba(6,182,212,.08) !important;
+  border-color: rgba(6,182,212,.2) !important;
+  color: #06B6D4 !important;
+}
+body.dtr-fs-active[data-fs-tab="messages"] .msg-section-action--blue {
+  background: rgba(6,182,212,.12) !important;
+  border-color: rgba(6,182,212,.25) !important;
 }
 body.dtr-fs-active[data-fs-tab="messages"] .msg-list-head-title {
   color: #06B6D4 !important;
@@ -41326,27 +41436,230 @@ console.log('[DTR] Video call system initialized');
 .gm-create-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
 
 /* ── 9. GROUP BUTTON in sidebar header ── */
-.msg-new-group-btn {
+/* ── TWO-SECTION SIDEBAR ── */
+.msg-section {
+  flex-shrink: 0;
+}
+.msg-section + .msg-section {
+  border-top: 0.5px solid rgba(255,255,255,.04);
+}
+.msg-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 6px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: rgba(8,8,11,.97);
+  backdrop-filter: blur(8px);
+}
+.msg-section-label {
   display: flex;
   align-items: center;
   gap: 5px;
-  height: 28px;
-  padding: 0 10px;
-  border-radius: 7px;
-  background: rgba(26,159,255,.09);
-  border: 0.5px solid rgba(26,159,255,.25);
-  color: var(--blue);
-  font-size: 11px;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--t3);
+}
+.msg-section-label svg { flex-shrink: 0; }
+.msg-section-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.07);
+  color: var(--t3);
+  font-size: 9px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+}
+.msg-section-count:empty { display: none; }
+.msg-section-action {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 6px;
+  background: rgba(245,200,66,.08);
+  border: 0.5px solid rgba(245,200,66,.2);
+  color: var(--gold);
+  font-size: 10px;
   font-weight: 700;
   font-family: var(--font-display);
   cursor: pointer;
   white-space: nowrap;
-  transition: background .15s, border-color .15s;
+  transition: background .15s, border-color .15s, transform .12s;
+  letter-spacing: .01em;
 }
-.msg-new-group-btn:hover {
+.msg-section-action:hover {
+  background: rgba(245,200,66,.16);
+  border-color: rgba(245,200,66,.4);
+  transform: translateY(-1px);
+}
+.msg-section-action:active { transform: none; }
+.msg-section-action--blue {
+  background: rgba(26,159,255,.08);
+  border-color: rgba(26,159,255,.2);
+  color: var(--blue);
+}
+.msg-section-action--blue:hover {
+  background: rgba(26,159,255,.16);
+  border-color: rgba(26,159,255,.4);
+}
+.msg-section-body { padding-bottom: 4px; }
+.msg-section-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  color: var(--t3);
+  font-size: 12px;
+  font-family: var(--font-display);
+  opacity: .6;
+}
+.msg-section-empty svg { flex-shrink: 0; opacity: .5; }
+
+/* Keep msg-conv-list as flex column */
+#msgConvList { overflow-y: auto; }
+
+/* Section divider accent */
+#msgSectionGroups .msg-section-head {
+  border-top: none;
+}
+[data-theme="light"] .msg-section-head {
+  background: rgba(248,247,244,.97);
+}
+
+.msg-new-group-btn { display: none; }
+
+/* ══ MSG TAB BAR — Личные / Группы ══ */
+.msg-tab-bar {
+  display: flex;
+  gap: 6px;
+  margin: 12px 10px 10px;
+  padding: 4px;
+  background: rgba(255,255,255,.04);
+  border: 0.5px solid rgba(255,255,255,.07);
+  border-radius: 13px;
+}
+.msg-tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--t2);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  letter-spacing: -.01em;
+  cursor: pointer;
+  transition: background .18s, color .18s, box-shadow .18s;
+  position: relative;
+  white-space: nowrap;
+}
+.msg-tab-btn:hover:not(.active) {
+  color: var(--t1);
+  background: rgba(255,255,255,.05);
+}
+.msg-tab-btn.active {
+  background: rgba(245,200,66,.12);
+  color: var(--gold);
+  border: 0.5px solid rgba(245,200,66,.3);
+  box-shadow: 0 2px 10px rgba(245,200,66,.12);
+}
+.msg-tab-btn.active.groups-tab {
+  background: rgba(26,159,255,.12);
+  color: var(--blue);
+  border-color: rgba(26,159,255,.32);
+  box-shadow: 0 2px 10px rgba(26,159,255,.12);
+}
+.msg-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--gold), var(--gold-d));
+  color: #09090B;
+  font-size: 9px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  line-height: 1;
+  animation: badgePop .3s cubic-bezier(.34,1.56,.64,1) both;
+}
+.msg-tab-badge:empty { display: none; }
+.msg-tab-badge--blue {
+  background: linear-gradient(135deg, var(--blue), #1577cc);
+  color: #fff;
+}
+/* Action button (+ new chat / + create group) */
+.msg-tab-action {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  border: 0.5px solid rgba(245,200,66,.25);
+  background: rgba(245,200,66,.08);
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background .15s, border-color .15s, transform .12s;
+}
+.msg-tab-action:hover {
+  background: rgba(245,200,66,.18);
+  border-color: rgba(245,200,66,.45);
+  transform: scale(1.08);
+}
+.msg-tab-action.blue {
+  border-color: rgba(26,159,255,.25);
+  background: rgba(26,159,255,.08);
+  color: var(--blue);
+}
+.msg-tab-action.blue:hover {
   background: rgba(26,159,255,.18);
   border-color: rgba(26,159,255,.45);
 }
+[data-theme="light"] .msg-tab-bar {
+  background: rgba(0,0,0,.04);
+  border-color: rgba(0,0,0,.07);
+}
+[data-theme="light"] .msg-tab-btn.active {
+  background: rgba(200,159,40,.12);
+  border-color: rgba(200,159,40,.3);
+}
+body.dtr-fs-active[data-fs-tab="messages"] .msg-tab-bar {
+  background: rgba(6,182,212,.06) !important;
+  border-color: rgba(6,182,212,.15) !important;
+}
+body.dtr-fs-active[data-fs-tab="messages"] .msg-tab-btn.active {
+  background: rgba(6,182,212,.14) !important;
+  color: #06B6D4 !important;
+  border-color: rgba(6,182,212,.35) !important;
+}
+body.dtr-fs-active[data-fs-tab="messages"] .msg-tab-action {
+  border-color: rgba(6,182,212,.25) !important;
+  background: rgba(6,182,212,.08) !important;
+  color: #06B6D4 !important;
+}
+
 
 /* ── 10. REPLY PREVIEW inside bubble ── */
 .msg-reply-preview {
@@ -41792,20 +42105,23 @@ async function _grpLoadMyGroups(){
 ───────────────────────────────────────────────*/
 async function _grpInjectSidebar(){
   if(_grpInjectPending){
-    // FIX: queue one retry after current inject finishes
     setTimeout(function(){ if(!_grpInjectPending) _grpInjectSidebar(); }, 350);
     return;
   }
   _grpInjectPending = true;
-  // FIX: 300ms debounce — shorter window, function also resets at end
   var _dbt=setTimeout(function(){ _grpInjectPending = false; }, 300);
-  var list=document.getElementById('msgConvList');
+  // FIX: use dedicated group list container
+  var list=document.getElementById('grpConvList')||document.getElementById('msgConvList');
   if(!list){ _grpInjectPending=false; return; }
   if(typeof SB_USER==='undefined'||!SB_USER||!SB_USER.id){ _grpInjectPending=false; return; }
   if(typeof sb==='undefined'||!sb){ _grpInjectPending=false; return; }
   var groups=await _grpLoadMyGroups();
-  var empty=list.querySelector('.msg-empty');
-  if(groups.length&&empty)empty.style.display='none';
+  // Update group section empty state
+  var grpEmpty=document.getElementById('grpEmptyState');
+  if(grpEmpty) grpEmpty.style.display=groups.length?'none':'flex';
+  // Update groups tab count badge
+  var grpUnreadCount=0;
+  // Count will be updated after inject
 
   // FIX: smart diff-update — no full remove/recreate to prevent jumping
   var existingIds=new Set();
@@ -41817,7 +42133,11 @@ async function _grpInjectSidebar(){
     if(!newIds.has(el.dataset.groupId))el.remove();
   });
 
-  if(!groups.length){ _grpInjectPending=false; return; }
+  if(!groups.length){
+    list.querySelectorAll('.dtr-group-conv').forEach(function(el){el.remove();});
+    _grpInjectPending=false;
+    return;
+  }
 
   groups.forEach(function(g){
     var preview=_grpPreviewText(g.lastMsg,g.lastMine);
@@ -41900,6 +42220,10 @@ async function _grpLoadMemberCount(groupId){
 ───────────────────────────────────────────────*/
 async function _grpOpenChat(groupId){
   _grpActiveId=groupId;
+  // Auto-switch to groups tab when opening a group chat
+  if(typeof _msgSwitchTab==='function' && _msgActiveTab!=='groups'){
+    _msgSwitchTab('groups');
+  }
   // FIX: reset compose state when switching groups
   _grpReplyTo=null; _grpFwd=null;
   if(_grpPendingFile){window._grpClearFile&&window._grpClearFile();}
@@ -42665,8 +42989,14 @@ function _grpUpdateSidebarPreview(groupId,text,isMine,time){
   if(prev)prev.textContent=_grpPreviewText(text,isMine);
   if(timeEl)timeEl.textContent=_fmtTime(time);
   var convEl=document.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"]');
-  var list=document.getElementById('msgConvList');
-  if(convEl&&list)list.prepend(convEl);
+  // FIX: sort within group section only
+  var list=document.getElementById('grpConvList')||document.getElementById('msgConvList');
+  if(convEl&&list){
+    // Move to top of group list
+    var firstItem=list.querySelector('.dtr-group-conv');
+    if(firstItem&&firstItem!==convEl) list.insertBefore(convEl,firstItem);
+    else if(!firstItem) list.appendChild(convEl);
+  }
 }
 
 /* ── REALTIME ── */
@@ -43294,7 +43624,7 @@ window._gcDoCreate=async function(){
     await _grpInjectSidebar();
     // Also add the card directly in case inject is still blocked
     setTimeout(function(){
-      var list=document.getElementById('msgConvList');
+      var list=document.getElementById('grpConvList')||document.getElementById('msgConvList');
       if(list&&!list.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"]')){
         _grpInjectPending=false;
         _grpInjectSidebar();
