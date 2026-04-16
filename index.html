@@ -21556,7 +21556,7 @@ function _msgShowNewConvModal(){
   document.getElementById('_msgNewConvModal')?.remove();
   const modal = document.createElement('div');
   modal.id = '_msgNewConvModal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);z-index:99985;display:flex;align-items:center;justify-content:center;padding:20px;';
   modal.innerHTML = `
     <div style="background:var(--card);border:0.5px solid var(--border);border-radius:18px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.6);overflow:hidden;">
       <div style="padding:16px 18px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
@@ -22449,13 +22449,24 @@ const _EMOJIS=['😊','😂','❤️','🔥','👍','🎉','😭','🙌','✨','
 function _toggleMsgEmoji(){
   const ex=document.getElementById('_msgEmojiPop');
   if(ex){ex.remove();return;}
-  const bar=document.querySelector('.msg-input-area');if(!bar)return;
-  bar.style.position='relative';
+  const emojiBtn=document.querySelector('.msg-input-area .msg-emoji-btn');if(!emojiBtn)return;
   const pop=document.createElement('div');
   pop.id='_msgEmojiPop';pop.className='msg-emoji-popup';
+  // FIX: position:fixed so popup is never clipped by overflow:hidden in fullscreen mode
+  pop.style.cssText='position:fixed;z-index:99985;background:var(--card);border:0.5px solid var(--border);border-radius:16px;padding:10px;display:flex;flex-wrap:wrap;gap:2px;width:220px;box-shadow:0 8px 32px rgba(0,0,0,.5);';
   pop.innerHTML=_EMOJIS.map(e=>`<button style="font-size:22px;background:none;border:none;cursor:pointer;padding:4px;border-radius:8px;transition:transform .15s" onmouseover="this.style.transform='scale(1.3)'" onmouseout="this.style.transform='scale(1)'" onclick="_insEmoji('${e}')">${e}</button>`).join('');
-  bar.appendChild(pop);
-  setTimeout(()=>document.addEventListener('click',()=>pop.remove(),{once:true}),20);
+  document.body.appendChild(pop);
+  const r=emojiBtn.getBoundingClientRect();
+  const popW=220;
+  let left=r.right-popW; if(left<4)left=4;
+  let top=r.top-8;
+  // after append we know height
+  requestAnimationFrame(()=>{
+    const h=pop.offsetHeight||180;
+    top=r.top-h-8; if(top<4)top=r.bottom+8;
+    pop.style.left=left+'px'; pop.style.top=top+'px';
+  });
+  setTimeout(()=>document.addEventListener('click',function h(ev){if(!ev.target.closest('#_msgEmojiPop')&&!ev.target.closest('.msg-emoji-btn')){pop.remove();document.removeEventListener('click',h);}},false),20);
 }
 function _insEmoji(e){
   const inp=document.getElementById('msgInput');if(!inp)return;
@@ -24518,7 +24529,7 @@ function initRealtimeMessages() {
       loadConversations();
     })
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages',filter:'to_user_id=eq.'+SB_USER.id},function(p){var u=p.new;if(!u)return;var b=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(u.id))+'"]');if(!b)return;if(u.content_type==='deleted'||u.content==='__deleted__'){var s=b.querySelector('span');if(s)s.innerHTML='<span style="color:rgba(255,255,255,.3);font-style:italic;">🚫 Удалено</span>';}else{var s=b.querySelector('span');if(s&&u.content)s.innerHTML=esc(u.content).replace(/(https?:\/\/[^\s&<"']+)/g,'<a href="$1" target="_blank" style="color:inherit;opacity:.8;text-decoration:underline">$1</a>');}})
-    .on('postgres_changes',{event:'DELETE',schema:'public',table:'messages'},function(p){var did=p.old&&p.old.id;if(!did)return;var b=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(did))+'"]');if(b){var r=b.closest('.msg-row');if(r){r.style.transition='all .2s';r.style.opacity='0';setTimeout(function(){r.remove();},200);}}loadConversations();})
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'messages',filter:'or(from_user_id.eq.'+SB_USER.id+',to_user_id.eq.'+SB_USER.id+')'},function(p){var did=p.old&&p.old.id;if(!did)return;var b=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(did))+'"]');if(b){var r=b.closest('.msg-row');if(r){r.style.transition='all .2s';r.style.opacity='0';setTimeout(function(){r.remove();},200);}}loadConversations();})
     .on('postgres_changes',{
       event: '*',
       schema: 'public',
@@ -24962,6 +24973,13 @@ function _trackReadReceipt(realMsgId, toUserId){
   // Subscribe to updates on our sent messages being marked read
   if(_readReceiptChannel) return; // already subscribed
   if(!SB_USER) return;
+
+  // FIX: seed pending set from currently rendered "sent" ticks so receipts work after reload
+  document.querySelectorAll('.msg-ticks[data-status="sent"]').forEach(el=>{
+    const mid = el.dataset.mid;
+    if(mid) _pendingReadMsgIds.add(String(mid));
+  });
+
   _readReceiptChannel = sb.channel('dtr-read-receipts-' + SB_USER.id)
     .on('postgres_changes', {
       event: 'UPDATE',
@@ -24972,19 +24990,17 @@ function _trackReadReceipt(realMsgId, toUserId){
       const row = payload.new;
       if(!row) return;
       // STRICT VALIDATION: must be OUR message marked as read by PARTNER
-      if(row.from_user_id !== SB_USER?.id) return; // not our message → ignore
-      if(!row.read) return; // not marked read → ignore
-      // Must be in current active conversation OR in pending set
+      if(row.from_user_id !== SB_USER?.id) return;
+      if(!row.read) return;
       const msgId = String(row.id);
-      if(!_pendingReadMsgIds.has(msgId)) return; // not a message we sent this session
+      // FIX: also re-seed from DOM on each update (covers late-loaded messages)
+      document.querySelectorAll('.msg-ticks[data-status="sent"]').forEach(el=>{
+        const mid = el.dataset.mid; if(mid) _pendingReadMsgIds.add(String(mid));
+      });
+      if(!_pendingReadMsgIds.has(msgId)) return;
       _pendingReadMsgIds.delete(msgId);
 
-      // Upgrade ticks: only messages with ID ≤ confirmed (sequential UUIDs via created_at order)
-      // Use created_at comparison since UUIDs aren't numerically sequential
-      const confirmedTime = row.updated_at || row.created_at;
       document.querySelectorAll('.msg-ticks[data-status="sent"]').forEach(el=>{
-        // Only upgrade if this tick belongs to a message we actually sent to the same partner
-        // Extra safety: find the bubble and check data-ct isn't deleted
         const bubble = el.closest('.msg-bubble');
         if(bubble && bubble.dataset.ct === 'deleted') return;
         el.style.opacity='0'; el.style.transition='opacity .12s';
@@ -27343,8 +27359,17 @@ body.dtr-fs-active #_msgForwardModal,
 body.dtr-fs-active #_msgClearModal,
 body.dtr-fs-active #_msgEmojiPop,
 body.dtr-fs-active #_msgFileViewer,
-body.dtr-fs-active .msg-emoji-popup {
-  z-index: 99980 !important;
+body.dtr-fs-active .msg-emoji-popup,
+body.dtr-fs-active #_msgNewConvModal,
+body.dtr-fs-active #_grpCreateModal,
+body.dtr-fs-active #_grpInfoModal,
+body.dtr-fs-active #_grpCtxMenu,
+body.dtr-fs-active #_grpEmojiPick,
+body.dtr-fs-active #_grpEmojiPickerInfo,
+body.dtr-fs-active #_gcEmojiPicker,
+body.dtr-fs-active #_msgDbAlert,
+body.dtr-fs-active #userSearchOv {
+  z-index: 99985 !important;
 }
 
 
@@ -29514,6 +29539,11 @@ function dtrExitFS(){
   // Скрываем шапку
   const wrap = document.getElementById('dtr-fs-exit-wrap');
   if(wrap) wrap.style.display = 'none';
+
+  // FIX: close any body-appended popups that were open in fullscreen
+  ['_msgEmojiPop','_grpEmojiPick','_grpEmojiPickerInfo','_gcEmojiPicker','_grpCtxMenu'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.remove();
+  });
 
   document.removeEventListener('keydown', _dtrFsEscHandler);
 
@@ -41470,7 +41500,7 @@ console.log('[DTR] Video call system initialized');
    • group_messages     — сообщения с realtime
    
    SQL для выполнения в Supabase → SQL Editor:
-   ── см. console.log('[DTR] SQL') или в README ──
+   ──────────────────────────────────────────────────────────────────
 ══════════════════════════════════════════════════════════════ */
 (function(){
 'use strict';
@@ -41590,12 +41620,7 @@ CREATE INDEX IF NOT EXISTS idx_gms_group   ON group_messages(group_id, created_a
 CREATE INDEX IF NOT EXISTS idx_gms_user    ON group_messages(from_user_id);
 `;
 
-/* Log SQL on first boot */
-if(!sessionStorage.getItem('dtr_group_sql_shown')){
-  sessionStorage.setItem('dtr_group_sql_shown','1');
-  console.log('%c[DTR] GROUP CHAT SQL — выполни в Supabase SQL Editor:', 'color:#F5C842;font-weight:bold;font-size:13px');
-  console.log(DTR_GROUP_SQL);
-}
+/* SQL logged only in dev — removed from production */
 
 /* ─────────────────────────────────────────────
    STATE
@@ -41666,7 +41691,6 @@ function _grpShowSqlAlert(){
     +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>'
     +'<div style="display:flex;gap:8px;">'
     +'<button onclick="navigator.clipboard&&navigator.clipboard.writeText(window.DTR_GROUP_SQL||\'\')" style="flex:1;padding:8px;border-radius:9px;background:rgba(245,200,66,.1);border:0.5px solid rgba(245,200,66,.25);color:var(--gold);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-display);">📋 Копировать SQL</button>'
-    +'<button onclick="console.log(window.DTR_GROUP_SQL);document.getElementById(\'_grpSqlAlert\').remove()" style="flex:1;padding:8px;border-radius:9px;background:rgba(255,255,255,.05);border:0.5px solid rgba(255,255,255,.09);color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-display);">Показать в консоли</button>'
     +'</div>';
   document.body.appendChild(a);
   window.DTR_GROUP_SQL = DTR_GROUP_SQL;
@@ -41689,8 +41713,9 @@ async function _grpLoadMyGroups(){
         _grpHandleTableMissing();
         return[];
       }
+      // DataCloneError (code 25) — internal Supabase/browser error, non-critical, suppress
+      if(ec==='25'||em.includes('DataCloneError')||em.includes('postMessage')) return[];
       // RLS / permission / 500 — tables exist, user just has no groups yet
-      console.warn('[DTR] group_members select (ignored):',ec,em);
       return[];
     }
     var memberRows=r0.data||[];
@@ -42167,14 +42192,23 @@ window._grpToggleSend=function(val){
 
 window._grpToggleEmoji=function(){
   var ex=document.getElementById('_grpEmojiPick');if(ex){ex.remove();return;}
-  var input=document.getElementById('grpInput');if(!input)return;
+  var emojiBtn=document.querySelector('#grpInputArea .msg-emoji-btn');if(!emojiBtn)return;
   var picker=document.createElement('div');picker.id='_grpEmojiPick';picker.className='msg-emoji-popup';
+  // FIX: position:fixed so popup is never clipped by overflow:hidden in fullscreen mode
+  picker.style.cssText='position:fixed;z-index:99985;background:var(--card);border:0.5px solid var(--border);border-radius:16px;padding:10px;display:flex;flex-wrap:wrap;gap:2px;width:220px;box-shadow:0 8px 32px rgba(0,0,0,.5);';
   var emojis=['😊','😂','❤️','🔥','👍','👏','🤔','😎','🙏','💪','🎉','⚡','🚀','💯','🤝','👀','😅','🥳','🤯','💡'];
   picker.innerHTML=emojis.map(function(e){
     return'<button class="r-pop-btn" type="button" onclick="var i=document.getElementById(\'grpInput\');if(i){i.value+=\''+e+'\';i.focus();window._grpToggleSend(i.value);}document.getElementById(\'_grpEmojiPick\')&&document.getElementById(\'_grpEmojiPick\').remove();">'+e+'</button>';
   }).join('');
-  var area=document.getElementById('grpInputArea');
-  if(area)area.appendChild(picker);
+  document.body.appendChild(picker);
+  var r=emojiBtn.getBoundingClientRect();
+  var popW=220;
+  var left=r.right-popW; if(left<4)left=4;
+  requestAnimationFrame(function(){
+    var h=picker.offsetHeight||180;
+    var top=r.top-h-8; if(top<4)top=r.bottom+8;
+    picker.style.left=left+'px'; picker.style.top=top+'px';
+  });
   setTimeout(function(){
     document.addEventListener('click',function h(ev){
       if(!ev.target.closest('#_grpEmojiPick')&&!ev.target.closest('.msg-emoji-btn')){
@@ -42547,7 +42581,7 @@ window._grpOpenInfo=async function(groupId,editMode){
   var existing=document.getElementById('_grpInfoModal');if(existing)existing.remove();
   var ov=document.createElement('div');
   ov.id='_grpInfoModal';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px;';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:99985;display:flex;align-items:center;justify-content:center;padding:16px;';
   ov.innerHTML=
     '<div style="background:var(--card);border:0.5px solid rgba(255,255,255,.1);border-radius:20px;width:100%;max-width:440px;max-height:90dvh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.65);animation:dtrModalIn .3s cubic-bezier(.34,1.4,.64,1) both;">'
       // HEAD
@@ -42819,7 +42853,7 @@ window._dtrOpenGroupModal=async function(){
   var EMOJIS=['👥','🔥','⚡','🎯','🏆','💎','🚀','🌟','💪','🎮','📚','🎵','🌍','🤝','🦁','🐉'];
   var ov=document.createElement('div');
   ov.id='_grpCreateModal';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px;animation:fadeIn .18s ease;';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:99985;display:flex;align-items:center;justify-content:center;padding:16px;animation:fadeIn .18s ease;';
   ov.innerHTML=
     '<div class="gm-box">'
       +'<div class="gm-head">'
