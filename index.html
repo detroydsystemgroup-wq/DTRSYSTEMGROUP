@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <script>/* DTR Theme: apply before paint */
 (function(){var t=localStorage.getItem('dtr_theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();
+/* Suppress Yandex Metrika CORS/404 console noise */
+(function(){
+  var _ce=console.error.bind(console);
+  console.error=function(){
+    var s=Array.prototype.join.call(arguments,' ');
+    if(s.indexOf('mc.yandex.ru')!==-1||s.indexOf('yandex')!==-1) return;
+    _ce.apply(console,arguments);
+  };
+})();
 </script>
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -26,9 +35,9 @@
         for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
         k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
     })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=108234771', 'ym');
-    ym(108234771, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+    try { ym(108234771, 'init', {ssr:false, webvisor:false, clickmap:false, ecommerce:"dataLayer", accurateTrackBounce:true, trackLinks:true}); } catch(e) {}
 </script>
-<noscript><div><img src="https://mc.yandex.ru/watch/108234771" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+<!-- Yandex.Metrika noscript pixel -->
 <!-- /Yandex.Metrika counter -->
 <meta name="theme-color" content="#09090B">
 <meta name="description" content="DTR Progress Club — геймифицированный трекер саморазвития. Соревнуйся с людьми с теми же целями, прокачивай уровень, побеждай в лигах.">
@@ -24345,7 +24354,7 @@ function _vcInitInboundListener(){
       }
     })
     .subscribe((status) => {
-      console.log('[DTR VC] Inbound channel:', status);
+      if(status==='CHANNEL_ERROR'||status==='TIMED_OUT') console.warn('[DTR VC] Inbound channel:', status);
       if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED'){
         // Reconnect after delay
         if(!window._vcReconnectTimer){
@@ -24463,7 +24472,7 @@ async function _vcSendICE(callId, candidate){
 // Legacy compatibility stub (used in cancel/decline paths)
 function _vcSendDirect(toUserId, data){
   // No-op — replaced by DB-based signaling
-  console.log('[DTR VC] _vcSendDirect called (DB-based now)', data.type);
+  // console.log('[DTR VC] _vcSendDirect called (DB-based now)', data.type);
 }
 
 // ── Incoming call UI ──
@@ -26110,7 +26119,8 @@ function injectPWAManifest(){
     name: 'DTR Progress Club',
     short_name: 'DTR',
     description: 'Геймифицированный трекер саморазвития с лигами и соревнованием',
-    start_url: '/index.html',
+    start_url: location.pathname || '/',
+    scope: '/',
     display: 'standalone',
     orientation: 'portrait',
     background_color: '#080808',
@@ -40044,12 +40054,12 @@ function _vcCreatePC(){
 
   // Log ICE gathering for debugging
   VC.pc.onicegatheringstatechange = () => {
-    console.log('[DTR VC] ICE gathering:', VC.pc?.iceGatheringState);
+    // console.log('[DTR VC] ICE gathering:', VC.pc?.iceGatheringState);
   };
 
   VC.pc.oniceconnectionstatechange = () => {
     const s = VC.pc?.iceConnectionState;
-    console.log('[DTR VC] ICE connection:', s);
+    // console.log('[DTR VC] ICE connection:', s);
     if(s === 'checking') _vcSetConnText('Устанавливаем соединение…', 'Проверяем маршруты');
     if(s === 'connected' || s === 'completed') _vcSetConnText('Подключено', '');
     if(s === 'failed'){
