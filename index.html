@@ -20934,7 +20934,6 @@ function _msgSwitchTab(tab){
   debouncedFilterConvs('');
 
   if(tab === 'dms'){
-    if(typeof _grpUIBuilt!=='undefined') _grpUIBuilt=false;
     if(dmPanel)  dmPanel.style.display  = '';
     if(grpPanel) grpPanel.style.display = 'none';
     if(btnDMs){  btnDMs.classList.add('active');    btnDMs.classList.remove('groups-tab'); }
@@ -21478,7 +21477,10 @@ async function loadConversations(){
 
 // ── Open conversation ──
 async function openConv(userId, name, av, avUrl){
-  // Auto-switch to DMs tab when opening a direct chat
+  if(typeof _grpActiveId!=='undefined'&&_grpActiveId&&
+     typeof _msgActiveTab!=='undefined'&&_msgActiveTab==='groups'&&
+     !window._dtrDmIntent) return;
+  window._dtrDmIntent=false;
   if(typeof _msgSwitchTab==='function' && _msgActiveTab!=='dms'){
     _msgSwitchTab('dms');
   }
@@ -21753,6 +21755,7 @@ async function _msgSearchUsers(q){
 }
 
 function _msgStartConv(userId, name, av, avUrl){
+  window._dtrDmIntent=true;
   if(typeof _dtrClearDmUnread==='function')_dtrClearDmUnread(userId);
   document.getElementById('_msgNewConvModal')?.remove();
   setTimeout(()=> openConv(userId, name, av, avUrl), 80);
@@ -42336,6 +42339,7 @@ async function _grpLoadMemberCount(groupId){
 ───────────────────────────────────────────────*/
 async function _grpOpenChat(groupId){
   _grpActiveId=groupId;
+  if(typeof activeConvUserId!=='undefined') activeConvUserId=null;
   if(typeof _dtrClearGrpUnread==='function')_dtrClearGrpUnread(groupId);
   if(typeof _msgSwitchTab==='function'&&_msgActiveTab!=='groups')_msgSwitchTab('groups');
   _grpReplyTo=null;_grpFwd=null;
@@ -42358,7 +42362,7 @@ async function _grpOpenChat(groupId){
   }
 
   // ── INSTANT from sidebar card data (no DB needed for header) ──
-  _grpEnsureUI();
+  _grpEnsureUI(true);
   var _sideCard=document.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"]');
   if(_sideCard){
     var _sName=(_sideCard.querySelector('.msg-conv-name')||{}).textContent||'';
@@ -42446,10 +42450,10 @@ var _grpFwd = null; // message being forwarded
 
 /* ── ENSURE GROUP CHAT UI (built once, reused) ── */
 var _grpUIBuilt = false;
-function _grpEnsureUI(){
+function _grpEnsureUI(force){
   var area=document.getElementById('msgChatArea');
   if(!area)return;
-  if(_grpUIBuilt&&document.getElementById('grpMessages'))return;
+  if(!force&&_grpUIBuilt&&document.getElementById('grpMessages'))return;
   _grpUIBuilt=true;
   var backBtn=window.innerWidth<=600
     ?'<button style="width:32px;height:32px;border-radius:9px;background:none;border:none;color:var(--t2);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;" onclick="document.getElementById(\'msgChatArea\').style.display=\'none\';document.getElementById(\'msgList\').style.display=\'\';">'    +'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>':'';
