@@ -42295,6 +42295,11 @@ async function _grpInjectSidebar(){
   });
   _grpInjectPending=false;
   clearTimeout(_dbt);
+  /* Ensure Messages tab shows groups if we are on it */
+  if(typeof _msgActiveTab!=='undefined'&&_msgActiveTab==='groups'){
+    var _gl=document.getElementById('grpConvList');
+    if(_gl&&_gl.style.display==='none')_gl.style.display='';
+  }
   /* Pre-load full member data for active group so header shows correct names */
   if(_grpActiveId&&_grpCache[_grpActiveId]&&_grpCache[_grpActiveId].chat){
     var _ac=_grpCache[_grpActiveId];
@@ -43898,18 +43903,13 @@ window._gcDoCreate=async function(){
     document.getElementById('_grpCreateModal')&&document.getElementById('_grpCreateModal').remove();
     _toast('Группа «'+name+'» создана 🎉','✅');
     _grpDbReady=true;
-    // FIX: reset debounce so sidebar injection is never blocked after creation
+    /* Open the new group immediately, then refresh sidebar */
+    await _grpOpenChat(groupId);
+    /* Retry sidebar injection multiple times to ensure card appears */
     _grpInjectPending=false;
     await _grpInjectSidebar();
-    // Also add the card directly in case inject is still blocked
-    setTimeout(function(){
-      var list=document.getElementById('grpConvList')||document.getElementById('msgConvList');
-      if(list&&!list.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"]')){
-        _grpInjectPending=false;
-        _grpInjectSidebar();
-      }
-      _grpOpenChat(groupId);
-    },400);
+    setTimeout(function(){_grpInjectPending=false;_grpInjectSidebar();},600);
+    setTimeout(function(){_grpInjectPending=false;_grpInjectSidebar();},1500);
   }catch(e){
     console.error('[DTR] create group error:',JSON.stringify(e),e);
     var msg='Ошибка создания группы';
@@ -43998,14 +43998,46 @@ document.addEventListener('click',function(e){
 /* ─────────────────────────────────────────────
    BOOT
 ───────────────────────────────────────────────*/
+/* Global realtime channel for group discovery (persists across all groups) */
+var _grpGlobalRtChannel=null;
+
+function _grpStartGlobalRt(userId){
+  if(_grpGlobalRtChannel)return; /* already subscribed */
+  if(typeof sb==='undefined'||!sb)return;
+  _grpGlobalRtChannel=sb.channel('dtr_grp_global_'+userId)
+    /* Watch for: being added to a new group (INSERT on group_members for our user) */
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'group_members',
+      filter:'user_id=eq.'+userId},function(payload){
+      var gid=payload.new&&payload.new.group_id;
+      if(!gid)return;
+      /* Refresh sidebar so the new group appears */
+      setTimeout(function(){_grpInjectPending=false;_grpInjectSidebar();},200);
+      setTimeout(function(){_grpInjectPending=false;_grpInjectSidebar();},1000);
+    })
+    /* Watch for: being removed from a group */
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'group_members',
+      filter:'user_id=eq.'+userId},function(payload){
+      var gid=payload.old&&payload.old.group_id;
+      if(!gid)return;
+      var card=document.querySelector('.dtr-group-conv[data-group-id="'+gid+'"]');
+      if(card)card.remove();
+      if(typeof _grpActiveId!=='undefined'&&_grpActiveId===gid){
+        _grpActiveId=null;
+        if(typeof _grpResetChatArea==='function')_grpResetChatArea();
+      }
+    })
+    .subscribe();
+}
+
 function _grpBoot(){
   _grpPatchShowTab();
   _grpPatchLoadConvs();
-  // Wait for auth before injecting — listen for SB_USER to be set
   var _bootTries=0;
   function _tryInjectOnBoot(){
     _bootTries++;
     if(typeof SB_USER!=='undefined'&&SB_USER&&SB_USER.id){
+      /* Start global realtime for group discovery */
+      _grpStartGlobalRt(SB_USER.id);
       var msgTab=document.getElementById('tab-messages');
       if(msgTab&&msgTab.classList.contains('active'))_grpInjectSidebar();
       return;
