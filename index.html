@@ -41848,6 +41848,10 @@ async function _grpLoadMemberCount(groupId){
 ───────────────────────────────────────────────*/
 async function _grpOpenChat(groupId){
   _grpActiveId=groupId;
+  // FIX: reset compose state when switching groups
+  _grpReplyTo=null; _grpFwd=null;
+  if(_grpPendingFile){window._grpClearFile&&window._grpClearFile();}
+  var oldReplyBar=document.getElementById('_grpReplyBar');if(oldReplyBar)oldReplyBar.remove();
   // Unsubscribe from previous realtime
   if(_grpRtChannel){try{await sb.removeChannel(_grpRtChannel);}catch(e){}_grpRtChannel=null;}
 
@@ -42125,9 +42129,9 @@ function _grpBuildMessagesHTML(msgs,members,groupId){
         +'<div style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">'+ficon+'</div>'
         +'<div style="flex:1;min-width:0;">'
           +'<div style="font-size:13px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+_esc(fn)+'</div>'
-          +'<a href="'+_esc(furl)+'" download="'+_esc(fn)+'" style="font-size:11px;color:rgba(255,255,255,.5);text-decoration:none;display:flex;align-items:center;gap:3px;margin-top:2px;">'
+          +'<button onclick="window._grpDownloadFile(\''+_esc(furl)+'\',\''+_esc(fn)+'\')" style="font-size:11px;color:rgba(255,255,255,.5);background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:3px;margin-top:2px;padding:0;font-family:var(--font-body);">'
             +'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
-            +'Скачать</a>'
+            +'Скачать</button>'
         +'</div>'
         +'</div>';
     } else {
@@ -42143,7 +42147,7 @@ function _grpBuildMessagesHTML(msgs,members,groupId){
     if(isHidden)return;
 
     chunks.push(
-      '<div class="msg-row'+(mine?' mine':' theirs')+'" style="margin-top:'+(grouped?'2px':'10px')+';" data-msg-id="'+_esc(msg.id)+'">'
+      '<div class="msg-row'+(mine?' mine':' theirs')+'" style="margin-top:'+(grouped?'2px':'10px')+';" data-msg-id="'+_esc(msg.id)+'" data-ts="'+d.getTime()+'">'
         +avHtml
         +'<div class="msg-bubble'+(mine?' mine':' theirs')+'" data-msg-id="'+_esc(msg.id)+'" data-ct="'+_esc(ct)+'" data-raw="'+_esc(msg.content)+'" data-sender="'+_esc(memberName)+'" data-mine="'+(mine?'1':'0')+'" style="border-radius:'+radius+';" '
           +'oncontextmenu="window._grpBubbleCtx(event,this)" '
@@ -42177,27 +42181,32 @@ window._grpSendMsg=async function(){
   if(_grpReplyTo){
     finalContent=JSON.stringify({t:text,r:{replyToId:_grpReplyTo.id,replyAuthor:_grpReplyTo.author,replyText:_grpReplyTo.text}});
     _grpCancelReply();
-  }
-  if(_grpFwd){
+  } else if(_grpFwd){ // FIX: else-if — reply and forward are mutually exclusive
     finalContent=JSON.stringify({t:text,fwd:{from:_grpFwd.from}});
     _grpFwd=null;
   }
   input.value='';input.style.height='auto';
   window._grpToggleSend('');
+  var capturedGroupId=_grpActiveId; // FIX: capture before any async call
   var optId='opt_'+Date.now();
   var optMsg={id:optId,from_user_id:_myId(),content:finalContent,content_type:'text',is_system:false,created_at:new Date().toISOString()};
   _grpAppendMessage(optMsg);
   try{
     try{await sb.auth.refreshSession();}catch(ex){}
+    if(capturedGroupId!==_grpActiveId){
+      // User switched groups during refresh — silently discard
+      var orphan=document.querySelector('[data-msg-id="'+CSS.escape(optId)+'"]');if(orphan)orphan.remove();
+      return;
+    }
     var {data,error}=await sb.from('group_messages').insert({
-      group_id:_grpActiveId,from_user_id:_myId(),content:finalContent,content_type:'text'
+      group_id:capturedGroupId,from_user_id:_myId(),content:finalContent,content_type:'text'
     }).select('id').single();
     if(error)throw error;
     var row=document.querySelector('[data-msg-id="'+CSS.escape(optId)+'"]');
     if(row)row.dataset.msgId=data.id;
     var bub=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(optId)+'"]');
     if(bub)bub.dataset.msgId=data.id;
-    _grpUpdateSidebarPreview(_grpActiveId,text,true,new Date().toISOString());
+    _grpUpdateSidebarPreview(capturedGroupId,text,true,new Date().toISOString());
   }catch(e){
     console.error('[DTR] _grpSendMsg:',e);
     var row2=document.querySelector('[data-msg-id="'+CSS.escape(optId)+'"]');
@@ -42270,6 +42279,39 @@ window._grpClearFile=function(){
   window._grpToggleSend('');
 };
 
+// FIX BUG5: programmatic download for group files — avoids browser opening with wrong encoding
+window._grpDownloadFile=async function(url,name){
+  if(!url)return;
+  var ext=(name||'').split('.').pop().toLowerCase();
+  var textTypes=['txt','md','json','csv','xml','html','htm','js','ts','py','css','sql','log','ini','yaml','yml','sh','bat'];
+  try{
+    var r=await fetch(url);
+    if(textTypes.includes(ext)){
+      // Re-encode text files as UTF-8 to fix encoding issues
+      var buf=await r.arrayBuffer();
+      var text;
+      try{text=new TextDecoder('utf-8',{fatal:true}).decode(buf);}
+      catch(e){try{text=new TextDecoder('windows-1251').decode(buf);}catch(e2){text=new TextDecoder('utf-8',{fatal:false}).decode(buf);}}
+      var blob=new Blob([new TextEncoder().encode(text)],{type:'text/plain;charset=utf-8'});
+      var objUrl=URL.createObjectURL(blob);
+      var a=document.createElement('a');a.href=objUrl;a.download=name||'file';
+      document.body.appendChild(a);a.click();document.body.removeChild(a);
+      setTimeout(function(){URL.revokeObjectURL(objUrl);},1000);
+    } else {
+      // Binary files — download as-is
+      var blob2=await r.blob();
+      var objUrl2=URL.createObjectURL(blob2);
+      var a2=document.createElement('a');a2.href=objUrl2;a2.download=name||'file';
+      document.body.appendChild(a2);a2.click();document.body.removeChild(a2);
+      setTimeout(function(){URL.revokeObjectURL(objUrl2);},1000);
+    }
+  }catch(e){
+    // Fallback to direct link
+    var a3=document.createElement('a');a3.href=url;a3.download=name||'file';a3.target='_blank';
+    document.body.appendChild(a3);a3.click();document.body.removeChild(a3);
+  }
+};
+
 window._grpUploadAndSend=async function(groupId){
   if(!_grpPendingFile||!_grpPendingFile.file)return;
   var file=_grpPendingFile.file;
@@ -42279,21 +42321,26 @@ window._grpUploadAndSend=async function(groupId){
     try{await sb.auth.refreshSession();}catch(ex){}
     var ext=file.name.split('.').pop()||'bin';
     var path='group_files/'+groupId+'/'+Date.now()+'_'+Math.random().toString(36).slice(2)+'.'+ext;
-    var {data:upData,error:upErr}=await sb.storage.from('messages').upload(path,file,{contentType:file.type,upsert:false});
+    var {data:upData,error:upErr}=await sb.storage.from('chat-files').upload(path,file,{contentType:file.type,upsert:false});
     var fileUrl='';
     if(upErr){
-      console.warn('[DTR] upload err:',upErr);
-      // Fallback: send as base64 for small images
-      if(file.type.startsWith('image/')&&file.size<500*1024){
-        fileUrl=await new Promise(function(res){var r=new FileReader();r.onload=function(){res(r.result);};r.readAsDataURL(file);});
+      // FIX: fallback to 'messages' bucket if 'chat-files' unavailable
+      var {data:upData2,error:upErr2}=await sb.storage.from('messages').upload(path,file,{contentType:file.type,upsert:false});
+      if(upErr2){
+        if(file.type.startsWith('image/')&&file.size<500*1024){
+          fileUrl=await new Promise(function(res){var r=new FileReader();r.onload=function(){res(r.result);};r.readAsDataURL(file);});
+        } else {
+          typeof showToast==='function'&&showToast('Ошибка загрузки файла','⚠️');
+          window._grpClearFile();
+          if(btn)btn.style.opacity='';
+          return;
+        }
       } else {
-        typeof showToast==='function'&&showToast('Ошибка загрузки файла','⚠️');
-        window._grpClearFile();
-        if(btn)btn.style.opacity='';
-        return;
+        var {data:urlData2}=sb.storage.from('messages').getPublicUrl(path);
+        fileUrl=urlData2&&urlData2.publicUrl||'';
       }
     } else {
-      var {data:urlData}=sb.storage.from('messages').getPublicUrl(path);
+      var {data:urlData}=sb.storage.from('chat-files').getPublicUrl(path);
       fileUrl=urlData&&urlData.publicUrl||'';
     }
     var ct=file.type.startsWith('image/')?'image':file.type.startsWith('audio/')||file.type.startsWith('video/')?'voice':'file';
@@ -42326,10 +42373,14 @@ function _grpAppendMessage(msg){
   var tmp=document.createElement('div');tmp.innerHTML=html;
   var newRow=tmp.querySelector('.msg-row');
   if(newRow){
-    // Adjust top margin based on grouping with previous row
+    // FIX: check time gap before grouping — same as _grpBuildMessagesHTML
     if(prev){
       var prevMine=prev.classList.contains('mine');
-      if(prevMine===mine){newRow.style.marginTop='2px';}
+      var prevTime=parseInt(prev.dataset.ts||'0');
+      var nowTime=Date.now();
+      var timeDiff=nowTime-prevTime;
+      if(prevMine===mine&&timeDiff<5*60*1000){newRow.style.marginTop='2px';}
+      newRow.dataset.ts=String(nowTime);
     }
     var bub=newRow.querySelector('.msg-bubble');
     if(bub)bub.classList.add('new-msg');
@@ -42357,6 +42408,7 @@ window._grpScrollToMsg=function(id){
 
 /* ── REPLY ── */
 window._grpSetReply=function(msgId,text,author){
+  _grpFwd=null; // FIX: clear any pending forward when starting a reply
   _grpReplyTo={id:msgId,text:text,author:author};
   document.getElementById('_grpReplyBar')&&document.getElementById('_grpReplyBar').remove();
   var area=document.getElementById('grpInputArea');if(!area)return;
@@ -42425,6 +42477,7 @@ window._grpBubbleCtx=function(e,bub){
 
 /* ── FORWARD ── */
 window._grpForwardMsg=function(msgId,text,fromName){
+  _grpReplyTo=null; // FIX: clear any pending reply when starting a forward
   _grpFwd={id:msgId,from:fromName,text:text};
   /* Show forward bar */
   document.getElementById('_grpReplyBar')&&document.getElementById('_grpReplyBar').remove();
