@@ -41580,7 +41580,17 @@ CREATE POLICY "gc_insert" ON group_chats FOR INSERT
 
 DROP POLICY IF EXISTS "gc_update" ON group_chats;
 CREATE POLICY "gc_update" ON group_chats FOR UPDATE
-  USING (owner_id = auth.uid()) WITH CHECK (owner_id = auth.uid());
+  USING (
+    owner_id = auth.uid()
+    OR id IN (SELECT group_id FROM group_members WHERE user_id = auth.uid() AND role IN ('owner','admin'))
+  )
+  WITH CHECK (
+    owner_id = auth.uid()
+    OR id IN (SELECT group_id FROM group_members WHERE user_id = auth.uid() AND role IN ('owner','admin'))
+  );
+-- Run this to apply to existing policy:
+-- DROP POLICY IF EXISTS "gc_update" ON group_chats;
+-- Then re-run the CREATE POLICY above.
 
 DROP POLICY IF EXISTS "gc_delete" ON group_chats;
 CREATE POLICY "gc_delete" ON group_chats FOR DELETE
@@ -42755,9 +42765,9 @@ window._grpOpenInfo=async function(groupId,editMode){
                     ?'<img id="grpAvatarPreview" src="'+_esc(chat.avatar_url)+'" style="width:100%;height:100%;object-fit:cover;border-radius:13px;">'
                     :'<span id="grpAvatarPreview" style="font-size:26px;">'+_esc(chat.avatar_emoji||'👥')+'</span>')
                 +'</div>'
-                +'<label style="font-size:9px;color:var(--blue);cursor:pointer;text-align:center;font-weight:700;letter-spacing:.04em;white-space:nowrap;" title="Загрузить фото группы">'
-                  +'<input type="file" id="grpAvatarInput" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="window._grpPreviewAvatar(this)">'
-                  +'📷 Фото'
+                +'<label id="grpAvatarLabel" style="font-size:11px;color:var(--blue);cursor:pointer;text-align:center;font-weight:700;letter-spacing:.02em;white-space:nowrap;padding:4px 8px;border-radius:8px;background:rgba(26,159,255,.1);border:0.5px solid rgba(26,159,255,.25);display:block;transition:background .15s;" title="Загрузить фото группы">'
+                  +'<input type="file" id="grpAvatarInput" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none;" onchange="window._grpPreviewAvatar(this)">'
+                  +'📷 Загрузить фото'
                 +'</label>'
               +'</div>'
               +'<div style="flex:1;">'
@@ -42836,13 +42846,18 @@ window._grpOpenInfo=async function(groupId,editMode){
 /* Preview selected image for group avatar */
 window._grpPreviewAvatar=function(input){
   var file=input&&input.files&&input.files[0];if(!file)return;
-  if(file.size>5*1024*1024){typeof _toast==='function'&&_toast('Файл слишком большой (макс 5MB)','⚠️');return;}
+  if(file.size>5*1024*1024){typeof _toast==='function'&&_toast('Файл слишком большой (макс 5MB)','⚠️');input.value='';return;}
+  // Show file name as feedback
+  var lbl=document.getElementById('grpAvatarLabel');
+  if(lbl){lbl.style.color='var(--green)';lbl.childNodes[lbl.childNodes.length-1].textContent='✓ '+file.name.slice(0,20);}
   var reader=new FileReader();
   reader.onload=function(e){
     var el=document.getElementById('grpEmojiSel');
     if(!el)return;
+    // Show preview image
     el.innerHTML='<img src="'+e.target.result+'" style="width:100%;height:100%;object-fit:cover;border-radius:13px;">';
-    el.dataset.pendingImgFile='1'; // flag for _grpSaveInfo
+    el.dataset.pendingImgFile='1';
+    el.dataset.emoji=''; // clear emoji since image is selected
   };
   reader.readAsDataURL(file);
 };
@@ -42878,23 +42893,43 @@ window._grpSaveInfo=async function(groupId){
   var name=nameEl.value.trim();
   if(!name){nameEl.style.borderColor='rgba(239,68,68,.5)';nameEl.focus();return;}
   var desc=descEl?descEl.value.trim():'';
-  var emoji=emojiEl?(emojiEl.dataset.emoji||emojiEl.textContent||'👥'):'👥';
-  // FIX3: upload group image if one was selected
+  // FIX: get emoji safely — if img is inside, use data-emoji or fallback
+  var emoji='👥';
+  if(emojiEl){
+    var stored=emojiEl.dataset.emoji;
+    if(stored&&stored.trim())emoji=stored.trim();
+    else{
+      var span=emojiEl.querySelector('span');
+      if(span)emoji=span.textContent.trim()||'👥';
+    }
+  }
+  // Show save button loading state
+  var saveBtn=document.querySelector('#_grpInfoModal button[onclick*="_grpSaveInfo"]');
+  if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='Сохраняем…';}
   var newAvatarUrl=null;
   var avatarInput=document.getElementById('grpAvatarInput');
-  var emojiElPending=document.getElementById('grpEmojiSel');
   if(avatarInput&&avatarInput.files&&avatarInput.files[0]){
     var imgFile=avatarInput.files[0];
     try{
       var ext2=(imgFile.name||'img.jpg').split('.').pop().toLowerCase()||'jpg';
       var imgPath='group_avatars/'+groupId+'.'+ext2;
-      var {error:upErr}=await sb.storage.from('avatars').upload(imgPath,imgFile,{upsert:true,contentType:imgFile.type||'image/jpeg'});
-      if(!upErr){
-        var {data:urlData}=sb.storage.from('avatars').getPublicUrl(imgPath);
-        newAvatarUrl=urlData&&urlData.publicUrl||null;
-        // Add cache-busting param so old image doesn't linger
-        if(newAvatarUrl)newAvatarUrl=newAvatarUrl.split('?')[0]+'?t='+Date.now();
-      }else{console.warn('[DTR] group avatar upload:',upErr);}
+      // Use 'chat-files' bucket with user-scoped path so storage RLS passes
+      var buckets=['chat-files','avatars'];
+      var uploaded=false;
+      for(var bi=0;bi<buckets.length;bi++){
+        var bkt=buckets[bi];
+        var bktPath=(bkt==='chat-files'?'group_avatars/':'')+_myId()+'/grp_'+groupId+'.'+ext2;
+        try{
+          var {error:upErr2}=await sb.storage.from(bkt).upload(bktPath,imgFile,{upsert:true,contentType:imgFile.type||'image/jpeg'});
+          if(!upErr2){
+            var {data:urlData2}=sb.storage.from(bkt).getPublicUrl(bktPath);
+            newAvatarUrl=(urlData2&&urlData2.publicUrl||null);
+            if(newAvatarUrl)newAvatarUrl=newAvatarUrl.split('?')[0]+'?t='+Date.now();
+            uploaded=true;break;
+          }
+        }catch(bex){}
+      }
+      if(!uploaded){_toast('Не удалось загрузить фото группы — проверь настройки Storage','⚠️');return;}
     }catch(ex){console.warn('[DTR] group avatar upload ex:',ex);}
   }
   try{
@@ -42935,7 +42970,11 @@ window._grpSaveInfo=async function(groupId){
     }
     _toast('Группа обновлена','✅');
     document.getElementById('_grpInfoModal')&&document.getElementById('_grpInfoModal').remove();
-  }catch(e){_toast('Ошибка сохранения','⚠️');console.error(e);}
+  }catch(e){
+    _toast('Ошибка сохранения: '+(e&&e.message?e.message.slice(0,60):''),'⚠️');
+    if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='Сохранить';}
+    console.error('[DTR] _grpSaveInfo:',e);
+  }
 };
 
 /* Search users for adding */
