@@ -4610,10 +4610,16 @@ body.focus-mode #focusModeBtn { background: rgba(245,200,66,.1); border-color: r
 
 /* Awards mini card icons */
 .ach-mini .ai {
-  border-radius: 10px !important;
-  border: 0.5px solid rgba(255,255,255,.06) !important;
-  background: rgba(255,255,255,.03) !important;
-  padding: 10px 4px !important;
+  border-radius: 13px !important;
+  overflow: hidden !important;
+  transition: transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s !important;
+}
+#achMini .ai:hover:not(.locked) {
+  transform: translateY(-3px) scale(1.07) !important;
+}
+#achMini .ai.locked:hover {
+  transform: scale(1.04) !important;
+  opacity: .75 !important;
 }
 
 /* Clean up top pad of main content when .ph present */
@@ -18733,25 +18739,46 @@ function renderAchMini(){
   const unlocked=P.achievements.filter(a=>a.unlocked);
   const unlockedIds=new Set(unlocked.map(a=>a.id));
   const pct=Math.round((unlocked.length/ACH_DEF.length)*100);
-  // Show top 8 unlocked + 4 locked previews
-  const shown=[...ACH_DEF].sort((a,b)=>(unlockedIds.has(b.id)?1:0)-(unlockedIds.has(a.id)?1:0)).slice(0,12);
-  const headerHTML=`<div style="margin-bottom:10px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+  const shown=[...ACH_DEF].sort((a,b)=>(unlockedIds.has(b.id)?1:0)-(unlockedIds.has(a.id)?1:0)).slice(0,10);
+  const headerHTML=`<div style="margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
       <div style="font-size:12px;font-weight:700;color:var(--gold)">${unlocked.length}<span style="font-size:10px;color:var(--t3);font-weight:400"> / ${ACH_DEF.length} наград</span></div>
       <span style="font-size:11px;font-weight:700;color:${pct>=100?'#3fb950':pct>=50?'var(--gold)':'var(--t3)'}">${pct}%</span>
     </div>
-    <div style="height:4px;background:rgba(0,0,0,.2);border-radius:2px;overflow:hidden">
-      <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--gold-d),var(--gold),var(--gold-l));border-radius:2px;box-shadow:0 0 6px rgba(245,200,66,.4);transition:width 1.2s ease"></div>
+    <div style="height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden">
+      <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--gold-d),var(--gold),var(--gold-l));border-radius:2px;box-shadow:0 0 8px rgba(245,200,66,.5);transition:width 1.2s ease"></div>
     </div>
   </div>`;
-  const grid=`<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px">${shown.map(def=>{
+  const rarBorder={
+    mythic:   {a:'rgba(255,255,255,.9)', b:'rgba(192,160,255,.3)', glow:'rgba(200,180,255,.45)', w:'1.5px'},
+    legendary:{a:'#F5C842',             b:'rgba(245,200,66,.25)', glow:'rgba(245,200,66,.4)',   w:'1.5px'},
+    epic:     {a:'#A855F7',             b:'rgba(168,85,247,.25)', glow:'rgba(168,85,247,.4)',   w:'1.5px'},
+    rare:     {a:'#60A5FA',             b:'rgba(96,165,250,.2)',  glow:'rgba(96,165,250,.35)',  w:'1px'},
+    uncommon: {a:'#4ADE80',             b:'rgba(74,222,128,.18)', glow:'rgba(74,222,128,.3)',   w:'1px'},
+    common:   {a:'rgba(255,255,255,.1)',b:'rgba(255,255,255,.04)',glow:'rgba(0,0,0,0)',         w:'0.5px'},
+  };
+  const grid=`<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">${shown.map(def=>{
     const ua=P.achievements.find(a=>a.id===def.id)||{unlocked:false};
-    const glow=ua.unlocked?`box-shadow:0 0 10px ${def.color}55;border-color:${def.color}44;`:'';
+    const rar=def.rarity||'common';
+    const rb=rarBorder[rar]||rarBorder.common;
     const rawMiniSVG=ua.unlocked?(getBadgeSVG(def.icon||'star')):'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
     const miniInner=rawMiniSVG.replace(/<svg[^>]*>/,'').replace(/<\/svg>/,'');
     const miniHasFill=rawMiniSVG.includes('fill="currentColor"');
-    return `<div class="ai ${ua.unlocked?'':'locked'}" onclick="openAch('${def.id}')" title="${ua.unlocked?def.name:'???'}" style="width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s;${glow}">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="${miniHasFill?'currentColor':'none'}" stroke="${miniHasFill?'none':'currentColor'}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:${ua.unlocked?def.color:'var(--t3)'}">${miniInner}</svg>
+    const tileBg=ua.unlocked
+      ?`linear-gradient(145deg,${def.color}22 0%,${def.color}08 55%,rgba(0,0,0,.35) 100%)`
+      :`linear-gradient(145deg,rgba(255,255,255,.04),rgba(0,0,0,.25))`;
+    const tileShad=ua.unlocked
+      ?`0 0 0 ${rb.w} ${rb.a},0 0 0 calc(${rb.w} + 1.5px) ${rb.b},0 6px 20px ${rb.glow},0 2px 8px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.12),inset 0 0 14px ${def.color}0f`
+      :`0 0 0 0.5px rgba(255,255,255,.08),0 2px 8px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.04)`;
+    const iconColor=ua.unlocked?def.color:'rgba(255,255,255,.2)';
+    const iconGlow=ua.unlocked?`filter:drop-shadow(0 0 6px ${def.color}cc)`:'';
+    const shimmer=ua.unlocked
+      ?`<div style="position:absolute;top:0;left:12%;right:12%;height:1px;background:linear-gradient(90deg,transparent,${rb.a}85,transparent);pointer-events:none;z-index:3"></div>`
+      :`<div style="position:absolute;top:0;left:18%;right:18%;height:0.5px;background:rgba(255,255,255,.07);pointer-events:none"></div>`;
+    return `<div class="ai ${ua.unlocked?'':'locked'}" onclick="openAch('${def.id}')" title="${ua.unlocked?def.name:'???'}"
+      style="position:relative;width:52px;height:52px;border-radius:13px;background:${tileBg};box-shadow:${tileShad};display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;transition:transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .2s;justify-self:center">
+      ${shimmer}
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="${miniHasFill?'currentColor':'none'}" stroke="${miniHasFill?'none':'currentColor'}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="position:relative;z-index:2;flex-shrink:0;color:${iconColor};${iconGlow}">${miniInner}</svg>
     </div>`;
   }).join('')}</div>`;
   el.innerHTML=headerHTML+grid;
@@ -19708,17 +19735,17 @@ function _buildArenaHTML(cats, results){
             <div style="flex:1;min-width:0">
               <div style="font-family:var(--font-display);font-size:20px;font-weight:800;
                 letter-spacing:-.04em;color:var(--t1);line-height:1.1">${cat.name}</div>
-              <div style="display:flex;align-items:center;gap:10px;margin-top:5px;flex-wrap:wrap">
-                <span style="display:flex;align-items:center;gap:5px">
-                  <span style="width:5px;height:5px;border-radius:50%;background:#4ADE80;opacity:.85"></span>
-                  <span style="font-size:11px;color:var(--t3);font-weight:500">${rawPlayers.length} участников</span>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:7px;flex-wrap:wrap">
+                <span style="display:inline-flex;align-items:center;gap:5px;background:rgba(74,222,128,.08);border:0.5px solid rgba(74,222,128,.22);border-radius:7px;padding:3px 9px">
+                  <span style="width:5px;height:5px;border-radius:50%;background:#4ADE80;flex-shrink:0"></span>
+                  <span style="font-family:var(--font-display);font-size:11px;font-weight:700;color:#4ADE80;text-transform:uppercase;letter-spacing:.05em">${rawPlayers.length} участников</span>
                 </span>
-                <span style="width:1px;height:9px;background:rgba(255,255,255,.08);flex-shrink:0"></span>
-                <span style="font-size:11px;color:var(--t3)">${arenaModeLabel(arenaMode)}</span>
-                ${myRank ? `<span style="width:1px;height:9px;background:rgba(255,255,255,.08);flex-shrink:0"></span>
-                <span style="display:inline-flex;align-items:center;gap:4px">
-                  <span style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:${cat.color}">#${myRank}</span>
-                  <span style="font-size:11px;color:var(--t3)">мой ранг</span>
+                <span style="display:inline-flex;align-items:center;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.1);border-radius:7px;padding:3px 9px">
+                  <span style="font-family:var(--font-display);font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.05em">${arenaModeLabel(arenaMode)}</span>
+                </span>
+                ${myRank ? `<span style="display:inline-flex;align-items:center;gap:4px;background:${cat.color}18;border:0.5px solid ${cat.color}44;border-radius:7px;padding:3px 9px">
+                  <span style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:${cat.color}">#${myRank}</span>
+                  <span style="font-family:var(--font-display);font-size:11px;font-weight:700;color:${cat.color};opacity:.8;text-transform:uppercase;letter-spacing:.05em">мой ранг</span>
                 </span>` : ''}
               </div>
             </div>
