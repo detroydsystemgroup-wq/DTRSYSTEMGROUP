@@ -233,7 +233,8 @@ a, button, input, select, textarea,
 }
 /* Override for animated elements — no color transition interference */
 .xp-fill, .cbd-bar, .lr-bar, .ci-bar { transition: width 1s cubic-bezier(.4,0,.2,1) !important; }
-.kpi, .card, .modal, .stab, .mg-item { transition: transform .22s cubic-bezier(.34,1.56,.64,1), box-shadow .2s, color .18s, background-color .18s, border-color .18s !important; }
+/* stab excluded — has its own instant transitions */
+.kpi, .card, .modal, .mg-item { transition: transform .22s cubic-bezier(.34,1.56,.64,1), box-shadow .2s, color .18s, background-color .18s, border-color .18s !important; }
 html{scroll-behavior:smooth;}
 body{font-family:var(--font-body);background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;font-size:var(--fs-body);line-height:var(--lh-body);letter-spacing:var(--ls-body);font-feature-settings:'kern' 1,'liga' 1,'calt' 1;}
 
@@ -720,6 +721,7 @@ textarea:focus-visible,
   .ph-in { padding: 0 20px !important; }
   .ph-cover { height: 140px !important; }
   .nav { padding: 0 20px !important; }
+  .ph-tabs { padding: 6px 24px !important; }
   .kpi-row { grid-template-columns: repeat(2, 1fr) !important; }
   .insight-row { grid-template-columns: repeat(2, 1fr) !important; }
   .cat-breakdown { grid-template-columns: 1fr 1fr !important; }
@@ -735,6 +737,7 @@ textarea:focus-visible,
     --main-pad: 36px 48px;
     --main-gap: 28px;
   }
+  .ph-tabs { padding: 6px 48px !important; }
 }
 
 /* ── NAV ── */
@@ -893,7 +896,7 @@ textarea:focus-visible,
   display: flex;
   background: linear-gradient(180deg, rgba(13,13,17,.97) 0%, rgba(10,10,14,.99) 100%);
   border-top: 0.5px solid rgba(245,200,66,.07);
-  padding: 6px 8px;
+  padding: 6px 40px;
   gap: 2px;
   overflow-x: auto;
   scrollbar-width: none;
@@ -943,15 +946,13 @@ textarea:focus-visible,
   position: relative;
   z-index: 1;
   box-shadow: none;
-  transition: color .18s ease, background .18s ease, border-color .18s ease,
-              box-shadow .2s ease, transform .2s cubic-bezier(.34,1.4,.64,1);
+  transition: color .08s ease, background .08s ease, border-color .08s ease, box-shadow .08s ease;
   -webkit-tap-highlight-color: transparent;
 }
 .stab:hover:not(.active) {
   color: var(--t2);
   background: rgba(255,255,255,.045);
   border-color: rgba(255,255,255,.055);
-  transform: translateY(-1px);
 }
 .stab.active {
   color: var(--gold);
@@ -967,17 +968,14 @@ textarea:focus-visible,
   stroke-width: 1.75px;
   flex-shrink: 0;
   stroke: currentColor;
-  transition: stroke .18s ease, filter .2s ease, transform .2s cubic-bezier(.34,1.56,.64,1);
+  transition: stroke .08s ease, filter .08s ease;
 }
 .stab.active svg {
   stroke: var(--gold);
   filter: drop-shadow(0 0 5px rgba(245,200,66,.38));
-  transform: scale(1.07);
 }
-.stab:hover:not(.active) svg {
-  transform: translateY(-1px) scale(1.06);
-}
-.stab:active { transform: scale(.95) !important; }
+.stab:hover:not(.active) svg { stroke: currentColor; }
+.stab:active { opacity: .7; }
 /* Bottom indicator via box-shadow — no ::after needed */
 .main{width:100%;padding:var(--main-pad);display:grid;grid-template-columns:1fr var(--sidebar-w);gap:var(--main-gap);box-sizing:border-box;}
 .tc{display:none;}
@@ -1293,6 +1291,8 @@ textarea:focus-visible,
     --nav-pad: 0 var(--sp-4);
   }
   .kpi-row{grid-template-columns:repeat(2,1fr);}
+  .ph-tabs { padding: 5px 16px !important; gap: 1px !important; }
+  .stab { padding: 7px 10px 6px !important; min-width: 52px !important; font-size: 9.5px !important; }
 }
 
 
@@ -1643,7 +1643,7 @@ body { transition:background .28s,color .28s; }
 }
 
 /* ── TABS ── */
-.stab { transition:color .18s,box-shadow .2s,transform .16s cubic-bezier(.34,1.4,.64,1); }
+.stab { transition: color .08s ease, background .08s ease, border-color .08s ease, box-shadow .08s ease; }
 .stab:active { transform:scale(.95); }
 @media(min-width:601px){
   .stab { position:relative; }
@@ -2449,7 +2449,7 @@ button, a, [onclick], .stab, .mg-item, .cat-item, .csg-item, .mb, .cf-btn, .lg-r
 .cf-btn:active { transform: scale(.92); }
 
 /* Tab stab spring */
-.stab { transition: color .18s, box-shadow .2s, transform .16s cubic-bezier(.34,1.4,.64,1); }
+.stab { transition: color .08s ease, background .08s ease, border-color .08s ease, box-shadow .08s ease; }
 .stab:active { transform: scale(.95); }
 
 /* Avatar spring */
@@ -3967,7 +3967,7 @@ body, .card, .nav, .kpi, .timer-panel, .modal, .ch, .cb,
 .stab span { font-size: 10.5px; letter-spacing: .01em; text-transform: none; }
 
 /* ph-tabs background — cleared */
-.ph-tabs { padding: 6px 8px; }
+.ph-tabs { padding: 6px 40px; }
 
 /* Cover top line */
 .ph-cover-topline {
@@ -7113,7 +7113,7 @@ body {
   background: linear-gradient(180deg, rgba(13,13,17,.97) 0%, rgba(10,10,14,.99) 100%) !important;
   border-top: 0.5px solid rgba(245,200,66,.07) !important;
   box-shadow: inset 0 1px 0 rgba(245,200,66,.04) !important;
-  padding: 6px 8px !important;
+  padding: 6px 40px !important;
   gap: 2px !important;
 }
 .stab {
@@ -7127,14 +7127,14 @@ body {
   border-radius: 10px !important;
   border: 0.5px solid transparent !important;
   background: transparent !important;
-  transition: color .18s ease, background .18s ease, border-color .18s ease,
-              box-shadow .2s ease, transform .2s cubic-bezier(.34,1.4,.64,1) !important;
+  transition: color .08s ease, background .08s ease, border-color .08s ease, box-shadow .08s ease !important;
+  transform: none !important;
 }
 .stab:hover:not(.active) {
   color: var(--t2) !important;
   background: rgba(255,255,255,.045) !important;
   border-color: rgba(255,255,255,.055) !important;
-  transform: translateY(-1px) !important;
+  transform: none !important;
 }
 .tab-icon-wrap {
   width: 20px !important;
@@ -7150,7 +7150,8 @@ body {
   height: 18px !important;
   stroke-width: 1.75px !important;
   stroke: currentColor !important;
-  transition: stroke .18s ease, filter .2s ease, transform .2s cubic-bezier(.34,1.56,.64,1) !important;
+  transition: stroke .08s ease, filter .08s ease !important;
+  transform: none !important;
 }
 .stab.active {
   color: var(--gold) !important;
@@ -7170,7 +7171,7 @@ body {
 .stab.active svg {
   stroke: var(--gold) !important;
   filter: drop-shadow(0 0 5px rgba(245,200,66,.38)) !important;
-  transform: scale(1.07) !important;
+  transform: none !important;
 }
 .stab.active span {
   color: var(--gold) !important;
