@@ -20868,7 +20868,7 @@ function _renderConvList(convs){
     const preview = cv.lastMsgMine ? `<span style="color:var(--t3)">Вы: </span>${esc(_pv.slice(0,38))}` : esc(_pv.slice(0,42));
     return `
     <div class="msg-conv${isActive?' active':''}${isUnread?' has-unread':''}"
-      data-last-time="${new Date(cv.lastTime).getTime()||0}" onclick="openConv('${esc(cv.userId)}','${escAttr(cv.name)}','${escAttr(cv.av||'🎯')}','${escAttr(cv.avUrl||'')}')"
+      data-last-time="${new Date(cv.lastTime).getTime()||0}" onclick="window._dtrDmIntent=true;openConv('${esc(cv.userId)}','${escAttr(cv.name)}','${escAttr(cv.av||'🎯')}','${escAttr(cv.avUrl||'')}')"
       data-conv-uid="${esc(cv.userId)}"
       style="position:relative;animation:fadeUp .18s ${i*.03}s ease both"
       onmouseenter="this.querySelector('.conv-del-btn').style.opacity='1'"
@@ -22634,6 +22634,7 @@ function openChatWithUser(){
   const avUrl = ov.dataset.userAvUrl || null; // FIX: pass avUrl so chat header shows photo
   closeUserProfile();
   showTab('messages');
+  window._dtrDmIntent=true;
   setTimeout(()=>openConv(userId, name, av, avUrl), 150);
 }
 
@@ -24673,7 +24674,7 @@ function initRealtimeMessages() {
       }
       loadConversations();
     })
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages',filter:'to_user_id=eq.'+SB_USER.id},function(p){var u=p.new;if(!u)return;var b=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(u.id))+'"]');if(!b)return;if(u.content_type==='deleted'||u.content==='__deleted__'){var s=b.querySelector('span');if(s)s.innerHTML='<span style="color:rgba(255,255,255,.3);font-style:italic;">🚫 Удалено</span>';}else{var s=b.querySelector('span');if(s&&u.content)s.innerHTML=esc(u.content).replace(/(https?:\/\/[^\s&<"']+)/g,'<a href="$1" target="_blank" style="color:inherit;opacity:.8;text-decoration:underline">$1</a>');}})
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages',filter:'to_user_id=eq.'+SB_USER.id},function(p){var u=p.new;if(!u)return;var b=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(u.id))+'"]');if(!b)return;if(u.content_type==='deleted'||u.content==='__deleted__'){var s=b.querySelector('span');if(s)s.innerHTML='<span style="color:rgba(255,255,255,.3);font-style:italic;">🚫 Удалено</span>';}else if(u.content&&u.content_type==='text'){var se=b.querySelector('span');if(se){se.textContent=u.content;var tEl=b.querySelector('.msg-bubble-time');if(tEl&&!tEl.querySelector('.msg-edited-mark')){var mk=document.createElement('span');mk.className='msg-edited-mark';mk.style.cssText='font-size:10px;opacity:.5;margin-right:3px;';mk.textContent='изм.';tEl.insertBefore(mk,tEl.firstChild);}}}else{var s=b.querySelector('span');if(s&&u.content)s.innerHTML=esc(u.content).replace(/(https?:\/\/[^\s&<"']+)/g,'<a href="$1" target="_blank" style="color:inherit;opacity:.8;text-decoration:underline">$1</a>');}})
     .on('postgres_changes',{event:'DELETE',schema:'public',table:'messages',filter:'or(from_user_id.eq.'+SB_USER.id+',to_user_id.eq.'+SB_USER.id+')'},function(p){var did=p.old&&p.old.id;if(!did)return;var b=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(did))+'"]');if(b){var r=b.closest('.msg-row');if(r){r.style.transition='all .2s';r.style.opacity='0';setTimeout(function(){r.remove();},200);}}loadConversations();})
     .on('postgres_changes',{
       event: '*',
@@ -36218,7 +36219,7 @@ function _socShowPublicProfile(u){
       <div style="display:flex;gap:8px;margin-bottom:16px">
         ${friendBtn}
         ${followBtn}
-        <button class="soc-btn soc-btn-outline" onclick="openConv && typeof openConv === 'function' ? (document.getElementById('${ovId}').remove(), showTab('messages'), setTimeout(()=>openConv('${u.id}','${esc(u.username)}','${esc(u.avatar||'🎯')}','${esc(u.avatar_url||'')}'),300)) : null()">
+        <button class="soc-btn soc-btn-outline" onclick="openConv && typeof openConv === 'function' ? (document.getElementById('${ovId}').remove(), showTab('messages'), window._dtrDmIntent=true, setTimeout(()=>openConv('${u.id}','${esc(u.username)}','${esc(u.avatar||'🎯')}','${esc(u.avatar_url||'')}'),300)) : null()">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           Написать
         </button>
@@ -38455,6 +38456,7 @@ window.renderCollabView=renderCollabView;
     if(typeof showTab === 'function') showTab('messages');
     setTimeout(function(){
       if(typeof openConv === 'function'){
+        window._dtrDmIntent=true;
         openConv(id, name, av, avUrl);
       } else if(typeof openUserProfile === 'function'){
         openUserProfile(id, name, av, avUrl);
@@ -42560,7 +42562,7 @@ async function _grpLoadMessages(groupId,append){
   var offset=_grpPage[groupId]||0;
   try{
     var {data:msgs,error}=await sb.from('group_messages')
-      .select('id,from_user_id,content,content_type,is_system,created_at,reply_to_id')
+      .select('id,from_user_id,content,content_type,is_system,created_at,updated_at,reply_to_id')
       .eq('group_id',groupId)
       .order('created_at',{ascending:false})
       .range(offset,offset+PAGE_SIZE-1);
@@ -42632,6 +42634,10 @@ function _grpBuildMessagesHTML(msgs,members,groupId,_initLastDate){
     var isLast=!next||next.is_system||next.from_user_id!==msg.from_user_id||(new Date(next.created_at)-d)>GAP;
     lastSender=msg.from_user_id;lastTs=d.getTime();
     var timeStr=d.toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
+    /* Show edit mark if message was updated after creation */
+    var isEdited=(msg.updated_at&&msg.created_at&&
+      (new Date(msg.updated_at)-new Date(msg.created_at))>2000);
+
     var mR=isLast?'17px 17px 4px 17px':'17px';
     var tR=isLast?'17px 17px 17px 4px':'17px';
     var radius=mine?mR:tR;
@@ -42731,7 +42737,7 @@ function _grpBuildMessagesHTML(msgs,members,groupId,_initLastDate){
           +'ondblclick="window._grpSetReply(\''+_esc(msg.id)+'\',\''+_esc(txt.slice(0,80))+'\',\''+_esc(mine?(_myName()||'Вы'):memberName)+'\')">'
           +senderHtml
           +bodyHtml
-          +'<div class="msg-bubble-time">'+timeStr+ticks+'</div>'
+          +'<div class="msg-bubble-time">'+(isEdited?'<span style="font-size:10px;opacity:.5;margin-right:3px;">изм.</span>':'')+timeStr+ticks+'</div>'
         +'</div>'
       +'</div>'
     );
@@ -44241,7 +44247,15 @@ function _grpStartGlobalRt(userId){
         if(typeof _grpResetChatArea==='function')_grpResetChatArea();
       }
     })
-    .subscribe();
+    .subscribe(function(status){
+      if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
+        try{sb.removeChannel(_grpGlobalRtChannel);}catch(e){}
+        _grpGlobalRtChannel=null;
+        setTimeout(function(){
+          if(typeof SB_USER!=='undefined'&&SB_USER&&SB_USER.id)_grpStartGlobalRt(SB_USER.id);
+        },5000);
+      }
+    });
 }
 
 function _grpBoot(){
