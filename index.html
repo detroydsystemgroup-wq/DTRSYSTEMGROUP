@@ -21561,6 +21561,8 @@ async function loadConversations(){
     // Build per-partner latest message map
     const convMap = {};
     const addMsg = (msg, isMine) => {
+      /* Skip pin_event — never show as last message preview */
+      if(msg.content_type === 'pin_event') return;
       const pid = isMine ? msg.to_user_id : msg.from_user_id;
       if(!convMap[pid] || new Date(msg.created_at) > new Date(convMap[pid].lastTime)){
         convMap[pid] = {
@@ -22206,6 +22208,21 @@ async function loadMessages(partnerId, append=false){
     const GAP = 5*60*1000;
     data.forEach((msg,i)=>{
       if(hiddenMsgs.has(String(msg.id))) return; // hidden only for me
+      /* Skip system pin events — apply pin bar instead of rendering as bubble */
+      if(msg.content_type === 'pin_event'){
+        try {
+          const pd = JSON.parse(msg.content||'');
+          if(pd && pd.pin && msg.from_user_id !== SB_USER.id) {
+            const key = 'dtr_pinned_' + SB_USER.id + '_' + msg.from_user_id;
+            if(!localStorage.getItem(key)) {
+              const pinned = { id: pd.pin.msgId, text: pd.pin.text, pinnedAt: msg.created_at, forBoth: true };
+              try { localStorage.setItem(key, JSON.stringify(pinned)); } catch(ex){}
+              _msgRenderPinnedBar(pinned);
+            }
+          }
+        } catch(ex){}
+        return; // don't render as bubble
+      }
       const mine = msg.from_user_id === SB_USER.id;
       const d = new Date(msg.created_at);
       const isToday = d.toDateString()===new Date().toDateString();
@@ -24799,6 +24816,23 @@ function initRealtimeMessages() {
       table: 'messages',
       filter: `to_user_id=eq.${SB_USER.id}`
     }, (payload) => {
+      /* ── pin_event: apply pin bar, don't render as message bubble ── */
+      if(payload.new && payload.new.content_type === 'pin_event') {
+        try {
+          const pd = JSON.parse(payload.new.content||'');
+          if(pd && pd.pin) {
+            const partnerId = payload.new.from_user_id;
+            if(partnerId === activeConvUserId) {
+              const key = 'dtr_pinned_' + SB_USER.id + '_' + partnerId;
+              const pinned = { id: pd.pin.msgId, text: pd.pin.text, pinnedAt: new Date().toISOString(), forBoth: true };
+              try { localStorage.setItem(key, JSON.stringify(pinned)); } catch(ex){}
+              _msgRenderPinnedBar(pinned);
+              showToast('Собеседник закрепил сообщение 📌');
+            }
+          }
+        } catch(ex){}
+        return; // never render pin_event as a bubble
+      }
       if (payload.new.from_user_id === activeConvUserId) {
         // FIX 8: prevent duplicate — skip if message already rendered (e.g. from loadMessages)
         if(document.querySelector(`.msg-bubble[data-msg-id="${payload.new.id}"]`)) return;
@@ -24827,29 +24861,20 @@ function initRealtimeMessages() {
       /* Instantly update sidebar preview without waiting for loadConversations */
       var _rawContent=payload.new.content||'';
       var _previewText=_rawContent;
-      try{var _pj=JSON.parse(_rawContent);if(_pj.t)_previewText=_pj.t;}catch(e){}
+      var _ct=payload.new.content_type||'text';
+      /* For pin_event — show friendly label in sidebar, not raw JSON */
+      if(_ct==='pin_event'){
+        _previewText='📌 Сообщение закреплено';
+      } else {
+        try{var _pj=JSON.parse(_rawContent);if(_pj.t)_previewText=_pj.t;}catch(e){}
+      }
       if(typeof _msgUpdateConvCache==='function'){
-        _msgUpdateConvCache(payload.new.from_user_id,_previewText,false,payload.new.content_type||'text');
+        _msgUpdateConvCache(payload.new.from_user_id,_previewText,false,_ct);
       }
       /* Also do a full refresh to get correct unread count */
       loadConversations();
     })
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages',filter:'to_user_id=eq.'+SB_USER.id},function(p){var u=p.new;if(!u)return;var b=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(u.id))+'"]');if(!b)return;if(u.content_type==='deleted'||u.content==='__deleted__'){var s=b.querySelector('span');if(s)s.innerHTML='<span style="color:rgba(255,255,255,.3);font-style:italic;">🚫 Удалено</span>';}else if(u.content&&u.content_type==='text'){var se=b.querySelector('span');if(se){se.textContent=u.content;var tEl=b.querySelector('.msg-bubble-time');if(tEl&&!tEl.querySelector('.msg-edited-mark')){var mk=document.createElement('span');mk.className='msg-edited-mark';mk.style.cssText='font-size:10px;opacity:.5;margin-right:3px;';mk.textContent='изм.';tEl.insertBefore(mk,tEl.firstChild);}}}else{var s=b.querySelector('span');if(s&&u.content)s.innerHTML=esc(u.content).replace(/(https?:\/\/[^\s&<"']+)/g,'<a href="$1" target="_blank" style="color:inherit;opacity:.8;text-decoration:underline">$1</a>');}})
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'to_user_id=eq.'+SB_USER.id+',content_type=eq.pin_event'},function(p){
-      /* Partner pinned a message for both — apply pin bar locally */
-      try {
-        var u=p.new; if(!u||u.content_type!=='pin_event') return;
-        var pinData = JSON.parse(u.content);
-        if(!pinData||!pinData.pin) return;
-        var partnerId = u.from_user_id;
-        if(partnerId !== activeConvUserId) return; /* not current chat */
-        var key = 'dtr_pinned_' + SB_USER.id + '_' + partnerId;
-        var pinned = { id: pinData.pin.msgId, text: pinData.pin.text, pinnedAt: new Date().toISOString(), forBoth: true };
-        try { localStorage.setItem(key, JSON.stringify(pinned)); } catch(ex){}
-        _msgRenderPinnedBar(pinned);
-        showToast('Собеседник закрепил сообщение 📌');
-      } catch(ex){}
-    })
     .on('postgres_changes',{event:'DELETE',schema:'public',table:'messages',filter:'or(from_user_id.eq.'+SB_USER.id+',to_user_id.eq.'+SB_USER.id+')'},function(p){var did=p.old&&p.old.id;if(!did)return;var b=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(did))+'"]');if(b){var r=b.closest('.msg-row');if(r){r.style.transition='all .2s';r.style.opacity='0';setTimeout(function(){r.remove();},200);}}loadConversations();})
     .on('postgres_changes',{
       event: '*',
@@ -24929,6 +24954,11 @@ function msgContentHTML(msg) {
   // Render old DB-level deletions (legacy — new deletes are local-only)
   if(ct === 'deleted' || txt === '__deleted__'){
     return `<span style="color:rgba(255,255,255,.3);font-style:italic;font-size:13px;display:block;">🚫 Сообщение удалено</span>`;
+  }
+
+  // pin_event: never render as bubble — should be filtered upstream, but guard here too
+  if(ct === 'pin_event'){
+    return `<span style="color:rgba(255,255,255,.35);font-style:italic;font-size:12px;">📌 Сообщение закреплено</span>`;
   }
 
   // FIX 1: Extract forward/reply metadata for ALL content types (image/voice/file)
@@ -42784,7 +42814,7 @@ function _grpUpdateHeader(chat,members,isOwner,myRole){
   // Buttons
   var btnsEl=document.getElementById('grpHeadBtns');
   if(btnsEl){
-    var _vcBtn='<button class="msg-chat-btn" id="grpVoiceBtn" onclick="window._grpVoiceJoin(\''+_esc(chat.id)+'\');" title="Голосовой чат" style="background:rgba(26,159,255,.1);border-color:rgba(26,159,255,.3);color:var(--blue);"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z\"/><path d=\"M19 10v2a7 7 0 0 1-14 0v-2\"/><line x1=\"12\" y1=\"19\" x2=\"12\" y2=\"23\"/><line x1=\"8\" y1=\"23\" x2=\"16\" y2=\"23\"/></svg>Голос</button>';
+    var _vcBtn='<button class="msg-chat-btn" id="grpVoiceBtn" onclick="window._grpVoiceJoin(\''+_esc(chat.id)+'\')"' +'  title="Голосовой чат" style="background:rgba(26,159,255,.1);border-color:rgba(26,159,255,.3);color:var(--blue);">'+'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+'<path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>'+'<path d="M19 10v2a7 7 0 0 1-14 0v-2"/>'+'<line x1="12" y1="19" x2="12" y2="23"/>'+'<line x1="8" y1="23" x2="16" y2="23"/>'+'</svg>Голос</button>';
     if(isOwner||myRole==='admin'){
       btnsEl.innerHTML=_vcBtn+'<button class="msg-chat-btn" onclick="window._grpOpenInfo(\''+_esc(chat.id)+'\',true)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Управление</button>';
     } else {
@@ -44881,7 +44911,37 @@ window._dtrShowForwardPicker = function(msgContent, msgType, fromName) {
     if(!c.userId) return;
     _allFwdItems.push({ id: c.userId, name: c.name||'?', sub: '💬 Личный чат', avEmoji: c.av||'🎯', avUrl: c.avUrl||null, type: 'dm' });
   });
-  _dtrFwdRender('');
+
+  /* If DM cache is empty (user only opened Groups tab), load DMs now */
+  var _cacheLoadPromise = (_allFwdItems.length === 0 && SB_USER)
+    ? sb.from('messages')
+        .select('from_user_id,to_user_id,content,content_type,created_at')
+        .or('from_user_id.eq.'+SB_USER.id+',to_user_id.eq.'+SB_USER.id)
+        .neq('content_type','pin_event')
+        .order('created_at',{ascending:false})
+        .limit(40)
+        .then(function(r){
+          if(!r.data||!r.data.length) return;
+          var seen=new Set();
+          r.data.forEach(function(m){
+            var pid=m.from_user_id===SB_USER.id?m.to_user_id:m.from_user_id;
+            if(!pid||seen.has(pid)) return;
+            seen.add(pid);
+            _allFwdItems.push({ id: pid, name: pid.slice(0,8)+'…', sub: '💬 Личный чат', avEmoji: '🎯', avUrl: null, type: 'dm' });
+          });
+          /* Try to load usernames */
+          return sb.from('users').select('id,username,avatar,avatar_url').in('id',Array.from(seen))
+            .then(function(ur){
+              (ur.data||[]).forEach(function(u){
+                var item=_allFwdItems.find(function(it){return it.id===u.id;});
+                if(item){ item.name=u.username||item.name; item.avEmoji=u.avatar||'🎯'; item.avUrl=u.avatar_url||null; }
+              });
+            });
+        })
+    : Promise.resolve();
+
+  _cacheLoadPromise.then(function(){ _dtrFwdRender(''); }).catch(function(){ _dtrFwdRender(''); });
+  if(_allFwdItems.length) _dtrFwdRender(''); // show immediately if cache had data
 
   /* Load groups async — prepend them when ready */
   (typeof _grpLoadMyGroups === 'function' ? _grpLoadMyGroups() : Promise.resolve([]))
@@ -44939,6 +44999,10 @@ async function _dtrDoForward(msgContent, msgType, fromName, dest) {
       });
       if(gr && gr.error) throw gr.error;
       showToast('Переслано в «' + dest.name + '» ✅');
+      /* If forwarded to current active group — reload messages */
+      if(dest.id === (typeof _grpActiveId !== 'undefined' ? _grpActiveId : null) && typeof _grpLoadMessages === 'function') {
+        setTimeout(function(){ _grpLoadMessages(dest.id, false); }, 400);
+      }
     } else {
       var dr = await sb.from('messages').insert({
         from_user_id: myId,
@@ -44953,11 +45017,19 @@ async function _dtrDoForward(msgContent, msgType, fromName, dest) {
           await sb.auth.refreshSession();
           var dr2 = await sb.from('messages').insert({ from_user_id: myId, to_user_id: dest.id, content: insertContent, content_type: insertType, read: false });
           if(dr2 && dr2.error) throw dr2.error;
+        } else if(dr.error.code === '42703') {
+          /* Column missing — try without optional fields */
+          var dr3 = await sb.from('messages').insert({ from_user_id: myId, to_user_id: dest.id, content: insertContent });
+          if(dr3 && dr3.error) throw dr3.error;
         } else throw dr.error;
       }
       showToast('Переслано → ' + dest.name + ' ✅');
-      /* Update sidebar immediately */
+      /* Reload sidebar */
       if(typeof loadConversations === 'function') setTimeout(loadConversations, 300);
+      /* If forwarded to current active conversation — reload messages so sender sees it */
+      if(dest.id === activeConvUserId && typeof loadMessages === 'function') {
+        setTimeout(function(){ loadMessages(activeConvUserId); }, 400);
+      }
     }
   } catch(err) {
     console.error('[DTR] forward error:', err);
