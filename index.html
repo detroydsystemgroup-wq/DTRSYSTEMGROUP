@@ -20763,6 +20763,8 @@ function _msgSetReply(mid,text,mine,author,ct){ _msgReplyTo={id:String(mid),text
 // Runs once when Messages tab opens — verifies schema, shows SQL if needed
 let _msgDbChecked = false;
 async function _msgCheckDb(){
+  /* Don't re-check within same session if already showed alert */
+  try{if(sessionStorage.getItem('dtr_dbcheck_ok'))return;}catch(e){}
   if(_msgDbChecked || !SB_USER) return;
   _msgDbChecked = true;
   try {
@@ -20771,6 +20773,9 @@ async function _msgCheckDb(){
       .select('id,from_user_id,to_user_id,content,content_type,read,created_at')
       .limit(0);
     
+    if(!probe.error){
+      try{sessionStorage.setItem('dtr_dbcheck_ok','1');}catch(e){}
+    }
     if(probe.error){
       const code = probe.error.code;
       const msg  = probe.error.message || '';
@@ -20841,6 +20846,7 @@ DROP POLICY IF EXISTS "reactions_all" ON message_reactions;
 CREATE POLICY "reactions_all" ON message_reactions FOR ALL USING (true) WITH CHECK (true);
 -- Enable Realtime for reactions:
 ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+ALTER TABLE group_messages ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
 DO $$ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE message_reactions;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;` },
@@ -42018,8 +42024,11 @@ CREATE TABLE IF NOT EXISTS group_messages (
   content_type text DEFAULT 'text',
   reply_to_id uuid REFERENCES group_messages(id) ON DELETE SET NULL,
   is_system   boolean DEFAULT false,
-  created_at  timestamptz DEFAULT now()
+  created_at  timestamptz DEFAULT now(),
+  updated_at  timestamptz DEFAULT now()
 );
+-- Migration for existing installs:
+ALTER TABLE group_messages ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
 
 -- ── RLS ──────────────────────────────────────────────────────
 ALTER TABLE group_chats    ENABLE ROW LEVEL SECURITY;
@@ -42688,6 +42697,13 @@ async function _grpLoadMessages(groupId,append){
       .eq('group_id',groupId)
       .order('created_at',{ascending:false})
       .range(offset,offset+PAGE_SIZE-1);
+    /* FIX: if updated_at column missing, retry without it */
+    if(error&&(error.code==='42703'||String(error.message).includes('updated_at'))){
+      var _r2=await sb.from('group_messages')
+        .select('id,from_user_id,content,content_type,is_system,created_at,reply_to_id')
+        .eq('group_id',groupId).order('created_at',{ascending:false}).range(offset,offset+PAGE_SIZE-1);
+      msgs=_r2.data;error=_r2.error;
+    }
     if(tok!==_grpLoadToken)return;
     if(error)throw error;
     var elNow=document.getElementById('grpMessages');
