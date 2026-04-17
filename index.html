@@ -20763,35 +20763,30 @@ function _msgSetReply(mid,text,mine,author,ct){ _msgReplyTo={id:String(mid),text
 // Runs once when Messages tab opens — verifies schema, shows SQL if needed
 let _msgDbChecked = false;
 async function _msgCheckDb(){
-  /* Don't re-check within same session if already showed alert */
-  try{if(sessionStorage.getItem('dtr_dbcheck_ok'))return;}catch(e){}
+  /* Persist across reloads - once SQL is run this should never show again */
+  try{if(localStorage.getItem('dtr_db_ok_v2'))return;}catch(e){}
   if(_msgDbChecked || !SB_USER) return;
   _msgDbChecked = true;
   try {
-    // Quick probe: try inserting a test record with all columns
     const probe = await sb.from('messages')
       .select('id,from_user_id,to_user_id,content,content_type,read,created_at')
-      .limit(0);
-    
+      .or('from_user_id.eq.'+SB_USER.id+',to_user_id.eq.'+SB_USER.id)
+      .limit(1);
+
     if(!probe.error){
-      try{sessionStorage.setItem('dtr_dbcheck_ok','1');}catch(e){}
+      try{localStorage.setItem('dtr_db_ok_v2','1');}catch(e){}
+      return;
     }
-    if(probe.error){
-      const code = probe.error.code;
-      const msg  = probe.error.message || '';
-      
-      if(code === '42703' || msg.includes('column') || msg.includes('content_type')){
-        // Missing columns — show ALTER TABLE SQL
-        _msgShowDbAlert('missing_columns');
-      } else if(code === '42501' || msg.includes('permission') || msg.includes('policy') || msg.includes('RLS')){
-        // RLS blocking reads
-        _msgShowDbAlert('rls_error');
-      } else if(code === 'PGRST116' || msg.includes('does not exist')){
-        // Table doesn't exist at all
-        _msgShowDbAlert('no_table');
-      }
+    const code = probe.error.code || '';
+    const msg  = probe.error.message || '';
+    if(code === '42703' || msg.includes('column') || msg.includes('content_type')){
+      _msgShowDbAlert('missing_columns');
+    } else if(code === '42501' || msg.includes('row-level') || msg.includes('policy') || msg.includes('permission')){
+      _msgShowDbAlert('rls_error');
+    } else if(code === 'PGRST116' || msg.includes('does not exist')){
+      _msgShowDbAlert('no_table');
     }
-  } catch(e){ /* silent */ }
+  } catch(e){ /* network errors are silent */ }
 }
 
 function _msgShowDbAlert(type){
@@ -20868,7 +20863,10 @@ USING (auth.uid() = from_user_id);
 -- UPDATE: только входящие (для пометки read=true)
 CREATE POLICY "messages_update" ON messages FOR UPDATE
 USING (auth.uid() = to_user_id OR auth.uid() = from_user_id)
-WITH CHECK (auth.uid() = to_user_id OR auth.uid() = from_user_id);` }
+WITH CHECK (auth.uid() = to_user_id OR auth.uid() = from_user_id);
+-- Enable realtime delivery of new messages:
+ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+ALTER TABLE messages REPLICA IDENTITY FULL;` }
   };
   
   const { title, sql } = msgs[type] || msgs['no_table'];
@@ -20881,7 +20879,7 @@ WITH CHECK (auth.uid() = to_user_id OR auth.uid() = from_user_id);` }
         <div style="font-size:13.5px;font-weight:700;color:var(--red);margin-bottom:4px;">⚠️ ${title}</div>
         <div style="font-size:12px;color:var(--t3);">Скопируй SQL и выполни в Supabase → SQL Editor</div>
       </div>
-      <button onclick="document.getElementById('_msgDbAlert').remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;flex-shrink:0;padding:2px;">
+      <button onclick="try{localStorage.setItem('dtr_db_ok_v2','1');}catch(e){}document.getElementById('_msgDbAlert').remove()" title="Не показывать больше" style="background:none;border:none;color:var(--t3);cursor:pointer;flex-shrink:0;padding:2px;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
@@ -21154,15 +21152,31 @@ function _msgUpdateConvCache(partnerId, lastMsg, isMine, contentType){
     }catch(e){}
   }
   if(_cleanMsg === '__deleted__') _cleanMsg = '🚫 Удалено';
-  const cv = cache.find(c => c.userId === partnerId);
+  let cv = cache.find(c => c.userId === partnerId);
   if(cv){
     cv.lastMsg = _cleanMsg;
     cv.lastMsgMine = isMine;
     if(contentType) cv.lastMsgType = contentType;
     cv.lastTime = new Date().toISOString();
-    if(isMine) cv.unread = 0; // our message — no unread for us
+    if(isMine) cv.unread = 0;
+  } else {
+    /* FIX: New contact - inject into sidebar instantly, fill name async */
+    var _newEntry = {
+      userId: partnerId, name: '...', av: '🎯', avUrl: null,
+      lastMsg: _cleanMsg, lastMsgMine: isMine, lastMsgType: contentType||'text',
+      lastTime: new Date().toISOString(), unread: 0
+    };
+    cache.unshift(_newEntry);
+    sb.from('users').select('id,username,avatar,avatar_url').eq('id',partnerId).single()
+      .then(function(res){
+        if(!res.data) return;
+        _newEntry.name  = res.data.username || '?';
+        _newEntry.av    = res.data.avatar   || '🎯';
+        _newEntry.avUrl = res.data.avatar_url || null;
+        _convsCache = cache; allConvsCache = cache;
+        _renderConvList(cache);
+      }).catch(function(){});
   }
-  // Sort: most recent first
   cache.sort((a,b) => new Date(b.lastTime) - new Date(a.lastTime));
   _convsCache = cache;
   allConvsCache = cache;
@@ -24787,10 +24801,18 @@ function initRealtimeMessages() {
         return;
       }
       /* DTR: sound + DM unread badge for non-active conversations */
+      var _sender=(_convsCache||[]).find(function(c){return c.userId===payload.new.from_user_id;});
       if(typeof _dtrOnDmMsg==='function'&&payload&&payload.new){
-        var _dmSender=(_convsCache||[]).find(function(c){return c.userId===payload.new.from_user_id;});
-        _dtrOnDmMsg(payload.new,payload.new.from_user_id,_dmSender?_dmSender.name:'');
+        _dtrOnDmMsg(payload.new,payload.new.from_user_id,_sender?_sender.name:'');
       }
+      /* Instantly update sidebar preview without waiting for loadConversations */
+      var _rawContent=payload.new.content||'';
+      var _previewText=_rawContent;
+      try{var _pj=JSON.parse(_rawContent);if(_pj.t)_previewText=_pj.t;}catch(e){}
+      if(typeof _msgUpdateConvCache==='function'){
+        _msgUpdateConvCache(payload.new.from_user_id,_previewText,false,payload.new.content_type||'text');
+      }
+      /* Also do a full refresh to get correct unread count */
       loadConversations();
     })
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages',filter:'to_user_id=eq.'+SB_USER.id},function(p){var u=p.new;if(!u)return;var b=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(u.id))+'"]');if(!b)return;if(u.content_type==='deleted'||u.content==='__deleted__'){var s=b.querySelector('span');if(s)s.innerHTML='<span style="color:rgba(255,255,255,.3);font-style:italic;">🚫 Удалено</span>';}else if(u.content&&u.content_type==='text'){var se=b.querySelector('span');if(se){se.textContent=u.content;var tEl=b.querySelector('.msg-bubble-time');if(tEl&&!tEl.querySelector('.msg-edited-mark')){var mk=document.createElement('span');mk.className='msg-edited-mark';mk.style.cssText='font-size:10px;opacity:.5;margin-right:3px;';mk.textContent='изм.';tEl.insertBefore(mk,tEl.firstChild);}}}else{var s=b.querySelector('span');if(s&&u.content)s.innerHTML=esc(u.content).replace(/(https?:\/\/[^\s&<"']+)/g,'<a href="$1" target="_blank" style="color:inherit;opacity:.8;text-decoration:underline">$1</a>');}})
@@ -24807,8 +24829,19 @@ function initRealtimeMessages() {
       }
     })
     .subscribe(function(status){
+      console.log('[DTR] DM realtime status:', status);
+      if(status==='SUBSCRIBED'){
+        /* Connected - cancel any polling fallback */
+        if(window._dmPollTimer){clearInterval(window._dmPollTimer);window._dmPollTimer=null;}
+      }
       if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
         console.warn('[DTR] DM channel lost, reconnecting in 4s...');
+        /* Polling fallback: reload conversations every 5s until realtime reconnects */
+        if(!window._dmPollTimer){
+          window._dmPollTimer=setInterval(function(){
+            if(typeof loadConversations==='function')loadConversations();
+          },5000);
+        }
         setTimeout(function(){
           if(SB_USER&&!SB_USER.isDemoUser) initRealtimeMessages();
         }, 4000);
