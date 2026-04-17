@@ -1593,6 +1593,7 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.6);cursor:poi
 @keyframes fadeUp    {from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
 @keyframes fadeDown  {from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}
 @keyframes fadeIn    {from{opacity:0}to{opacity:1}}
+@keyframes pulse     {0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.25)}}
 @keyframes scaleIn   {from{opacity:0;transform:scale(.93)}to{opacity:1;transform:scale(1)}}
 @keyframes slideInR  {from{opacity:0;transform:translateX(22px)}to{opacity:1;transform:translateX(0)}}
 @keyframes slideInL  {from{opacity:0;transform:translateX(-22px)}to{opacity:1;transform:translateX(0)}}
@@ -22494,6 +22495,21 @@ async function _msgSaveEdit(){
   const bub = document.querySelector(`.msg-bubble[data-msg-id="${CSS.escape(msgId)}"]`);
   const spanEl = bub?.querySelector('span');
   const originalHTML = spanEl ? spanEl.innerHTML : null;
+  const originalRaw = bub ? bub.dataset.raw : null;
+
+  /* Determine new DB content — preserve JSON wrapper (reply) if present */
+  let dbContent = newText;
+  if(originalRaw) {
+    try {
+      const orig = JSON.parse(originalRaw);
+      if(orig && orig.t !== undefined) {
+        /* Keep reply/fwd metadata, just update the text */
+        const updated = Object.assign({}, orig, { t: newText });
+        delete updated.fwd; /* remove forward context on edit — same as Telegram */
+        dbContent = JSON.stringify(updated);
+      }
+    } catch(e){ /* plain text — save as-is */ }
+  }
 
   // Optimistic update
   if(spanEl){
@@ -22507,19 +22523,22 @@ async function _msgSaveEdit(){
       const timeDiv = bub.querySelector('.msg-bubble-time');
       if(timeDiv) timeDiv.insertBefore(lbl, timeDiv.firstChild);
     }
+    /* Update data-raw so context menu uses new text */
+    bub.dataset.raw = dbContent;
   }
   _msgCancelEdit();
 
   // DB update with rollback on error
   try {
-    const eres=await sb.from('messages').update({content:newText}).eq('id',msgId).eq('from_user_id',SB_USER.id);
-    if(eres.error){const em=eres.error.message||'';if(em.includes('policy')||em.includes('row-level')){await sb.auth.refreshSession();await sb.from('messages').update({content:newText}).eq('id',msgId).eq('from_user_id',SB_USER.id);}else throw eres.error;}
+    const eres=await sb.from('messages').update({content:dbContent}).eq('id',msgId).eq('from_user_id',SB_USER.id);
+    if(eres.error){const em=eres.error.message||'';if(em.includes('policy')||em.includes('row-level')){await sb.auth.refreshSession();await sb.from('messages').update({content:dbContent}).eq('id',msgId).eq('from_user_id',SB_USER.id);}else throw eres.error;}
     _msgUpdateConvCache(activeConvUserId, newText, true);
-    showToast('Изменено','✏️');
+    showToast('Изменено ✏️');
   } catch(e){
     console.warn('[DTR] Edit msg:', e);
     // Rollback optimistic update
     if(spanEl && originalHTML !== null) spanEl.innerHTML = originalHTML;
+    if(bub && originalRaw) bub.dataset.raw = originalRaw;
     const lbl = bub?.querySelector('.msg-edited-lbl');
     if(lbl) lbl.remove();
     showToast('Не удалось сохранить изменения','⚠️');
@@ -24816,6 +24835,21 @@ function initRealtimeMessages() {
       loadConversations();
     })
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages',filter:'to_user_id=eq.'+SB_USER.id},function(p){var u=p.new;if(!u)return;var b=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(u.id))+'"]');if(!b)return;if(u.content_type==='deleted'||u.content==='__deleted__'){var s=b.querySelector('span');if(s)s.innerHTML='<span style="color:rgba(255,255,255,.3);font-style:italic;">🚫 Удалено</span>';}else if(u.content&&u.content_type==='text'){var se=b.querySelector('span');if(se){se.textContent=u.content;var tEl=b.querySelector('.msg-bubble-time');if(tEl&&!tEl.querySelector('.msg-edited-mark')){var mk=document.createElement('span');mk.className='msg-edited-mark';mk.style.cssText='font-size:10px;opacity:.5;margin-right:3px;';mk.textContent='изм.';tEl.insertBefore(mk,tEl.firstChild);}}}else{var s=b.querySelector('span');if(s&&u.content)s.innerHTML=esc(u.content).replace(/(https?:\/\/[^\s&<"']+)/g,'<a href="$1" target="_blank" style="color:inherit;opacity:.8;text-decoration:underline">$1</a>');}})
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'to_user_id=eq.'+SB_USER.id+',content_type=eq.pin_event'},function(p){
+      /* Partner pinned a message for both — apply pin bar locally */
+      try {
+        var u=p.new; if(!u||u.content_type!=='pin_event') return;
+        var pinData = JSON.parse(u.content);
+        if(!pinData||!pinData.pin) return;
+        var partnerId = u.from_user_id;
+        if(partnerId !== activeConvUserId) return; /* not current chat */
+        var key = 'dtr_pinned_' + SB_USER.id + '_' + partnerId;
+        var pinned = { id: pinData.pin.msgId, text: pinData.pin.text, pinnedAt: new Date().toISOString(), forBoth: true };
+        try { localStorage.setItem(key, JSON.stringify(pinned)); } catch(ex){}
+        _msgRenderPinnedBar(pinned);
+        showToast('Собеседник закрепил сообщение 📌');
+      } catch(ex){}
+    })
     .on('postgres_changes',{event:'DELETE',schema:'public',table:'messages',filter:'or(from_user_id.eq.'+SB_USER.id+',to_user_id.eq.'+SB_USER.id+')'},function(p){var did=p.old&&p.old.id;if(!did)return;var b=document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(String(did))+'"]');if(b){var r=b.closest('.msg-row');if(r){r.style.transition='all .2s';r.style.opacity='0';setTimeout(function(){r.remove();},200);}}loadConversations();})
     .on('postgres_changes',{
       event: '*',
@@ -25078,13 +25112,68 @@ function _msgVoiceResetUI(vid){
 
 // ══ FIX 2: PIN MESSAGE — store in localStorage per conversation ══
 function _msgPinMessage(msgId, text){
-  if(!activeConvUserId) return;
-  const key = `dtr_pinned_${SB_USER?.id}_${activeConvUserId}`;
-  const pinned = { id: msgId, text: text.slice(0, 120), pinnedAt: new Date().toISOString() };
-  try { localStorage.setItem(key, JSON.stringify(pinned)); } catch(e){}
-  // Show/update pinned bar at top of chat
-  _msgRenderPinnedBar(pinned);
-  showToast('Сообщение закреплено 📌');
+  if(!activeConvUserId || !SB_USER) return;
+  /* Ask: pin for me only or for both (Telegram-style) */
+  var ov = document.createElement('div');
+  ov.id = '_msgPinChoiceModal';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);z-index:99999;display:flex;align-items:flex-end;justify-content:center;padding:0 0 32px;animation:fadeIn .15s ease;';
+  var card = document.createElement('div');
+  card.style.cssText = 'background:var(--card);border:0.5px solid var(--border);border-radius:18px;width:calc(100% - 32px);max-width:420px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.6);animation:msgIn .22s cubic-bezier(.34,1.3,.64,1) both;';
+  var preview = text.slice(0,80) + (text.length>80?'…':'');
+  card.innerHTML =
+    '<div style="padding:14px 18px 10px;border-bottom:0.5px solid rgba(255,255,255,.05);">'
+    +'<div style="font-size:13.5px;font-weight:700;color:var(--t1);margin-bottom:3px;">📌 Закрепить сообщение</div>'
+    +'<div style="font-size:12px;color:var(--t3);">«'+esc(preview)+'»</div>'
+    +'</div>'
+    /* For both */
+    +'<button id="_msgPinBoth" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 18px;background:none;border:none;border-bottom:0.5px solid rgba(255,255,255,.05);font-size:14px;color:var(--t1);cursor:pointer;text-align:left;font-family:var(--font-body);transition:background .12s;">'
+    +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
+    +'Закрепить для всех'
+    +'</button>'
+    /* Only me */
+    +'<button id="_msgPinMe" style="display:flex;align-items:center;gap:12px;width:100%;padding:14px 18px;background:none;border:none;border-bottom:0.5px solid rgba(255,255,255,.05);font-size:14px;color:var(--t1);cursor:pointer;text-align:left;font-family:var(--font-body);transition:background .12s;">'
+    +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+    +'Только у меня'
+    +'</button>'
+    +'<button id="_msgPinCancel" style="display:block;width:100%;padding:14px 18px;background:none;border:none;color:var(--t3);font-size:14px;cursor:pointer;text-align:center;font-family:var(--font-display);">Отмена</button>';
+  ov.appendChild(card);
+  ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+
+  function _doPin(forBoth) {
+    ov.remove();
+    var key = 'dtr_pinned_' + SB_USER.id + '_' + activeConvUserId;
+    var pinned = { id: msgId, text: text.slice(0,120), pinnedAt: new Date().toISOString(), forBoth: forBoth };
+    try { localStorage.setItem(key, JSON.stringify(pinned)); } catch(e){}
+    _msgRenderPinnedBar(pinned);
+
+    if(forBoth) {
+      /* Notify partner by inserting a system pin-event message */
+      var myName = (typeof P!=='undefined'&&P&&P.name) ? P.name : 'Пользователь';
+      var pinPayload = JSON.stringify({ pin: { msgId: msgId, text: text.slice(0,120), pinnedBy: myName } });
+      sb.from('messages').insert({
+        from_user_id: SB_USER.id,
+        to_user_id: activeConvUserId,
+        content: pinPayload,
+        content_type: 'pin_event',
+        read: false
+      }).then(function(r){
+        if(r && r.error) {
+          showToast('Закреплено у вас. Синхронизация недоступна.', '📌');
+        } else {
+          showToast('Сообщение закреплено у обоих 📌');
+        }
+      }).catch(function(){ showToast('Закреплено у вас. Синхронизация недоступна.', '📌'); });
+    } else {
+      showToast('Сообщение закреплено у вас 📌');
+    }
+  }
+
+  card.querySelector('#_msgPinBoth').onclick = function(){ _doPin(true); };
+  card.querySelector('#_msgPinMe').onclick = function(){ _doPin(false); };
+  card.querySelector('#_msgPinCancel').onclick = function(){ ov.remove(); };
+  /* Hover effect */
+  ['#_msgPinBoth','#_msgPinMe'].forEach(function(sel){ var b=card.querySelector(sel); if(!b)return; b.onmouseenter=function(){this.style.background='rgba(255,255,255,.04)';}; b.onmouseleave=function(){this.style.background='none';}; });
 }
 
 function _msgRenderPinnedBar(pinned){
@@ -42695,10 +42784,11 @@ function _grpUpdateHeader(chat,members,isOwner,myRole){
   // Buttons
   var btnsEl=document.getElementById('grpHeadBtns');
   if(btnsEl){
+    var _vcBtn='<button class="msg-chat-btn" id="grpVoiceBtn" onclick="window._grpVoiceJoin(\''+_esc(chat.id)+'\');" title="Голосовой чат" style="background:rgba(26,159,255,.1);border-color:rgba(26,159,255,.3);color:var(--blue);"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z\"/><path d=\"M19 10v2a7 7 0 0 1-14 0v-2\"/><line x1=\"12\" y1=\"19\" x2=\"12\" y2=\"23\"/><line x1=\"8\" y1=\"23\" x2=\"16\" y2=\"23\"/></svg>Голос</button>';
     if(isOwner||myRole==='admin'){
-      btnsEl.innerHTML='<button class="msg-chat-btn" onclick="window._grpOpenInfo(\''+_esc(chat.id)+'\',true)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Управление</button>';
+      btnsEl.innerHTML=_vcBtn+'<button class="msg-chat-btn" onclick="window._grpOpenInfo(\''+_esc(chat.id)+'\',true)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Управление</button>';
     } else {
-      btnsEl.innerHTML='<button class="msg-chat-btn" onclick="window._grpOpenInfo(\''+_esc(chat.id)+'\')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Инфо</button>';
+      btnsEl.innerHTML=_vcBtn+'<button class="msg-chat-btn" onclick="window._grpOpenInfo(\''+_esc(chat.id)+'\')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Инфо</button>';
     }
   }
 }
@@ -43308,7 +43398,7 @@ window._grpBubbleCtx=function(e,bub){
   if(canPin)items.push({ico:_GI.pin,label:'\u0417\u0430\u043a\u0440\u0435\u043f\u0438\u0442\u044c',fn:function(){window._grpPinMsg(msgId,displayText);}});
   if(isMine&&ct==='text')items.push({ico:_GI.edit,label:'\u0418\u0437\u043c\u0435\u043d\u0438\u0442\u044c',fn:function(){_grpStartEdit(msgId,bub);}});
   items.push({sep:true});
-  if(isMine||isOwner||isAdmin)items.push({ico:_GI.trash,label:'\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0443 \u0432\u0441\u0435\u0445',fn:function(){window._grpDeleteMsg(msgId,false);},danger:true});
+  if(isMine||isOwner)items.push({ico:_GI.trash,label:'\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0443 \u0432\u0441\u0435\u0445',fn:function(){window._grpDeleteMsg(msgId,false);},danger:true});
   items.push({ico:_GI.trashMe,label:'\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0443 \u0441\u0435\u0431\u044f',fn:function(){window._grpDeleteMsg(msgId,true);},danger:true});
   var menu=document.createElement('div');menu.id='_grpCtxMenu';
   menu.style.cssText='position:fixed;z-index:99999;background:var(--card);border:0.5px solid rgba(255,255,255,.1);border-radius:14px;padding:5px;min-width:195px;box-shadow:0 8px 40px rgba(0,0,0,.65);animation:dtrModalIn .18s cubic-bezier(.34,1.4,.64,1) both;';
@@ -44712,24 +44802,15 @@ window._dtrClearDmUnread = function(userId){
    Shows all groups + DM contacts in one modal.
    Called from both group context menu and DM context menu.
 ══════════════════════════════════════════════════════════════ */
-window._dtrShowForwardPicker = async function(msgContent, msgType, fromName) {
+window._dtrShowForwardPicker = function(msgContent, msgType, fromName) {
   document.getElementById('_dtrFwdPicker') && document.getElementById('_dtrFwdPicker').remove();
 
-  /* Build destination list: groups first, then DMs */
-  var groups = [];
-  try {
-    groups = await _grpLoadMyGroups();
-  } catch(e) {}
-  var dms = (_convsCache || allConvsCache || []);
-
+  /* Preview label */
   var previewLabel = '';
-  if(msgType === 'image') previewLabel = '\ud83d\uddbc\ufe0f \u0418\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435';
-  else if(msgType === 'voice') previewLabel = '\ud83c\udfa4 \u0413\u043e\u043b\u043e\u0441\u043e\u0432\u043e\u0435';
-  else if(msgType === 'file') { try { previewLabel = '\ud83d\udcce ' + JSON.parse(msgContent).name; } catch(e){ previewLabel = '\ud83d\udcce \u0424\u0430\u0439\u043b'; } }
-  else {
-    var pt = msgContent; try{ var po = JSON.parse(msgContent); if(po.t) pt=po.t; }catch(e){}
-    previewLabel = pt.slice(0,60) + (pt.length>60?'\u2026':'');
-  }
+  if(msgType === 'image') previewLabel = '🖼️ Изображение';
+  else if(msgType === 'voice') previewLabel = '🎤 Голосовое';
+  else if(msgType === 'file') { try { previewLabel = '📎 ' + JSON.parse(msgContent).name; } catch(e){ previewLabel = '📎 Файл'; } }
+  else { var _pt = msgContent; try{ var _po = JSON.parse(msgContent); if(_po.t) _pt=_po.t; }catch(e){} previewLabel = _pt.slice(0,60) + (_pt.length>60?'…':''); }
 
   var ov = document.createElement('div');
   ov.id = '_dtrFwdPicker';
@@ -44738,129 +44819,149 @@ window._dtrShowForwardPicker = async function(msgContent, msgType, fromName) {
   var box = document.createElement('div');
   box.style.cssText = 'background:var(--card);border:0.5px solid rgba(255,255,255,.1);border-radius:20px;width:100%;max-width:420px;max-height:85dvh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.7);animation:dtrModalIn .28s cubic-bezier(.34,1.4,.64,1) both;overflow:hidden;';
 
-  /* Header */
-  var hdr = document.createElement('div');
-  hdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:0.5px solid rgba(255,255,255,.07);flex-shrink:0;';
-  hdr.innerHTML = '<div><div style="font-size:15px;font-weight:700;color:var(--t1);">\u041f\u0435\u0440\u0435\u0441\u043b\u0430\u0442\u044c</div>'
-    + '<div style="font-size:12px;color:var(--t3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;">' + _esc(previewLabel) + '</div></div>'
-    + '<button style="width:28px;height:28px;border-radius:8px;background:none;border:none;color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;" onclick="document.getElementById(\'_dtrFwdPicker\').remove()">'
-    + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
-  box.appendChild(hdr);
-
-  /* Search */
-  var srchWrap = document.createElement('div');
-  srchWrap.style.cssText = 'padding:10px 16px 6px;flex-shrink:0;';
-  srchWrap.innerHTML = '<input id="_dtrFwdSearch" type="text" placeholder="\u041f\u043e\u0438\u0441\u043a..." style="width:100%;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.1);color:var(--t1);font-size:13px;font-family:var(--font-body);outline:none;">';
-  box.appendChild(srchWrap);
-
-  /* List */
-  var list = document.createElement('div');
-  list.id = '_dtrFwdList';
-  list.style.cssText = 'flex:1;overflow-y:auto;padding:6px 8px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.06) transparent;';
-  box.appendChild(list);
+  box.innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:0.5px solid rgba(255,255,255,.07);flex-shrink:0;">'
+    + '<div><div style="font-size:15px;font-weight:700;color:var(--t1);">Переслать</div>'
+    + '<div style="font-size:12px;color:var(--t3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;">'+_esc(previewLabel)+'</div></div>'
+    + '<button id="_dtrFwdClose" style="width:28px;height:28px;border-radius:8px;background:none;border:none;color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;">'
+    + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
+    + '</div>'
+    + '<div style="padding:10px 16px 6px;flex-shrink:0;">'
+    + '<input id="_dtrFwdSearch" type="text" placeholder="Поиск…" style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.1);color:var(--t1);font-size:13px;font-family:var(--font-body);outline:none;">'
+    + '</div>'
+    + '<div id="_dtrFwdList" style="flex:1;overflow-y:auto;padding:6px 8px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.06) transparent;">'
+    + '<div style="padding:16px;text-align:center;color:var(--t3);font-size:13px;">Загружаем…</div>'
+    + '</div>';
 
   ov.appendChild(box);
   ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
   document.body.appendChild(ov);
 
-  /* Build items */
-  var allItems = [];
-  if(groups && groups.length) {
-    groups.forEach(function(g){
-      allItems.push({
-        id: g.id, name: g.name, sub: '\ud83d\udc65 \u0413\u0440\u0443\u043f\u043f\u0430',
-        avEmoji: g.emoji || '\ud83d\udc65', avUrl: g.avatar_url || null,
-        type: 'group'
-      });
-    });
-  }
-  dms.forEach(function(c){
-    allItems.push({ id: c.userId, name: c.name || '?', sub: '\ud83d\udcac \u041b\u0438\u0447\u043d\u044b\u0439 \u0447\u0430\u0442', avEmoji: c.av || '\ud83c\udfaf', avUrl: c.avUrl || null, type: 'dm' });
-  });
+  box.querySelector('#_dtrFwdClose').onclick = function(){ ov.remove(); };
+  var list = box.querySelector('#_dtrFwdList');
+  var sinp = box.querySelector('#_dtrFwdSearch');
+  if(sinp) setTimeout(function(){ sinp.focus(); }, 80);
 
-  function renderItems(query) {
-    var filtered = query
-      ? allItems.filter(function(it){ return (it.name||'').toLowerCase().includes(query.toLowerCase()); })
-      : allItems;
+  /* Build item row */
+  function _dtrFwdRow(it) {
+    var btn = document.createElement('button');
+    btn.style.cssText = 'display:flex;align-items:center;gap:11px;width:100%;padding:10px;border-radius:12px;background:none;border:none;cursor:pointer;text-align:left;transition:background .12s;';
+    btn.onmouseenter = function(){ this.style.background='rgba(255,255,255,.04)'; };
+    btn.onmouseleave = function(){ this.style.background='none'; };
+    var avInner = it.avUrl
+      ? '<img src="'+_esc(it.avUrl)+'" style="width:100%;height:100%;object-fit:cover;border-radius:10px;" onerror="this.style.display=\'none\'">'
+      : '<span style="font-size:19px;line-height:1;">'+_esc(it.avEmoji||'💬')+'</span>';
+    var bgC = it.type==='group' ? 'rgba(26,159,255,.12)' : 'rgba(245,200,66,.1)';
+    var bdC = it.type==='group' ? 'rgba(26,159,255,.25)' : 'rgba(245,200,66,.2)';
+    btn.innerHTML =
+      '<div style="width:40px;height:40px;border-radius:11px;background:'+bgC+';border:0.5px solid '+bdC+';display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;padding:0;">'+avInner+'</div>'
+      +'<div style="flex:1;min-width:0;">'
+      +'<div style="font-size:13.5px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+_esc(it.name)+'</div>'
+      +'<div style="font-size:11px;color:var(--t3);margin-top:1px;">'+_esc(it.sub)+'</div>'
+      +'</div>';
+    btn.onclick = function(){ ov.remove(); _dtrDoForward(msgContent, msgType, fromName, it); };
+    return btn;
+  }
+
+  var _allFwdItems = [];
+
+  function _dtrFwdRender(query) {
+    var q = (query||'').toLowerCase();
+    var filtered = q ? _allFwdItems.filter(function(it){ return (it.name||'').toLowerCase().includes(q); }) : _allFwdItems;
     list.innerHTML = '';
-    if(!filtered.length) {
-      list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--t3);font-size:13px;">\u041d\u0438\u043a\u043e\u0433\u043e \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e</div>';
-      return;
-    }
-    filtered.forEach(function(it) {
-      var btn = document.createElement('button');
-      btn.style.cssText = 'display:flex;align-items:center;gap:11px;width:100%;padding:10px 10px;border-radius:12px;background:none;border:none;cursor:pointer;text-align:left;transition:background .12s;';
-      btn.onmouseenter = function(){ this.style.background='rgba(255,255,255,.04)'; };
-      btn.onmouseleave = function(){ this.style.background='none'; };
-      var avInner = it.avUrl
-        ? '<img src="'+_esc(it.avUrl)+'" style="width:100%;height:100%;object-fit:cover;border-radius:10px;" onerror="this.hidden=true">'
-        : '<span style="font-size:19px;line-height:1;">'+_esc(it.avEmoji)+'</span>';
-      var bgColor = it.type==='group' ? 'rgba(26,159,255,.12)' : 'rgba(245,200,66,.1)';
-      var bdColor = it.type==='group' ? 'rgba(26,159,255,.25)' : 'rgba(245,200,66,.2)';
-      btn.innerHTML = '<div style="width:40px;height:40px;border-radius:11px;background:'+bgColor+';border:0.5px solid '+bdColor+';display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;padding:0;">'+avInner+'</div>'
-        + '<div style="flex:1;min-width:0;">'
-        + '<div style="font-size:13.5px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+_esc(it.name)+'</div>'
-        + '<div style="font-size:11px;color:var(--t3);margin-top:1px;">'+it.sub+'</div>'
-        + '</div>';
-      btn.onclick = function(){
-        ov.remove();
-        _dtrDoForward(msgContent, msgType, fromName, it);
-      };
-      list.appendChild(btn);
-    });
+    if(!filtered.length) { list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--t3);font-size:13px;">Никого не найдено</div>'; return; }
+    filtered.forEach(function(it){ list.appendChild(_dtrFwdRow(it)); });
   }
 
-  renderItems('');
-  var sinp = document.getElementById('_dtrFwdSearch');
-  if(sinp) sinp.addEventListener('input', function(){ renderItems(this.value.trim()); });
-  setTimeout(function(){ if(sinp) sinp.focus(); }, 100);
+  if(sinp) sinp.addEventListener('input', function(){ _dtrFwdRender(this.value.trim()); });
+
+  /* ── Populate: DMs immediately from cache, groups async ── */
+  var dms = (_convsCache || allConvsCache || []);
+  dms.forEach(function(c){
+    if(!c.userId) return;
+    _allFwdItems.push({ id: c.userId, name: c.name||'?', sub: '💬 Личный чат', avEmoji: c.av||'🎯', avUrl: c.avUrl||null, type: 'dm' });
+  });
+  _dtrFwdRender('');
+
+  /* Load groups async — prepend them when ready */
+  (typeof _grpLoadMyGroups === 'function' ? _grpLoadMyGroups() : Promise.resolve([]))
+    .then(function(groups){
+      if(!document.getElementById('_dtrFwdPicker')) return; // picker closed
+      if(!groups || !groups.length) return;
+      var grpItems = groups.map(function(g){
+        return { id: g.id, name: g.name, sub: '👥 Группа', avEmoji: g.emoji||'👥', avUrl: g.avatar_url||null, type: 'group' };
+      });
+      _allFwdItems = grpItems.concat(_allFwdItems);
+      _dtrFwdRender(sinp ? sinp.value.trim() : '');
+    })
+    .catch(function(){});
 };
 
 /* Actually send the forwarded message to destination */
 async function _dtrDoForward(msgContent, msgType, fromName, dest) {
-  var fwdName = fromName || (typeof P!=='undefined'&&P?P.name:'') || '\u041d\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043d\u043e';
+  var fwdName = fromName || (typeof P!=='undefined'&&P?P.name:'') || 'Неизвестно';
 
-  /* Build forwarded content */
+  /* Strip existing fwd wrapper so we don't double-wrap */
+  var cleanContent = msgContent;
+  if(msgType !== 'image' && msgType !== 'voice' && msgType !== 'file') {
+    try { var _tp = JSON.parse(msgContent); if(_tp.t !== undefined) cleanContent = _tp.t; } catch(e){}
+  }
+
+  /* Build forwarded content with Telegram-style fwd metadata */
   var insertContent, insertType;
   if(msgType === 'image' || msgType === 'voice' || msgType === 'file') {
     var mp; try{ mp = JSON.parse(msgContent); }catch(e){ mp = null; }
-    if(mp && (mp.url || mp.name)) {
-      mp.fwd = { fromName: fwdName }; insertContent = JSON.stringify(mp);
+    if(mp && (mp.url !== undefined || mp.name !== undefined)) {
+      /* Already JSON (voice with duration, file meta) — clone and add fwd */
+      var mpClone = JSON.parse(JSON.stringify(mp));
+      delete mpClone.fwd; /* remove old fwd to avoid nesting */
+      mpClone.fwd = { fromName: fwdName };
+      insertContent = JSON.stringify(mpClone);
     } else {
       insertContent = JSON.stringify({ url: msgContent, fwd: { fromName: fwdName } });
     }
     insertType = msgType;
   } else {
-    var pt = msgContent; try{ var po = JSON.parse(msgContent); if(po.t!==undefined) pt=po.t; }catch(e){}
-    insertContent = JSON.stringify({ t: pt, fwd: { fromName: fwdName } });
+    insertContent = JSON.stringify({ t: cleanContent, fwd: { fromName: fwdName } });
     insertType = 'text';
   }
 
+  var myId = (typeof SB_USER!=='undefined'&&SB_USER) ? SB_USER.id : (typeof _myId==='function' ? _myId() : null);
+  if(!myId) { showToast('Ошибка: не авторизован','⚠️'); return; }
+
   try {
     if(dest.type === 'group') {
-      /* Forward to group */
-      await sb.from('group_messages').insert({
+      var gr = await sb.from('group_messages').insert({
         group_id: dest.id,
-        from_user_id: _myId ? _myId() : (typeof SB_USER!=='undefined'&&SB_USER?SB_USER.id:null),
+        from_user_id: myId,
         content: insertContent,
         content_type: insertType
       });
-      typeof _toast==='function' && _toast('\u041f\u0435\u0440\u0435\u0441\u043b\u0430\u043d\u043e \u0432 '+_esc(dest.name), '\u2705');
+      if(gr && gr.error) throw gr.error;
+      showToast('Переслано в «' + dest.name + '» ✅');
     } else {
-      /* Forward to DM */
-      var myId = (typeof SB_USER!=='undefined'&&SB_USER?SB_USER.id:(_myId?_myId():null));
-      await sb.from('messages').insert({
+      var dr = await sb.from('messages').insert({
         from_user_id: myId,
         to_user_id: dest.id,
         content: insertContent,
         content_type: insertType,
         read: false
       });
-      typeof _toast==='function' && _toast('\u041f\u0435\u0440\u0435\u0441\u043b\u0430\u043d\u043e '+_esc(dest.name), '\u2705');
+      if(dr && dr.error) {
+        /* RLS retry */
+        if((dr.error.message||'').includes('policy')||(dr.error.message||'').includes('row-level')){
+          await sb.auth.refreshSession();
+          var dr2 = await sb.from('messages').insert({ from_user_id: myId, to_user_id: dest.id, content: insertContent, content_type: insertType, read: false });
+          if(dr2 && dr2.error) throw dr2.error;
+        } else throw dr.error;
+      }
+      showToast('Переслано → ' + dest.name + ' ✅');
+      /* Update sidebar immediately */
+      if(typeof loadConversations === 'function') setTimeout(loadConversations, 300);
     }
   } catch(err) {
     console.error('[DTR] forward error:', err);
-    typeof _toast==='function' && _toast('\u041e\u0448\u0438\u0431\u043a\u0430 \u043f\u0435\u0440\u0435\u0441\u044b\u043b\u043a\u0438', '\u26a0\ufe0f');
+    showToast('Не удалось переслать: ' + ((err&&err.message)||'').slice(0,50), '⚠️');
   }
 }
 
@@ -44913,6 +45014,309 @@ window._dtrShowForwardPickerMulti = async function(ids, texts) {
     list.appendChild(btn);
   });
 };
+
+/* ══════════════════════════════════════════════════════════════════
+   GROUP VOICE CHAT — Telegram-style, WebRTC mesh + Supabase Presence
+   ══════════════════════════════════════════════════════════════════ */
+var _GVC = {
+  groupId: null,
+  channel: null,        /* Supabase realtime channel for signaling */
+  localStream: null,
+  peers: {},            /* userId → { pc: RTCPeerConnection, audio: HTMLAudioElement } */
+  participants: {},     /* userId → { name, emoji, muted, speaking } */
+  muted: false,
+  active: false,
+  _speakTimer: null,
+};
+
+var _GVC_ICE = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'turn:openrelay.metered.ca:80',  username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+  ],
+  iceCandidatePoolSize: 6,
+};
+
+/* ── Join voice channel ── */
+window._grpVoiceJoin = async function(groupId) {
+  if(!SB_USER){ showToast('Войди в аккаунт','⚠️'); return; }
+  if(_GVC.active && _GVC.groupId === groupId){ _grpVoiceShowPanel(); return; }
+  if(_GVC.active) await _grpVoiceLeave(true);
+
+  showToast('Подключаемся к голосовому чату…','🎙️');
+
+  try {
+    _GVC.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  } catch(e) {
+    showToast('Нет доступа к микрофону: ' + (e.message||e.name), '⚠️');
+    return;
+  }
+
+  _GVC.groupId = groupId;
+  _GVC.active = true;
+  _GVC.peers = {};
+  _GVC.participants = {};
+  _GVC.muted = false;
+
+  var myId = SB_USER.id;
+  var myName = (typeof P!=='undefined'&&P&&P.name)?P.name:'Участник';
+  var myEmoji = (typeof P!=='undefined'&&P&&P.avatar)?P.avatar:'🎯';
+
+  /* Create Supabase presence+broadcast channel */
+  _GVC.channel = sb.channel('grp-voice-' + groupId, { config: { presence: { key: myId } } });
+
+  /* ── Incoming offer (another peer wants to connect to us) ── */
+  _GVC.channel.on('broadcast', { event: 'offer' }, async function(payload) {
+    var d = payload.payload;
+    if(!d || d.to !== myId || d.from === myId) return;
+    var fromId = d.from;
+    var pc = _grpVoiceCreatePC(fromId);
+    await pc.setRemoteDescription(new RTCSessionDescription({ type:'offer', sdp: d.sdp }));
+    var answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    _GVC.channel.send({ type:'broadcast', event:'answer', payload:{ from: myId, to: fromId, sdp: answer.sdp } });
+  });
+
+  /* ── Incoming answer ── */
+  _GVC.channel.on('broadcast', { event: 'answer' }, async function(payload) {
+    var d = payload.payload;
+    if(!d || d.to !== myId) return;
+    var pc = _GVC.peers[d.from] && _GVC.peers[d.from].pc;
+    if(pc) await pc.setRemoteDescription(new RTCSessionDescription({ type:'answer', sdp: d.sdp }));
+  });
+
+  /* ── Incoming ICE candidate ── */
+  _GVC.channel.on('broadcast', { event: 'ice' }, async function(payload) {
+    var d = payload.payload;
+    if(!d || d.to !== myId) return;
+    var pc = _GVC.peers[d.from] && _GVC.peers[d.from].pc;
+    if(pc && d.candidate) {
+      try { await pc.addIceCandidate(new RTCIceCandidate(d.candidate)); } catch(e){}
+    }
+  });
+
+  /* ── Presence sync: someone joined/left ── */
+  _GVC.channel.on('presence', { event: 'sync' }, function() {
+    var state = _GVC.channel.presenceState();
+    var currentIds = new Set(Object.keys(state));
+
+    /* New participants → send them an offer */
+    currentIds.forEach(function(uid) {
+      if(uid === myId) return;
+      if(!_GVC.peers[uid]) {
+        var info = (state[uid]&&state[uid][0]) || {};
+        _GVC.participants[uid] = { name: info.name||'Участник', emoji: info.emoji||'🎯', muted: info.muted||false };
+        _grpVoiceSendOffer(uid);
+      }
+    });
+
+    /* Departed participants → cleanup */
+    Object.keys(_GVC.peers).forEach(function(uid) {
+      if(!currentIds.has(uid)) {
+        _grpVoiceCleanupPeer(uid);
+        delete _GVC.participants[uid];
+      }
+    });
+
+    _grpVoiceUpdatePanel();
+  });
+
+  _GVC.channel.on('presence', { event: 'join' }, function(payload) {
+    var uid = payload.key; if(!uid||uid===myId) return;
+    var info = (payload.newPresences&&payload.newPresences[0]) || {};
+    _GVC.participants[uid] = { name: info.name||'Участник', emoji: info.emoji||'🎯', muted: false };
+    _grpVoiceSendOffer(uid);
+    showToast(_esc(info.name||'Участник') + ' присоединился к голосовому 🎙️');
+    _grpVoiceUpdatePanel();
+  });
+
+  _GVC.channel.on('presence', { event: 'leave' }, function(payload) {
+    var uid = payload.key; if(!uid) return;
+    var info = _GVC.participants[uid]||{};
+    _grpVoiceCleanupPeer(uid);
+    delete _GVC.participants[uid];
+    showToast(_esc(info.name||'Участник') + ' покинул голосовой чат');
+    _grpVoiceUpdatePanel();
+  });
+
+  /* ── Mute state broadcast ── */
+  _GVC.channel.on('broadcast', { event: 'mute_state' }, function(payload) {
+    var d = payload.payload; if(!d) return;
+    if(_GVC.participants[d.userId]) _GVC.participants[d.userId].muted = d.muted;
+    _grpVoiceUpdatePanel();
+  });
+
+  await _GVC.channel.subscribe(async function(status) {
+    if(status === 'SUBSCRIBED') {
+      await _GVC.channel.track({ name: myName, emoji: myEmoji, muted: false });
+      _grpVoiceShowPanel();
+      _grpVoiceUpdateVoiceBtn(groupId, true);
+    }
+  });
+};
+
+/* ── Create RTCPeerConnection for a peer ── */
+function _grpVoiceCreatePC(peerId) {
+  if(_GVC.peers[peerId] && _GVC.peers[peerId].pc) _grpVoiceCleanupPeer(peerId);
+  var pc = new RTCPeerConnection(_GVC_ICE);
+  var audio = document.createElement('audio');
+  audio.autoplay = true;
+  audio.style.display = 'none';
+  document.body.appendChild(audio);
+
+  /* Add local tracks */
+  if(_GVC.localStream) {
+    _GVC.localStream.getTracks().forEach(function(t){ pc.addTrack(t, _GVC.localStream); });
+  }
+
+  /* Remote audio */
+  pc.ontrack = function(e) {
+    if(e.streams && e.streams[0]) audio.srcObject = e.streams[0];
+  };
+
+  /* ICE */
+  pc.onicecandidate = function(e) {
+    if(e.candidate) {
+      _GVC.channel.send({ type:'broadcast', event:'ice', payload:{ from: SB_USER.id, to: peerId, candidate: e.candidate.toJSON() } });
+    }
+  };
+
+  pc.onconnectionstatechange = function() {
+    if(pc.connectionState==='failed'||pc.connectionState==='disconnected') {
+      setTimeout(function(){ if(_GVC.peers[peerId]) _grpVoiceSendOffer(peerId); }, 2000);
+    }
+  };
+
+  _GVC.peers[peerId] = { pc: pc, audio: audio };
+  return pc;
+}
+
+/* ── Send offer to a peer ── */
+async function _grpVoiceSendOffer(peerId) {
+  var pc = _grpVoiceCreatePC(peerId);
+  try {
+    var offer = await pc.createOffer({ offerToReceiveAudio: true });
+    await pc.setLocalDescription(offer);
+    _GVC.channel.send({ type:'broadcast', event:'offer', payload:{ from: SB_USER.id, to: peerId, sdp: offer.sdp } });
+  } catch(e){ console.warn('[GVC] offer error:', e); }
+}
+
+/* ── Cleanup peer ── */
+function _grpVoiceCleanupPeer(peerId) {
+  var p = _GVC.peers[peerId];
+  if(!p) return;
+  try { p.pc.close(); } catch(e){}
+  try { if(p.audio&&p.audio.parentNode) p.audio.parentNode.removeChild(p.audio); } catch(e){}
+  delete _GVC.peers[peerId];
+}
+
+/* ── Toggle mute ── */
+window._grpVoiceMute = function() {
+  if(!_GVC.localStream) return;
+  _GVC.muted = !_GVC.muted;
+  _GVC.localStream.getAudioTracks().forEach(function(t){ t.enabled = !_GVC.muted; });
+  if(_GVC.channel) {
+    _GVC.channel.send({ type:'broadcast', event:'mute_state', payload:{ userId: SB_USER.id, muted: _GVC.muted } });
+    _GVC.channel.track({ name: (typeof P!=='undefined'&&P&&P.name)||'Участник', emoji: (typeof P!=='undefined'&&P&&P.avatar)||'🎯', muted: _GVC.muted });
+  }
+  var muteBtn = document.getElementById('_gvcMuteBtn');
+  if(muteBtn) {
+    muteBtn.style.background = _GVC.muted ? 'rgba(239,68,68,.3)' : 'rgba(34,197,94,.15)';
+    muteBtn.style.borderColor = _GVC.muted ? 'rgba(239,68,68,.5)' : 'rgba(34,197,94,.3)';
+    muteBtn.style.color = _GVC.muted ? 'var(--red)' : 'var(--green)';
+    muteBtn.querySelector('span').textContent = _GVC.muted ? 'Мик выкл.' : 'Мик вкл.';
+  }
+};
+
+/* ── Leave voice ── */
+window._grpVoiceLeave = async function(silent) {
+  if(!_GVC.active) return;
+  Object.keys(_GVC.peers).forEach(_grpVoiceCleanupPeer);
+  if(_GVC.localStream) { _GVC.localStream.getTracks().forEach(function(t){ t.stop(); }); _GVC.localStream = null; }
+  if(_GVC.channel) { try { await sb.removeChannel(_GVC.channel); } catch(e){} _GVC.channel = null; }
+  var panelId = _GVC.groupId;
+  _GVC.active = false; _GVC.groupId = null; _GVC.peers = {}; _GVC.participants = {};
+  document.getElementById('_gvcPanel') && document.getElementById('_gvcPanel').remove();
+  if(panelId) _grpVoiceUpdateVoiceBtn(panelId, false);
+  if(!silent) showToast('Вы покинули голосовой чат 👋');
+};
+
+/* ── Update voice button state in header ── */
+function _grpVoiceUpdateVoiceBtn(groupId, active) {
+  var btn = document.getElementById('grpVoiceBtn');
+  if(!btn) return;
+  if(active) {
+    btn.style.background = 'rgba(34,197,94,.2)';
+    btn.style.borderColor = 'rgba(34,197,94,.4)';
+    btn.style.color = 'var(--green)';
+  } else {
+    btn.style.background = 'rgba(26,159,255,.1)';
+    btn.style.borderColor = 'rgba(26,159,255,.3)';
+    btn.style.color = 'var(--blue)';
+  }
+}
+
+/* ── Show / re-focus voice panel ── */
+window._grpVoiceShowPanel = function() {
+  if(document.getElementById('_gvcPanel')) { _grpVoiceUpdatePanel(); return; }
+  var panel = document.createElement('div');
+  panel.id = '_gvcPanel';
+  panel.style.cssText = 'position:fixed;bottom:80px;right:16px;width:260px;background:var(--card);border:0.5px solid rgba(255,255,255,.12);border-radius:18px;box-shadow:0 12px 48px rgba(0,0,0,.6);z-index:9999;overflow:hidden;animation:dtrModalIn .25s cubic-bezier(.34,1.4,.64,1) both;';
+  panel.innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px 8px;">'
+    +'<div style="display:flex;align-items:center;gap:7px;">'
+    +'<span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;animation:pulse 1.4s infinite;"></span>'
+    +'<span style="font-size:13px;font-weight:700;color:var(--t1);">Голосовой чат</span>'
+    +'</div>'
+    +'<button onclick="document.getElementById(\'_gvcPanel\').style.display=\'none\'" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:2px;font-size:16px;">–</button>'
+    +'</div>'
+    +'<div id="_gvcParticipants" style="padding:0 10px 8px;display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;"></div>'
+    +'<div style="display:flex;gap:6px;padding:8px 10px;border-top:0.5px solid rgba(255,255,255,.07);">'
+    +'<button id="_gvcMuteBtn" onclick="window._grpVoiceMute()" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;border-radius:10px;background:rgba(34,197,94,.15);border:0.5px solid rgba(34,197,94,.3);color:var(--green);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-display);transition:all .15s;">'
+    +'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>'
+    +'<span>Мик вкл.</span></button>'
+    +'<button onclick="window._grpVoiceLeave()" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;border-radius:10px;background:rgba(239,68,68,.12);border:0.5px solid rgba(239,68,68,.3);color:var(--red);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-display);transition:background .15s;" onmouseenter="this.style.background=\'rgba(239,68,68,.22)\'" onmouseleave="this.style.background=\'rgba(239,68,68,.12)\'">'
+    +'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07C9.44 17.29 7.76 15.57 6.06 13"/><path d="M2 2l20 20"/></svg>'
+    +'Выйти</button>'
+    +'</div>';
+  document.body.appendChild(panel);
+  _grpVoiceUpdatePanel();
+};
+
+/* ── Update participants list in panel ── */
+function _grpVoiceUpdatePanel() {
+  var el = document.getElementById('_gvcParticipants');
+  if(!el) return;
+  var myId = SB_USER && SB_USER.id;
+  var myName = (typeof P!=='undefined'&&P&&P.name)||'Вы';
+  var myEmoji = (typeof P!=='undefined'&&P&&P.avatar)||'🎯';
+
+  var html = '';
+  /* Self */
+  html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 4px;border-radius:8px;">'
+    +'<div style="width:28px;height:28px;border-radius:8px;background:rgba(245,200,66,.12);border:0.5px solid rgba(245,200,66,.25);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">'+_esc(myEmoji)+'</div>'
+    +'<div style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:var(--t1);">'+_esc(myName)+' (вы)</div>'
+    +(_GVC.muted?'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/></svg>':'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>')
+    +'</div>';
+
+  /* Others */
+  Object.entries(_GVC.participants).forEach(function(entry) {
+    var uid = entry[0], info = entry[1];
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 4px;border-radius:8px;">'
+      +'<div style="width:28px;height:28px;border-radius:8px;background:rgba(26,159,255,.1);border:0.5px solid rgba(26,159,255,.2);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">'+_esc(info.emoji||'🎯')+'</div>'
+      +'<div style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+_esc(info.name||'Участник')+'</div>'
+      +(info.muted?'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/></svg>':'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>')
+      +'</div>';
+  });
+
+  if(!Object.keys(_GVC.participants).length) {
+    html += '<div style="font-size:11px;color:var(--t3);text-align:center;padding:6px 0;">Вы единственный участник</div>';
+  }
+  el.innerHTML = html;
+}
 </script>
 </body>
 </html>
