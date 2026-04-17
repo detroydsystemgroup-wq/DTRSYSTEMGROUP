@@ -20706,6 +20706,12 @@ function _msgShowDbAlert(type){
   
   const msgs = {
     no_table: { title:'Таблица messages не найдена', sql:`-- Вставь в Supabase → SQL Editor:
+-- Column migrations (safe to re-run):
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen timestamptz DEFAULT now();
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS content_type text DEFAULT 'text';
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS read boolean DEFAULT false;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+
 CREATE TABLE IF NOT EXISTS messages (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   from_user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -20716,6 +20722,11 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at timestamptz DEFAULT now()
 );
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS content_type text DEFAULT 'text';
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS read boolean DEFAULT false;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen timestamptz DEFAULT now();
+DROP POLICY IF EXISTS "messages_all" ON messages;
 DROP POLICY IF EXISTS "messages_select" ON messages;
 DROP POLICY IF EXISTS "messages_insert" ON messages;
 DROP POLICY IF EXISTS "messages_delete" ON messages;
@@ -20740,7 +20751,10 @@ ALTER TABLE message_reactions ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "reactions_all" ON message_reactions;
 CREATE POLICY "reactions_all" ON message_reactions FOR ALL USING (true) WITH CHECK (true);
 -- Enable Realtime for reactions:
-ALTER PUBLICATION supabase_realtime ADD TABLE message_reactions;` },
+ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE message_reactions;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;` },
     rls_error: { title:'RLS блокирует сообщения', sql:`-- Вставь в Supabase → SQL Editor:
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "messages_all" ON messages;
@@ -21336,7 +21350,12 @@ async function sendMsg(toUserId){
       content: finalText, content_type: 'text', read: false
     }).select('id').single();
     if(!r1.error && r1.data?.id){ realId = r1.data.id; }
-    else { insertError = r1.error; }
+    else if(r1.error?.code==='42703'||r1.error?.message?.includes('read')||r1.error?.message?.includes('content_type')){
+      const r1b = await sb.from('messages').insert({
+        from_user_id:SB_USER.id,to_user_id:toUserId,content:finalText
+      }).select('id').single();
+      if(!r1b.error&&r1b.data?.id){realId=r1b.data.id;}else{insertError=r1b.error;}
+    } else { insertError = r1.error; }
   } catch(e){ insertError = e; }
 
   // Attempt 2: without optional columns (content_type, read)
@@ -21481,6 +21500,15 @@ async function openConv(userId, name, av, avUrl){
      typeof _msgActiveTab!=='undefined'&&_msgActiveTab==='groups'&&
      !window._dtrDmIntent) return;
   window._dtrDmIntent=false;
+  /* Reseed pending read IDs + subscribe to read receipts */
+  if(typeof _pendingReadMsgIds!=='undefined'){
+    document.querySelectorAll('.msg-ticks[data-status="sent"]').forEach(function(el){
+      if(el.dataset.mid)_pendingReadMsgIds.add(String(el.dataset.mid));
+    });
+    if(!_readReceiptChannel&&typeof _trackReadReceipt==='function'&&SB_USER){
+      _trackReadReceipt('_boot_',userId);
+    }
+  }
   if(typeof _msgSwitchTab==='function' && _msgActiveTab!=='dms'){
     _msgSwitchTab('dms');
   }
@@ -22467,9 +22495,11 @@ async function _msgCheckOnlineStatus(userId){
       if(isOnline){
         sub.className = 'msg-chat-sub online-sub';
         sub.textContent = 'в сети';
+        if(dot) dot.style.background = 'var(--green)';
       } else {
         sub.className = 'msg-chat-sub';
         sub.style.color = 'var(--t3)';
+        if(dot) dot.style.background = 'var(--t3)';
         if(lastSeen){
           const diffMin = Math.floor((Date.now()-lastSeen.getTime())/60000);
           const diffHr  = Math.floor(diffMin/60);
@@ -22493,7 +22523,7 @@ function _startOnlinePolling(userId){
   _onlineCheckInterval = setInterval(()=>{
     if(activeConvUserId===userId) _msgCheckOnlineStatus(userId);
     else clearInterval(_onlineCheckInterval);
-  }, 30000);
+  }, 20000);
 }
 
 let _msgPartnerAvCache = { av: '👤', avUrl: null, _name: 'Собеседник' }; // FIX 2: include _name
@@ -24082,7 +24112,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSessModal();cl
 // ══════════════════════════════════════════════════════════════
 let presenceInterval = null;
 // FIX: 75 second window + 20s ping = accurate within 1-2 pings after leaving
-const ONLINE_WINDOW_MS = 75 * 1000; // 75 секунд = онлайн
+const ONLINE_WINDOW_MS = 65 * 1000; // 65s: must ping every 20s to stay green
 
 async function pingOnline(){
   if(!SB_USER || SB_USER.isDemoUser) return;
@@ -24180,7 +24210,7 @@ function initPresence() {
     await pingOnline();
     await updateOnlineCount();
     await updateLeagueOnlineCounts();
-  }, 30000); // FIX: 30s < ONLINE_WINDOW_MS/2 — prevents false dropouts on flaky networks
+  }, 20000); // 20s interval: window=65s so 3 missed pings = offline (resilient)
 
   // Тихое фоновое обновление арены каждые 10 минут
   // Если арена открыта — обновляем данные без spinner
@@ -24644,16 +24674,10 @@ function initRealtimeMessages() {
       if (payload.new.from_user_id === activeConvUserId) {
         // FIX 8: prevent duplicate — skip if message already rendered (e.g. from loadMessages)
         if(document.querySelector(`.msg-bubble[data-msg-id="${payload.new.id}"]`)) return;
-        // Show typing then append with slight delay (Telegram feel)
-        /* DTR: play sound for incoming DM even in active conv */
+        /* DTR: instant delivery */
         if(typeof _dtrPlayMsgSound==='function')_dtrPlayMsgSound();
-        _msgShowTyping();
-        setTimeout(()=>{
-          _msgHideTyping();
-          // Double-check after delay — loadMessages might have added it while typing showed
-          if(document.querySelector(`.msg-bubble[data-msg-id="${payload.new.id}"]`)) return;
-          appendMessage(payload.new, false);
-        }, 600 + Math.random()*400);
+        if(document.querySelector(`.msg-bubble[data-msg-id="${payload.new.id}"]`)) return;
+        appendMessage(payload.new, false);
         // Mark as read AFTER displaying (not before) so partner doesn't see blue ticks prematurely
         setTimeout(()=>{
           sb.from('messages').update({read:true}).eq('id', payload.new.id).then(() => {
@@ -24687,7 +24711,14 @@ function initRealtimeMessages() {
         _refreshRx(String(row.message_id));
       }
     })
-    .subscribe();
+    .subscribe(function(status){
+      if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
+        console.warn('[DTR] DM channel lost, reconnecting in 4s...');
+        setTimeout(function(){
+          if(SB_USER&&!SB_USER.isDemoUser) initRealtimeMessages();
+        }, 4000);
+      }
+    });
 
   if (usersRealtimeChannel) { sb.removeChannel(usersRealtimeChannel); }
   usersRealtimeChannel = sb.channel('dtr-users-avatar')
@@ -25146,16 +25177,18 @@ function _trackReadReceipt(realMsgId, toUserId){
       if(!_pendingReadMsgIds.has(msgId)) return;
       _pendingReadMsgIds.delete(msgId);
 
-      document.querySelectorAll('.msg-ticks[data-status="sent"]').forEach(el=>{
-        const bubble = el.closest('.msg-bubble');
-        if(bubble && bubble.dataset.ct === 'deleted') return;
-        el.style.opacity='0'; el.style.transition='opacity .12s';
+      /* FIX: target only the specific message, not ALL sent ticks */
+      const _specificEl = document.querySelector('.msg-ticks[data-mid="'+CSS.escape(msgId)+'"]');
+      if(_specificEl && _specificEl.dataset.status === 'sent'){
+        const _bub = _specificEl.closest('.msg-bubble');
+        if(_bub && _bub.dataset.ct === 'deleted') return;
+        _specificEl.style.opacity='0'; _specificEl.style.transition='opacity .12s';
         setTimeout(()=>{
-          el.innerHTML=_statusSVG('read');
-          el.dataset.status='read';
-          el.style.opacity='1'; el.style.transition='';
+          _specificEl.innerHTML=_statusSVG('read');
+          _specificEl.dataset.status='read';
+          _specificEl.style.opacity='1'; _specificEl.style.transition='';
         },120);
-      });
+      }
     })
     .subscribe();
 }
@@ -43553,7 +43586,19 @@ function _grpSubscribeRealtime(groupId){
         if(updated.pinned_msg_id){_grpShowPinBarDirect(updated.pinned_msg_id,updated.pinned_msg_text||'Сообщение');}
         else{var bar=document.getElementById('grpPinBar');if(bar)bar.style.display='none';}
       })
-      .subscribe();
+      .subscribe(function(status){
+        if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
+          console.warn('[DTR] group channel lost, reconnecting in 4s...');
+          var _gid=groupId;
+          setTimeout(function(){
+            if(_grpActiveId===_gid&&_grpRtChannel){
+              try{sb.removeChannel(_grpRtChannel);}catch(e){}
+              _grpRtChannel=null;
+              _grpSubscribeRealtime(_gid);
+            }
+          },4000);
+        }
+      });
   }catch(e){console.warn('[DTR] realtime subscribe:',e);}
 }
 
@@ -44199,6 +44244,40 @@ function _grpPatchLoadConvs(){
 /* ─────────────────────────────────────────────
    KEYBOARD
 ───────────────────────────────────────────────*/
+/* Re-subscribe when tab becomes visible again (browser suspends WS) */
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState!=='visible')return;
+  if(typeof SB_USER==='undefined'||!SB_USER||SB_USER.isDemoUser)return;
+  /* Ping online immediately */
+  if(typeof pingOnline==='function')pingOnline();
+  /* Re-init DM channel if gone */
+  var _needDmReinit=(!msgRealtimeChannel);
+  if(!_needDmReinit){
+    try{
+      var _st=msgRealtimeChannel.state||msgRealtimeChannel._state||'';
+      if(_st==='closed'||_st==='errored')_needDmReinit=true;
+    }catch(e){_needDmReinit=true;}
+  }
+  if(_needDmReinit&&typeof initRealtimeMessages==='function'){
+    console.log('[DTR] tab visible - reinit DM realtime');
+    setTimeout(initRealtimeMessages,500);
+  }
+  /* Re-subscribe group channel if active group lost */
+  if(typeof _grpActiveId!=='undefined'&&_grpActiveId){
+    var _needGrpReinit=(!_grpRtChannel);
+    if(!_needGrpReinit){
+      try{
+        var _gst=_grpRtChannel.state||_grpRtChannel._state||'';
+        if(_gst==='closed'||_gst==='errored')_needGrpReinit=true;
+      }catch(e){_needGrpReinit=true;}
+    }
+    if(_needGrpReinit&&typeof _grpSubscribeRealtime==='function'){
+      console.log('[DTR] tab visible - reinit group realtime');
+      setTimeout(function(){_grpSubscribeRealtime(_grpActiveId);},600);
+    }
+  }
+});
+
 document.addEventListener('keydown',function(e){
   if(e.key==='Escape'){
     ['_grpCreateModal','_grpInfoModal','_grpCtxMenu','_gcEmojiPicker','_grpEmojiPickerInfo']
