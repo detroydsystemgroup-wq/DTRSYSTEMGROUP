@@ -36465,14 +36465,20 @@ async function socLoadFriends(){
       (users||[]).forEach(u => {
         const totalHours = hoursMap[u.id] || 0;
         const catMap = catHoursMap[u.id] || {};
-        const topCatId = Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0]?.[0] || null;
-        const topCat = topCatId ? (ALL_CATS||[]).find(c=>c.id===topCatId) : null;
+
+        // All active leagues sorted by hours (not just top-1)
+        const activeCatsList = Object.entries(catMap)
+          .filter(([,h]) => h > 0)
+          .sort((a,b) => b[1]-a[1])
+          .map(([catId]) => (ALL_CATS||[]).find(c=>c.id===catId))
+          .filter(Boolean);
+
         const hrs24 = Math.floor((hrs24Map[u.id]||0) / 360) / 10;
         const hrsWeek = Math.floor((hrs7dMap[u.id]||0) / 360) / 10;
 
-        // Online: last_seen within 65 seconds
+        // Online: last_seen within 3 minutes (accounts for network delays)
         const isOnline = u.last_seen
-          ? (Date.now() - new Date(u.last_seen).getTime()) < 65000
+          ? (Date.now() - new Date(u.last_seen).getTime()) < 180000
           : false;
 
         // Compute streak from sessions
@@ -36481,7 +36487,7 @@ async function socLoadFriends(){
           ? computeStreakFromSessions(userSess)
           : 0;
 
-        userMap[u.id] = { ...u, totalHours, topCat, hrs24, hrsWeek, streak, isOnline };
+        userMap[u.id] = { ...u, totalHours, activeCatsList, hrs24, hrsWeek, streak, isOnline };
       });
     }
 
@@ -36492,7 +36498,7 @@ async function socLoadFriends(){
         reqId: r.id, id: partnerId, name: u.username, avatar: u.avatar,
         avatarUrl: u.avatar_url||null, status: r.status,
         totalHours: u.totalHours || 0,
-        topCat: u.topCat || null,
+        activeCatsList: u.activeCatsList || [],
         hrs24: u.hrs24 || 0,
         hrsWeek: u.hrsWeek || 0,
         streak: u.streak || 0,
@@ -36573,7 +36579,7 @@ function socRenderFriends(){
       const streak = u.streak || 0;
       const hrs24 = u.hrs24 || 0;
       const hrsWeek = u.hrsWeek || 0;
-      const topCat = u.topCat;
+      const activeCatsList = u.activeCatsList || [];
 
       // Streak color
       const streakColor = streak >= 30 ? '#EF4444' : streak >= 14 ? '#F97316' : streak >= 7 ? '#FBBF24' : 'var(--t3)';
@@ -36618,12 +36624,15 @@ function socRenderFriends(){
           <!-- Stats row — visual blocks -->
           <div class="sfc-stats">
 
-            ${topCat ? `
-            <div class="sfc-stat" style="border-left:2px solid ${topCat.color||'#F5C842'};border-color:${topCat.color||'#F5C842'}22;background:${topCat.color||'#F5C842'}0d">
-              <span class="sfc-stat-lbl">Активная лига</span>
-              <span class="sfc-stat-val" style="color:${topCat.color||'#F5C842'}">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/></svg>
-                ${esc(topCat.name)}
+            ${activeCatsList.length > 0 ? `
+            <div class="sfc-stat" style="border-left:2px solid rgba(255,255,255,.2);border-color:rgba(255,255,255,.1);background:rgba(255,255,255,.04)">
+              <span class="sfc-stat-lbl">Лиги</span>
+              <span class="sfc-stat-val" style="gap:5px;flex-wrap:wrap">
+                ${activeCatsList.map(cat => `
+                  <span title="${esc(cat.name)}" style="display:inline-flex;align-items:center;gap:3px;padding:1px 7px 1px 4px;border-radius:20px;background:${cat.color||'#F5C842'}18;border:0.5px solid ${cat.color||'#F5C842'}40;color:${cat.color||'#F5C842'};font-size:11px;font-weight:700">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/></svg>
+                    ${esc(cat.name)}
+                  </span>`).join('')}
               </span>
             </div>` : ''}
 
@@ -36666,8 +36675,8 @@ function socRenderFriends(){
 
         <!-- Action buttons -->
         <div class="sfc-acts" onclick="event.stopPropagation()">
-          <button class="sfc-btn ${isFollowing?'sfc-btn-active':''}" onclick="socToggleFollow('${u.id}',this)" data-following="${isFollowing}" title="${isFollowing?'Слежу':'Следить'}">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          <button class="sfc-btn" onclick="socOpenUserProfile('${u.id}')" title="Открыть профиль">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           </button>
           <button class="sfc-btn sfc-btn-danger" onclick="socRemoveFriend('${u.reqId}','${u.id}')" title="Удалить из друзей">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
