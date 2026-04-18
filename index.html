@@ -41022,24 +41022,31 @@ function _msgStopRecording(cancel){
   if(replyBar) replyBar.style.display = '';
 
   if(MIC_STATE.recorder && MIC_STATE.recorder.state !== 'inactive'){
+    /* Capture BEFORE async onstop — prevents race condition with groupId being cleared */
+    const _capturedGroupId = MIC_STATE.groupId;
+    const _capturedToUserId = MIC_STATE.toUserId;
+    const _capturedStart = MIC_STATE.startTime;
     MIC_STATE.recorder.onstop = ()=>{
       MIC_STATE.stream?.getTracks().forEach(t=>t.stop());
-      // FIX 1: close AudioContext to prevent memory leak
       if(MIC_STATE.audioCtx){ try{ MIC_STATE.audioCtx.close(); }catch(e){} MIC_STATE.audioCtx = null; }
       MIC_STATE.analyser = null;
-      if(!cancel && MIC_STATE.chunks.length > 0){
-        const duration = (Date.now()-MIC_STATE.startTime)/1000;
-        if(duration < 0.5){ showToast('Слишком короткое сообщение', '🎤'); return; }
-        const blob = new Blob(MIC_STATE.chunks, { type: MIC_STATE.recorder.mimeType });
-        /* Route to group or DM based on mode */
-        if(MIC_STATE.groupId){
-          _msgSendVoiceGroup(blob, MIC_STATE.groupId, duration);
-        } else {
-          _msgSendVoice(blob, MIC_STATE.toUserId, duration);
-        }
-      }
+      const _capturedChunks = MIC_STATE.chunks.slice();
+      const _capturedMime = MIC_STATE.recorder ? MIC_STATE.recorder.mimeType : 'audio/webm';
       MIC_STATE.chunks = []; MIC_STATE.recorder = null; MIC_STATE.stream = null;
       MIC_STATE.groupId = null;
+      if(!cancel && _capturedChunks.length > 0){
+        const duration = (Date.now() - _capturedStart) / 1000;
+        if(duration < 0.5){ showToast('Слишком короткое сообщение', '🎤'); return; }
+        const blob = new Blob(_capturedChunks, { type: _capturedMime });
+        /* Route to group or DM using CAPTURED values — immune to race conditions */
+        if(_capturedGroupId){
+          _msgSendVoiceGroup(blob, _capturedGroupId, duration);
+        } else if(_capturedToUserId){
+          _msgSendVoice(blob, _capturedToUserId, duration);
+        } else {
+          console.error('[DTR] Voice: no destination (groupId and toUserId both null)');
+        }
+      }
     };
     MIC_STATE.recorder.stop();
   } else {
