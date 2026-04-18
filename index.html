@@ -40783,9 +40783,10 @@ const MIC_STATE = {
   startTime: 0,
   timer: null,
   analyser: null,
-  audioCtx: null,   // FIX 1: store AudioContext so we can close() it on stop
+  audioCtx: null,
   animFrame: null,
   toUserId: null,
+  groupId: null,    // set when recording for a group
   isRecording: false,
   holdTimeout: null,
 };
@@ -40797,24 +40798,27 @@ const MIC_HOLD_MS = 350;
 let _micHoldActive = false;
 
 
-function _msgMicStartHold(e, toUserId){
+function _msgMicStartHold(e, toUserId, groupId){
   _micHoldActive = false;
-  MIC_STATE.toUserId = toUserId;
+  MIC_STATE.toUserId = toUserId || null;
+  MIC_STATE.groupId = groupId || null;
   clearTimeout(MIC_STATE.holdTimeout);
 
-  // Text mode: check input directly (arrow SVG may not exist after _msgCancelEdit)
-  const inp = document.getElementById('msgInput');
+  /* Check correct input — DM or group */
+  const inp = groupId
+    ? document.getElementById('grpInput')
+    : document.getElementById('msgInput');
   if(inp && inp.value && inp.value.trim().length > 0) return;
-  // File pending — don't intercept
-  if(_msgPendingFile && _msgPendingFile.file) return;
-  // Edit mode — don't intercept
+  if(!groupId && _msgPendingFile && _msgPendingFile.file) return;
+  if(!groupId && typeof _msgPendingFile !== 'undefined' && _msgPendingFile && _msgPendingFile.file) return;
+  if(!groupId && typeof _grpPendingFile !== 'undefined' && _grpPendingFile && _grpPendingFile.file) return;
   if(typeof _msgEditingId!=='undefined' && _msgEditingId) return;
 
   // Only prevent default on touch (mousedown preventDefault kills click on desktop!)
   if(e.type==='touchstart' && e.cancelable) e.preventDefault();
 
-  // Visual feedback: button turns amber while holding
-  const btn = document.getElementById('msgSendBtn');
+  /* Pick correct send button */
+  const btn = document.getElementById(groupId ? 'grpSendBtn' : 'msgSendBtn');
   if(btn){ btn.style.background = 'rgba(245,200,66,.15)'; btn.style.transform = 'scale(0.95)'; }
 
   MIC_STATE.holdTimeout = setTimeout(()=>{
@@ -40826,7 +40830,7 @@ function _msgMicStartHold(e, toUserId){
 
 function _msgMicStopHold(e){
   clearTimeout(MIC_STATE.holdTimeout);
-  const btn = document.getElementById('msgSendBtn');
+  const btn = document.getElementById(MIC_STATE.groupId ? 'grpSendBtn' : 'msgSendBtn');
   if(btn && !MIC_STATE.isRecording){
     btn.style.transform = '';
     btn.style.background = '';
@@ -40846,10 +40850,9 @@ function _msgMicStopHold(e){
 function _msgMicLeave(){
   if(!MIC_STATE.isRecording){
     clearTimeout(MIC_STATE.holdTimeout);
-    const btn = document.getElementById('msgSendBtn');
+    const btn = document.getElementById(MIC_STATE.groupId ? 'grpSendBtn' : 'msgSendBtn');
     if(btn){ btn.style.transform = ''; btn.style.background = ''; }
   }
-  // If already recording, mouseleave does nothing — continue recording
 }
 
 // Legacy aliases
@@ -40858,10 +40861,11 @@ function _msgMicStop(e){ _msgMicStopHold(e); }
 
 function _msgMicCancel(){
   clearTimeout(MIC_STATE.holdTimeout);
-  const btn = document.getElementById('msgSendBtn');
+  const btn = document.getElementById(MIC_STATE.groupId ? 'grpSendBtn' : 'msgSendBtn');
   if(btn){ btn.style.transform = ''; btn.style.background = ''; }
   if(MIC_STATE.isRecording) _msgStopRecording(true);
   _micHoldActive = false;
+  MIC_STATE.groupId = null;
 }
 
 async function _msgStartRecording(toUserId){
@@ -40907,10 +40911,11 @@ async function _msgStartRecording(toUserId){
 }
 
 function _msgShowRecUI(toUserId){
-  // Telegram-style: replaces the input area row, chat stays visible above
-  // Always remove stale element first — we rebuild fresh each recording
   document.getElementById('msgVoiceRecUI')?.remove();
-  const inputArea = document.querySelector('#msgChatArea .msg-input-area');
+  /* Support both DM (msgChatArea) and group (grpInputArea) */
+  const inputArea = MIC_STATE.groupId
+    ? document.getElementById('grpInputArea')
+    : document.querySelector('#msgChatArea .msg-input-area');
   const parent = inputArea?.parentElement;
   if(!parent) return;
   const ui = document.createElement('div');
@@ -41005,8 +41010,10 @@ function _msgStopRecording(cancel){
   // FIX: remove element entirely from DOM — no residual stripe from animation fill-mode
   const ui = document.getElementById('msgVoiceRecUI');
   if(ui){ ui.remove(); }
-  // Restore input area
-  const inputArea = document.querySelector('#msgChatArea .msg-input-area');
+  /* Restore input area — DM or group */
+  const inputArea = MIC_STATE.groupId
+    ? document.getElementById('grpInputArea')
+    : document.querySelector('#msgChatArea .msg-input-area');
   if(inputArea){ inputArea.style.display = ''; inputArea.style.opacity = '1'; }
   // Restore reply bar if present
   const replyBar = document.getElementById('_msgReplyBar');
@@ -41022,9 +41029,15 @@ function _msgStopRecording(cancel){
         const duration = (Date.now()-MIC_STATE.startTime)/1000;
         if(duration < 0.5){ showToast('Слишком короткое сообщение', '🎤'); return; }
         const blob = new Blob(MIC_STATE.chunks, { type: MIC_STATE.recorder.mimeType });
-        _msgSendVoice(blob, MIC_STATE.toUserId, duration);
+        /* Route to group or DM based on mode */
+        if(MIC_STATE.groupId){
+          _msgSendVoiceGroup(blob, MIC_STATE.groupId, duration);
+        } else {
+          _msgSendVoice(blob, MIC_STATE.toUserId, duration);
+        }
       }
       MIC_STATE.chunks = []; MIC_STATE.recorder = null; MIC_STATE.stream = null;
+      MIC_STATE.groupId = null;
     };
     MIC_STATE.recorder.stop();
   } else {
@@ -41124,6 +41137,49 @@ async function _msgSendVoice(blob, toUserId, duration){
 }
 
 // sendMsg — file check integrated directly (no override needed)
+
+
+/* ── Group voice send — same as DM but inserts into group_messages ── */
+async function _msgSendVoiceGroup(blob, groupId, duration){
+  if(!SB_USER || !groupId) return;
+  const sendBtn = document.getElementById('grpSendBtn');
+  if(sendBtn){ sendBtn.classList.add('uploading'); }
+  try {
+    let voiceUrl = null;
+    const ext  = blob.type.includes('ogg') ? 'ogg' : 'webm';
+    const path = `group/${groupId}/voice_${Date.now()}.${ext}`;
+    try {
+      const { error } = await sb.storage.from('chat-files').upload(path, blob, { contentType: blob.type, upsert: true });
+      if(!error){
+        const { data } = sb.storage.from('chat-files').getPublicUrl(path);
+        voiceUrl = data.publicUrl;
+      }
+    } catch(e){ console.warn('[DTR] grp voice storage:', e); }
+    if(!voiceUrl){
+      voiceUrl = await new Promise((resolve, reject)=>{
+        const reader = new FileReader();
+        reader.onload  = e => resolve(e.target.result);
+        reader.onerror = () => reject(new Error('read failed'));
+        reader.readAsDataURL(blob);
+      });
+    }
+    const voiceContent = JSON.stringify({ url: voiceUrl, duration: Math.round(duration) });
+    const ins = await sb.from('group_messages').insert({
+      group_id: groupId,
+      from_user_id: SB_USER.id,
+      content: voiceContent,
+      content_type: 'voice',
+    });
+    if(ins.error) throw ins.error;
+    showToast('Голосовое отправлено 🎤');
+    if(typeof _grpLoadMessages === 'function') setTimeout(()=>_grpLoadMessages(groupId, false), 300);
+  } catch(err){
+    console.error('[DTR] grp voice send:', err);
+    showToast('Ошибка: ' + (err?.message||''), '⚠️');
+  } finally {
+    if(sendBtn){ sendBtn.classList.remove('uploading'); }
+  }
+}
 
 
 // ── Helpers to accept/decline using stored call data (avoids onclick escaping) ──
@@ -42810,7 +42866,7 @@ function _grpEnsureUI(force){
   var backBtn=window.innerWidth<=600
     ?'<button style="width:32px;height:32px;border-radius:9px;background:none;border:none;color:var(--t2);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;" onclick="document.getElementById(\'msgChatArea\').style.display=\'none\';document.getElementById(\'msgList\').style.display=\'\';">'    +'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>':'';
   area.innerHTML=
-    '<div class="msg-chat-head" id="grpChatHead">'      +backBtn      +'<div class="msg-chat-av" id="grpHeadAv" style="background:rgba(26,159,255,.12);border-color:rgba(26,159,255,.3);overflow:hidden;padding:0;cursor:pointer;"></div>'      +'<div class="msg-chat-info" id="grpHeadInfo" style="cursor:pointer;">'        +'<div class="msg-chat-name" id="grpHeadName"></div>'        +'<div class="msg-chat-sub" id="grpChatSub" style="color:var(--blue);"></div>'      +'</div>'      +'<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;" id="grpHeadBtns"></div>'    +'</div>'    +'<div id="grpPinBar" style="display:none;align-items:center;gap:10px;padding:7px 16px;background:rgba(26,159,255,.08);border-bottom:0.5px solid rgba(26,159,255,.18);flex-shrink:0;cursor:pointer;" onclick="window._grpScrollToMsg(document.getElementById(\'grpPinBar\').dataset.msgId)">'      +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>'      +'<div style="flex:1;min-width:0;"><div style="font-size:10px;font-weight:700;color:var(--blue);letter-spacing:.03em;margin-bottom:1px;">ЗАКРЕПЛЕНО</div><div id="grpPinText" style="font-size:12px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div></div>'      +'<button id="grpPinClose" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:4px;display:flex;align-items:center;flex-shrink:0;" onclick="event.stopPropagation();window._grpUnpinMsg()">'        +'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'      +'</button>'    +'</div>'    +'<div class="msg-messages" id="grpMessages" style="flex:1;overflow-y:auto;padding:14px 18px 8px;display:flex;flex-direction:column;gap:0;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.06) transparent;min-height:0;"></div>'    +'<button class="msg-scroll-down" id="grpScrollDown" onclick="window._grpScrollToBottom()">'      +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>'      +'<span id="grpScrollBadge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--gold);color:#09090B;font-size:11px;font-weight:800;font-family:var(--font-mono);padding:1px 4px;border-radius:8px;min-width:16px;text-align:center;line-height:1.4;"></span>'    +'</button>'    +'<input type="file" id="grpFileInput" style="display:none;" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip,.rar" onchange="window._grpFileSelected(this)">'    +'<div id="grpFilePrev" style="display:none;padding:8px 14px;background:rgba(245,200,66,.06);border-top:0.5px solid rgba(245,200,66,.15);flex-shrink:0;align-items:center;gap:10px;"></div>'    +'<div class="msg-input-area" id="grpInputArea">'      +'<button style="width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;" onclick="document.getElementById(\'grpFileInput\').click()" title="Прикрепить файл">'        +'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>'      +'</button>'      +'<div class="msg-input-wrap" id="grpInputWrap">'        +'<textarea class="msg-input" id="grpInput" placeholder="Сообщение…" rows="1" maxlength="4000"'          +' oninput="this.style.height=\'auto\';this.style.height=Math.min(this.scrollHeight,120)+\'px\';window._grpToggleSend(this.value)"'          +' onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();window._grpSendMsg();}"'          +' onfocus="document.getElementById(\'grpInputWrap\').classList.add(\'focused\')"'          +' onblur="document.getElementById(\'grpInputWrap\').classList.remove(\'focused\')"></textarea>'        +'<button class="msg-emoji-btn" type="button" onclick="window._grpToggleEmoji()">😊</button>'      +'</div>'      +'<button class="msg-send" id="grpSendBtn" type="button" onmousedown="_grpMicStartHold(event)" onmouseup="_grpMicStopHold(event)" ontouchstart="_grpMicStartHold(event)" ontouchend="_grpMicStopHold(event)"'        +'onclick="window._grpSendMsg()">'        +'<svg id="grpSendIcoMic" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>'        +'<svg id="grpSendIcoArrow" style="display:none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>'      +'</button>'    +'</div>';
+    '<div class="msg-chat-head" id="grpChatHead">'      +backBtn      +'<div class="msg-chat-av" id="grpHeadAv" style="background:rgba(26,159,255,.12);border-color:rgba(26,159,255,.3);overflow:hidden;padding:0;cursor:pointer;"></div>'      +'<div class="msg-chat-info" id="grpHeadInfo" style="cursor:pointer;">'        +'<div class="msg-chat-name" id="grpHeadName"></div>'        +'<div class="msg-chat-sub" id="grpChatSub" style="color:var(--blue);"></div>'      +'</div>'      +'<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;" id="grpHeadBtns"></div>'    +'</div>'    +'<div id="grpPinBar" style="display:none;align-items:center;gap:10px;padding:7px 16px;background:rgba(26,159,255,.08);border-bottom:0.5px solid rgba(26,159,255,.18);flex-shrink:0;cursor:pointer;" onclick="window._grpScrollToMsg(document.getElementById(\'grpPinBar\').dataset.msgId)">'      +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>'      +'<div style="flex:1;min-width:0;"><div style="font-size:10px;font-weight:700;color:var(--blue);letter-spacing:.03em;margin-bottom:1px;">ЗАКРЕПЛЕНО</div><div id="grpPinText" style="font-size:12px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div></div>'      +'<button id="grpPinClose" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:4px;display:flex;align-items:center;flex-shrink:0;" onclick="event.stopPropagation();window._grpUnpinMsg()">'        +'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'      +'</button>'    +'</div>'    +'<div class="msg-messages" id="grpMessages" style="flex:1;overflow-y:auto;padding:14px 18px 8px;display:flex;flex-direction:column;gap:0;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.06) transparent;min-height:0;"></div>'    +'<button class="msg-scroll-down" id="grpScrollDown" onclick="window._grpScrollToBottom()">'      +'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>'      +'<span id="grpScrollBadge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--gold);color:#09090B;font-size:11px;font-weight:800;font-family:var(--font-mono);padding:1px 4px;border-radius:8px;min-width:16px;text-align:center;line-height:1.4;"></span>'    +'</button>'    +'<input type="file" id="grpFileInput" style="display:none;" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip,.rar" onchange="window._grpFileSelected(this)">'    +'<div id="grpFilePrev" style="display:none;padding:8px 14px;background:rgba(245,200,66,.06);border-top:0.5px solid rgba(245,200,66,.15);flex-shrink:0;align-items:center;gap:10px;"></div>'    +'<div class="msg-input-area" id="grpInputArea">'      +'<button style="width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;" onclick="document.getElementById(\'grpFileInput\').click()" title="Прикрепить файл">'        +'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>'      +'</button>'      +'<div class="msg-input-wrap" id="grpInputWrap">'        +'<textarea class="msg-input" id="grpInput" placeholder="Сообщение…" rows="1" maxlength="4000"'          +' oninput="this.style.height=\'auto\';this.style.height=Math.min(this.scrollHeight,120)+\'px\';window._grpToggleSend(this.value)"'          +' onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();window._grpSendMsg();}"'          +' onfocus="document.getElementById(\'grpInputWrap\').classList.add(\'focused\')"'          +' onblur="document.getElementById(\'grpInputWrap\').classList.remove(\'focused\')"></textarea>'        +'<button class="msg-emoji-btn" type="button" onclick="window._grpToggleEmoji()">😊</button>'      +'</div>'      +'<button class="msg-send" id="grpSendBtn" type="button" onmousedown="_msgMicStartHold(event,null,_grpActiveId)" onmouseup="_msgMicStopHold(event)" ontouchstart="_msgMicStartHold(event,null,_grpActiveId)" ontouchend="_msgMicStopHold(event)"'        +'onclick="window._grpSendMsg()">'        +'<svg id="grpSendIcoMic" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>'        +'<svg id="grpSendIcoArrow" style="display:none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>'      +'</button>'    +'</div>';
   // Scroll listener
   var el=document.getElementById('grpMessages');
   if(el){el.addEventListener('scroll',function(){var fb=el.scrollHeight-el.scrollTop-el.clientHeight;var btn=document.getElementById('grpScrollDown');if(btn)btn.classList.toggle('visible',fb>120);},{passive:true});}
@@ -43084,8 +43140,8 @@ var _grpPendingFile=null;
 
 window._grpSendMsg=async function(){
   /* Don't fire send when mic hold was active */
-  if(typeof _grpMicHoldActive !== 'undefined' && _grpMicHoldActive) return;
-  if(typeof GRP_MIC !== 'undefined' && GRP_MIC.isRecording) return;
+  if(typeof _micHoldActive !== 'undefined' && _micHoldActive) return;
+  if(MIC_STATE && MIC_STATE.isRecording) return;
   var input=document.getElementById('grpInput');
   if(!input||!_grpActiveId||!_myId())return;
   // File pending?
@@ -43141,7 +43197,7 @@ window._grpSendMsg=async function(){
 window._grpToggleSend=function(val){
   var btn=document.getElementById('grpSendBtn');
   if(!btn)return;
-  var has=(val||'').trim().length>0||(_grpPendingFile&&_grpPendingFile.file);
+  var has=(val||'').trim().length>0||(typeof _grpPendingFile!=='undefined'&&_grpPendingFile&&_grpPendingFile.file);
   var mic=document.getElementById('grpSendIcoMic');
   var arr=document.getElementById('grpSendIcoArrow');
   if(has){
@@ -44880,199 +44936,6 @@ window._dtrClearDmUnread = function(userId){
 })();
 </script>
 <script>
-/* ══════════════════════════════════════════════════════════════
-   GROUP VOICE MESSAGES — hold mic to record, same as DM
-   ══════════════════════════════════════════════════════════════ */
-var GRP_MIC = {
-  recorder: null, stream: null, chunks: [],
-  startTime: 0, timer: null, analyser: null,
-  audioCtx: null, animFrame: null, limitTimeout: null,
-  isRecording: false, holdTimeout: null
-};
-var GRP_MIC_HOLD_MS = 350;
-var _grpMicHoldActive = false;
-
-window._grpMicStartHold = function _grpMicStartHold(e) {
-  _grpMicHoldActive = false;
-  clearTimeout(GRP_MIC.holdTimeout);
-  var inp = document.getElementById('grpInput');
-  if(inp && inp.value && inp.value.trim().length > 0) return;
-  if(typeof _grpPendingFile !== 'undefined' && _grpPendingFile && _grpPendingFile.file) return;
-  if(e.type === 'touchstart' && e.cancelable) e.preventDefault();
-  var btn = document.getElementById('grpSendBtn');
-  if(btn) { btn.style.background = 'rgba(26,159,255,.15)'; btn.style.transform = 'scale(0.95)'; }
-  GRP_MIC.holdTimeout = setTimeout(function() {
-    _grpMicHoldActive = true;
-    if(btn) { btn.style.transform = 'scale(1.08)'; btn.style.background = 'var(--red)'; }
-    _grpStartRecording();
-  }, GRP_MIC_HOLD_MS);
-}
-
-window._grpMicStopHold = function _grpMicStopHold(e) {
-  clearTimeout(GRP_MIC.holdTimeout);
-  var btn = document.getElementById('grpSendBtn');
-  if(GRP_MIC.isRecording) {
-    if(e && e.cancelable) e.preventDefault();
-    _grpMicHoldActive = true;
-    _grpStopRecording(false);
-    if(btn) { btn.style.transform = ''; btn.style.background = ''; }
-    setTimeout(function() { _grpMicHoldActive = false; }, 500);
-  } else {
-    if(btn) { btn.style.transform = ''; btn.style.background = ''; }
-    setTimeout(function() { _grpMicHoldActive = false; }, 50);
-  }
-}
-
-window._grpStartRecording = async function _grpStartRecording() {
-  try {
-    GRP_MIC.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch(e) {
-    showToast('Нет доступа к микрофону', '🎤'); return;
-  }
-  var ctx = new (window.AudioContext || window.webkitAudioContext)();
-  var src = ctx.createMediaStreamSource(GRP_MIC.stream);
-  var analyser = ctx.createAnalyser(); analyser.fftSize = 64;
-  src.connect(analyser);
-  GRP_MIC.analyser = analyser; GRP_MIC.audioCtx = ctx;
-  var mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
-    : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
-  GRP_MIC.recorder = new MediaRecorder(GRP_MIC.stream, { mimeType: mimeType });
-  GRP_MIC.chunks = [];
-  GRP_MIC.recorder.ondataavailable = function(e) { if(e.data.size > 0) GRP_MIC.chunks.push(e.data); };
-  GRP_MIC.recorder.start(100);
-  GRP_MIC.startTime = Date.now();
-  GRP_MIC.isRecording = true;
-  _grpShowRecUI();
-  _grpAnimateWave();
-  GRP_MIC.limitTimeout = setTimeout(function() {
-    if(GRP_MIC.isRecording) { _grpStopRecording(false); showToast('Голосовое ограничено 1 минутой', '🎤'); }
-  }, 60000);
-}
-
-window._grpShowRecUI = function _grpShowRecUI() {
-  document.getElementById('grpVoiceRecUI') && document.getElementById('grpVoiceRecUI').remove();
-  var inputArea = document.getElementById('grpInputArea');
-  if(!inputArea) return;
-  var ui = document.createElement('div');
-  ui.id = 'grpVoiceRecUI';
-  ui.className = 'grp-voice-rec-ui';
-  ui.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--panel);border-top:0.5px solid var(--border);flex-shrink:0;animation:msgIn .18s ease both;';
-  var bars = Array.from({length:36}, function() { return '<span style="width:3px;min-height:4px;max-height:28px;background:var(--blue);border-radius:2px;flex-shrink:0;transition:height .08s;height:4px;"></span>'; }).join('');
-  ui.innerHTML =
-    '<button onclick="_grpStopRecording(true)" style="width:36px;height:36px;border-radius:50%;background:rgba(239,68,68,.12);border:0.5px solid rgba(239,68,68,.3);color:var(--red);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
-    +'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>'
-    +'</button>'
-    +'<div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">'
-    +'<div style="width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;animation:pulse 1s infinite;"></div>'
-    +'<span id="grpRecTimer" style="font-size:13px;font-weight:700;font-family:var(--font-mono);color:var(--t1);flex-shrink:0;">0:00</span>'
-    +'<div id="grpRecWave" style="display:flex;align-items:center;gap:2px;flex:1;overflow:hidden;height:32px;">'+bars+'</div>'
-    +'</div>'
-    +'<button onclick="_grpStopRecording(false)" style="width:40px;height:40px;border-radius:50%;background:linear-gradient(145deg,var(--blue),#0d8fe8);border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 3px 12px rgba(26,159,255,.4);">'
-    +'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>'
-    +'</button>';
-  inputArea.parentNode.insertBefore(ui, inputArea);
-  inputArea.style.display = 'none';
-  /* Timer */
-  GRP_MIC.timer = setInterval(function() {
-    var s = Math.floor((Date.now() - GRP_MIC.startTime) / 1000);
-    var el = document.getElementById('grpRecTimer');
-    if(el) el.textContent = Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
-  }, 500);
-}
-
-window._grpAnimateWave = function _grpAnimateWave() {
-  if(!GRP_MIC.isRecording) return;
-  var wave = document.getElementById('grpRecWave');
-  if(wave && GRP_MIC.analyser) {
-    var data = new Uint8Array(GRP_MIC.analyser.frequencyBinCount);
-    GRP_MIC.analyser.getByteFrequencyData(data);
-    var bars = wave.querySelectorAll('span');
-    bars.forEach(function(bar, i) {
-      var v = data[i % data.length] || 0;
-      bar.style.height = Math.max(4, (v / 255) * 28) + 'px';
-    });
-  }
-  GRP_MIC.animFrame = requestAnimationFrame(_grpAnimateWave);
-}
-
-window._grpStopRecording = function _grpStopRecording(cancel) {
-  if(!GRP_MIC.isRecording) return;
-  GRP_MIC.isRecording = false;
-  clearInterval(GRP_MIC.timer);
-  clearTimeout(GRP_MIC.limitTimeout);
-  cancelAnimationFrame(GRP_MIC.animFrame);
-  var ui = document.getElementById('grpVoiceRecUI');
-  if(ui) ui.remove();
-  var inputArea = document.getElementById('grpInputArea');
-  if(inputArea) { inputArea.style.display = ''; }
-  if(GRP_MIC.recorder && GRP_MIC.recorder.state !== 'inactive') {
-    /* Capture values before async onstop fires */
-    var _capturedMime = GRP_MIC.recorder.mimeType;
-    var _capturedStart = GRP_MIC.startTime;
-    GRP_MIC.recorder.onstop = function() {
-      GRP_MIC.stream && GRP_MIC.stream.getTracks().forEach(function(t){ t.stop(); });
-      if(GRP_MIC.audioCtx) { try{ GRP_MIC.audioCtx.close(); }catch(e){} GRP_MIC.audioCtx = null; }
-      GRP_MIC.analyser = null;
-      var capturedChunks = GRP_MIC.chunks.slice();
-      GRP_MIC.chunks = []; GRP_MIC.recorder = null; GRP_MIC.stream = null;
-      if(!cancel && capturedChunks.length > 0) {
-        var duration = (Date.now() - _capturedStart) / 1000;
-        if(duration < 0.5) { showToast('Слишком короткое сообщение', '🎤'); return; }
-        var blob = new Blob(capturedChunks, { type: _capturedMime });
-        window._grpSendVoice(blob, Math.round(duration));
-      }
-    };
-    GRP_MIC.recorder.stop();
-  } else {
-    GRP_MIC.stream && GRP_MIC.stream.getTracks().forEach(function(t){ t.stop(); });
-    if(GRP_MIC.audioCtx) { try{ GRP_MIC.audioCtx.close(); }catch(e){} GRP_MIC.audioCtx = null; }
-    GRP_MIC.chunks = []; GRP_MIC.recorder = null; GRP_MIC.stream = null;
-  }
-}
-
-window._grpSendVoice = async function _grpSendVoice(blob, duration) {
-  var _sb = window.sb || sb;
-  if(!SB_USER || !_grpActiveId || !_sb) { showToast('Нет подключения', '⚠️'); return; }
-  var groupId = _grpActiveId;
-  showToast('Отправляем голосовое…', '🎤');
-  try {
-    var voiceUrl = null;
-    var ext = blob.type.includes('ogg') ? 'ogg' : 'webm';
-    var path = 'group/' + groupId + '/voice_' + Date.now() + '.' + ext;
-    try {
-      var upRes = await _sb.storage.from('chat-files').upload(path, blob, { contentType: blob.type, upsert: true });
-      if(!upRes.error) {
-        var urlRes = _sb.storage.from('chat-files').getPublicUrl(path);
-        voiceUrl = urlRes.data.publicUrl;
-      } else {
-        console.warn('[DTR] grp voice upload error:', upRes.error.message);
-      }
-    } catch(e) { console.warn('[DTR] grp voice storage:', e); }
-    if(!voiceUrl) {
-      console.warn('[DTR] grp voice: storage unavailable, using base64');
-      voiceUrl = await new Promise(function(resolve, reject) {
-        var reader = new FileReader();
-        reader.onload = function(e) { resolve(e.target.result); };
-        reader.onerror = function() { reject(new Error('read failed')); };
-        reader.readAsDataURL(blob);
-      });
-    }
-    var content = JSON.stringify({ url: voiceUrl, duration: duration });
-    var ins = await _sb.from('group_messages').insert({
-      group_id: groupId,
-      from_user_id: SB_USER.id,
-      content: content,
-      content_type: 'voice'
-    });
-    if(ins && ins.error) throw ins.error;
-    showToast('Голосовое отправлено 🎤');
-    if(typeof _grpLoadMessages === 'function') setTimeout(function(){ _grpLoadMessages(groupId, false); }, 300);
-  } catch(err) {
-    console.error('[DTR] grp voice send:', err);
-    showToast('Ошибка отправки: ' + ((err && err.message) || ''), '⚠️');
-  }
-}
-
 /* ══ UNIVERSAL FORWARD PICKER ══════════════════════════════════
    Shows all groups + DM contacts in one modal.
    Called from both group context menu and DM context menu.
