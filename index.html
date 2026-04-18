@@ -41165,19 +41165,13 @@ async function _msgSendVoice(blob, toUserId, duration){
 
 
 
-/* ── Group voice send — same as DM but inserts into group_messages ── */
+/* ── Group voice send ── */
 async function _msgSendVoiceGroup(blob, groupId, duration){
   if(!SB_USER || !groupId) return;
   const sendBtn = document.getElementById('grpSendBtn');
   if(sendBtn){ sendBtn.classList.add('uploading'); }
   try {
-    /* ── 1. Upload to Storage ──────────────────────────────────────────────
-       NOTE: base64 fallback is intentionally REMOVED for groups.
-       group_messages.content has CHECK (char_length(content) BETWEEN 1 AND 4000)
-       which rejects base64 audio (routinely > 100 KB). Storage is required.
-       If you need offline/fallback support, drop the constraint in Supabase:
-         ALTER TABLE group_messages DROP CONSTRAINT group_messages_content_check;
-    ─────────────────────────────────────────────────────────────────────── */
+    /* 1. Storage upload — base64 NOT used (group_messages.content CHECK <= 4000) */
     let voiceUrl = null;
     let storageError = null;
     const ext  = blob.type.includes('ogg') ? 'ogg' : 'webm';
@@ -41187,74 +41181,60 @@ async function _msgSendVoiceGroup(blob, groupId, duration){
       if(!error){
         const { data } = sb.storage.from('chat-files').getPublicUrl(path);
         voiceUrl = data.publicUrl;
-        console.log('[DTR Voice] storage upload OK, url=', voiceUrl);
+        console.log('[DTR Voice] storage OK:', voiceUrl);
       } else {
         storageError = error;
-        console.error('[DTR Voice] storage upload error:', error);
+        console.error('[DTR Voice] storage error:', error);
       }
     } catch(e){
       storageError = e;
-      console.error('[DTR Voice] storage upload exception:', e);
+      console.error('[DTR Voice] storage exception:', e);
     }
 
-    /* If storage failed — abort with a clear message instead of silently
-       writing a multi-hundred-KB base64 string that violates the DB constraint */
     if(!voiceUrl){
       const hint = storageError?.message || storageError?.error || 'нет доступа к хранилищу';
-      showToast('Не удалось загрузить аудио: ' + hint + '. Проверь политики bucket chat-files.', '⚠️');
-      console.error('[DTR Voice] aborting — storage unavailable:', storageError);
+      showToast('Не удалось загрузить аудио: ' + hint, '⚠️');
       return;
     }
 
     const voiceContent = JSON.stringify({ url: voiceUrl, duration: Math.round(duration) });
 
-    /* ── 2. Optimistic append — shown AFTER storage succeeds ─────────────── */
-    const _optId = 'opt_voice_' + Date.now();
-    const _optMsg = {
-      id: _optId,
-      group_id: groupId,
-      from_user_id: SB_USER.id,
-      content: voiceContent,
-      content_type: 'voice',
-      is_system: false,
-      created_at: new Date().toISOString(),
-    };
-    console.log('[DTR Voice] groupId=', groupId);
-    if(typeof _grpAppendMessage === 'function') {
-      try {
-        _grpAppendMessage(_optMsg);
-        console.log('[DTR Voice] appended OK');
-      } catch(e) {
-        console.error('[DTR Voice] append failed:', e);
-        setTimeout(()=>{ if(typeof _grpLoadMessages==='function') _grpLoadMessages(groupId, false); }, 500);
-      }
-    } else {
-      console.error('[DTR Voice] _grpAppendMessage missing, reloading');
-      setTimeout(()=>{ if(typeof _grpLoadMessages==='function') _grpLoadMessages(groupId, false); }, 500);
-    }
-
-    /* ── 3. Insert to DB ─────────────────────────────────────────────────── */
+    /* 2. DB insert FIRST — same pattern as DM voice (_msgSendVoice).
+       We get the real id back, then append with it — no fake opt_ id to replace,
+       no race with realtime reconnects wiping the bubble. */
     const ins = await sb.from('group_messages').insert({
       group_id: groupId,
       from_user_id: SB_USER.id,
       content: voiceContent,
       content_type: 'voice',
-    }).select('id').single();
+    }).select('id,created_at,content,content_type').single();
     if(ins.error) throw ins.error;
 
-    /* Replace optimistic id with real DB id in DOM */
-    if(ins.data && ins.data.id){
-      const _optRow = document.querySelector('.msg-row[data-msg-id="'+CSS.escape(_optId)+'"]');
-      if(_optRow) _optRow.dataset.msgId = ins.data.id;
-      const _optBub = document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(_optId)+'"]');
-      if(_optBub) _optBub.dataset.msgId = ins.data.id;
+    /* 3. Append with the confirmed DB id — appears immediately, never gets lost */
+    const confirmedMsg = {
+      id: ins.data.id,
+      group_id: groupId,
+      from_user_id: SB_USER.id,
+      content: voiceContent,
+      content_type: 'voice',
+      is_system: false,
+      created_at: ins.data.created_at || new Date().toISOString(),
+    };
+    console.log('[DTR Voice] appending confirmed msg id=', ins.data.id);
+    if(typeof _grpAppendMessage === 'function'){
+      try {
+        _grpAppendMessage(confirmedMsg);
+      } catch(e){
+        console.error('[DTR Voice] append failed:', e);
+        setTimeout(()=>{ if(typeof _grpLoadMessages==='function') _grpLoadMessages(groupId, false); }, 400);
+      }
+    } else {
+      setTimeout(()=>{ if(typeof _grpLoadMessages==='function') _grpLoadMessages(groupId, false); }, 400);
     }
+
     showToast('Голосовое отправлено 🎤');
   } catch(err){
     console.error('[DTR] grp voice send:', err);
-    /* Mark the optimistic bubble as failed so user knows it didn't go through */
-    const _failBub = document.querySelector('.msg-bubble[data-msg-id^="opt_voice_"]');
-    if(_failBub){ _failBub.style.opacity='.45'; _failBub.style.filter='grayscale(1)'; _failBub.title='Ошибка отправки'; }
     showToast('Ошибка отправки: ' + (err?.message||err?.code||'неизвестная'), '⚠️');
   } finally {
     if(sendBtn){ sendBtn.classList.remove('uploading'); }
