@@ -43083,6 +43083,9 @@ var _grpReplyTo=null;
 var _grpPendingFile=null;
 
 window._grpSendMsg=async function(){
+  /* Don't fire send when mic hold was active */
+  if(typeof _grpMicHoldActive !== 'undefined' && _grpMicHoldActive) return;
+  if(typeof GRP_MIC !== 'undefined' && GRP_MIC.isRecording) return;
   var input=document.getElementById('grpInput');
   if(!input||!_grpActiveId||!_myId())return;
   // File pending?
@@ -45024,7 +45027,8 @@ function _grpStopRecording(cancel) {
 }
 
 async function _grpSendVoice(blob, duration) {
-  if(!SB_USER || !_grpActiveId) return;
+  var _sb = window.sb || sb;
+  if(!SB_USER || !_grpActiveId || !_sb) { showToast('Нет подключения', '⚠️'); return; }
   var groupId = _grpActiveId;
   showToast('Отправляем голосовое…', '🎤');
   try {
@@ -45032,13 +45036,16 @@ async function _grpSendVoice(blob, duration) {
     var ext = blob.type.includes('ogg') ? 'ogg' : 'webm';
     var path = 'group/' + groupId + '/voice_' + Date.now() + '.' + ext;
     try {
-      var upRes = await sb.storage.from('chat-files').upload(path, blob, { contentType: blob.type, upsert: true });
+      var upRes = await _sb.storage.from('chat-files').upload(path, blob, { contentType: blob.type, upsert: true });
       if(!upRes.error) {
-        var urlRes = sb.storage.from('chat-files').getPublicUrl(path);
+        var urlRes = _sb.storage.from('chat-files').getPublicUrl(path);
         voiceUrl = urlRes.data.publicUrl;
+      } else {
+        console.warn('[DTR] grp voice upload error:', upRes.error.message);
       }
     } catch(e) { console.warn('[DTR] grp voice storage:', e); }
     if(!voiceUrl) {
+      console.warn('[DTR] grp voice: storage unavailable, using base64');
       voiceUrl = await new Promise(function(resolve, reject) {
         var reader = new FileReader();
         reader.onload = function(e) { resolve(e.target.result); };
@@ -45047,7 +45054,7 @@ async function _grpSendVoice(blob, duration) {
       });
     }
     var content = JSON.stringify({ url: voiceUrl, duration: duration });
-    var ins = await sb.from('group_messages').insert({
+    var ins = await _sb.from('group_messages').insert({
       group_id: groupId,
       from_user_id: SB_USER.id,
       content: content,
@@ -45153,12 +45160,12 @@ window._dtrShowForwardPicker = function(msgContent, msgType, fromName) {
       _render();
     }).catch(function(){});
     if(dmsCache.length===0&&SB_USER){
-      sb.from('messages').select('from_user_id,to_user_id').or('from_user_id.eq.'+SB_USER.id+',to_user_id.eq.'+SB_USER.id).order('created_at',{ascending:false}).limit(30).then(function(r){
+      (window.sb||sb).from('messages').select('from_user_id,to_user_id').or('from_user_id.eq.'+SB_USER.id+',to_user_id.eq.'+SB_USER.id).order('created_at',{ascending:false}).limit(30).then(function(r){
         if(!document.getElementById('_dtrFwdPicker'))return;
         var pids=[];
         (r.data||[]).forEach(function(m){var pid=m.from_user_id===SB_USER.id?m.to_user_id:m.from_user_id;if(pid&&!seenIds.has(pid)){seenIds.add(pid);pids.push(pid);allItems.push({id:pid,name:pid.slice(0,8)+'\u2026',sub:'\u{1F4AC} \u041b\u0438\u0447\u043d\u044b\u0439 \u0447\u0430\u0442',avEmoji:'\u{1F3AF}',avUrl:null,type:'dm'});}});
         if(!pids.length){_render();return;}
-        sb.from('users').select('id,username,avatar,avatar_url').in('id',pids).then(function(ur){(ur.data||[]).forEach(function(u){var item=allItems.find(function(it){return it.id===u.id;});if(item){item.name=u.username||item.name;item.avEmoji=u.avatar||'\u{1F3AF}';item.avUrl=u.avatar_url||null;}});if(document.getElementById('_dtrFwdPicker'))_render();}).catch(function(){if(document.getElementById('_dtrFwdPicker'))_render();});
+        (window.sb||sb).from('users').select('id,username,avatar,avatar_url').in('id',pids).then(function(ur){(ur.data||[]).forEach(function(u){var item=allItems.find(function(it){return it.id===u.id;});if(item){item.name=u.username||item.name;item.avEmoji=u.avatar||'\u{1F3AF}';item.avUrl=u.avatar_url||null;}});if(document.getElementById('_dtrFwdPicker'))_render();}).catch(function(){if(document.getElementById('_dtrFwdPicker'))_render();});
       }).catch(function(){});
     }
   })();
@@ -45202,7 +45209,7 @@ async function _dtrDoForward(msgContent, msgType, fromName, dest) {
 
   try {
     if(dest.type === 'group') {
-      var gr = await sb.from('group_messages').insert({
+      var gr = await (window.sb||sb).from('group_messages').insert({
         group_id: dest.id,
         from_user_id: myId,
         content: insertContent,
@@ -45215,7 +45222,7 @@ async function _dtrDoForward(msgContent, msgType, fromName, dest) {
         setTimeout(function(){ _grpLoadMessages(dest.id, false); }, 400);
       }
     } else {
-      var dr = await sb.from('messages').insert({
+      var dr = await (window.sb||sb).from('messages').insert({
         from_user_id: myId,
         to_user_id: dest.id,
         content: insertContent,
@@ -45226,11 +45233,11 @@ async function _dtrDoForward(msgContent, msgType, fromName, dest) {
         /* RLS retry */
         if((dr.error.message||'').includes('policy')||(dr.error.message||'').includes('row-level')){
           await sb.auth.refreshSession();
-          var dr2 = await sb.from('messages').insert({ from_user_id: myId, to_user_id: dest.id, content: insertContent, content_type: insertType, read: false });
+          var dr2 = await (window.sb||sb).from('messages').insert({ from_user_id: myId, to_user_id: dest.id, content: insertContent, content_type: insertType, read: false });
           if(dr2 && dr2.error) throw dr2.error;
         } else if(dr.error.code === '42703') {
           /* Column missing — try without optional fields */
-          var dr3 = await sb.from('messages').insert({ from_user_id: myId, to_user_id: dest.id, content: insertContent });
+          var dr3 = await (window.sb||sb).from('messages').insert({ from_user_id: myId, to_user_id: dest.id, content: insertContent });
           if(dr3 && dr3.error) throw dr3.error;
         } else throw dr.error;
       }
