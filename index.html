@@ -40822,6 +40822,7 @@ function _msgMicStartHold(e, toUserId, groupId){
   if(btn){ btn.style.background = 'rgba(245,200,66,.15)'; btn.style.transform = 'scale(0.95)'; }
 
   MIC_STATE.holdTimeout = setTimeout(()=>{
+    console.log('[DTR] 350ms hold complete, starting recording. groupId=', MIC_STATE.groupId);
     _micHoldActive = true;
     if(btn){ btn.style.transform = 'scale(1.05)'; btn.style.background = 'var(--red)'; }
     _msgStartRecording(toUserId);
@@ -41039,9 +41040,12 @@ function _msgStopRecording(cancel){
         if(duration < 0.5){ showToast('Слишком короткое сообщение', '🎤'); return; }
         const blob = new Blob(_capturedChunks, { type: _capturedMime });
         /* Route to group or DM using CAPTURED values — immune to race conditions */
+        console.log('[DTR] onstop: capturedGroupId=', _capturedGroupId, 'capturedToUserId=', _capturedToUserId, 'duration=', duration, 'chunks=', _capturedChunks.length);
         if(_capturedGroupId){
+          console.log('[DTR] → sending to GROUP');
           _msgSendVoiceGroup(blob, _capturedGroupId, duration);
         } else if(_capturedToUserId){
+          console.log('[DTR] → sending to DM');
           _msgSendVoice(blob, _capturedToUserId, duration);
         } else {
           console.error('[DTR] Voice: no destination (groupId and toUserId both null)');
@@ -43275,9 +43279,11 @@ window._grpToggleSend=function(val){
 };
 /* ── Group mic wrapper — reads _grpActiveId at call-time ── */
 window._grpMicHold = function(e) {
-  /* _grpActiveId is a var in this scope — pass it to the shared DM system */
+  console.log('[DTR] grpMicHold fired, _grpActiveId=', _grpActiveId, 'event=', e.type);
   if(typeof _msgMicStartHold === 'function') {
     _msgMicStartHold(e, null, _grpActiveId);
+  } else {
+    console.error('[DTR] _msgMicStartHold NOT DEFINED!');
   }
 };
 
