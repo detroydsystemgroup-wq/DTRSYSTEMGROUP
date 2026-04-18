@@ -41221,15 +41221,18 @@ async function _msgSendVoiceGroup(blob, groupId, duration){
       created_at: ins.data.created_at || new Date().toISOString(),
     };
     console.log('[DTR Voice] appending confirmed msg id=', ins.data.id);
-    if(typeof _grpAppendMessage === 'function'){
+    /* Use window.* — _grpAppendMessage lives in IIFE (block 12) and is not in block 9 scope */
+    if(typeof window._grpAppendMessage === 'function'){
       try {
-        _grpAppendMessage(confirmedMsg);
+        window._grpAppendMessage(confirmedMsg);
+        console.log('[DTR Voice] appended OK');
       } catch(e){
         console.error('[DTR Voice] append failed:', e);
-        setTimeout(()=>{ if(typeof _grpLoadMessages==='function') _grpLoadMessages(groupId, false); }, 400);
+        setTimeout(function(){ if(typeof window._grpLoadMessages==='function') window._grpLoadMessages(groupId, false); }, 400);
       }
     } else {
-      setTimeout(()=>{ if(typeof _grpLoadMessages==='function') _grpLoadMessages(groupId, false); }, 400);
+      console.warn('[DTR Voice] _grpAppendMessage not on window yet, scheduling reload');
+      setTimeout(function(){ if(typeof window._grpLoadMessages==='function') window._grpLoadMessages(groupId, false); }, 400);
     }
 
     showToast('Голосовое отправлено 🎤');
@@ -44811,6 +44814,10 @@ function _grpBoot(){
 
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',_grpBoot);}
 else{_grpBoot();}
+
+/* Export internal functions needed by other script blocks (block 9 / dtr-videocall-js) */
+window._grpAppendMessage = _grpAppendMessage;
+window._grpLoadMessages  = _grpLoadMessages;
 
 })();
 </script>
