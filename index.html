@@ -25977,8 +25977,11 @@ function calcTotalXP(profile){
 // Legacy aliases removed — use levelFromXP(), xpForLevel(), LEVEL_DATA[] directly
 
 // ── Уровень по часам (для других игроков: арена, лиги, соц. карточки) ──
+// FALLBACK: упрощенный расчёт только по часам (без сессий/достижений/стрика)
 function getLevelInfo(totalHours){
-  return _lvlFromXP(Math.floor((parseFloat(totalHours)||0)*50));
+  // Если нет точного XP - используем только базовый расчёт по часам
+  const estimatedXP = Math.floor((parseFloat(totalHours)||0) * 50);
+  return _lvlFromXP(estimatedXP);
 }
 // ── Уровень текущего игрока (с бонусами за достижения) ──
 function getMyLevelInfo(){
@@ -32345,8 +32348,8 @@ async function socLoadFriends(){
     if(partnerIds.size){
       const ids = [...partnerIds];
 
-      // Fetch all data in parallel
-      const [{data: users}, {data: userCats}, {data: allSess}] = await Promise.all([
+      // Fetch all data in parallel + achievements for all users
+      const [{data: users}, {data: userCats}, {data: allSess}, {data: allAchievements}] = await Promise.all([
         sb.from('users')
           .select('id,username,avatar,avatar_url,last_seen')
           .in('id', ids),
@@ -32358,6 +32361,10 @@ async function socLoadFriends(){
           .in('user_id', ids)
           .order('created_at', {ascending: false})
           .limit(2000),
+        sb.from('user_achievements')
+          .select('user_id,achievement_id')
+          .in('user_id', ids)
+          .eq('unlocked', true),
       ]);
 
       // Total hours per user from user_categories
@@ -32412,10 +32419,11 @@ async function socLoadFriends(){
           .filter(([,h]) => h > 0)
           .sort((a,b) => b[1]-a[1])
           .map(([catId]) => (ALL_CATS||[]).find(c=>c.id===catId))
-          .filter(Boolean);
+          .filter(Boolean) // Remove undefined entries
+          .slice(0, 8); // Limit to max 8 leagues for UI performance
 
-        const hrs24 = Math.floor((hrs24Map[u.id]||0) / 360) / 10;
-        const hrsWeek = Math.floor((hrs7dMap[u.id]||0) / 360) / 10;
+        const hrs24 = Math.floor((hrs24Map[u.id]||0) / 3600 * 10) / 10;
+        const hrsWeek = Math.floor((hrs7dMap[u.id]||0) / 3600 * 10) / 10;
 
         // Online: last_seen within 3 minutes
         const isOnline = u.last_seen
@@ -32427,8 +32435,17 @@ async function socLoadFriends(){
           ? computeStreakFromSessions(userSess)
           : 0;
 
-        // XP = same formula as calcTotalXP
-        const xp = Math.floor(totalHours * 50) + (userSess.length * 8) + (streak * 3) + Math.floor(streak / 7) * 20;
+        // XP = same formula as calcTotalXP (with achievements)
+        let xp = Math.floor(totalHours * 50) + (userSess.length * 8) + (streak * 3) + Math.floor(streak / 7) * 20;
+        
+        // Add achievements XP (batch loaded)
+        const userAchievements = (allAchievements || []).filter(a => a.user_id === u.id);
+        userAchievements.forEach(ua => {
+          const achDef = (typeof ACH_DEF !== 'undefined' && ACH_DEF) 
+            ? ACH_DEF.find(d => d.id === ua.achievement_id)
+            : null;
+          if (achDef && achDef.xp) xp += achDef.xp;
+        });
 
         userMap[u.id] = { ...u, totalHours, activeCatsList, hrs24, hrsWeek, streak, isOnline, xp };
       });
@@ -32518,8 +32535,8 @@ function socRenderFriends(){
       const isOnline = u.isOnline || false;
 
       // Accurate level using stored XP (computed in socLoadFriends via calcTotalXP formula)
-      const lvlInfo = (typeof _lvlFromXP === 'function')
-        ? _lvlFromXP(u.xp || 0)
+      const lvlInfo = (typeof _lvlFromXP === 'function' && u.xp !== undefined)
+        ? _lvlFromXP(u.xp)
         : (typeof getLevelInfo === 'function' ? getLevelInfo(u.totalHours || 0) : {lvl:1, name:'Новичок', color:'#9CA3AF'});
 
       const totalH = Math.round((u.totalHours||0) * 10) / 10;
@@ -33030,21 +33047,22 @@ const _socOrigST = window.showTab;
 window.showTab = function(name, el, skip){
   if(_socOrigST) _socOrigST.call(this, name, el, skip);
   if(name === 'social'){
-    setTimeout(() => {
+    // Мгновенная загрузка без задержки
+    if(typeof window.renderSocialTab === 'function'){
       window.renderSocialTab();
-    }, 60);
+    }
   }
 };
 
 // ─── LOAD ON INIT ──────────────────────────────────────────────
 // Pre-load friend requests badge count when user logs in
 document.addEventListener('DOMContentLoaded', () => {
-  // Poll for SB_USER being set
+  // Poll for SB_USER being set (faster check)
   const checkInterval = setInterval(() => {
     if(SB_USER && !SB_USER.isDemoUser && sb){
       clearInterval(checkInterval);
-      // Load just friend requests for badge (lightweight)
-      setTimeout(async () => {
+      // Мгновенная загрузка без задержки
+      (async () => {
         try {
           const {data} = await sb.from('friend_requests')
             .select('id')
@@ -33055,10 +33073,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const badge = document.getElementById('socialTabBadge');
             if(badge){ badge.style.display='inline'; badge.textContent = cnt > 9 ? '9+' : cnt; }
           }
+          
+          // Предзагружаем данные друзей для быстрого открытия таба
+          if(typeof socLoadAll === 'function'){
+            socLoadAll();
+          }
         } catch(e){}
-      }, 4000);
+      })();
     }
-  }, 2000);
+  }, 500); // Быстрее проверяем (500ms вместо 2000ms)
 });
 
 // ─── MODAL FRIEND/FOLLOW HELPERS ────────────────────────────
