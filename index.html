@@ -40842,6 +40842,8 @@ function _msgMicStopHold(e){
     if(btn){ btn.style.transform = ''; btn.style.background = ''; }
     setTimeout(()=>{ _micHoldActive = false; }, 500);
   } else {
+    /* Short tap - recording never started, clear groupId so _grpSendMsg works */
+    MIC_STATE.groupId = null;
     setTimeout(()=>{ _micHoldActive = false; }, 50);
   }
 }
@@ -41037,10 +41039,7 @@ function _msgStopRecording(cancel){
         }
       }
       MIC_STATE.chunks = []; MIC_STATE.recorder = null; MIC_STATE.stream = null;
-      /* Keep groupId for 1s to block _grpSendMsg click event from firing after hold */
-      var _savedGid = MIC_STATE.groupId;
-      MIC_STATE.groupId = _savedGid; /* keep set */
-      setTimeout(function(){ MIC_STATE.groupId = null; }, 1000);
+      MIC_STATE.groupId = null;
     };
     MIC_STATE.recorder.stop();
   } else {
@@ -43198,11 +43197,9 @@ var _grpReplyTo=null;
 var _grpPendingFile=null;
 
 window._grpSendMsg=async function(){
-  /* Don't fire if mic hold was active OR voice was recently sent (1s lock) */
+  /* Don't fire if mic hold was active */
   if(typeof _micHoldActive !== 'undefined' && _micHoldActive) return;
   if(typeof MIC_STATE !== 'undefined' && MIC_STATE && MIC_STATE.isRecording) return;
-  /* If voice groupId was set, this click is from a voice hold release — skip */
-  if(typeof MIC_STATE !== 'undefined' && MIC_STATE && MIC_STATE.groupId) return;
   var input=document.getElementById('grpInput');
   if(!input||!_grpActiveId||!_myId())return;
   // File pending?
