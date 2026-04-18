@@ -41167,18 +41167,35 @@ async function _msgSendVoiceGroup(blob, groupId, duration){
       });
     }
     const voiceContent = JSON.stringify({ url: voiceUrl, duration: Math.round(duration) });
+
+    /* Show message to sender IMMEDIATELY — don't wait for DB round-trip */
+    const _optId = 'opt_voice_' + Date.now();
+    const _optMsg = {
+      id: _optId,
+      group_id: groupId,
+      from_user_id: SB_USER.id,
+      content: voiceContent,
+      content_type: 'voice',
+      is_system: false,
+      created_at: new Date().toISOString(),
+    };
+    if(typeof _grpAppendMessage === 'function') _grpAppendMessage(_optMsg);
+
+    /* Then insert to DB */
     const ins = await sb.from('group_messages').insert({
       group_id: groupId,
       from_user_id: SB_USER.id,
       content: voiceContent,
       content_type: 'voice',
-    }).select('id,created_at,content,content_type,from_user_id').single();
+    }).select('id').single();
     if(ins.error) throw ins.error;
-    /* Optimistic append so sender sees message instantly */
-    if(ins.data && typeof _grpAppendMessage === 'function'){
-      _grpAppendMessage({ ...ins.data, is_system: false });
-    } else if(typeof _grpLoadMessages === 'function'){
-      setTimeout(()=>_grpLoadMessages(groupId, false), 300);
+
+    /* Replace optimistic id with real DB id in DOM */
+    if(ins.data && ins.data.id){
+      const _optRow = document.querySelector('.msg-row[data-msg-id="'+CSS.escape(_optId)+'"]');
+      if(_optRow) _optRow.dataset.msgId = ins.data.id;
+      const _optBub = document.querySelector('.msg-bubble[data-msg-id="'+CSS.escape(_optId)+'"]');
+      if(_optBub) _optBub.dataset.msgId = ins.data.id;
     }
     showToast('Голосовое отправлено 🎤');
   } catch(err){
