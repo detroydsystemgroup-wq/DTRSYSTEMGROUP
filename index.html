@@ -36419,7 +36419,7 @@ async function socLoadFriends(){
           .select('user_id,duration_seconds,created_at,category_id')
           .in('user_id', ids)
           .order('created_at', {ascending: false})
-          .limit(500),
+          .limit(2000),
       ]);
 
       // Total hours per user from user_categories
@@ -36463,10 +36463,13 @@ async function socLoadFriends(){
       });
 
       (users||[]).forEach(u => {
-        const totalHours = hoursMap[u.id] || 0;
+        // Sessions-based hours — same source of truth as main profile
+        const userSess = sessMap[u.id] || [];
+        const totalHours = userSess.reduce((acc, s) => acc + (s.duration_seconds || 0) / 3600, 0);
+
         const catMap = catHoursMap[u.id] || {};
 
-        // All active leagues sorted by hours (not just top-1)
+        // All active leagues from user_categories (hours > 0)
         const activeCatsList = Object.entries(catMap)
           .filter(([,h]) => h > 0)
           .sort((a,b) => b[1]-a[1])
@@ -36476,18 +36479,17 @@ async function socLoadFriends(){
         const hrs24 = Math.floor((hrs24Map[u.id]||0) / 360) / 10;
         const hrsWeek = Math.floor((hrs7dMap[u.id]||0) / 360) / 10;
 
-        // Online: last_seen within 3 minutes (accounts for network delays)
+        // Online: last_seen within 3 minutes
         const isOnline = u.last_seen
           ? (Date.now() - new Date(u.last_seen).getTime()) < 180000
           : false;
 
-        // Compute streak from sessions
-        const userSess = sessMap[u.id] || [];
+        // Streak from sessions
         const streak = typeof computeStreakFromSessions === 'function'
           ? computeStreakFromSessions(userSess)
           : 0;
 
-        // XP mirrors calcTotalXP: hours*50 + sessions*8 + streak bonus
+        // XP = same formula as calcTotalXP
         const xp = Math.floor(totalHours * 50) + (userSess.length * 8) + (streak * 3) + Math.floor(streak / 7) * 20;
 
         userMap[u.id] = { ...u, totalHours, activeCatsList, hrs24, hrsWeek, streak, isOnline, xp };
