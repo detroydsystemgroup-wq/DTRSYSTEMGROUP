@@ -1118,7 +1118,7 @@ textarea:focus-visible,
 
 /* ── OVERLAYS ── */
 .ov{position:fixed;inset:0;-webkit-z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s ease;}
-.ov.show{opacity:1;pointer-events:all;}
+.ov.show{opacity:1;pointer-events:auto;}
 .modal{padding:28px;width:90%;max-width:440px;transform:scale(.96) translateY(12px);transition:transform .3s cubic-bezier(.34,1.2,.64,1),opacity .25s ease;opacity:0;}
 .ov.show .modal{transform:scale(1) translateY(0);opacity:1;}
 .mt{margin-bottom:4px;}
@@ -14994,19 +14994,17 @@ window.toggleLikeUser = async function(){
 <div class="ov" id="pubOv" onclick="olClick(event,'pubOv')">
   <div class="modal pub-modal" style="position:relative">
 
-    <!-- ── CLOSE BTN — outside cover, не перекрывается aurora ── -->
-    <button onclick="closePub()" style="
+    <!-- ── CLOSE BTN ── -->
+    <button id="pubCloseBtn" style="
       position:absolute;top:14px;right:14px;
-      width:32px;height:32px;border-radius:10px;
-      background:rgba(0,0,0,.55);border:0.5px solid rgba(255,255,255,.15);
-      color:rgba(255,255,255,.6);cursor:pointer;
+      width:36px;height:36px;border-radius:10px;
+      background:rgba(0,0,0,.6);border:0.5px solid rgba(255,255,255,.2);
+      color:rgba(255,255,255,.7);cursor:pointer;
       display:flex;align-items:center;justify-content:center;
-      z-index:999;backdrop-filter:blur(8px);
+      z-index:9999;backdrop-filter:blur(8px);
       transition:background .15s,color .15s;
-    "
-    onmouseover="this.style.background='rgba(255,255,255,.12)';this.style.color='#fff'"
-    onmouseout="this.style.background='rgba(0,0,0,.55)';this.style.color='rgba(255,255,255,.6)'">
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    ">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
 
     <!-- ── CINEMATIC COVER ── -->
@@ -15087,6 +15085,22 @@ window.toggleLikeUser = async function(){
     </div>
   </div>
 </div>
+
+<script>
+/* ── pubCloseBtn — wired up immediately, button already in DOM ── */
+window.closePub = function(){
+  var ov = document.getElementById('pubOv');
+  if(ov) ov.classList.remove('show');
+};
+(function(){
+  var btn = document.getElementById('pubCloseBtn');
+  if(!btn) return;
+  btn.onclick = function(e){
+    e.stopPropagation();
+    window.closePub();
+  };
+})();
+</script>
 
 <div class="ov" id="avOv" role="dialog" aria-modal="true" aria-label="Выбор аватара" onclick="olClick(event,'avOv')">
   <div class="modal" style="max-width:360px">
