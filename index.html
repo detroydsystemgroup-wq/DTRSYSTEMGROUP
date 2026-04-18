@@ -27654,7 +27654,7 @@ function render(){
     const todLabel={any:'',morning:'🌅',evening:'🌙'}[h.tod||'any']||'';
     return `<div class="hab-row" style="grid-template-columns:${colsDesktop};${rowAccent}">
       <div class="hab-row-name">
-        <div class="hab-row-icon" style="background:${color}15;border:0.5px solid ${color}30">${h.icon||'🎯'}</div>
+        <div class="hab-row-icon" style="background:${color}15;border:0.5px solid ${color}30">${esc(h.icon||'🎯')}</div>
         <div class="hab-row-label" style="min-width:0">
           <div class="hab-row-title" style="font-size:14px">${esc(h.name)}</div>
           <div class="hab-row-sub">
@@ -28086,7 +28086,7 @@ function renderWeekRep(){
     const c=consist30(h.id,h.freq);const s=calcStreak(h.id,h.freq);const bs=bestStreak(h.id,h.freq);
     const color=h.color||'var(--gold)';
     return `<div class="hab-consist-row">
-      <div class="hab-consist-icon">${h.icon}</div>
+      <div class="hab-consist-icon">${esc(h.icon)}</div>
       <div class="hab-consist-info">
         <div class="hab-consist-name">${esc(h.name)}</div>
         <div class="hab-consist-bar-wr" style="max-width:180px"><div class="hab-consist-bar" style="width:${c}%;background:${color}"></div></div>
@@ -31242,7 +31242,7 @@ window._cmatRenderSidebar=function(sb_el){
     const cnt=(_cache&&_cache.perRoom[r.id]?.items||[]).length;
     return `<div class="cmat-room-row${_activeRoom===r.id?' active':''}" onclick="window._cmatSelectRoom('${r.id}')">
       <div class="cmat-room-icon">${getIconSvg(r.icon||'book')}</div>
-      <div class="cmat-room-info"><div class="cmat-room-name">${r.name}</div><div style="font-size:10px;color:var(--t3)">${isO?'Владелец':'Участник'}</div></div>
+      <div class="cmat-room-info"><div class="cmat-room-name">${esc(r.name)}</div><div style="font-size:10px;color:var(--t3)">${isO?'Владелец':'Участник'}</div></div>
       <span class="cmat-room-cnt">${cnt}</span>
       <button class="cmat-room-del" onclick="event.stopPropagation();${isO?`window.cmatDeleteRoom('${r.id}')`:`window.cmatLeaveRoom('${r.id}')`}" style="${isO?'':'color:rgba(239,68,68,.5)'}">${svgX}</button>
     </div>`;
@@ -31495,14 +31495,14 @@ window._cmatRenderMain=function(){
     const mm=members.find(x=>x.user_id===userId)||{};
     const u=mm.users||{username:'?',avatar:'?'};
     const avH=u.avatar_url?`<img src="${esc(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:4px">`:`<span style="font-size:14px">${u.avatar||'?'}</span>`;
-    return `<div style="display:flex;align-items:center;gap:4px;flex-shrink:0"><div style="width:16px;height:16px;border-radius:4px;background:rgba(168,85,247,.15);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${avH}</div><span style="font-size:10px;color:var(--t3)">${u.username||'?'}</span></div>`;
+    return `<div style="display:flex;align-items:center;gap:4px;flex-shrink:0"><div style="width:16px;height:16px;border-radius:4px;background:rgba(168,85,247,.15);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${avH}</div><span style="font-size:10px;color:var(--t3)">${esc(u.username||'?')}</span></div>`;
   };
 
   // Member stack
   const memStack=members.slice(0,6).map((mm,i)=>{
     const u=mm.users||{};
     const av=u.avatar_url?`<img src="${esc(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:7px">`:`<span style="font-size:12px">${u.avatar||'?'}</span>`;
-    return `<div title="${u.username||'?'}${mm.role==='owner'?' (владелец)':''}" style="width:28px;height:28px;border-radius:8px;background:rgba(168,85,247,.15);border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;margin-left:${i===0?0:-8}px;z-index:${10-i};position:relative;transition:transform .15s" onmouseover="this.style.transform='scale(1.15) translateY(-2px)'" onmouseout="this.style.transform=''">${av}</div>`;
+    return `<div title="${esc(u.username||'?')}${mm.role==='owner'?' (владелец)':''}" style="width:28px;height:28px;border-radius:8px;background:rgba(168,85,247,.15);border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;margin-left:${i===0?0:-8}px;z-index:${10-i};position:relative;transition:transform .15s" onmouseover="this.style.transform='scale(1.15) translateY(-2px)'" onmouseout="this.style.transform=''">${av}</div>`;
   }).join('')+(members.length>6?`<div style="width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,.07);border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--t2);margin-left:-8px">+${members.length-6}</div>`:'');
 
   const svgP=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
@@ -31660,7 +31660,7 @@ window._cmatRenderMain=function(){
     <div class="cmat-room-hdr">
       <div class="cmat-room-hdr-icon">${getIconSvg(room.icon||'book')}</div>
       <div class="cmat-room-hdr-info">
-        <div class="cmat-room-hdr-name">${room.name}</div>
+        <div class="cmat-room-hdr-name">${esc(room.name)}</div>
         <div class="cmat-room-hdr-sub">${items.length} материалов · ${members.length} участников</div>
       </div>
       <div style="display:flex;align-items:center;margin-right:10px">${memStack}</div>
@@ -31819,7 +31819,7 @@ window.cmatShowMembers=async function(roomId){
       return `<div class="cmat-mem-row">
         <div style="width:36px;height:36px;border-radius:10px;background:rgba(168,85,247,.12);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${av}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:var(--t1)">${u.username||'?'}${isMe?' <span style="font-size:10px;color:var(--t3)">(вы)</span>':''}</div>
+          <div style="font-size:13px;font-weight:600;color:var(--t1)">${esc(u.username||'?')}${isMe?' <span style="font-size:10px;color:var(--t3)">(вы)</span>':''}</div>
           <div style="font-size:11px;color:var(--t3)">${isMemOwner?'Владелец':'Участник'}</div>
         </div>
         ${canKick?`<button class="cmat-mem-kick" onclick="window.cmatKickMember('${roomId}','${m.user_id}','${(u.username||'?').replace(/'/g,"\\'")}')">${svgX}</button>`:''}
@@ -33686,7 +33686,7 @@ async function buildRoomCard(room, myRole, user, members, habits, logs){
       const pips = otherMembers.map(m=>{
         const memberDone = !!((logs[m.user_id]||{})[h.id]||{})[key];
         const u = m.users||{};
-        return `<div class="chab-mem-pip" title="${u.username||'?'}: ${memberDone?'✓':'—'}"
+        return `<div class="chab-mem-pip" title="${esc(u.username||'??')}: ${memberDone?'✓':'—'}"
           style="background:${memberDone?color+'99':'rgba(255,255,255,.1)'}"></div>`;
       }).join('');
 
@@ -33728,7 +33728,7 @@ async function buildRoomCard(room, myRole, user, members, habits, logs){
       const av = u.avatar_url
         ? `<img src="${esc(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
         : `<span style="font-size:14px">${u.avatar||'👤'}</span>`;
-      return `<div title="${u.username||'?'}: ${mDone?'✓ выполнено':'не выполнено'}"
+      return `<div title="${esc(u.username||'?')}:${mDone?'✓ выполнено':'не выполнено'}"
         style="width:18px;height:18px;border-radius:50%;background:${mDone?color+'33':'rgba(255,255,255,.07)'};border:1.5px solid ${mDone?color:'rgba(255,255,255,.1)'};display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;transition:transform .15s"
         onmouseover="this.style.transform='scale(1.3)'" onmouseout="this.style.transform=''">${av}</div>`;
     }).join('');
@@ -33737,7 +33737,7 @@ async function buildRoomCard(room, myRole, user, members, habits, logs){
       <div class="chab-hab-row-name">
         <div class="chab-hab-icon" style="background:${color}15;border:0.5px solid ${color}30">${h.icon||'🎯'}</div>
         <div style="flex:1;min-width:0">
-          <div class="chab-hab-title">${h.name}</div>
+          <div class="chab-hab-title">${esc(h.name)}</div>
           <div class="chab-hab-streak">
             ${myStreak>0?`<span style="color:var(--orange);font-weight:700">🔥 ${myStreak}</span>`:'<span>— дисциплина</span>'}
           </div>
@@ -33781,7 +33781,7 @@ async function buildRoomCard(room, myRole, user, members, habits, logs){
       <div class="chab-lb-av">${av}</div>
       <div class="chab-lb-info">
         <div class="chab-lb-name" style="display:flex;align-items:center;gap:6px">
-          <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.username||'?'}</span>
+          <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(u.username||'?')}</span>
           ${isMe?'<span class="chab-you-tag">ТЫ</span>':''}
           ${isMemberOwner&&!isMe?'<span class="chab-owner-tag">Владелец</span>':''}
           ${kickBtn}
@@ -33798,7 +33798,7 @@ async function buildRoomCard(room, myRole, user, members, habits, logs){
   const avHtml = scores.map(s=>{
     const u=s.users||{};
     const av=u.avatar_url?`<img src="${esc(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:6px">`:`<span style="font-size:13px">${u.avatar||'👤'}</span>`;
-    return `<div class="chab-av" style="background:rgba(168,85,247,.12)" title="${u.username||'?'}">${av}</div>`;
+    return `<div class="chab-av" style="background:rgba(168,85,247,.12)" title="${esc(u.username||'?')}">${av}</div>`;
   }).join('');
 
   const svgDel=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>`;
@@ -33809,7 +33809,7 @@ async function buildRoomCard(room, myRole, user, members, habits, logs){
     <div class="chab-room-head">
       <div class="chab-room-icon">${room.icon||'🤝'}</div>
       <div style="flex:1;min-width:0">
-        <div class="chab-room-title">${room.name||'Совместный трекер'}</div>
+        <div class="chab-room-title">${esc(room.name||'Совместный трекер')}</div>
         <div class="chab-room-meta">${members.length} участников · ${habits.length} привычек</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
@@ -35189,13 +35189,13 @@ window.renderCollabView=renderCollabView;
           : (u.avatar || '🎯');
         var meta = [];
         if(u.streak) meta.push('🔥 ' + u.streak);
-        return '<div class="usr-search-row" onclick="usrSearchOpenProfile(\'' + u.id + '\',\'' + (u.username||'').replace(/'/g,"\\'") + '\',\'' + (u.avatar||'🎯') + '\',\'' + (u.avatar_url||'') + '\')">'
+        return '<div class="usr-search-row" onclick="usrSearchOpenProfile(\'' + u.id + '\',\'' + (u.username||'').replace(/'/g,"\\'") + '\',\'' + (u.avatar||'🎯').replace(/'/g,"\\'") + '\',\'' + (u.avatar_url||'').replace(/'/g,"\\'") + '\')">'
           + '<div class="usr-search-row-av">' + avHtml + '</div>'
           + '<div class="usr-search-row-info">'
-            + '<div class="usr-search-row-name">' + (u.username || 'Игрок') + '</div>'
+            + '<div class="usr-search-row-name">' + esc(u.username || 'Игрок') + '</div>'
             + (meta.length ? '<div class="usr-search-row-meta">' + meta.join(' · ') + '</div>' : '')
           + '</div>'
-          + '<div class="usr-search-row-action"><button class="usr-search-open-btn" onclick="event.stopPropagation();usrSearchOpenProfile(\'' + u.id + '\',\'' + (u.username||'').replace(/'/g,"\\'") + '\',\'' + (u.avatar||'🎯') + '\',\'' + (u.avatar_url||'') + '\')">Открыть →</button></div>'
+          + '<div class="usr-search-row-action"><button class="usr-search-open-btn" onclick="event.stopPropagation();usrSearchOpenProfile(\'' + u.id + '\',\'' + (u.username||'').replace(/'/g,"\\'") + '\',\'' + (u.avatar||'🎯').replace(/'/g,"\\'") + '\',\'' + (u.avatar_url||'').replace(/'/g,"\\'") + '\')">Открыть →</button></div>'
         + '</div>';
       }).join('');
     } catch(e) {
@@ -37047,7 +37047,7 @@ function _msgShowFilePreview(file){
   bar.innerHTML = `
     ${thumbHtml}
     <div class="msg-preview-info">
-      <div class="msg-preview-name">${file.name}</div>
+      <div class="msg-preview-name">${esc(file.name)}</div>
       <div class="msg-preview-size">${_msgFmtSize(file.size)}</div>
     </div>
     <button class="msg-preview-remove" onclick="_msgClearPendingFile()" title="Убрать">
@@ -37179,7 +37179,7 @@ async function _msgSendFile(toUserId){
       _trackReadReceipt(msgData.id, toUserId);
     }
     // FIX 5: update cache locally for file/image
-    const filePreview = isImage ? '[Фото]' : `[Файл] ${file.name}`;
+    const filePreview = isImage ? '[Фото]' : `[Файл] ${esc(file.name)}`;
     _msgUpdateConvCache(toUserId, filePreview, true);
     showToast(isImage ? 'Фото отправлено 📸' : 'Файл отправлен 📎');
   } catch(err){
