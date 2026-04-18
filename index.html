@@ -36487,7 +36487,10 @@ async function socLoadFriends(){
           ? computeStreakFromSessions(userSess)
           : 0;
 
-        userMap[u.id] = { ...u, totalHours, activeCatsList, hrs24, hrsWeek, streak, isOnline };
+        // XP mirrors calcTotalXP: hours*50 + sessions*8 + streak bonus
+        const xp = Math.floor(totalHours * 50) + (userSess.length * 8) + (streak * 3) + Math.floor(streak / 7) * 20;
+
+        userMap[u.id] = { ...u, totalHours, activeCatsList, hrs24, hrsWeek, streak, isOnline, xp };
       });
     }
 
@@ -36503,6 +36506,7 @@ async function socLoadFriends(){
         hrsWeek: u.hrsWeek || 0,
         streak: u.streak || 0,
         isOnline: u.isOnline || false,
+        xp: u.xp || 0,
       };
       if(r.status === 'accepted') friendIds.push(entry);
       else if(r.status === 'pending'){
@@ -36573,8 +36577,11 @@ function socRenderFriends(){
       const isFollowing = SOC.follows.includes(u.id);
       const isOnline = u.isOnline || false;
 
-      // Level info from total hours
-      const lvlInfo = (typeof getLevelInfo === 'function') ? getLevelInfo(u.totalHours || 0) : {lvl:1, name:'Новичок', color:'#9CA3AF'};
+      // Accurate level using stored XP (computed in socLoadFriends via calcTotalXP formula)
+      const lvlInfo = (typeof _lvlFromXP === 'function')
+        ? _lvlFromXP(u.xp || 0)
+        : (typeof getLevelInfo === 'function' ? getLevelInfo(u.totalHours || 0) : {lvl:1, name:'Новичок', color:'#9CA3AF'});
+
       const totalH = Math.round((u.totalHours||0) * 10) / 10;
       const streak = u.streak || 0;
       const hrs24 = u.hrs24 || 0;
