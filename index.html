@@ -41169,10 +41169,15 @@ async function _msgSendVoiceGroup(blob, groupId, duration){
       from_user_id: SB_USER.id,
       content: voiceContent,
       content_type: 'voice',
-    });
+    }).select('id,created_at,content,content_type,from_user_id').single();
     if(ins.error) throw ins.error;
+    /* Optimistic append so sender sees message instantly */
+    if(ins.data && typeof _grpAppendMessage === 'function'){
+      _grpAppendMessage({ ...ins.data, is_system: false });
+    } else if(typeof _grpLoadMessages === 'function'){
+      setTimeout(()=>_grpLoadMessages(groupId, false), 300);
+    }
     showToast('Голосовое отправлено 🎤');
-    if(typeof _grpLoadMessages === 'function') setTimeout(()=>_grpLoadMessages(groupId, false), 300);
   } catch(err){
     console.error('[DTR] grp voice send:', err);
     showToast('Ошибка: ' + (err?.message||''), '⚠️');
@@ -43084,13 +43089,18 @@ function _grpBuildMessagesHTML(msgs,members,groupId,_initLastDate){
     } else if(ct==='image'){
       bodyHtml='<img src="'+_esc(txt)+'" style="max-width:240px;max-height:200px;border-radius:10px;display:block;cursor:pointer;" onclick="window.open(\''+_esc(txt)+'\',\'_blank\')" onerror="this.hidden=true">';
     } else if(ct==='voice'){
-      bodyHtml='<div style="display:flex;align-items:center;gap:8px;min-width:160px;padding:4px 0;">'
-        +'<button onclick="var a=document.getElementById(\'va_'+_esc(msg.id)+'\');if(a){if(a.paused)a.play();else a.pause();}" style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.12);border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s;">'
-          +'<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
+      /* Parse JSON payload {url, duration} */
+      var _vUrl=txt,_vDur=0;
+      try{var _vj=JSON.parse(txt);_vUrl=_vj.url||txt;_vDur=_vj.duration||0;}catch(ex){}
+      var _vDurStr=_vDur>0?(Math.floor(_vDur/60)+':'+(String(_vDur%60).padStart(2,'0'))):'0:00';
+      var _vid='va_'+_esc(msg.id);
+      bodyHtml='<div class="msg-voice-bubble">'
+        +'<audio id="'+_vid+'" src="'+_esc(_vUrl)+'" preload="none" style="display:none;"></audio>'
+        +'<button class="msg-voice-play" id="'+_vid+'_btn" onclick="_msgVoiceToggle(\''+_vid+'\')" title="Воспроизвести">'
+          +'<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" id="'+_vid+'_ico"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
         +'</button>'
-        +'<audio id="va_'+_esc(msg.id)+'" src="'+_esc(txt)+'" style="display:none;"></audio>'
-        +'<div style="flex:1;"><div style="height:3px;background:rgba(255,255,255,.2);border-radius:2px;"><div style="width:0%;height:100%;background:rgba(255,255,255,.7);border-radius:2px;transition:width .1s;"></div></div>'
-        +'<div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:3px;">Голосовое</div></div>'
+        +'<div class="msg-voice-waveform" id="'+_vid+'_wave">'+Array.from({length:30},function(_e,_i){var _h=4+Math.round(Math.abs(Math.sin(_i*0.7))*20);return'<span style="width:3px;height:'+_h+'px;display:inline-block;background:rgba(255,255,255,.4);border-radius:2px;flex-shrink:0;"></span>';}).join('')+'</div>'
+        +'<span class="msg-voice-dur" id="'+_vid+'_dur">'+_vDurStr+'</span>'
         +'</div>';
     } else if(ct==='file'){
       var fn='',furl='';
