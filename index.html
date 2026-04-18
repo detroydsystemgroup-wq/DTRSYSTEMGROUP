@@ -14422,6 +14422,57 @@ document.addEventListener('keydown', e => {
   </div><!-- /.up-modal -->
 </div><!-- /#userProfileOv -->
 
+<script>
+/* ── toggleLikeUser — standalone block, not inside large script ── */
+window.toggleLikeUser = async function(){
+  try {
+    if(!window.SB_USER || window.SB_USER.isDemoUser){
+      if(typeof showToast==='function') showToast('Войди чтобы ставить лайки','ℹ️');
+      return;
+    }
+    var ov = document.getElementById('userProfileOv');
+    var targetId = ov && ov.dataset && ov.dataset.userId;
+    if(!targetId || targetId === window.SB_USER.id) return;
+
+    var btn      = document.getElementById('upLikeBtn');
+    var iconEl   = document.getElementById('upLikeBtnIcon');
+    var labelEl  = document.getElementById('upLikeBtnLabel');
+    var countEl  = document.getElementById('upLikeCount');
+    var statCount= document.getElementById('upStatLikeCount');
+    if(!btn) return;
+
+    var isLiked  = btn.dataset.liked === 'true';
+    var newLiked = !isLiked;
+
+    // Optimistic UI update
+    btn.dataset.liked = String(newLiked);
+    if(iconEl){ iconEl.setAttribute('fill', newLiked ? '#ef4444' : 'none'); iconEl.setAttribute('stroke','#ef4444'); }
+    if(labelEl) labelEl.textContent = newLiked ? 'Нравится' : 'Поставить лайк';
+    var curCount = parseInt((countEl && countEl.textContent || '0').replace(/[^0-9]/g,'')) || 0;
+    var newCount = newLiked ? curCount + 1 : Math.max(0, curCount - 1);
+    if(countEl)   countEl.textContent   = newCount > 0 ? '· ' + newCount : '';
+    if(statCount) statCount.textContent = String(newCount);
+    btn.style.border     = newLiked ? '0.5px solid rgba(239,68,68,.45)' : '0.5px solid rgba(255,255,255,.1)';
+    btn.style.background = newLiked ? 'rgba(239,68,68,.12)'             : 'rgba(255,255,255,.04)';
+    btn.style.color      = newLiked ? '#ef4444'                         : 'rgba(255,255,255,.6)';
+
+    // DB operation
+    var sb = window.sb || window.supabase;
+    if(!sb) return;
+    if(newLiked){
+      var r = await sb.from('likes').insert({ from_user_id: window.SB_USER.id, to_user_id: targetId });
+      if(r && r.error && r.error.code !== '23505') throw r.error;
+    } else {
+      var r2 = await sb.from('likes').delete().eq('from_user_id', window.SB_USER.id).eq('to_user_id', targetId);
+      if(r2 && r2.error) throw r2.error;
+    }
+  } catch(e) {
+    console.warn('[DTR] toggleLikeUser error:', e);
+    if(typeof showToast==='function') showToast('Ошибка лайка — попробуй ещё раз','⚠️');
+  }
+};
+</script>
+
 </div>
 
 <div class="main" role="main">
@@ -19697,6 +19748,73 @@ function closeUserProfile(){
   document.getElementById('userProfileOv').classList.remove('show');
 }
 
+// ── toggleLikeUser — лайк/анлайк в модальном профиле ─────────
+window.toggleLikeUser = async function(){
+  if(!SB_USER || SB_USER.isDemoUser){ showToast('Войди чтобы ставить лайки','ℹ️'); return; }
+  const ov = document.getElementById('userProfileOv');
+  const targetId = ov?.dataset?.userId;
+  if(!targetId || targetId === SB_USER.id) return;
+
+  const btn      = document.getElementById('upLikeBtn');
+  const iconEl   = document.getElementById('upLikeBtnIcon');
+  const labelEl  = document.getElementById('upLikeBtnLabel');
+  const countEl  = document.getElementById('upLikeCount');
+  const statCount= document.getElementById('upStatLikeCount');
+  if(!btn) return;
+
+  const isLiked = btn.dataset.liked === 'true';
+
+  // Оптимистичное обновление UI
+  const newLiked = !isLiked;
+  btn.dataset.liked = String(newLiked);
+  if(iconEl){
+    iconEl.setAttribute('fill', newLiked ? '#ef4444' : 'none');
+    iconEl.setAttribute('stroke', '#ef4444');
+    iconEl.style.animation = newLiked ? 'heartPop .35s cubic-bezier(.34,1.56,.64,1) both' : '';
+  }
+  if(labelEl) labelEl.textContent = newLiked ? 'Нравится' : 'Поставить лайк';
+
+  // Обновляем счётчик
+  const curCount = parseInt((countEl?.textContent||'0').replace(/[^0-9]/g,'')) || 0;
+  const newCount = newLiked ? curCount + 1 : Math.max(0, curCount - 1);
+  if(countEl)  countEl.textContent  = newCount > 0 ? '· ' + newCount : '';
+  if(statCount) statCount.textContent = String(newCount);
+
+  // Стили кнопки
+  btn.style.border     = newLiked ? '0.5px solid rgba(239,68,68,.45)' : '0.5px solid rgba(255,255,255,.1)';
+  btn.style.background = newLiked ? 'rgba(239,68,68,.12)' : 'rgba(255,255,255,.04)';
+  btn.style.color      = newLiked ? '#ef4444' : 'rgba(255,255,255,.6)';
+
+  // DB операция
+  try {
+    if(newLiked){
+      const { error } = await sb.from('likes').insert({
+        from_user_id: SB_USER.id,
+        to_user_id: targetId
+      });
+      if(error && error.code !== '23505') throw error; // 23505 = уже есть запись
+    } else {
+      const { error } = await sb.from('likes')
+        .delete()
+        .eq('from_user_id', SB_USER.id)
+        .eq('to_user_id', targetId);
+      if(error) throw error;
+    }
+  } catch(e){
+    console.warn('[DTR] toggleLikeUser error:', e);
+    // Откат оптимистичного обновления
+    btn.dataset.liked = String(isLiked);
+    if(iconEl){ iconEl.setAttribute('fill', isLiked ? '#ef4444' : 'none'); }
+    if(labelEl) labelEl.textContent = isLiked ? 'Нравится' : 'Поставить лайк';
+    if(countEl)  countEl.textContent  = curCount > 0 ? '· ' + curCount : '';
+    if(statCount) statCount.textContent = String(curCount);
+    btn.style.border     = isLiked ? '0.5px solid rgba(239,68,68,.45)' : '0.5px solid rgba(255,255,255,.1)';
+    btn.style.background = isLiked ? 'rgba(239,68,68,.12)' : 'rgba(255,255,255,.04)';
+    btn.style.color      = isLiked ? '#ef4444' : 'rgba(255,255,255,.6)';
+    showToast('Ошибка — попробуй ещё раз', '⚠️');
+  }
+};
+
 // ─── Profile modal: friend request helpers ───────────────────
 window.upSendFriendRequest = async function(toUserId, toName, btn) {
   if (!SB_USER) return;
@@ -24033,6 +24151,7 @@ function initRealtimeMessages() {
       if(status==='SUBSCRIBED'){
         /* Connected - cancel any polling fallback */
         if(window._dmPollTimer){clearInterval(window._dmPollTimer);window._dmPollTimer=null;}
+        if(window._dmReconnectTimer){clearTimeout(window._dmReconnectTimer);window._dmReconnectTimer=null;}
       }
       if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
         console.warn('[DTR] DM channel lost, reconnecting in 4s...');
@@ -24042,9 +24161,13 @@ function initRealtimeMessages() {
             if(typeof loadConversations==='function')loadConversations();
           },5000);
         }
-        setTimeout(function(){
-          if(SB_USER&&!SB_USER.isDemoUser) initRealtimeMessages();
-        }, 4000);
+        // Guard: не запускаем reconnect если уже один в очереди
+        if(!window._dmReconnectTimer){
+          window._dmReconnectTimer = setTimeout(function(){
+            window._dmReconnectTimer = null;
+            if(SB_USER&&!SB_USER.isDemoUser) initRealtimeMessages();
+          }, 4000);
+        }
       }
     });
 
