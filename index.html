@@ -41162,7 +41162,15 @@ async function _msgSendVoiceGroup(blob, groupId, duration){
   const sendBtn = document.getElementById('grpSendBtn');
   if(sendBtn){ sendBtn.classList.add('uploading'); }
   try {
+    /* ── 1. Upload to Storage ──────────────────────────────────────────────
+       NOTE: base64 fallback is intentionally REMOVED for groups.
+       group_messages.content has CHECK (char_length(content) BETWEEN 1 AND 4000)
+       which rejects base64 audio (routinely > 100 KB). Storage is required.
+       If you need offline/fallback support, drop the constraint in Supabase:
+         ALTER TABLE group_messages DROP CONSTRAINT group_messages_content_check;
+    ─────────────────────────────────────────────────────────────────────── */
     let voiceUrl = null;
+    let storageError = null;
     const ext  = blob.type.includes('ogg') ? 'ogg' : 'webm';
     const path = `group/${groupId}/voice_${Date.now()}.${ext}`;
     try {
@@ -41170,19 +41178,28 @@ async function _msgSendVoiceGroup(blob, groupId, duration){
       if(!error){
         const { data } = sb.storage.from('chat-files').getPublicUrl(path);
         voiceUrl = data.publicUrl;
+        console.log('[DTR Voice] storage upload OK, url=', voiceUrl);
+      } else {
+        storageError = error;
+        console.error('[DTR Voice] storage upload error:', error);
       }
-    } catch(e){ console.warn('[DTR] grp voice storage:', e); }
-    if(!voiceUrl){
-      voiceUrl = await new Promise((resolve, reject)=>{
-        const reader = new FileReader();
-        reader.onload  = e => resolve(e.target.result);
-        reader.onerror = () => reject(new Error('read failed'));
-        reader.readAsDataURL(blob);
-      });
+    } catch(e){
+      storageError = e;
+      console.error('[DTR Voice] storage upload exception:', e);
     }
+
+    /* If storage failed — abort with a clear message instead of silently
+       writing a multi-hundred-KB base64 string that violates the DB constraint */
+    if(!voiceUrl){
+      const hint = storageError?.message || storageError?.error || 'нет доступа к хранилищу';
+      showToast('Не удалось загрузить аудио: ' + hint + '. Проверь политики bucket chat-files.', '⚠️');
+      console.error('[DTR Voice] aborting — storage unavailable:', storageError);
+      return;
+    }
+
     const voiceContent = JSON.stringify({ url: voiceUrl, duration: Math.round(duration) });
 
-    /* Show message to sender IMMEDIATELY — don't wait for DB round-trip */
+    /* ── 2. Optimistic append — shown AFTER storage succeeds ─────────────── */
     const _optId = 'opt_voice_' + Date.now();
     const _optMsg = {
       id: _optId,
@@ -41200,7 +41217,6 @@ async function _msgSendVoiceGroup(blob, groupId, duration){
         console.log('[DTR Voice] appended OK');
       } catch(e) {
         console.error('[DTR Voice] append failed:', e);
-        /* Fallback: reload messages */
         setTimeout(()=>{ if(typeof _grpLoadMessages==='function') _grpLoadMessages(groupId, false); }, 500);
       }
     } else {
@@ -41208,7 +41224,7 @@ async function _msgSendVoiceGroup(blob, groupId, duration){
       setTimeout(()=>{ if(typeof _grpLoadMessages==='function') _grpLoadMessages(groupId, false); }, 500);
     }
 
-    /* Then insert to DB */
+    /* ── 3. Insert to DB ─────────────────────────────────────────────────── */
     const ins = await sb.from('group_messages').insert({
       group_id: groupId,
       from_user_id: SB_USER.id,
@@ -41227,7 +41243,10 @@ async function _msgSendVoiceGroup(blob, groupId, duration){
     showToast('Голосовое отправлено 🎤');
   } catch(err){
     console.error('[DTR] grp voice send:', err);
-    showToast('Ошибка: ' + (err?.message||''), '⚠️');
+    /* Mark the optimistic bubble as failed so user knows it didn't go through */
+    const _failBub = document.querySelector('.msg-bubble[data-msg-id^="opt_voice_"]');
+    if(_failBub){ _failBub.style.opacity='.45'; _failBub.style.filter='grayscale(1)'; _failBub.title='Ошибка отправки'; }
+    showToast('Ошибка отправки: ' + (err?.message||err?.code||'неизвестная'), '⚠️');
   } finally {
     if(sendBtn){ sendBtn.classList.remove('uploading'); }
   }
