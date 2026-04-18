@@ -40822,10 +40822,14 @@ function _msgMicStartHold(e, toUserId, groupId){
   if(btn){ btn.style.background = 'rgba(245,200,66,.15)'; btn.style.transform = 'scale(0.95)'; }
 
   MIC_STATE.holdTimeout = setTimeout(()=>{
-    console.log('[DTR] 350ms hold complete, starting recording. groupId=', MIC_STATE.groupId);
+    /* Capture groupId SYNCHRONOUSLY — before async getUserMedia suspends execution.
+       Without this, _msgMicStopHold else-branch can race and zero out MIC_STATE.groupId
+       while getUserMedia is awaiting, causing capturedGroupId=null in onstop. */
+    const _lockedGroupId = MIC_STATE.groupId;
+    console.log('[DTR] 350ms hold complete, starting recording. groupId=', _lockedGroupId);
     _micHoldActive = true;
     if(btn){ btn.style.transform = 'scale(1.05)'; btn.style.background = 'var(--red)'; }
-    _msgStartRecording(toUserId);
+    _msgStartRecording(toUserId, _lockedGroupId);
   }, MIC_HOLD_MS);
 }
 
@@ -40871,9 +40875,14 @@ function _msgMicCancel(){
   MIC_STATE.groupId = null;
 }
 
-async function _msgStartRecording(toUserId){
+async function _msgStartRecording(toUserId, _groupIdLock){
+  /* Re-assert groupId before AND after getUserMedia await.
+     Race: mouseup fires while getUserMedia is pending → _msgMicStopHold else-branch
+     sets MIC_STATE.groupId=null → capturedGroupId=null in onstop → no destination. */
+  if(typeof _groupIdLock !== 'undefined') MIC_STATE.groupId = _groupIdLock || null;
   try {
     MIC_STATE.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    if(typeof _groupIdLock !== 'undefined') MIC_STATE.groupId = _groupIdLock || null;
   } catch(e){
     showToast('Нет доступа к микрофону. Разреши в браузере.', '🎤');
     return;
