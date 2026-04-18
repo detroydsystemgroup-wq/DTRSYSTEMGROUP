@@ -41142,6 +41142,10 @@ async function _msgSendVoice(blob, toUserId, duration){
 // sendMsg — file check integrated directly (no override needed)
 
 
+
+
+
+
 /* ── Group voice send — same as DM but inserts into group_messages ── */
 async function _msgSendVoiceGroup(blob, groupId, duration){
   if(!SB_USER || !groupId) return;
@@ -41179,7 +41183,20 @@ async function _msgSendVoiceGroup(blob, groupId, duration){
       is_system: false,
       created_at: new Date().toISOString(),
     };
-    if(typeof _grpAppendMessage === 'function') _grpAppendMessage(_optMsg);
+    console.log('[DTR Voice] grpActiveId=', _grpActiveId, 'groupId=', groupId);
+    if(typeof _grpAppendMessage === 'function') {
+      try {
+        _grpAppendMessage(_optMsg);
+        console.log('[DTR Voice] appended OK');
+      } catch(e) {
+        console.error('[DTR Voice] append failed:', e);
+        /* Fallback: reload messages */
+        setTimeout(()=>{ if(typeof _grpLoadMessages==='function') _grpLoadMessages(groupId, false); }, 500);
+      }
+    } else {
+      console.error('[DTR Voice] _grpAppendMessage missing, reloading');
+      setTimeout(()=>{ if(typeof _grpLoadMessages==='function') _grpLoadMessages(groupId, false); }, 500);
+    }
 
     /* Then insert to DB */
     const ins = await sb.from('group_messages').insert({
@@ -41205,7 +41222,6 @@ async function _msgSendVoiceGroup(blob, groupId, duration){
     if(sendBtn){ sendBtn.classList.remove('uploading'); }
   }
 }
-
 
 // ── Helpers to accept/decline using stored call data (avoids onclick escaping) ──
 function _vcAcceptStoredCall(){
