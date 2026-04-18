@@ -14450,7 +14450,7 @@ window.toggleLikeUser = async function(){
     if(labelEl) labelEl.textContent = newLiked ? 'Нравится' : 'Поставить лайк';
     var curCount = parseInt((countEl && countEl.textContent || '0').replace(/[^0-9]/g,'')) || 0;
     var newCount = newLiked ? curCount + 1 : Math.max(0, curCount - 1);
-    if(countEl)   countEl.textContent   = newCount > 0 ? '· ' + newCount : '';
+    if(countEl)   countEl.textContent   = '';
     if(statCount) statCount.textContent = String(newCount);
     btn.style.border     = newLiked ? '0.5px solid rgba(239,68,68,.45)' : '0.5px solid rgba(255,255,255,.1)';
     btn.style.background = newLiked ? 'rgba(239,68,68,.12)'             : 'rgba(255,255,255,.04)';
@@ -19407,13 +19407,22 @@ async function openUserProfile(userId, name, av, avUrl){
     const totalLikes= likeRes.count ?? 0;
     const friendsCount = friendCountRes?.count ?? 0;
     const totalH    = parseFloat(uc.reduce((s,r)=>s+(r.hours||0),0).toFixed(1));
-    const lvlInfo   = getLevelInfo(totalH);
-    const lvlColor  = lvlInfo.color.includes('gradient') ? 'var(--gold)' : lvlInfo.color;
-    const topCat    = ALL_CATS.find(c=>c.id===uc[0]?.category_id);
     const streak    = u?.streak || 0;
     const sessions  = u?.total_sessions || 0;
-    const username  = u?.username || name || '—';
     const achCount  = achs.length;
+
+    // ── Реальный XP: часы + сессии + стрик + достижения (как у calcTotalXP) ──
+    let _xp = Math.floor(totalH * 50);                              // 50 XP/ч
+    _xp += Math.floor(sessions * 8);                               // 8 XP/сессия
+    _xp += streak * 3 + Math.floor(streak / 7) * 20;              // стрик
+    achs.forEach(ua => {
+      const def = (typeof ACH_DEF !== 'undefined') ? ACH_DEF.find(d => d.id === ua.achievement_id) : null;
+      if(def) _xp += (def.xp || 0);
+    });
+    const lvlInfo   = (typeof _lvlFromXP === 'function') ? _lvlFromXP(_xp) : getLevelInfo(totalH);
+    const lvlColor  = lvlInfo.color.includes('gradient') ? 'var(--gold)' : lvlInfo.color;
+    const topCat    = ALL_CATS.find(c=>c.id===uc[0]?.category_id);
+    const username  = u?.username || name || '—';
     const accentColor = topCat?.color || lvlColor;
 
     ov.dataset.userName = username;
@@ -19568,8 +19577,7 @@ async function openUserProfile(userId, name, av, avUrl){
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
         </svg>
         <span id="upLikeBtnLabel">${isLiked ? 'Нравится' : 'Поставить лайк'}</span>
-        <span id="upLikeCount" style="font-family:var(--font-mono);font-size:12px;
-              font-weight:400;opacity:.6;letter-spacing:-.01em;margin-left:2px">${likeCount > 0 ? '· '+likeCount : ''}</span>
+        <span id="upLikeCount" style="display:none"></span>
       </button>
 
       ${friendBtn}
@@ -19806,7 +19814,7 @@ window.toggleLikeUser = async function(){
     btn.dataset.liked = String(isLiked);
     if(iconEl){ iconEl.setAttribute('fill', isLiked ? '#ef4444' : 'none'); }
     if(labelEl) labelEl.textContent = isLiked ? 'Нравится' : 'Поставить лайк';
-    if(countEl)  countEl.textContent  = curCount > 0 ? '· ' + curCount : '';
+    if(countEl)  countEl.textContent  = '';
     if(statCount) statCount.textContent = String(curCount);
     btn.style.border     = isLiked ? '0.5px solid rgba(239,68,68,.45)' : '0.5px solid rgba(255,255,255,.1)';
     btn.style.background = isLiked ? 'rgba(239,68,68,.12)' : 'rgba(255,255,255,.04)';
