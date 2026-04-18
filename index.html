@@ -11745,7 +11745,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
 #userProfileOv #upCover {
   height: 148px !important; min-height: 148px !important;
   flex-shrink: 0 !important; position: relative !important;
-  overflow: visible !important; border-radius: 26px 26px 0 0 !important;
+  overflow: hidden !important; border-radius: 26px 26px 0 0 !important;
 }
 /* Animated gold topline */
 #userProfileOv #upCover::before {
@@ -11769,7 +11769,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
 /* ── Level badge in cover (bottom-left, right of avatar) ── */
 #userProfileOv .up-cover-level {
   position: absolute !important;
-  bottom: 14px !important; left: 188px !important;
+  bottom: 14px !important; left: 24px !important;
   z-index: 7 !important;
   display: inline-flex !important; align-items: center !important; gap: 6px !important;
   padding: 5px 13px 5px 10px !important;
@@ -11790,7 +11790,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
 /* ━━ AVATAR ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 #userProfileOv #upAv,
 #userProfileOv .up-av-inline {
-  width: 108px !important; height: 108px !important;
+  width: 96px !important; height: 96px !important;
   font-size: 54px !important; border-radius: 22px !important;
   position: static !important;            /* нормальный поток, не absolute */
   background: linear-gradient(135deg,#1a1809,#2a2410) !important;
@@ -11798,7 +11798,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
   display: flex !important; align-items: center !important;
   justify-content: center !important; overflow: hidden !important;
   flex-shrink: 0 !important;
-  margin: 0 auto 16px !important;         /* по центру + отступ под аватар */
+  margin: 0 !important;
   box-shadow: 0 8px 32px rgba(0,0,0,.55),
               0 0 0 4px rgba(245,200,66,.08),
               0 0 28px rgba(245,200,66,.15) !important;
@@ -19321,12 +19321,25 @@ async function openUserProfile(userId, name, av, avUrl){
     </div>`;
 
   // Cover — только градиент и кнопка закрытия (аватар теперь в сайдбаре)
+  // ВАЖНО: не перезаписываем cover.innerHTML целиком — это уничтожит #upCoverLevel
+  // Вместо этого обновляем background и только добавляем кнопку закрытия
   cover.style.background = 'linear-gradient(135deg,rgba(245,200,66,.12) 0%,rgba(8,8,10,1) 100%)';
-  cover.innerHTML = `
-    <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(245,200,66,.08),transparent 60%);pointer-events:none"></div>
-    <button onclick="closeUserProfile()" style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:9px;background:rgba(0,0,0,.4);border:0.5px solid rgba(255,255,255,.1);color:rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:3;backdrop-filter:blur(8px);transition:background .15s" onmouseover="this.style.background='rgba(0,0,0,.7)'" onmouseout="this.style.background='rgba(0,0,0,.4)'">
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>`;
+  // Убираем старую кнопку закрытия если была, добавляем новую
+  cover.querySelectorAll('button').forEach(b => b.remove());
+  const _closeBtn = document.createElement('button');
+  _closeBtn.setAttribute('onclick','closeUserProfile()');
+  _closeBtn.style.cssText = 'position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:9px;background:rgba(0,0,0,.4);border:0.5px solid rgba(255,255,255,.1);color:rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:3;backdrop-filter:blur(8px);transition:background .15s';
+  _closeBtn.onmouseover = function(){ this.style.background='rgba(0,0,0,.7)'; };
+  _closeBtn.onmouseout  = function(){ this.style.background='rgba(0,0,0,.4)'; };
+  _closeBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+  cover.appendChild(_closeBtn);
+  // Ambient gradient overlay (non-destructive)
+  if(!cover.querySelector('.up-cover-ambient')){
+    const _amb = document.createElement('div');
+    _amb.className = 'up-cover-ambient';
+    _amb.style.cssText = 'position:absolute;inset:0;background:linear-gradient(135deg,rgba(245,200,66,.08),transparent 60%);pointer-events:none';
+    cover.insertBefore(_amb, cover.firstChild);
+  }
 
   try {
     const [uRes, ucRes, achRes, likeRes, friendCountRes] = await Promise.all([
@@ -19355,8 +19368,20 @@ async function openUserProfile(userId, name, av, avUrl){
     ov.dataset.userName = username;
     ov.dataset.userAv   = u?.avatar || av || '🎯';
 
-    // ── Cover: обновляем только градиент ──
-    cover.style.background = `linear-gradient(160deg,${accentColor}28 0%,rgba(9,9,11,.98) 100%)`;
+    // ── Cover: обновляем градиент и показываем уровень ──
+    cover.style.background = `linear-gradient(160deg,${accentColor}45 0%,rgba(9,9,11,.98) 100%)`;
+    // Ambient overlay — обновляем цвет
+    const _ambEl = cover.querySelector('.up-cover-ambient');
+    if(_ambEl) _ambEl.style.background = `linear-gradient(135deg,${accentColor}18,transparent 60%)`;
+    // Уровень в обложке — элемент сохранился, просто обновляем текст и показываем
+    const lvlBadge = document.getElementById('upCoverLevel');
+    const lvlText  = document.getElementById('upCoverLevelText');
+    if(lvlBadge && lvlText){
+      lvlText.textContent = `УР.${lvlInfo.lvl} · ${lvlInfo.name}`;
+      lvlBadge.style.display = 'inline-flex';
+      lvlBadge.style.borderColor = `${accentColor}60`;
+      lvlBadge.style.color = accentColor.startsWith('var') ? 'var(--gold)' : accentColor;
+    }
 
     // ── Аватар: теперь в сайдбаре (#upAv.up-av-inline) ──
     const avEl = document.getElementById('upAv');
@@ -19646,13 +19671,15 @@ async function openUserProfile(userId, name, av, avUrl){
       ['upLikeCount'].forEach(id => {
         const el = document.getElementById(id);
         if(!el) return;
-        const target = parseInt(el.textContent) || 0;
+        // FIX: strip non-numeric chars before parsing (format is '· N' or '')
+        const target = parseInt(el.textContent.replace(/[^0-9]/g,'')) || 0;
+        if(target === 0) return; // nothing to animate
         el.textContent = '0';
         const t0 = performance.now();
         const tick = now => {
           const p = Math.min((now-t0)/600, 1);
           const e = 1-Math.pow(1-p,3);
-          el.textContent = Math.round(target*e);
+          el.textContent = '· ' + Math.round(target*e);
           if(p<1) requestAnimationFrame(tick);
         };
         requestAnimationFrame(tick);
