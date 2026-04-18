@@ -36410,21 +36410,6 @@ async function socLoadFriends(){
       // Fetch all data in parallel
       const [{data: users}, {data: userCats}, {data: allSess}] = await Promise.all([
         sb.from('users')
-          .select('id,username,avatar,avatar_url')
-          .in('id', ids),
-        sb.from('user_categories')
-          .select('user_id,category_id,hours')
-          .in('user_id', ids),
-        // All sessions for streak calc + last 30 days for 24h filter
-        sb.from('sessions')
-          .select('user_id,duration_seconds,created_at,category_id')
-          .in('user_id', ids)
-          .order('created_at', {ascending: false})
-          .limit(500),
-      ]);
-
-      const [{data: users}, {data: userCats}, {data: allSess}] = await Promise.all([
-        sb.from('users')
           .select('id,username,avatar,avatar_url,last_seen')
           .in('id', ids),
         sb.from('user_categories')
