@@ -9019,29 +9019,38 @@ body {
   display: flex; align-items: center; gap: 4px; opacity: .85;
 }
 
-/* Chips row */
-.sfc-chips {
-  display: flex; flex-wrap: wrap; gap: 5px;
+/* Stats grid — label above, value below */
+.sfc-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 2px;
 }
-.sfc-chip {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 3px 9px; border-radius: 20px;
-  font-size: 11px; font-weight: 600;
-  font-family: var(--font-display); letter-spacing: .01em;
-  color: var(--chip-c, var(--t2));
-  background: rgba(255,255,255,.05);
-  border: 0.5px solid rgba(255,255,255,.1);
-  transition: transform .15s, opacity .15s;
-  white-space: nowrap;
-  /* color-tint via box-shadow */
-  box-shadow: inset 0 0 0 100px rgba(0,0,0,.0);
+.sfc-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 80px;
 }
-/* Each chip gets a tinted bg via inline --chip-c applied via JS filter */
-.sfc-chip[style*="--chip-c"] {
-  background: rgba(255,255,255,.04);
-  filter: none;
+.sfc-stat-lbl {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--t3);
+  line-height: 1.2;
 }
-.sfc-chip:hover { transform: scale(1.06); }
+.sfc-stat-val {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--t1);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1.3;
+  letter-spacing: -.01em;
+}
+.sfc-stat-val svg { flex-shrink: 0; opacity: .8; }
 
 /* Action buttons */
 .sfc-acts {
@@ -36383,41 +36392,55 @@ async function socLoadFriends(){
       r.from_user === SB_USER.id ? r.to_user : r.from_user
     ));
 
-    // Fetch enriched user info: streak, active_days, total hours via user_categories
     let userMap = {};
     if(partnerIds.size){
       const ids = [...partnerIds];
-      const [{data: users}, {data: userCats}, {data: recentSess}] = await Promise.all([
+
+      // Fetch all data in parallel
+      const [{data: users}, {data: userCats}, {data: allSess}] = await Promise.all([
         sb.from('users')
-          .select('id,username,avatar,avatar_url,streak,active_days')
+          .select('id,username,avatar,avatar_url')
           .in('id', ids),
         sb.from('user_categories')
           .select('user_id,category_id,hours')
           .in('user_id', ids),
+        // All sessions for streak calc + last 30 days for 24h filter
         sb.from('sessions')
           .select('user_id,duration_seconds,created_at,category_id')
           .in('user_id', ids)
-          .gte('created_at', new Date(Date.now() - 86400000).toISOString())
-          .order('created_at', {ascending: false}),
+          .order('created_at', {ascending: false})
+          .limit(500),
       ]);
 
-      // Build hours-per-user map from user_categories
+      // Total hours per user from user_categories
       const hoursMap = {};
       (userCats||[]).forEach(uc => {
-        hoursMap[uc.user_id] = (hoursMap[uc.user_id] || 0) + (uc.hours || 0);
+        const h = parseFloat(uc.hours) || 0;
+        hoursMap[uc.user_id] = (hoursMap[uc.user_id] || 0) + h;
       });
 
-      // Build top active category per user
+      // Top category per user (most hours)
       const catHoursMap = {};
       (userCats||[]).forEach(uc => {
         if(!catHoursMap[uc.user_id]) catHoursMap[uc.user_id] = {};
-        catHoursMap[uc.user_id][uc.category_id] = (catHoursMap[uc.user_id][uc.category_id]||0) + (uc.hours||0);
+        const h = parseFloat(uc.hours) || 0;
+        catHoursMap[uc.user_id][uc.category_id] = (catHoursMap[uc.user_id][uc.category_id]||0) + h;
+      });
+
+      // Per-user sessions arrays
+      const sessMap = {};
+      (allSess||[]).forEach(s => {
+        if(!sessMap[s.user_id]) sessMap[s.user_id] = [];
+        sessMap[s.user_id].push(s);
       });
 
       // Hours in last 24h per user
+      const cutoff24 = Date.now() - 86400000;
       const hrs24Map = {};
-      (recentSess||[]).forEach(s => {
-        hrs24Map[s.user_id] = (hrs24Map[s.user_id] || 0) + (s.duration_seconds || 0);
+      (allSess||[]).forEach(s => {
+        if(new Date(s.created_at).getTime() >= cutoff24){
+          hrs24Map[s.user_id] = (hrs24Map[s.user_id] || 0) + (s.duration_seconds || 0);
+        }
       });
 
       (users||[]).forEach(u => {
@@ -36425,14 +36448,16 @@ async function socLoadFriends(){
         const catMap = catHoursMap[u.id] || {};
         const topCatId = Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0]?.[0] || null;
         const topCat = topCatId ? (ALL_CATS||[]).find(c=>c.id===topCatId) : null;
-        const hrs24 = Math.round((hrs24Map[u.id]||0) / 360) / 10; // hours with 1 decimal
-        userMap[u.id] = {
-          ...u,
-          totalHours,
-          topCat,
-          hrs24,
-          streak: u.streak || 0,
-        };
+        const hrs24Secs = hrs24Map[u.id] || 0;
+        const hrs24 = Math.floor(hrs24Secs / 360) / 10; // 1 decimal
+
+        // Compute streak from sessions (same logic as main app)
+        const userSess = sessMap[u.id] || [];
+        const streak = typeof computeStreakFromSessions === 'function'
+          ? computeStreakFromSessions(userSess)
+          : 0;
+
+        userMap[u.id] = { ...u, totalHours, topCat, hrs24, streak };
       });
     }
 
@@ -36447,10 +36472,8 @@ async function socLoadFriends(){
         hrs24: u.hrs24 || 0,
         streak: u.streak || 0,
       };
-
-      if(r.status === 'accepted'){
-        friendIds.push(entry);
-      } else if(r.status === 'pending'){
+      if(r.status === 'accepted') friendIds.push(entry);
+      else if(r.status === 'pending'){
         if(r.to_user === SB_USER.id) SOC.pendingIn.push(entry);
         else SOC.pendingOut.push(entry);
       }
@@ -36545,9 +36568,7 @@ function socRenderFriends(){
               ? `<img src="${u.avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`
               : `<span style="font-size:28px">${esc(u.avatar||'🎯')}</span>`}
           </div>
-          <div class="sfc-lvl-badge" style="background:${lvlInfo.color}22;color:${lvlInfo.color};border-color:${lvlInfo.color}44">
-            ${lvlInfo.lvl}
-          </div>
+          ${lvlInfo.lvl > 1 ? `<div class="sfc-lvl-badge" style="background:${lvlInfo.color}22;color:${lvlInfo.color};border-color:${lvlInfo.color}44">${lvlInfo.lvl}</div>` : ''}
         </div>
 
         <!-- Main info -->
@@ -36565,37 +36586,43 @@ function socRenderFriends(){
             ${esc(lvlInfo.name)}
           </div>
 
-          <!-- Row 3: Stats chips -->
-          <div class="sfc-chips">
-            <!-- Active league -->
+          <!-- Row 3: Stats grid -->
+          <div class="sfc-stats">
+
             ${topCat ? `
-            <div class="sfc-chip" style="background:${topCat.color||'#F5C842'}18;border-color:${topCat.color||'#F5C842'}44;color:${topCat.color||'#F5C842'}">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>
-              <span>${esc(topCat.name)}</span>
+            <div class="sfc-stat">
+              <span class="sfc-stat-lbl">Активная лига</span>
+              <span class="sfc-stat-val" style="color:${topCat.color||'#F5C842'}">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>
+                ${esc(topCat.name)}
+              </span>
             </div>` : ''}
 
-            <!-- Streak -->
-            <div class="sfc-chip" style="background:${streakColor}18;border-color:${streakColor}44;color:${streakColor}">
-              ${streakFire}
-              <span>${streak}д</span>
+            <div class="sfc-stat">
+              <span class="sfc-stat-lbl">Дисциплина</span>
+              <span class="sfc-stat-val" style="color:${streakColor}">
+                ${streakFire}
+                ${streak > 0 ? `${streak} дн. подряд` : `—`}
+              </span>
             </div>
 
-            <!-- Total hours -->
-            <div class="sfc-chip" style="background:rgba(26,159,255,.1);border-color:rgba(26,159,255,.28);color:#1a9fff">
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              <span>${totalH}ч всего</span>
+            ${totalH > 0 ? `
+            <div class="sfc-stat">
+              <span class="sfc-stat-lbl">Всего часов</span>
+              <span class="sfc-stat-val" style="color:#1a9fff">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                ${totalH} ч
+              </span>
+            </div>` : ''}
+
+            <div class="sfc-stat">
+              <span class="sfc-stat-lbl">За последние сутки</span>
+              <span class="sfc-stat-val" style="color:${hrs24>=2?'#22C55E':hrs24>0?'#F5C842':'var(--t3)'}">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                ${hrs24 > 0 ? `${hrs24.toFixed(1)} ч` : 'Не занимался'}
+              </span>
             </div>
 
-            <!-- 24h activity -->
-            ${hrs24 > 0
-              ? `<div class="sfc-chip" style="background:${hrs24>=2?'rgba(34,197,94,.1)':'rgba(245,200,66,.1)'};border-color:${hrs24>=2?'rgba(34,197,94,.28)':'rgba(245,200,66,.28)'};color:${hrs24>=2?'#22C55E':'#F5C842'}">
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M3 12h3M18 12h3M12 3v3M12 18v3"/></svg>
-                  <span>${hrs24Label}</span>
-                </div>`
-              : `<div class="sfc-chip" style="background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1);color:var(--t3)">
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M3 12h3M18 12h3M12 3v3M12 18v3"/></svg>
-                  <span>Не активен</span>
-                </div>`}
           </div>
 
         </div>
