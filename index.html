@@ -16662,7 +16662,7 @@ const ACH_DEF=[
 {id:'dawn_sess',  cat:'sess',  name:'Рассвет',              desc:'Начни сессию до 6 утра — ты из другого теста.',t:'time_early', th:6,    color:'#FCD34D', rarity:'uncommon',  xp:200,  aura:'gold',     icon:'sun'},
 {id:'early_bird', cat:'sess',  name:'Ранняя Пташка',        desc:'Начни сессию до 8 утра.',                     t:'time_early', th:8,    color:'#FBBF24', rarity:'common',    xp:100,  aura:'gold',     icon:'sun'},
 {id:'night_owl',  cat:'sess',  name:'Ночная Сова',          desc:'Начни сессию после 22:00.',                   t:'time_late',  th:22,   color:'#818CF8', rarity:'common',    xp:100,  aura:'electric', icon:'moon'},
-{id:'midnight_r', cat:'sess',  name:'Полночный Гриндер',    desc:'Начни сессию после полуночи.',                 t:'time_late',  th:24,   color:'#4338CA', rarity:'uncommon',  xp:200,  aura:'void',     icon:'eye'},
+{id:'midnight_r', cat:'sess',  name:'Полночный Гриндер',    desc:'Начни сессию после полуночи.',                 t:'midnight',   th:1,    color:'#4338CA', rarity:'uncommon',  xp:200,  aura:'void',     icon:'eye'},
 {id:'weekend_h',  cat:'sess',  name:'Выходной Герой',       desc:'Сессия в субботу или воскресенье.',            t:'weekend',    th:1,    color:'#10B981', rarity:'common',    xp:75,   aura:'ice',      icon:'check_circle'},
 {id:'daily_2h',   cat:'sess',  name:'Двухчасовой Марафон',  desc:'2+ часов за один день.',                      t:'day_hrs',    th:2,    color:'#22C55E', rarity:'common',    xp:100,  aura:'ice',      icon:'target'},
 {id:'daily_5h',   cat:'sess',  name:'Пятичасовой Монстр',   desc:'5 часов за один день. Феноменально.',         t:'day_hrs',    th:5,    color:'#16A34A', rarity:'rare',      xp:400,  aura:'toxic',    icon:'fire'},
@@ -17241,7 +17241,7 @@ async function loadUser(userId){
   const computedActiveDays = new Set(
     sessionsDeduped.map(s=>{
       const d = new Date(s.created_at);
-      return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     })
   ).size;
   // Active days: sessions are source of truth. If empty → 0 (no Math.max with stale DB value).
@@ -17429,8 +17429,8 @@ async function saveSession(catId,secs){
   P.lastActiveDate=todayISO;
   const newTotalSessions=(P.totalSessions||0)+1;
   // Считаем обновлённое число активных дней (локально)
-  const _nowKey=`${new Date().getFullYear()}-${new Date().getMonth()}-${new Date().getDate()}`;
-  const _existDayKeys=new Set(P.sessions.map(s=>{const d=new Date(sessTs(s)||0);return`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;}));
+  const _nowKey=`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}`;
+  const _existDayKeys=new Set(P.sessions.map(s=>{const d=new Date(sessTs(s)||0);return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}));
   const newActiveDays = (_existDayKeys.has(_nowKey)) ? (P.totalActiveDays||0) : (P.totalActiveDays||0)+1;
   await sb.from('users').update({
     streak:newStreak,
@@ -17521,6 +17521,7 @@ function evalAch(def,sessSeconds=0){
     case 'ach_count':   return unlockedCount>=def.th;
     case 'xp_total':    return totalXP>=def.th;
     case 'level':       return currentLevel>=def.th;
+    case 'midnight':    return h>=0&&h<4; /* после полуночи: 00:00–03:59 */
     case 'time_window': return h>=2&&h<4;
     case 'night_count': return P.sessions.filter(s=>{const sh=s.ts?new Date(s.ts).getHours():24;return sh>=0&&sh<4;}).length>=def.th;
     case 'dawn_count':  return P.sessions.filter(s=>{const sh=s.ts?new Date(s.ts).getHours():24;return sh>=0&&sh<6;}).length>=def.th;
@@ -17599,7 +17600,7 @@ function checkAchsLocal({dur=0}={}){
 function showAchToast(def){
   const el=document.createElement('div');
   el.className='ach-toast-v2';
-  const glowColor=def.color+'33'||'rgba(245,200,66,.2)';
+  const glowColor=(def.color||'rgba(245,200,66,.2)')+'33';
   el.style.cssText+=`--badge-color:${def.color};--badge-color-glow:${glowColor};`;
   const rarityLabels={common:'Обычная',uncommon:'Необычная',rare:'Редкая',epic:'Эпическая',legendary:'Легендарная',mythic:'Мифическая'};
   const rarityLabel=rarityLabels[def.rarity||'common']||'Награда';
@@ -17653,6 +17654,7 @@ function achProgress(def){
     case 'friends_count':return{cur:P.friendsCount||0,max:def.th};
     case 'followers':   return {cur:P.followersCount||0,max:def.th};
     case 'messages_sent':return{cur:P.messagesSent||0,max:def.th};
+    case 'midnight':     return null; /* разовое достижение — прогресс не отображается */
     case 'night_count': return {cur:P.sessions.filter(s=>s.ts&&new Date(s.ts).getHours()<4).length,max:def.th};
     case 'dawn_count':  return {cur:P.sessions.filter(s=>s.ts&&new Date(s.ts).getHours()<6).length,max:def.th};
     case 'goal_streak': return {cur:P.dailyGoalStreak||0,max:def.th};
@@ -17829,14 +17831,14 @@ function _doRenderAll(){
 
 function renderNav(){
   const avEl=document.getElementById('navAv');
-  if(P.avatarUrl){const cbUrl=P.avatarUrl.startsWith("data:")?P.avatarUrl:(P.avatarUrl);avEl.innerHTML=`<img src="${cbUrl}" style="width:26px;height:26px;object-fit:cover;border-radius:7px;display:block" onerror="this.hidden=true">`;}
+  if(P.avatarUrl){const cbUrl=P.avatarUrl.startsWith("data:")?P.avatarUrl:(P.avatarUrl);avEl.innerHTML=`<img src="${esc(cbUrl)}" style="width:26px;height:26px;object-fit:cover;border-radius:7px;display:block" onerror="this.hidden=true">`;}
   else{avEl.innerHTML=P.avatar;}
   document.getElementById('navUname').textContent=P.name;
 }
 function renderHeader(){
   const avEl=document.getElementById('profAv');
   if(P.avatarUrl){
-    avEl.innerHTML=`<img src="${P.avatarUrl}" style="width:100%;height:100%;border-radius:10px;object-fit:cover" onerror="this.hidden=true">`;
+    avEl.innerHTML=`<img src="${esc(P.avatarUrl)}" style="width:100%;height:100%;border-radius:10px;object-fit:cover" onerror="this.hidden=true">`;
   } else {
     avEl.textContent=P.avatar;
   }
@@ -19222,7 +19224,7 @@ function renderAvEl(av, avUrl, size=40, radius=10, border='0.5px solid var(--bor
     `display:flex;align-items:center;justify-content:center;` +
     `font-size:${Math.round(size*0.44)}px;flex-shrink:0;overflow:hidden;`;
   if (avUrl) {
-    return `<div style="${sty}"><img src="${avUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:${radius}px" onerror="this.hidden=true"></div>`;
+    return `<div style="${sty}"><img src="${esc(avUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:${radius}px" onerror="this.hidden=true"></div>`;
   }
   return `<div style="${sty}">${av||'🎯'}</div>`;
 }
@@ -19810,8 +19812,8 @@ function _buildArenaHTML(cats, results){
       const totalHrs = p.hrs > 0 ? (p.hrs>=100?Math.round(p.hrs):p.hrs.toFixed(1))+'ч' : null;
 
       const av = isMe
-        ? (P.avatarUrl ? `<img src="${P.avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:${isTop3?10:7}px" onerror="this.hidden=true">` : `<span style="font-size:${isTop3?19:15}px">${P.avatar}</span>`)
-        : (p.avUrl    ? `<img src="${p.avUrl}"    style="width:100%;height:100%;object-fit:cover;border-radius:${isTop3?10:7}px" onerror="this.hidden=true">` : `<span style="font-size:${isTop3?19:15}px">${p.av}</span>`);
+        ? (P.avatarUrl ? `<img src="${esc(P.avatarUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:${isTop3?10:7}px" onerror="this.hidden=true">` : `<span style="font-size:${isTop3?19:15}px">${P.avatar}</span>`)
+        : (p.avUrl    ? `<img src="${esc(p.avUrl)}"    style="width:100%;height:100%;object-fit:cover;border-radius:${isTop3?10:7}px" onerror="this.hidden=true">` : `<span style="font-size:${isTop3?19:15}px">${p.av}</span>`);
 
       const nameColor = isMe ? cat.color : isTop3 ? pc.txt : 'var(--t1)';
       const statColor = isMe ? cat.color : isTop3 ? pc.txt : 'var(--t2)';
@@ -20552,7 +20554,7 @@ async function openUserProfile(userId, name, av, avUrl){
       avEl.style.border = `2.5px solid ${accentColor}66`;
       avEl.style.boxShadow = `0 8px 32px rgba(0,0,0,.5),0 0 0 4px ${accentColor}12,0 0 28px ${accentColor}22`;
       if(u?.avatar_url){
-        avEl.innerHTML = `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:18px" onerror="this.hidden=true">`;
+        avEl.innerHTML = `<img src="${esc(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:18px" onerror="this.hidden=true">`;
       } else {
         avEl.textContent = u?.avatar || av || '🎯';
       }
@@ -21241,7 +21243,7 @@ function _renderConvList(convs){
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = convs.map((cv,i) => {
     const avHtml = cv.avUrl
-      ? `<img src="${cv.avUrl}" class="img-cover" style="border-radius:13px;width:100%;height:100%;object-fit:cover;display:block;" onerror="this.hidden=true">` 
+      ? `<img src="${esc(cv.avUrl)}" class="img-cover" style="border-radius:13px;width:100%;height:100%;object-fit:cover;display:block;" onerror="this.hidden=true">` 
       : esc(cv.av || '🎯');
     const isUnread = cv.unread > 0;
     const isActive = cv.userId === activeConvUserId;
@@ -21936,7 +21938,7 @@ async function openConv(userId, name, av, avUrl){
     if(typeof _grpUIBuilt!=='undefined') _grpUIBuilt=false;
 
     const avDisplay = avUrl
-      ? `<img src="${avUrl}" class="img-cover" style="border-radius:13px;width:100%;height:100%;object-fit:cover" onerror="this.hidden=true">` 
+      ? `<img src="${esc(avUrl)}" class="img-cover" style="border-radius:13px;width:100%;height:100%;object-fit:cover" onerror="this.hidden=true">` 
       : esc(av||'🎯');
 
     area.innerHTML = `
@@ -22164,7 +22166,7 @@ async function _msgSearchUsers(q){
       }
       res.innerHTML = data.map(u=>{
         const avHtml = u.avatar_url
-          ? `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:11px;" onerror="this.hidden=true">`
+          ? `<img src="${esc(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:11px;" onerror="this.hidden=true">`
           : `<span style="font-size:18px">${u.avatar||'👤'}</span>`;
         return `<div onclick="_msgStartConv('${u.id}','${escAttr(u.username||'?')}','${escAttr(u.avatar||'👤')}','${escAttr(u.avatar_url||'')}')"
           style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;cursor:pointer;transition:background .12s;"
@@ -22177,7 +22179,7 @@ async function _msgSearchUsers(q){
         </div>`;
       }).join('');
     } catch(e){
-      res.innerHTML = '<div style="color:var(--red);font-size:12px;padding:16px;text-align:center;">Ошибка: '+e.message+'</div>';
+      res.innerHTML = '<div style="color:var(--red);font-size:12px;padding:16px;text-align:center;">Ошибка: '+esc(e.message)+'</div>';
     }
   }, 300);
 }
@@ -22974,7 +22976,7 @@ function _startOnlinePolling(userId){
 let _msgPartnerAvCache = { av: '👤', avUrl: null, _name: 'Собеседник' }; // FIX 2: include _name
 function _msgGetPartnerAvatar(){
   const { av, avUrl } = _msgPartnerAvCache;
-  if(avUrl) return `<img src="${avUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:9px;" onerror="this.hidden=true">`;
+  if(avUrl) return `<img src="${esc(avUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:9px;" onerror="this.hidden=true">`;
   return `<span style="font-size:13px;line-height:1;">${av||'👤'}</span>`;
 }
 
@@ -24133,7 +24135,7 @@ async function openPub(){
   const pubAv = document.getElementById('pubAvatar');
   if(pubAv) {
     if(P.avatarUrl) {
-      pubAv.innerHTML = `<img src="${P.avatarUrl}" style="width:100%;height:100%;object-fit:cover">`;
+      pubAv.innerHTML = `<img src="${esc(P.avatarUrl)}" style="width:100%;height:100%;object-fit:cover">`;
     } else {
       pubAv.textContent = P.avatar || '🎯';
     }
@@ -25208,7 +25210,7 @@ function initRealtimeMessages() {
         });
       });
       document.querySelectorAll(`[data-uid="${updated.id}"]`).forEach(el => {
-        if (updated.avatar_url) el.innerHTML = `<img src="${updated.avatar_url}" class="img-cover" style="border-radius:50%" onerror="this.hidden=true">`;
+        if (updated.avatar_url) el.innerHTML = `<img src="${esc(updated.avatar_url)}" class="img-cover" style="border-radius:50%" onerror="this.hidden=true">`;
         else el.textContent = updated.avatar || '🎯';
       });
     })
@@ -25271,7 +25273,7 @@ function msgContentHTML(msg) {
 
   if(ct === 'image'){
     const safeUrl = esc(_mediaUrl || txt);
-    return _fwdBlock + `<img src="${safeUrl}" style="max-width:240px;max-height:200px;border-radius:12px;display:block;margin-bottom:2px;cursor:pointer;object-fit:cover;" onclick="window.open(this.src,'_blank')" loading="lazy" onerror="this.hidden=true">`;
+    return _fwdBlock + `<img src="${esc(safeUrl)}" style="max-width:240px;max-height:200px;border-radius:12px;display:block;margin-bottom:2px;cursor:pointer;object-fit:cover;" onclick="window.open(this.src,'_blank')" loading="lazy" onerror="this.hidden=true">`;
   }
 
   if(ct === 'voice'){
@@ -25286,7 +25288,7 @@ function msgContentHTML(msg) {
     const safeVoiceUrl = esc(voiceUrl2); // FIX 4: escape voice URL
     const durStr = voiceDur > 0 ? Math.floor(voiceDur/60)+':'+(voiceDur%60).toString().padStart(2,'0') : '0:00';
     return _fwdBlock + `
-      <audio id="${vid}" src="${safeVoiceUrl}" preload="none" style="display:none"></audio>
+      <audio id="${vid}" src="${esc(safeVoiceUrl)}" preload="none" style="display:none"></audio>
       <div class="msg-voice-bubble">
         <button class="msg-voice-play" id="${vid}_btn" onclick="_msgVoiceToggle('${vid}')" title="Воспроизвести">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" id="${vid}_ico"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -26471,7 +26473,7 @@ async function uploadAvatarPhoto(){
 
 function getAvatarDisplay(size=48){
   if(P.avatarUrl){
-    return `<img src="${P.avatarUrl}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;border:2px solid var(--blue)" onerror="this.hidden=true">`;
+    return `<img src="${esc(P.avatarUrl)}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;border:2px solid var(--blue)" onerror="this.hidden=true">`;
   }
   return null;
 }
@@ -30241,7 +30243,7 @@ function _lrnRenderSidebar(){
         :_auth.authors.map(a=>{
           let avInner;
           if(a.avatarLoading) avInner=`<div class="lrn-auth-av-spinner"></div>`;
-          else if(a.avatarUrl) avInner=`<img src="${a.avatarUrl}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:9px" onerror="this.hidden=true">`;
+          else if(a.avatarUrl) avInner=`<img src="${esc(a.avatarUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:9px" onerror="this.hidden=true">`;
           else avInner=_lrnInitial(a.name);
           return `<a class="lrn-auth-row" href="${a.url}" target="_blank" rel="noopener">
             <div class="lrn-auth-av" style="background:${a.avatarUrl?'transparent':a.color};overflow:hidden">${avInner}</div>
@@ -30983,7 +30985,7 @@ window._svcRenderMain = function(){
               <a class="svc-tile" href="${svc.url}" target="_blank" rel="noopener">
                 <div class="svc-tile-ico" style="width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);overflow:hidden;flex-shrink:0">
                   <img
-                    src="${favUrl}"
+                    src="${esc(favUrl)}"
                     alt="${svc.name}"
                     width="36"
                     height="36"
@@ -31492,14 +31494,14 @@ window._cmatRenderMain=function(){
   const authorChip=(userId)=>{
     const mm=members.find(x=>x.user_id===userId)||{};
     const u=mm.users||{username:'?',avatar:'?'};
-    const avH=u.avatar_url?`<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:4px">`:`<span style="font-size:14px">${u.avatar||'?'}</span>`;
+    const avH=u.avatar_url?`<img src="${esc(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:4px">`:`<span style="font-size:14px">${u.avatar||'?'}</span>`;
     return `<div style="display:flex;align-items:center;gap:4px;flex-shrink:0"><div style="width:16px;height:16px;border-radius:4px;background:rgba(168,85,247,.15);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${avH}</div><span style="font-size:10px;color:var(--t3)">${u.username||'?'}</span></div>`;
   };
 
   // Member stack
   const memStack=members.slice(0,6).map((mm,i)=>{
     const u=mm.users||{};
-    const av=u.avatar_url?`<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:7px">`:`<span style="font-size:12px">${u.avatar||'?'}</span>`;
+    const av=u.avatar_url?`<img src="${esc(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:7px">`:`<span style="font-size:12px">${u.avatar||'?'}</span>`;
     return `<div title="${u.username||'?'}${mm.role==='owner'?' (владелец)':''}" style="width:28px;height:28px;border-radius:8px;background:rgba(168,85,247,.15);border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;margin-left:${i===0?0:-8}px;z-index:${10-i};position:relative;transition:transform .15s" onmouseover="this.style.transform='scale(1.15) translateY(-2px)'" onmouseout="this.style.transform=''">${av}</div>`;
   }).join('')+(members.length>6?`<div style="width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,.07);border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--t2);margin-left:-8px">+${members.length-6}</div>`:'');
 
@@ -31526,7 +31528,7 @@ window._cmatRenderMain=function(){
     const isPinned=window._pinIs?window._pinIs('cmat_items',item.id,room.id):false;
     return `<div class="lrn-card" style="position:relative" onclick="window.open('${item.url}','_blank','noopener')" style="cursor:pointer">
       <div class="lrn-thumb">
-        ${thumb?`<img src="${thumb}" alt="" loading="lazy" onerror="this.hidden=true">`:``}
+        ${thumb?`<img src="${esc(thumb)}" alt="" loading="lazy" onerror="this.hidden=true">`:``}
         <div class="lrn-thumb-ico" style="${thumb?'display:none':'display:flex'}">${isYT?svgPlay:svgLink}</div>
         ${isYT?`<div class="lrn-thumb-play"><div class="lrn-thumb-play-btn">${svgPlay}</div></div>`:''}
         <div class="lrn-yt-badge">${d}</div>
@@ -31538,7 +31540,7 @@ window._cmatRenderMain=function(){
       </div>
       <div class="lrn-card-body">
         <div class="lrn-card-ttl">${item.title}</div>
-        <div class="lrn-card-meta"><img src="${f}" alt="" onerror="this.hidden=true" loading="lazy"><span>${d}</span></div>
+        <div class="lrn-card-meta"><img src="${esc(f)}" alt="" onerror="this.hidden=true" loading="lazy"><span>${d}</span></div>
         <div style="margin-top:6px;padding-top:6px;border-top:0.5px solid rgba(255,255,255,.04);display:flex;align-items:center;justify-content:space-between">
           ${authorChip(item.user_id)}<span style="font-size:10px;color:var(--t3)">${date}</span>
         </div>
@@ -31813,7 +31815,7 @@ window.cmatShowMembers=async function(roomId){
       const isMe=m.user_id===user.id;
       const isMemOwner=m.role==='owner';
       const canKick=isOwner&&!isMe&&!isMemOwner;
-      const av=u.avatar_url?`<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`:`<span style="font-size:16px">${u.avatar||'👤'}</span>`;
+      const av=u.avatar_url?`<img src="${esc(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`:`<span style="font-size:16px">${u.avatar||'👤'}</span>`;
       return `<div class="cmat-mem-row">
         <div style="width:36px;height:36px;border-radius:10px;background:rgba(168,85,247,.12);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${av}</div>
         <div style="flex:1;min-width:0">
@@ -31997,7 +31999,7 @@ function socRelTime(iso){
 function socAvHtml(av, avUrl, size=38, radius=10){
   const s = `width:${size}px;height:${size}px;border-radius:${radius}px;background:var(--card);border:0.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:${Math.round(size*.52)}px;flex-shrink:0;overflow:hidden`;
   if(avUrl){
-    return `<div style="${s}"><img src="${avUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:${radius}px" onerror="this.hidden=true"></div>`;
+    return `<div style="${s}"><img src="${esc(avUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:${radius}px" onerror="this.hidden=true"></div>`;
   }
   return `<div style="${s}">${av||'🎯'}</div>`;
 }
@@ -32160,7 +32162,7 @@ function socEventHTML(ev){
 
   // ── Avatar HTML ──
   const avInner = ev.avatarUrl
-    ? `<img src="${ev.avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.hidden=true"> `
+    ? `<img src="${esc(ev.avatarUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.hidden=true"> `
     : esc(ev.avatar||'🎯');
   const avHTML = `<div class="soc-card-av" onclick="socOpenUserProfile('${uid}')">${avInner}</div>`;
 
@@ -32514,7 +32516,7 @@ function socRenderFriends(){
     html += `<div class="soc-sec-lbl">Входящие запросы <span id="soc-req-count" style="background:var(--gold);color:#0A0A0B;font-size:10px;font-weight:800;padding:2px 7px;border-radius:8px">${SOC.pendingIn.length}</span></div>`;
     SOC.pendingIn.forEach(u => {
       html += `<div class="soc-req-row">
-        <div class="soc-user-av" onclick="socOpenUserProfile('${u.id}')">${u.avatarUrl ? `<img src="${u.avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:9px">` : esc(u.avatar)}</div>
+        <div class="soc-user-av" onclick="socOpenUserProfile('${u.id}')">${u.avatarUrl ? `<img src="${esc(u.avatarUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:9px">` : esc(u.avatar)}</div>
         <div class="soc-user-info">
           <div class="soc-user-name" onclick="socOpenUserProfile('${u.id}')">${esc(u.name)}</div>
           <div class="soc-user-sub">Хочет добавить тебя в друзья</div>
@@ -32563,7 +32565,7 @@ function socRenderFriends(){
         <div class="sfc-av-col">
           <div class="sfc-av" style="border-color:${lvlInfo.color}40">
             ${u.avatarUrl
-              ? `<img src="${u.avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`
+              ? `<img src="${esc(u.avatarUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`
               : `<span style="font-size:38px">${esc(u.avatar||'🎯')}</span>`}
           </div>
           ${lvlInfo.lvl > 1 ? `<div class="sfc-lvl-badge" style="background:${lvlInfo.color}22;color:${lvlInfo.color};border-color:${lvlInfo.color}44">${lvlInfo.lvl}</div>` : ''}
@@ -32670,7 +32672,7 @@ function socRenderFriends(){
     html += `<div class="soc-sec-lbl">Исходящие запросы</div>`;
     SOC.pendingOut.forEach(u => {
       html += `<div class="soc-user-row">
-        <div class="soc-user-av">${u.avatarUrl ? `<img src="${u.avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:9px">` : esc(u.avatar)}</div>
+        <div class="soc-user-av">${u.avatarUrl ? `<img src="${esc(u.avatarUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:9px">` : esc(u.avatar)}</div>
         <div class="soc-user-info">
           <div class="soc-user-name">${esc(u.name)}</div>
           <div class="soc-user-sub" style="color:var(--gold)">Запрос отправлен · ожидает ответа</div>
@@ -32761,7 +32763,7 @@ async function socSearchUsers(query){
       }
 
       const avHtml = u.avatar_url
-        ? `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:9px" onerror="this.hidden=true">`
+        ? `<img src="${esc(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:9px" onerror="this.hidden=true">`
         : esc(u.avatar||'🎯');
 
       return `<div class="soc-user-row" style="border-radius:0;border-left:none;border-right:none;border-top:none;border-bottom:0.5px solid var(--border);margin-bottom:0">
@@ -32918,7 +32920,7 @@ function _socShowPublicProfile(u){
   </button>`;
 
   const avHtml = u.avatar_url
-    ? `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:14px" onerror="this.hidden=true">` 
+    ? `<img src="${esc(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:14px" onerror="this.hidden=true">` 
     : esc(u.avatar||'🎯');
 
   // Inject into existing up-modal or create one
@@ -33724,7 +33726,7 @@ async function buildRoomCard(room, myRole, user, members, habits, logs){
       const u=m.users||{};
       const mDone=!!((logs[m.user_id]||{})[h.id]||{})[today];
       const av = u.avatar_url
-        ? `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+        ? `<img src="${esc(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
         : `<span style="font-size:14px">${u.avatar||'👤'}</span>`;
       return `<div title="${u.username||'?'}: ${mDone?'✓ выполнено':'не выполнено'}"
         style="width:18px;height:18px;border-radius:50%;background:${mDone?color+'33':'rgba(255,255,255,.07)'};border:1.5px solid ${mDone?color:'rgba(255,255,255,.1)'};display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;transition:transform .15s"
@@ -33764,7 +33766,7 @@ async function buildRoomCard(room, myRole, user, members, habits, logs){
     const u=s.users||{};
     const isMe=s.user_id===myId;
     const isMemberOwner = (members.find(m=>m.user_id===s.user_id)||{}).role==='owner';
-    const av=u.avatar_url?`<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`:`<span style="font-size:18px">${u.avatar||'👤'}</span>`;
+    const av=u.avatar_url?`<img src="${esc(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`:`<span style="font-size:18px">${u.avatar||'👤'}</span>`;
     const streakTxt = s.streak > 0 ? `🔥 ${s.streak} дисциплина` : '— дисциплина';
     const doneTxt = `✓ ${s.todayDone}/${habits.length} сегодня`;
     const weekTxt = `${s.perfectDays} из ${possibleDays} идеальных дней`;
@@ -33795,7 +33797,7 @@ async function buildRoomCard(room, myRole, user, members, habits, logs){
   // ── Member avatars header ──
   const avHtml = scores.map(s=>{
     const u=s.users||{};
-    const av=u.avatar_url?`<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:6px">`:`<span style="font-size:13px">${u.avatar||'👤'}</span>`;
+    const av=u.avatar_url?`<img src="${esc(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:6px">`:`<span style="font-size:13px">${u.avatar||'👤'}</span>`;
     return `<div class="chab-av" style="background:rgba(168,85,247,.12)" title="${u.username||'?'}">${av}</div>`;
   }).join('');
 
@@ -35183,7 +35185,7 @@ window.renderCollabView=renderCollabView;
 
       res.innerHTML = users.map(function(u){
         var avHtml = u.avatar_url
-          ? '<img src="' + u.avatar_url + '" onerror="this.hidden=true">'
+          ? '<img src="' + esc(u.avatar_url) + '" onerror="this.hidden=true">'
           : (u.avatar || '🎯');
         var meta = [];
         if(u.streak) meta.push('🔥 ' + u.streak);
@@ -40901,7 +40903,7 @@ window._dtrOpenGroupModal=async function(){
         +'<div id="gcMemberList">'
           +(convs.length?convs.map(function(cv,idx){
             var avHtml=cv.avUrl
-              ?'<img src="'+cv.avUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:11px;" onerror="this.hidden=true">'
+              ?'<img src="'+_esc(cv.avUrl)+'" style="width:100%;height:100%;object-fit:cover;border-radius:11px;" onerror="this.hidden=true">'
               :'<span style="font-size:16px;">'+_esc(cv.av||'👤')+'</span>';
             return'<div class="gm-member-row" data-uid="'+_esc(cv.userId)+'" data-name="'+_esc(cv.name||'')+'" data-av="'+_esc(cv.av||'👤')+'" onclick="_gcToggleMember(this)" style="user-select:none;">'
               +'<div class="gm-member-check" id="gcc-'+_esc(cv.userId)+'">'
