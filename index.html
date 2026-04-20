@@ -1196,7 +1196,7 @@ textarea:focus-visible,
 .ring-hrs{font-family:var(--font-display);font-size:11px;color:var(--t3);}
 
 /* ── RECORDS ── */
-.rec-grid{display:grid;margin-top:4px;}
+.rec-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:4px;}
 .rec-card{background:var(--card);border:0.5px solid var(--border);border-radius:10px;padding:14px;text-align:center;}
 .rec-val{line-height:1;margin-bottom:4px;}
 .rec-lbl{font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;line-height:1.4;}
@@ -2555,16 +2555,19 @@ body.modal-open{overflow:hidden!important;}
 /* ══ RECORD CARDS — Apple Design ════════════════════════════ */
 .rec-grid {
   display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 12px !important;
 }
-@media (max-width: 900px) {}
+@media (max-width: 900px) { .rec-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 8px !important; } }
 @media (max-width: 600px) { .rec-grid { grid-template-columns: 1fr !important; gap: 8px !important; } }
 
 .neon-rec {
   position: relative;
   display: flex !important;
-  align-items: center !important;
-  gap: 14px !important;
-  padding: 16px !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+  padding: 18px 16px !important;
   border-radius: 14px !important;
   background: var(--card) !important;
   border: 0.5px solid var(--border) !important;
@@ -25070,7 +25073,7 @@ function renderHeatmap(){
     const t=sessTs(s);
     if(!t||isNaN(t))return;
     const d=new Date(t);
-    const key=`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     actMap[key]=(actMap[key]||0)+s.dur/3600;
   });
   const maxH=Math.max(...Object.values(actMap),0.1);
@@ -25082,7 +25085,7 @@ function renderHeatmap(){
     for(let d=6;d>=0;d--){
       const dayAgo=w*7+d;
       const dt=new Date(now-dayAgo*86400000);
-      const key=`${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`;
+      const key=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
       const h=actMap[key]||0;
       const lv=h===0?0:h<maxH*.25?1:h<maxH*.5?2:h<maxH*.75?3:4;
       col.push({h,lv,date:dt.toLocaleDateString('ru',{day:'2-digit',month:'short'})});
@@ -29820,7 +29823,7 @@ function _lrnModal(title,fields,onOk){
   document.getElementById('lrn-ov')?.remove();
   const ov=document.createElement('div'); ov.id='lrn-ov'; ov.className='lrn-ov';
   ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
-  ov.innerHTML=`<div class="lrn-modal"><div class="lrn-modal-ttl">${title}</div>${fields.map(f=>`<input id="lrn-f-${f.id}" class="lrn-field" type="${f.type||'text'}" placeholder="${f.placeholder}" value="${f.value||''}" autocomplete="off">`).join('')}<div class="lrn-modal-acts"><button class="lrn-cancel" onclick="document.getElementById('lrn-ov').remove()">Отмена</button><button class="lrn-ok" id="lrn-ok">Сохранить</button></div></div>`;
+  ov.innerHTML=`<div class="lrn-modal"><div class="lrn-modal-ttl">${esc(title)}</div>${fields.map(f=>`<input id="lrn-f-${esc(f.id)}" class="lrn-field" type="${esc(f.type||'text')}" placeholder="${esc(f.placeholder)}" value="${esc(f.value||'')}" autocomplete="off">`).join('')}<div class="lrn-modal-acts"><button class="lrn-cancel" onclick="document.getElementById('lrn-ov').remove()">Отмена</button><button class="lrn-ok" id="lrn-ok">Сохранить</button></div></div>`;
   document.body.appendChild(ov);
   if(fields.length) setTimeout(()=>document.getElementById(`lrn-f-${fields[0].id}`)?.focus(),80);
   document.getElementById('lrn-ok').onclick=()=>{ const vals={}; fields.forEach(f=>vals[f.id]=document.getElementById(`lrn-f-${f.id}`)?.value||''); onOk(vals); ov.remove(); };
@@ -30529,27 +30532,27 @@ window._cmatRenderMain=function(){
     const canDel=isOwner||(item.user_id===user.id);
     const date=item.added_at?new Date(item.added_at).toLocaleDateString('ru',{day:'numeric',month:'short'}):'';
     const isPinned=window._pinIs?window._pinIs('cmat_items',item.id,room.id):false;
-    return `<div class="lrn-card" style="position:relative" onclick="window.open('${item.url}','_blank','noopener')" style="cursor:pointer">
+    return `<div class="lrn-card" style="position:relative;cursor:pointer" data-url="${esc(item.url)}" onclick="(function(el){var u=el.closest('[data-url]').dataset.url;if(u&&!u.startsWith('javascript:'))window.open(u,'_blank','noopener');})(this)">
       <div class="lrn-thumb">
         ${thumb?`<img src="${esc(thumb)}" alt="" loading="lazy" onerror="this.hidden=true">`:``}
         <div class="lrn-thumb-ico" style="${thumb?'display:none':'display:flex'}">${isYT?svgPlay:svgLink}</div>
         ${isYT?`<div class="lrn-thumb-play"><div class="lrn-thumb-play-btn">${svgPlay}</div></div>`:''}
-        <div class="lrn-yt-badge">${d}</div>
+        <div class="lrn-yt-badge">${esc(d)}</div>
         <button class="pin-btn-card${isPinned?' pinned':''}" title="${isPinned?'Открепить':'Закрепить'}"
-          onclick="event.stopPropagation();window._pinToggle('cmat_items','${item.id}','${room.id}')">
+          onclick="event.stopPropagation();window._pinToggle('cmat_items','${esc(item.id)}','${esc(room.id)}')">
           ${window._svgPin?window._svgPin(isPinned):'📌'}
         </button>
-        ${canDel?`<button class="cmat-card-del" onclick="event.stopPropagation();window.cmatDeleteItem('${room.id}','${item.id}')">${svgX}</button>`:''}
+        ${canDel?`<button class="cmat-card-del" onclick="event.stopPropagation();window.cmatDeleteItem('${esc(room.id)}','${esc(item.id)}')">${svgX}</button>`:''}
       </div>
       <div class="lrn-card-body">
-        <div class="lrn-card-ttl">${item.title}</div>
-        <div class="lrn-card-meta"><img src="${esc(f)}" alt="" onerror="this.hidden=true" loading="lazy"><span>${d}</span></div>
+        <div class="lrn-card-ttl">${esc(item.title)}</div>
+        <div class="lrn-card-meta"><img src="${esc(f)}" alt="" onerror="this.hidden=true" loading="lazy"><span>${esc(d)}</span></div>
         <div style="margin-top:6px;padding-top:6px;border-top:0.5px solid rgba(255,255,255,.04);display:flex;align-items:center;justify-content:space-between">
-          ${authorChip(item.user_id)}<span style="font-size:10px;color:var(--t3)">${date}</span>
+          ${authorChip(item.user_id)}<span style="font-size:10px;color:var(--t3)">${esc(date)}</span>
         </div>
         ${canDel?`<div class="lrn-card-acts" style="margin-top:4px">
-          <button class="lrn-card-act" onclick="event.stopPropagation();window.cmatEditItem('${room.id}','${item.id}')">${svgEdit} Изменить</button>
-          <button class="lrn-card-act del" onclick="event.stopPropagation();window.cmatDeleteItem('${room.id}','${item.id}')">${svgTrash}</button>
+          <button class="lrn-card-act" onclick="event.stopPropagation();window.cmatEditItem('${esc(room.id)}','${esc(item.id)}')">${svgEdit} Изменить</button>
+          <button class="lrn-card-act del" onclick="event.stopPropagation();window.cmatDeleteItem('${esc(room.id)}','${esc(item.id)}')">${svgTrash}</button>
         </div>`:''}
       </div>
     </div>`;
@@ -30559,21 +30562,22 @@ window._cmatRenderMain=function(){
     const d=(()=>{try{return new URL(item.url).hostname.replace('www.','');}catch{return '';}})();
     const canDel=isOwner||(item.user_id===user.id);
     const isPinned=window._pinIs?window._pinIs('cmat_items',item.id,room.id):false;
+    const safeHref = (item.url&&!item.url.startsWith('javascript:')) ? esc(item.url) : '#';
     return `<div style="position:relative">
-      <a class="svc-tile" href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none">
+      <a class="svc-tile" href="${safeHref}" target="_blank" rel="noopener" style="text-decoration:none">
         <div style="width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);overflow:hidden;flex-shrink:0">
-          <img src="https://www.google.com/s2/favicons?domain=${d}&sz=128" alt="${item.title}" width="36" height="36" style="width:36px;height:36px;object-fit:contain;display:block" onerror="this.hidden=true">
+          <img src="https://www.google.com/s2/favicons?domain=${esc(d)}&sz=128" alt="${esc(item.title)}" width="36" height="36" style="width:36px;height:36px;object-fit:contain;display:block" onerror="this.hidden=true">
         </div>
-        <span class="svc-tile-name">${item.title}</span>
+        <span class="svc-tile-name">${esc(item.title)}</span>
         <div style="margin-top:3px">${authorChip(item.user_id)}</div>
-        ${canDel?`<button class="svc-tile-del" onclick="event.preventDefault();event.stopPropagation();window.cmatDeleteItem('${room.id}','${item.id}')">${svgX}</button>`:''}
+        ${canDel?`<button class="svc-tile-del" onclick="event.preventDefault();event.stopPropagation();window.cmatDeleteItem('${esc(room.id)}','${esc(item.id)}')">${svgX}</button>`:''}
       </a>
       <button class="pin-btn-card${isPinned?' pinned':''}" title="${isPinned?'Открепить':'Закрепить'}"
         style="position:absolute;top:6px;left:6px"
-        onclick="window._pinToggle('cmat_items','${item.id}','${room.id}')">
+        onclick="window._pinToggle('cmat_items','${esc(item.id)}','${esc(room.id)}')">
         ${window._svgPin?window._svgPin(isPinned):'📌'}
       </button>
-      ${canDel?`<button onclick="window.cmatEditItem('${room.id}','${item.id}')" style="position:absolute;bottom:4px;right:4px;width:22px;height:22px;border-radius:6px;background:rgba(255,255,255,.06);border:none;color:var(--t3);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:11px" class="cmat-tile-edit-btn">${svgEdit}</button>`:''}
+      ${canDel?`<button onclick="window.cmatEditItem('${esc(room.id)}','${esc(item.id)}')" style="position:absolute;bottom:4px;right:4px;width:22px;height:22px;border-radius:6px;background:rgba(255,255,255,.06);border:none;color:var(--t3);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:11px" class="cmat-tile-edit-btn">${svgEdit}</button>`:''}
     </div>`;
   };
 
@@ -38600,7 +38604,7 @@ function _grpBuildMessagesHTML(msgs,members,groupId,_initLastDate){
       var fn='',furl='';
       try{var fobj=JSON.parse(txt);fn=fobj.name||'Файл';furl=fobj.url||'';}catch(ex){fn='Файл';furl=txt;}
       var fext=(fn.split('.').pop()||'').toLowerCase();
-      var ficon=(['jpg','jpeg','png','gif','webp'].includes(fext)?'🖼️':['mp4','mov','avi'].includes(fext)?'🎬':['pdf'].includes(fext)?'📄':['doc','docx'].includes(fext)?'📝':['xls','xlsx'].includes(fext)?'📊':['zip','rar'].includes(fext)?'🗜️':'📎');
+      var ficon=(['jpg','jpeg','png','gif','webp'].includes(fext)?'🖼️':['mp4','mov','avi','mkv','webm'].includes(fext)?'🎬':['mp3','ogg','wav','flac','aac','m4a'].includes(fext)?'🎵':['pdf'].includes(fext)?'📄':['doc','docx'].includes(fext)?'📝':['xls','xlsx'].includes(fext)?'📊':['zip','rar','7z'].includes(fext)?'🗜️':'📎');
       bodyHtml='<div style="display:flex;align-items:center;gap:10px;padding:4px 2px;min-width:160px;max-width:240px;">'
         +'<div style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">'+ficon+'</div>'
         +'<div style="flex:1;min-width:0;">'
@@ -38822,7 +38826,7 @@ window._grpUploadAndSend=async function(groupId){
 
   /* ── 1. Show optimistic placeholder immediately (like Telegram) ────────── */
   var optId='opt_file_'+Date.now();
-  var ct=fileType.startsWith('image/')?'image':fileType.startsWith('audio/')||fileType.startsWith('video/')?'voice':'file';
+  var ct=fileType.startsWith('image/')?'image':'file'; /* audio/video attachments = file card, not voice player */
   var previewContent='';
   if(ct==='image'){
     /* Show local base64 preview instantly */
@@ -39332,7 +39336,21 @@ function _grpShowPinBar(pinnedId,msgs){
   var pinText=localPin?localPin.text:'';
   if(!pinText){
     var found=(msgs||[]).find(function(m){return m.id===pinId;});
-    if(found){pinText=found.content;try{var o=JSON.parse(pinText);if(o&&o.t)pinText=o.t;}catch(ex){}}
+    if(found){
+      var raw=found.content||'';
+      var ct=found.content_type||'text';
+      if(ct==='text'){
+        try{var o=JSON.parse(raw);if(o&&o.t!==undefined)pinText=o.t;else pinText=raw;}catch(ex){pinText=raw;}
+      } else if(ct==='file'){
+        try{var fo=JSON.parse(raw);pinText='📎 '+(fo.name||'Файл');}catch(ex){pinText='📎 Файл';}
+      } else if(ct==='image'){
+        pinText='🖼️ Изображение';
+      } else if(ct==='voice'){
+        pinText='🎤 Голосовое сообщение';
+      } else {
+        pinText='Сообщение';
+      }
+    }
   }
   if(!pinId)return;
   _grpShowPinBarDirect(pinId,pinText||'Сообщение');
