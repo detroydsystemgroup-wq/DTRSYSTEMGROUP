@@ -13959,6 +13959,11 @@ html[data-theme="light"] .nav-icon-btn:hover {
 <!-- leagueHero removed -->
 
 <div id="app" style="display:none">
+<!-- Кнопка выхода из фокус-режима (показывается только в body.dtr-css-fs) -->
+<button id="dtr-fs-exit" onclick="_dtrFS()" title="Выйти из полного экрана (Esc)">
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M8 3v5H3"/><path d="M21 8h-5V3"/><path d="M3 16h5v5"/><path d="M16 21v-5h5"/></svg>
+  Выйти из полного экрана
+</button>
 
 <!-- Micro-celebration elements -->
 <div id="goldFlashEl"></div>
@@ -14045,19 +14050,102 @@ html[data-theme="light"] .nav-icon-btn:hover {
     </div>
 
     <!-- Fullscreen toggle -->
-    <button id="dtr-fs-btn" onclick="dtrToggleFS()" title="Полный экран (F)" style="
-      display:inline-flex;align-items:center;justify-content:center;
-      width:34px;height:34px;border-radius:10px;
-      background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.1);
-      color:rgba(255,255,255,.5);cursor:pointer;transition:all .18s;flex-shrink:0;
-    "
-    onmouseover="this.style.background='rgba(255,255,255,.12)';this.style.color='rgba(255,255,255,.9)'"
-    onmouseout="this.style.background='rgba(255,255,255,.06)';this.style.color='rgba(255,255,255,.5)'">
+    <button id="dtr-fs-btn" onclick="_dtrFS()" title="Полный экран" style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.1);color:rgba(255,255,255,.5);cursor:pointer;transition:all .18s;flex-shrink:0;" onmouseover="this.style.background='rgba(255,255,255,.12)';this.style.color='rgba(255,255,255,.9)'" onmouseout="this.style.background='rgba(255,255,255,.06)';this.style.color='rgba(255,255,255,.5)'">
       <svg id="dtr-fs-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
         <path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
         <path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
       </svg>
     </button>
+    <script>
+      /* DTR Fullscreen — runs the moment this tag is parsed, before any other scripts */
+      function _dtrFS() {
+        var isCss = document.body.classList.contains('dtr-css-fs');
+
+        /* Try native API first */
+        var nativeOk = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+        var isNative = !!(document.fullscreenElement || document.webkitFullscreenElement);
+
+        if (isNative) {
+          /* Exit native */
+          try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch(e){}
+          return;
+        }
+        if (isCss) {
+          /* Exit focus mode */
+          document.body.classList.remove('dtr-css-fs');
+          _dtrFsIcon(false);
+          return;
+        }
+
+        /* Try native enter */
+        if (nativeOk) {
+          var el = document.documentElement;
+          var req = el.requestFullscreen || el.webkitRequestFullscreen;
+          if (req) {
+            try {
+              var p = req.call(el);
+              if (p && p.then) {
+                p.then(function(){ _dtrFsIcon(true); })
+                 .catch(function(){ _dtrFsCss(); }); /* blocked → CSS fallback */
+              } else {
+                _dtrFsIcon(true);
+              }
+              return;
+            } catch(e) { /* fall through to CSS */ }
+          }
+        }
+
+        /* CSS focus-mode fallback */
+        _dtrFsCss();
+      }
+
+      function _dtrFsCss() {
+        document.body.classList.add('dtr-css-fs');
+        _dtrFsIcon(true);
+        /* Compensate nav height so content doesn't jump */
+        var nav = document.querySelector('.nav');
+        if (nav) document.documentElement.style.setProperty('--nav-h-val', nav.offsetHeight + 'px');
+      }
+
+      function _dtrFsIcon(on) {
+        var icon = document.getElementById('dtr-fs-icon');
+        var btn  = document.getElementById('dtr-fs-btn');
+        if (icon) icon.innerHTML = on
+          ? '<path d="M8 3v5H3"/><path d="M21 8h-5V3"/><path d="M3 16h5v5"/><path d="M16 21v-5h5"/>'
+          : '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>';
+        if (btn) {
+          btn.title = on ? 'Выйти из полного экрана (Esc)' : 'Полный экран';
+          btn.style.borderColor = on ? 'rgba(245,200,66,.4)' : 'rgba(255,255,255,.1)';
+          btn.style.color       = on ? 'var(--gold)' : 'rgba(255,255,255,.5)';
+        }
+      }
+
+      /* Native fullscreen change (Esc key etc.) */
+      ['fullscreenchange','webkitfullscreenchange'].forEach(function(evt){
+        document.addEventListener(evt, function(){
+          var on = !!(document.fullscreenElement || document.webkitFullscreenElement);
+          _dtrFsIcon(on);
+        });
+      });
+
+      /* Esc exits CSS mode too */
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && document.body.classList.contains('dtr-css-fs')) {
+          document.body.classList.remove('dtr-css-fs');
+          _dtrFsIcon(false);
+          return;
+        }
+        if (e.key === 'F' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          var tag = (document.activeElement && document.activeElement.tagName || '').toLowerCase();
+          if (tag !== 'input' && tag !== 'textarea' && document.activeElement.contentEditable !== 'true') {
+            e.preventDefault(); _dtrFS();
+          }
+        }
+      });
+
+      window.dtrToggleFS = _dtrFS;
+      window.DTR_FS = { toggle: _dtrFS };
+    </script>
 
     <!-- User chip with logout -->
     <div class="nav-user-chip">
@@ -22665,6 +22753,8 @@ document.addEventListener('keydown', e => {
     }
   }
 });
+
+/* ── FULLSCREEN — handled by window.DTR_FS module (see </body>) ── */
 
 
 
@@ -37537,6 +37627,62 @@ body.dtr-fs-active[data-fs-tab="messages"] .msg-tab-action {
   background: rgba(6,182,212,.08) !important;
   color: #06B6D4 !important;
 }
+
+/* ══ DTR FOCUS MODE (полный экран без Native API) ══════════════
+   Прячет навигацию, разворачивает контент на весь экран.
+   Работает на любом хостинге без Fullscreen API.
+═══════════════════════════════════════════════════════════════ */
+body.dtr-css-fs {
+  overflow: hidden !important;
+}
+/* Прячем навигацию плавно */
+body.dtr-css-fs .nav {
+  transform: translateY(-100%) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  transition: transform .3s ease, opacity .3s ease !important;
+}
+/* Главный контент на весь экран */
+body.dtr-css-fs #app {
+  padding-top: 0 !important;
+}
+body.dtr-css-fs .main,
+body.dtr-css-fs [role="main"] {
+  height: 100vh !important;
+  height: 100dvh !important;
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+/* Профиль-хедер тоже скрываем если есть */
+body.dtr-css-fs .ph {
+  display: none !important;
+}
+/* Кнопка выхода из фокус-режима */
+#dtr-fs-exit {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 99999;
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 6px 8px;
+  background: rgba(9,9,11,.85);
+  border: 0.5px solid rgba(245,200,66,.35);
+  border-radius: 20px;
+  color: var(--gold, #F5C842);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-body, sans-serif);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: background .15s, border-color .15s;
+  animation: dtrFsExitIn .3s cubic-bezier(.34,1.4,.64,1) both;
+}
+#dtr-fs-exit:hover { background: rgba(245,200,66,.12); border-color: rgba(245,200,66,.6); }
+@keyframes dtrFsExitIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+body.dtr-css-fs #dtr-fs-exit { display: flex; }
 
 
 /* ── 10. REPLY PREVIEW inside bubble ── */
