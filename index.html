@@ -38235,7 +38235,7 @@ async function _grpLoadMemberCount(groupId){
         var names=cached&&cached.members
           ?cached.members.filter(function(m){return m.username&&m.username!=='?';}).slice(0,3).map(function(m){return m.username.split(' ')[0];}).join(', ')
           :'';
-        subEl.textContent=count+' '+_grpPlural(count,'участник','участника','участников')+(names?' · '+names:'');
+        subEl.textContent=count+' '+_grpPlural(count,'участник','участника','участников');
       }
     }
   }catch(e){}
@@ -38390,8 +38390,7 @@ function _grpUpdateHeader(chat,members,isOwner,myRole){
   var subEl=document.getElementById('grpChatSub');
   if(subEl){
     var memberCount=members.length;
-    var previewNames=members.filter(function(m){return m.username&&m.username!=='?';}).slice(0,3).map(function(m){return m.username.split(' ')[0];}).join(', ');
-    subEl.textContent=memberCount+' '+_grpPlural(memberCount,'участник','участника','участников')+(previewNames?' · '+previewNames:'');
+    subEl.textContent=memberCount+' '+_grpPlural(memberCount,'участник','участника','участников');
     /* Always do live DB count to fix stale-cache bug ("1 участников" problem) */
     (function(_chatId,_subEl){
       sb.from('group_members').select('id',{count:'exact',head:true}).eq('group_id',_chatId)
@@ -38401,10 +38400,7 @@ function _grpUpdateHeader(chat,members,isOwner,myRole){
           var badge=document.getElementById('grp-cnt-'+_chatId);
           if(badge)badge.textContent=fc;
           if(_grpActiveId!==_chatId)return;
-          var freshNames=(_grpCache[_chatId]&&_grpCache[_chatId].members||[])
-            .filter(function(m){return m.username&&m.username!=='?';})
-            .slice(0,3).map(function(m){return m.username.split(' ')[0];}).join(', ');
-          _subEl.textContent=fc+' '+_grpPlural(fc,'участник','участника','участников')+(freshNames?' · '+freshNames:'');
+          _subEl.textContent=fc+' '+_grpPlural(fc,'участник','участника','участников');
         }).catch(function(){});
     })(chat.id,subEl);
   }
@@ -39346,7 +39342,7 @@ window._grpDoPinMsg=async function(msgId,text,forAll){
     }catch(e){console.warn('[DTR] pin error:',e);}
   } else {
     /* Local pin */
-    try{localStorage.setItem('grp_pin_'+groupId,JSON.stringify({id:msgId,text:text}));}catch(ex){}
+    try{localStorage.setItem('grp_pin_'+(typeof _myId==='function'?_myId():'x')+'_'+groupId,JSON.stringify({id:msgId,text:text}));}catch(ex){}
   }
   _grpShowPinBarDirect(msgId,text);
 };
@@ -39354,7 +39350,7 @@ window._grpDoPinMsg=async function(msgId,text,forAll){
 window._grpUnpinMsg=async function(){
   var groupId=_grpActiveId;
   /* Remove local pin */
-  try{localStorage.removeItem('grp_pin_'+groupId);}catch(ex){}
+  try{localStorage.removeItem('grp_pin_'+(typeof _myId==='function'?_myId():'x')+'_'+groupId);}catch(ex){}
   /* Remove server pin if owner/admin */
   var isOwner=(_grpCache[groupId]&&_grpCache[groupId].chat&&_grpCache[groupId].chat.owner_id===_myId());
   if(isOwner){
@@ -39368,7 +39364,7 @@ function _grpShowPinBar(pinnedId,msgs){
   var groupId=_grpActiveId;
   /* Check local override first */
   var localPin=null;
-  try{var lp=localStorage.getItem('grp_pin_'+groupId);if(lp)localPin=JSON.parse(lp);}catch(ex){}
+  try{var lp=localStorage.getItem('grp_pin_'+(typeof _myId==='function'?_myId():'x')+'_'+groupId);if(lp)localPin=JSON.parse(lp);}catch(ex){}
   var pinId=localPin?localPin.id:pinnedId;
   var pinText=localPin?localPin.text:'';
   if(!pinText){
@@ -40522,7 +40518,7 @@ window._dtrClearDmUnread = function(userId){
    Shows all groups + DM contacts in one modal.
    Called from both group context menu and DM context menu.
 ══════════════════════════════════════════════════════════════ */
-window._dtrShowForwardPicker = function(msgContent, msgType, fromName) {
+window._dtrShowForwardPicker = async function(msgContent, msgType, fromName) {
   document.getElementById('_dtrFwdPicker') && document.getElementById('_dtrFwdPicker').remove();
 
   var previewLabel = '';
@@ -40542,7 +40538,7 @@ window._dtrShowForwardPicker = function(msgContent, msgType, fromName) {
     allItems.push({id:c.userId,name:c.name||'?',sub:'\u{1F4AC} \u041b\u0438\u0447\u043d\u044b\u0439 \u0447\u0430\u0442',avEmoji:c.av||'\u{1F3AF}',avUrl:c.avUrl||null,type:'dm'});
   });
 
-  /* Groups from _grpCache */
+  /* Groups from _grpCache (instant, no network) */
   if(typeof _grpCache!=='undefined'&&_grpCache){
     Object.values(_grpCache).forEach(function(g){
       if(!g||!g.chat||!g.chat.id||seenIds.has(g.chat.id)) return;
@@ -40570,11 +40566,15 @@ window._dtrShowForwardPicker = function(msgContent, msgType, fromName) {
   var qInput=box.querySelector('#_dtrFwdQ');
   var listEl=box.querySelector('#_dtrFwdList');
 
+  /* Show skeleton while loading */
+  listEl.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3);font-size:13px;">\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430\u2026</div>';
+
   function _render(){
+    if(!document.getElementById('_dtrFwdPicker'))return;
     var q=searchVal.toLowerCase();
     var filtered=q?allItems.filter(function(it){return (it.name||'').toLowerCase().includes(q);}):allItems;
     listEl.innerHTML='';
-    if(!filtered.length){listEl.innerHTML='<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px;">'+(allItems.length?'\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e':'\u0417\u0430\u0433\u0440\u0443\u0436\u0430\u0435\u043c\u2026')+'</div>';return;}
+    if(!filtered.length){listEl.innerHTML='<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px;">'+(allItems.length?'\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e':'\u041d\u0438\u0447\u0435\u0433\u043e \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e')+'</div>';return;}
     filtered.forEach(function(it){
       var btn=document.createElement('button');
       btn.style.cssText='display:flex;align-items:center;gap:10px;width:100%;padding:9px 8px;border-radius:11px;background:none;border:none;cursor:pointer;text-align:left;transition:background .1s;';
@@ -40595,29 +40595,30 @@ window._dtrShowForwardPicker = function(msgContent, msgType, fromName) {
   }
 
   if(qInput) qInput.addEventListener('input',function(){searchVal=this.value.trim();_render();});
-  _render();
 
-  /* Async: load groups + missing DMs */
-  (function(){
-    var gP=(typeof _grpLoadMyGroups==='function')?_grpLoadMyGroups():Promise.resolve([]);
-    gP.then(function(groups){
-      if(!document.getElementById('_dtrFwdPicker'))return;
-      (groups||[]).forEach(function(g){
-        if(!g.id||seenIds.has(g.id))return;seenIds.add(g.id);
-        allItems.unshift({id:g.id,name:g.name||'\u0413\u0440\u0443\u043f\u043f\u0430',sub:'\u{1F465} \u0413\u0440\u0443\u043f\u043f\u0430',avEmoji:g.emoji||'\u{1F465}',avUrl:g.avatar_url||null,type:'group'});
-      });
-      _render();
-    }).catch(function(){});
-    if(dmsCache.length===0&&SB_USER){
-      (window.sb||sb).from('messages').select('from_user_id,to_user_id').or('from_user_id.eq.'+SB_USER.id+',to_user_id.eq.'+SB_USER.id).order('created_at',{ascending:false}).limit(30).then(function(r){
-        if(!document.getElementById('_dtrFwdPicker'))return;
-        var pids=[];
-        (r.data||[]).forEach(function(m){var pid=m.from_user_id===SB_USER.id?m.to_user_id:m.from_user_id;if(pid&&!seenIds.has(pid)){seenIds.add(pid);pids.push(pid);allItems.push({id:pid,name:pid.slice(0,8)+'\u2026',sub:'\u{1F4AC} \u041b\u0438\u0447\u043d\u044b\u0439 \u0447\u0430\u0442',avEmoji:'\u{1F3AF}',avUrl:null,type:'dm'});}});
-        if(!pids.length){_render();return;}
-        (window.sb||sb).from('users').select('id,username,avatar,avatar_url').in('id',pids).then(function(ur){(ur.data||[]).forEach(function(u){var item=allItems.find(function(it){return it.id===u.id;});if(item){item.name=u.username||item.name;item.avEmoji=u.avatar||'\u{1F3AF}';item.avUrl=u.avatar_url||null;}});if(document.getElementById('_dtrFwdPicker')&&typeof _render==='function')_render();}).catch(function(){if(document.getElementById('_dtrFwdPicker')&&typeof _render==='function')_render();});
-      }).catch(function(){});
-    }
-  })();
+  /* Await groups from DB before first render — guarantees groups always show */
+  try {
+    var loadedGroups = (typeof _grpLoadMyGroups==='function') ? await _grpLoadMyGroups() : [];
+    (loadedGroups||[]).forEach(function(g){
+      if(!g.id||seenIds.has(g.id))return; seenIds.add(g.id);
+      allItems.unshift({id:g.id,name:g.name||'\u0413\u0440\u0443\u043f\u043f\u0430',sub:'\u{1F465} \u0413\u0440\u0443\u043f\u043f\u0430',avEmoji:g.emoji||'\u{1F465}',avUrl:g.avatar_url||null,type:'group'});
+    });
+  } catch(e){}
+
+  /* Load DMs if cache was empty */
+  if(dmsCache.length===0&&(typeof SB_USER!=='undefined')&&SB_USER){
+    try{
+      var r = await (window.sb||sb).from('messages').select('from_user_id,to_user_id').or('from_user_id.eq.'+SB_USER.id+',to_user_id.eq.'+SB_USER.id).order('created_at',{ascending:false}).limit(30);
+      var pids=[];
+      (r.data||[]).forEach(function(m){var pid=m.from_user_id===SB_USER.id?m.to_user_id:m.from_user_id;if(pid&&!seenIds.has(pid)){seenIds.add(pid);pids.push(pid);allItems.push({id:pid,name:pid.slice(0,8)+'\u2026',sub:'\u{1F4AC} \u041b\u0438\u0447\u043d\u044b\u0439 \u0447\u0430\u0442',avEmoji:'\u{1F3AF}',avUrl:null,type:'dm'});}});
+      if(pids.length){
+        var ur = await (window.sb||sb).from('users').select('id,username,avatar,avatar_url').in('id',pids);
+        (ur.data||[]).forEach(function(u){var item=allItems.find(function(it){return it.id===u.id;});if(item){item.name=u.username||item.name;item.avEmoji=u.avatar||'\u{1F3AF}';item.avUrl=u.avatar_url||null;}});
+      }
+    }catch(e){}
+  }
+
+  _render();
   if(qInput)setTimeout(function(){qInput.focus();},80);
 };
 
@@ -40666,6 +40667,16 @@ async function _dtrDoForward(msgContent, msgType, fromName, dest) {
       });
       if(gr && gr.error) throw gr.error;
       showToast('Переслано в «' + dest.name + '» ✅');
+      /* Navigate to destination group */
+      setTimeout(function(){
+        if(typeof showTab==='function') showTab('messages');
+        setTimeout(function(){
+          if(typeof _msgSwitchTab==='function') _msgSwitchTab('groups');
+          setTimeout(function(){
+            if(typeof _grpOpenChat==='function') _grpOpenChat(dest.id);
+          }, 120);
+        }, 80);
+      }, 200);
       /* If forwarded to current active group — reload messages */
       if(dest.id === (typeof _grpActiveId !== 'undefined' ? _grpActiveId : null) && typeof _grpLoadMessages === 'function') {
         setTimeout(function(){ _grpLoadMessages(dest.id, false); }, 400);
@@ -40691,6 +40702,16 @@ async function _dtrDoForward(msgContent, msgType, fromName, dest) {
         } else throw dr.error;
       }
       showToast('Переслано → ' + dest.name + ' ✅');
+      /* Navigate to destination DM */
+      setTimeout(function(){
+        if(typeof showTab==='function') showTab('messages');
+        setTimeout(function(){
+          if(typeof _msgSwitchTab==='function') _msgSwitchTab('dms');
+          setTimeout(function(){
+            if(typeof openConv==='function') openConv(dest.id, dest.name, dest.avEmoji||'🎯', dest.avUrl||'');
+          }, 120);
+        }, 80);
+      }, 200);
       /* Reload sidebar */
       if(typeof loadConversations === 'function') setTimeout(loadConversations, 300);
       /* If forwarded to current active conversation — reload messages so sender sees it */
