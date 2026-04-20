@@ -14057,51 +14057,27 @@ html[data-theme="light"] .nav-icon-btn:hover {
       </svg>
     </button>
     <script>
-      /* DTR Fullscreen — runs the moment this tag is parsed */
+      /* DTR Fullscreen — синхронный CSS-toggle, работает везде */
       function _dtrFS() {
-        var isCss = document.body.classList.contains('dtr-css-fs');
-        var nativeOk = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
-        var isNative = !!(document.fullscreenElement || document.webkitFullscreenElement);
-
-        if (isNative) {
-          try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch(e){}
-          return;
-        }
-        if (isCss) {
+        var on = document.body.classList.contains('dtr-css-fs');
+        if (on) {
+          /* ВЫХОД */
           document.body.classList.remove('dtr-css-fs');
+          document.body.className = document.body.className.replace(/\bdtr-fs-tab-\S+/g, '').trim();
           _dtrFsIcon(false);
-          return;
-        }
-        if (nativeOk) {
-          var el = document.documentElement;
-          var req = el.requestFullscreen || el.webkitRequestFullscreen;
-          if (req) {
-            try {
-              var p = req.call(el);
-              if (p && p.then) { p.then(function(){ _dtrFsIcon(true); }).catch(_dtrFsCss); }
-              else { _dtrFsIcon(true); }
-              return;
-            } catch(e) {}
-          }
-        }
-        _dtrFsCss();
-      }
-
-      function _dtrFsCss() {
-        document.body.classList.add('dtr-css-fs');
-        _dtrFsSetTab(); /* apply current tab class */
-        _dtrFsIcon(true);
-      }
-
-      /* Sets dtr-fs-tab-{name} on body based on active tab */
-      function _dtrFsSetTab() {
-        /* Remove old tab classes */
-        document.body.className = document.body.className.replace(/\bdtr-fs-tab-\S+/g, '').trim();
-        /* Find active tab */
-        var active = document.querySelector('.tc.active');
-        if (active && active.id) {
-          var tabName = active.id.replace('tab-', '');
+        } else {
+          /* ВХОД */
+          /* Сначала определяем активный таб */
+          var active = document.querySelector('.tc.active');
+          var tabName = active && active.id ? active.id.replace('tab-', '') : 'dash';
+          /* Убираем старые tab-классы */
+          document.body.className = document.body.className.replace(/\bdtr-fs-tab-\S+/g, '').trim();
+          /* Включаем режим */
+          document.body.classList.add('dtr-css-fs');
           document.body.classList.add('dtr-fs-tab-' + tabName);
+          _dtrFsIcon(true);
+          /* Скролл в начало страницы чтобы таб-бар был виден */
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }
       }
 
@@ -14112,51 +14088,38 @@ html[data-theme="light"] .nav-icon-btn:hover {
           ? '<path d="M8 3v5H3"/><path d="M21 8h-5V3"/><path d="M3 16h5v5"/><path d="M16 21v-5h5"/>'
           : '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>';
         if (btn) {
-          btn.title = on ? 'Выйти (Esc)' : 'Полный экран';
-          btn.style.borderColor = on ? 'rgba(245,200,66,.4)' : 'rgba(255,255,255,.1)';
-          btn.style.color       = on ? 'var(--gold)' : 'rgba(255,255,255,.5)';
+          btn.title = on ? 'Выйти (Esc / F)' : 'Полный экран (F)';
+          btn.style.borderColor = on ? 'rgba(245,200,66,.45)' : '';
+          btn.style.color       = on ? 'var(--gold, #F5C842)' : '';
         }
       }
 
-      /* Hook into showTab to update tab class in fullscreen */
-      document.addEventListener('DOMContentLoaded', function() {
-        var _origShowTab = window.showTab;
-        window.showTab = function(name, el, skipHistory) {
-          if (_origShowTab) _origShowTab.call(this, name, el, skipHistory);
-          if (document.body.classList.contains('dtr-css-fs')) {
-            setTimeout(_dtrFsSetTab, 30); /* after tab switches */
-          }
-        };
+      /* Обновляем tab-класс при смене раздела */
+      document.addEventListener('click', function(e) {
+        if (!document.body.classList.contains('dtr-css-fs')) return;
+        var stab = e.target && e.target.closest('.stab');
+        if (!stab) return;
+        var onclick = stab.getAttribute('onclick') || '';
+        var match = onclick.match(/showTab\(['"]([^'"]+)['"]/);
+        if (!match) return;
+        var tabName = match[1];
+        /* Меняем tab-класс */
+        setTimeout(function(){
+          document.body.className = document.body.className.replace(/\bdtr-fs-tab-\S+/g, '').trim();
+          document.body.classList.add('dtr-fs-tab-' + tabName);
+        }, 50);
       });
 
-      /* Native fullscreen change */
-      ['fullscreenchange','webkitfullscreenchange'].forEach(function(evt){
-        document.addEventListener(evt, function(){
-          var on = !!(document.fullscreenElement || document.webkitFullscreenElement);
-          _dtrFsIcon(on);
-        });
-      });
-
-      /* Esc exits CSS focus mode */
+      /* Esc */
       document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && document.body.classList.contains('dtr-css-fs')) {
-          document.body.classList.remove('dtr-css-fs');
-          document.body.className = document.body.className.replace(/\bdtr-fs-tab-\S+/g, '').trim();
-          _dtrFsIcon(false);
-          return;
+          _dtrFS(); return;
         }
         if (e.key === 'F' && !e.ctrlKey && !e.metaKey && !e.altKey) {
           var tag = (document.activeElement && document.activeElement.tagName || '').toLowerCase();
           if (tag !== 'input' && tag !== 'textarea' && document.activeElement.contentEditable !== 'true') {
             e.preventDefault(); _dtrFS();
           }
-        }
-      });
-
-      /* Exit button also clears tab class */
-      document.addEventListener('click', function(e) {
-        if (e.target && e.target.id === 'dtr-fs-exit') {
-          document.body.className = document.body.className.replace(/\bdtr-fs-tab-\S+/g, '').trim();
         }
       });
 
