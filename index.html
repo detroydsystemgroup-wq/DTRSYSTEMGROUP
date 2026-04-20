@@ -14057,54 +14057,52 @@ html[data-theme="light"] .nav-icon-btn:hover {
       </svg>
     </button>
     <script>
-      /* DTR Fullscreen — runs the moment this tag is parsed, before any other scripts */
+      /* DTR Fullscreen — runs the moment this tag is parsed */
       function _dtrFS() {
         var isCss = document.body.classList.contains('dtr-css-fs');
-
-        /* Try native API first */
         var nativeOk = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
         var isNative = !!(document.fullscreenElement || document.webkitFullscreenElement);
 
         if (isNative) {
-          /* Exit native */
           try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch(e){}
           return;
         }
         if (isCss) {
-          /* Exit focus mode */
           document.body.classList.remove('dtr-css-fs');
           _dtrFsIcon(false);
           return;
         }
-
-        /* Try native enter */
         if (nativeOk) {
           var el = document.documentElement;
           var req = el.requestFullscreen || el.webkitRequestFullscreen;
           if (req) {
             try {
               var p = req.call(el);
-              if (p && p.then) {
-                p.then(function(){ _dtrFsIcon(true); })
-                 .catch(function(){ _dtrFsCss(); }); /* blocked → CSS fallback */
-              } else {
-                _dtrFsIcon(true);
-              }
+              if (p && p.then) { p.then(function(){ _dtrFsIcon(true); }).catch(_dtrFsCss); }
+              else { _dtrFsIcon(true); }
               return;
-            } catch(e) { /* fall through to CSS */ }
+            } catch(e) {}
           }
         }
-
-        /* CSS focus-mode fallback */
         _dtrFsCss();
       }
 
       function _dtrFsCss() {
         document.body.classList.add('dtr-css-fs');
+        _dtrFsSetTab(); /* apply current tab class */
         _dtrFsIcon(true);
-        /* Compensate nav height so content doesn't jump */
-        var nav = document.querySelector('.nav');
-        if (nav) document.documentElement.style.setProperty('--nav-h-val', nav.offsetHeight + 'px');
+      }
+
+      /* Sets dtr-fs-tab-{name} on body based on active tab */
+      function _dtrFsSetTab() {
+        /* Remove old tab classes */
+        document.body.className = document.body.className.replace(/\bdtr-fs-tab-\S+/g, '').trim();
+        /* Find active tab */
+        var active = document.querySelector('.tc.active');
+        if (active && active.id) {
+          var tabName = active.id.replace('tab-', '');
+          document.body.classList.add('dtr-fs-tab-' + tabName);
+        }
       }
 
       function _dtrFsIcon(on) {
@@ -14114,13 +14112,24 @@ html[data-theme="light"] .nav-icon-btn:hover {
           ? '<path d="M8 3v5H3"/><path d="M21 8h-5V3"/><path d="M3 16h5v5"/><path d="M16 21v-5h5"/>'
           : '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>';
         if (btn) {
-          btn.title = on ? 'Выйти из полного экрана (Esc)' : 'Полный экран';
+          btn.title = on ? 'Выйти (Esc)' : 'Полный экран';
           btn.style.borderColor = on ? 'rgba(245,200,66,.4)' : 'rgba(255,255,255,.1)';
           btn.style.color       = on ? 'var(--gold)' : 'rgba(255,255,255,.5)';
         }
       }
 
-      /* Native fullscreen change (Esc key etc.) */
+      /* Hook into showTab to update tab class in fullscreen */
+      document.addEventListener('DOMContentLoaded', function() {
+        var _origShowTab = window.showTab;
+        window.showTab = function(name, el, skipHistory) {
+          if (_origShowTab) _origShowTab.call(this, name, el, skipHistory);
+          if (document.body.classList.contains('dtr-css-fs')) {
+            setTimeout(_dtrFsSetTab, 30); /* after tab switches */
+          }
+        };
+      });
+
+      /* Native fullscreen change */
       ['fullscreenchange','webkitfullscreenchange'].forEach(function(evt){
         document.addEventListener(evt, function(){
           var on = !!(document.fullscreenElement || document.webkitFullscreenElement);
@@ -14128,10 +14137,11 @@ html[data-theme="light"] .nav-icon-btn:hover {
         });
       });
 
-      /* Esc exits CSS mode too */
+      /* Esc exits CSS focus mode */
       document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && document.body.classList.contains('dtr-css-fs')) {
           document.body.classList.remove('dtr-css-fs');
+          document.body.className = document.body.className.replace(/\bdtr-fs-tab-\S+/g, '').trim();
           _dtrFsIcon(false);
           return;
         }
@@ -14140,6 +14150,13 @@ html[data-theme="light"] .nav-icon-btn:hover {
           if (tag !== 'input' && tag !== 'textarea' && document.activeElement.contentEditable !== 'true') {
             e.preventDefault(); _dtrFS();
           }
+        }
+      });
+
+      /* Exit button also clears tab class */
+      document.addEventListener('click', function(e) {
+        if (e.target && e.target.id === 'dtr-fs-exit') {
+          document.body.className = document.body.className.replace(/\bdtr-fs-tab-\S+/g, '').trim();
         }
       });
 
@@ -37628,60 +37645,120 @@ body.dtr-fs-active[data-fs-tab="messages"] .msg-tab-action {
   color: #06B6D4 !important;
 }
 
-/* ══ DTR FOCUS MODE (полный экран без Native API) ══════════════
-   Прячет навигацию, разворачивает контент на весь экран.
-   Работает на любом хостинге без Fullscreen API.
+/* ══ DTR FOCUS MODE — ПОЛНОЭКРАННЫЙ РЕЖИМ ═══════════════════════
+   body.dtr-css-fs активируется кнопкой в навбаре.
+   Каждый раздел управляется через body.dtr-fs-tab-{name}
 ═══════════════════════════════════════════════════════════════ */
+
+/* ── Базовый сброс — НЕ блокируем скролл ── */
 body.dtr-css-fs {
-  overflow: hidden !important;
+  overflow-x: hidden !important;  /* только горизонталь */
 }
-/* Прячем навигацию плавно */
-body.dtr-css-fs .nav {
-  transform: translateY(-100%) !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-  position: absolute !important;
-  transition: transform .3s ease, opacity .3s ease !important;
-}
-/* Главный контент на весь экран */
-body.dtr-css-fs #app {
-  padding-top: 0 !important;
-}
-body.dtr-css-fs .main,
-body.dtr-css-fs [role="main"] {
-  height: 100vh !important;
-  height: 100dvh !important;
-  padding-top: 0 !important;
-  margin-top: 0 !important;
-}
-/* Профиль-хедер тоже скрываем если есть */
-body.dtr-css-fs .ph {
+
+/* ── Скрываем профиль-хедер (cover + info + XP) ── */
+body.dtr-css-fs .ph-cover,
+body.dtr-css-fs .ph-in,
+body.dtr-css-fs .ph-stat-bar {
   display: none !important;
 }
-/* Кнопка выхода из фокус-режима */
+body.dtr-css-fs .ph {
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  background: none !important;
+}
+
+/* ── Таб-бар прижимается к навбару без зазора ── */
+body.dtr-css-fs .ph-tabs {
+  position: sticky !important;
+  top: var(--nav-h, 52px) !important;
+  z-index: var(--z-nav, 100) !important;
+  margin: 0 !important;
+  border-top: 0.5px solid rgba(245,200,66,.1) !important;
+}
+
+/* ════════════════════════════════════════════
+   РАЗДЕЛЫ где скрываем правую боковую панель
+   (сообщения, арена, история, награды, привычки,
+    материалы, цели, AI) — управляется JS-классами
+════════════════════════════════════════════ */
+body.dtr-css-fs.dtr-fs-tab-messages .main,
+body.dtr-css-fs.dtr-fs-tab-leagues  .main,
+body.dtr-css-fs.dtr-fs-tab-activity .main,
+body.dtr-css-fs.dtr-fs-tab-achievements .main,
+body.dtr-css-fs.dtr-fs-tab-habits   .main,
+body.dtr-css-fs.dtr-fs-tab-manage   .main,
+body.dtr-css-fs.dtr-fs-tab-learn    .main,
+body.dtr-css-fs.dtr-fs-tab-goals    .main,
+body.dtr-css-fs.dtr-fs-tab-reels    .main,
+body.dtr-css-fs.dtr-fs-tab-ai       .main {
+  grid-template-columns: 1fr !important;
+}
+/* Скрываем именно правый сайдбар (второй child = таймер-панель) */
+body.dtr-css-fs.dtr-fs-tab-messages .main > div:nth-child(2),
+body.dtr-css-fs.dtr-fs-tab-leagues  .main > div:nth-child(2),
+body.dtr-css-fs.dtr-fs-tab-activity .main > div:nth-child(2),
+body.dtr-css-fs.dtr-fs-tab-achievements .main > div:nth-child(2),
+body.dtr-css-fs.dtr-fs-tab-habits   .main > div:nth-child(2),
+body.dtr-css-fs.dtr-fs-tab-manage   .main > div:nth-child(2),
+body.dtr-css-fs.dtr-fs-tab-learn    .main > div:nth-child(2),
+body.dtr-css-fs.dtr-fs-tab-goals    .main > div:nth-child(2),
+body.dtr-css-fs.dtr-fs-tab-reels    .main > div:nth-child(2),
+body.dtr-css-fs.dtr-fs-tab-ai       .main > div:nth-child(2) {
+  display: none !important;
+}
+/* Первый child (контент) занимает всю ширину */
+body.dtr-css-fs.dtr-fs-tab-messages .main > div:nth-child(1),
+body.dtr-css-fs.dtr-fs-tab-leagues  .main > div:nth-child(1),
+body.dtr-css-fs.dtr-fs-tab-activity .main > div:nth-child(1),
+body.dtr-css-fs.dtr-fs-tab-achievements .main > div:nth-child(1),
+body.dtr-css-fs.dtr-fs-tab-habits   .main > div:nth-child(1),
+body.dtr-css-fs.dtr-fs-tab-manage   .main > div:nth-child(1),
+body.dtr-css-fs.dtr-fs-tab-learn    .main > div:nth-child(1),
+body.dtr-css-fs.dtr-fs-tab-goals    .main > div:nth-child(1),
+body.dtr-css-fs.dtr-fs-tab-reels    .main > div:nth-child(1),
+body.dtr-css-fs.dtr-fs-tab-ai       .main > div:nth-child(1) {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Награды — сетка шире при полном экране */
+body.dtr-css-fs.dtr-fs-tab-achievements .ach2-grid {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
+}
+
+/* ── Кнопка выхода из фокус-режима ── */
 #dtr-fs-exit {
   position: fixed;
-  top: 10px;
-  right: 10px;
+  top: calc(var(--nav-h, 52px) + 10px);
+  right: 16px;
   z-index: 99999;
   display: none;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px 6px 8px;
-  background: rgba(9,9,11,.85);
-  border: 0.5px solid rgba(245,200,66,.35);
+  padding: 5px 12px 5px 9px;
+  background: rgba(9,9,11,.9);
+  border: 0.5px solid rgba(245,200,66,.3);
   border-radius: 20px;
   color: var(--gold, #F5C842);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   font-family: var(--font-body, sans-serif);
   cursor: pointer;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(12px);
   transition: background .15s, border-color .15s;
+  letter-spacing: -.01em;
   animation: dtrFsExitIn .3s cubic-bezier(.34,1.4,.64,1) both;
 }
-#dtr-fs-exit:hover { background: rgba(245,200,66,.12); border-color: rgba(245,200,66,.6); }
-@keyframes dtrFsExitIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+#dtr-fs-exit:hover {
+  background: rgba(245,200,66,.1);
+  border-color: rgba(245,200,66,.55);
+}
+@keyframes dtrFsExitIn {
+  from { opacity: 0; transform: translateY(-6px) scale(.95); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
 body.dtr-css-fs #dtr-fs-exit { display: flex; }
 
 
