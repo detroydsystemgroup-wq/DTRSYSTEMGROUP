@@ -13959,11 +13959,6 @@ html[data-theme="light"] .nav-icon-btn:hover {
 <!-- leagueHero removed -->
 
 <div id="app" style="display:none">
-<!-- Кнопка выхода из фокус-режима (показывается только в body.dtr-css-fs) -->
-<button id="dtr-fs-exit" onclick="_dtrFS()" title="Выйти из полного экрана (Esc)">
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M8 3v5H3"/><path d="M21 8h-5V3"/><path d="M3 16h5v5"/><path d="M16 21v-5h5"/></svg>
-  Выйти из полного экрана
-</button>
 
 <!-- Micro-celebration elements -->
 <div id="goldFlashEl"></div>
@@ -14030,6 +14025,12 @@ html[data-theme="light"] .nav-icon-btn:hover {
 
   <!-- Right: actions row -->
   <div class="nav-links">
+
+    <!-- Выход из полного экрана — показывается только в фокус-режиме -->
+    <button id="dtr-fs-exit" onclick="_dtrFS()" title="Выйти из полного экрана (Esc / F)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 3v5H3"/><path d="M21 8h-5V3"/><path d="M3 16h5v5"/><path d="M16 21v-5h5"/></svg>
+      Выйти из полного экрана
+    </button>
 
     <!-- Unified pill: Search + Online -->
     <div class="nav-pill-group">
@@ -37632,13 +37633,21 @@ body.dtr-css-fs .ph {
   background: none !important;
 }
 
-/* ── Таб-бар прижимается к навбару без зазора ── */
+/* ── Таб-бар жёстко зафиксирован под навбаром в фокус-режиме ── */
 body.dtr-css-fs .ph-tabs {
-  position: sticky !important;
+  position: fixed !important;
   top: var(--nav-h, 52px) !important;
-  z-index: var(--z-nav, 100) !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 98 !important;
   margin: 0 !important;
   border-top: 0.5px solid rgba(245,200,66,.1) !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,.5) !important;
+}
+
+/* ── Контент отступает вниз на высоту зафиксированного таб-бара (~54px) ── */
+body.dtr-css-fs .main {
+  padding-top: 54px !important;
 }
 
 /* ════════════════════════════════════════════
@@ -37693,36 +37702,37 @@ body.dtr-css-fs.dtr-fs-tab-achievements .ach2-grid {
 
 /* ── Кнопка выхода из фокус-режима ── */
 #dtr-fs-exit {
-  position: fixed;
-  top: calc(var(--nav-h, 52px) + 10px);
-  right: 16px;
-  z-index: 99999;
-  display: none;
+  display: none;          /* скрыта по умолчанию */
   align-items: center;
-  gap: 6px;
-  padding: 5px 12px 5px 9px;
-  background: rgba(9,9,11,.9);
-  border: 0.5px solid rgba(245,200,66,.3);
-  border-radius: 20px;
+  gap: 5px;
+  padding: 0 14px;
+  height: 34px;
+  background: rgba(245,200,66,.08);
+  border: 0.5px solid rgba(245,200,66,.28);
+  border-radius: 10px;
   color: var(--gold, #F5C842);
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
   font-family: var(--font-body, sans-serif);
   cursor: pointer;
-  backdrop-filter: blur(12px);
-  transition: background .15s, border-color .15s;
+  transition: background .15s, border-color .15s, box-shadow .15s;
   letter-spacing: -.01em;
-  animation: dtrFsExitIn .3s cubic-bezier(.34,1.4,.64,1) both;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 #dtr-fs-exit:hover {
-  background: rgba(245,200,66,.1);
-  border-color: rgba(245,200,66,.55);
+  background: rgba(245,200,66,.16);
+  border-color: rgba(245,200,66,.5);
+  box-shadow: 0 0 12px rgba(245,200,66,.15);
 }
 @keyframes dtrFsExitIn {
-  from { opacity: 0; transform: translateY(-6px) scale(.95); }
-  to   { opacity: 1; transform: translateY(0)    scale(1); }
+  from { opacity: 0; transform: scale(.92); }
+  to   { opacity: 1; transform: scale(1); }
 }
-body.dtr-css-fs #dtr-fs-exit { display: flex; }
+body.dtr-css-fs #dtr-fs-exit {
+  display: flex;
+  animation: dtrFsExitIn .25s cubic-bezier(.34,1.4,.64,1) both;
+}
 
 
 /* ── 10. REPLY PREVIEW inside bubble ── */
