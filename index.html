@@ -37704,27 +37704,80 @@ body.dtr-css-fs.dtr-fs-tab-achievements .ach2-grid {
 /* ════════════════════════════════════════════
    СООБЩЕНИЯ — полноэкранный чат на весь экран
    nav(52) + tabbar(54) = 106px сверху
+   Скроллится только список диалогов и область сообщений
 ════════════════════════════════════════════ */
+
+/* 1. Блокируем скролл страницы целиком */
+body.dtr-css-fs.dtr-fs-tab-messages {
+  overflow: hidden !important;
+  height: 100vh !important;
+}
+
+/* 2. .main — жёсткая высота, overflow:hidden */
 body.dtr-css-fs.dtr-fs-tab-messages .main {
-  /* Сохраняем padding-top чтобы Личные/Группы не уходили под fixed tabbar */
-  padding-top: 54px !important;
+  height: calc(100vh - 52px) !important; /* всё под навбаром */
+  padding-top: 54px !important;          /* отступ под fixed tabbar */
   padding-left: 0 !important;
   padding-right: 0 !important;
   padding-bottom: 0 !important;
   overflow: hidden !important;
+  box-sizing: border-box !important;
 }
+
+/* 3. #tab-messages — заполняет содержимое .main */
 body.dtr-css-fs.dtr-fs-tab-messages #tab-messages {
+  height: 100% !important;
+  overflow: hidden !important;
   display: flex !important;
   flex-direction: column !important;
-  overflow: hidden !important;
 }
+
+/* 4. msg-layout — заполняет #tab-messages, overflow:hidden */
 body.dtr-css-fs.dtr-fs-tab-messages .msg-layout {
-  /* nav(52) + fixed-tabbar(54) = 106px занято сверху */
-  height: calc(100vh - 106px) !important;
+  height: 100% !important;
+  overflow: hidden !important;
   border-radius: 0 !important;
   border-left: none !important;
   border-right: none !important;
   border-bottom: none !important;
+}
+
+/* 5. msg-list — левая колонка, полная высота */
+body.dtr-css-fs.dtr-fs-tab-messages .msg-list {
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+/* 6. msg-list-head (Личные/Группы + поиск) — фиксированная высота, не скроллится */
+body.dtr-css-fs.dtr-fs-tab-messages .msg-list-head {
+  flex-shrink: 0 !important;
+}
+
+/* 7. msg-conv-list — ТОЛЬКО этот контейнер скроллится */
+body.dtr-css-fs.dtr-fs-tab-messages .msg-conv-list {
+  overflow-y: auto !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+}
+
+/* 8. Правая панель чата — flex-колонка, overflow:hidden */
+body.dtr-css-fs.dtr-fs-tab-messages .msg-chat {
+  height: 100% !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* 9. msg-messages — ТОЛЬКО область сообщений скроллится */
+body.dtr-css-fs.dtr-fs-tab-messages .msg-messages {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  min-height: 0 !important;
+}
+
+/* 10. Поле ввода — прижато к низу, не скроллится */
+body.dtr-css-fs.dtr-fs-tab-messages .msg-input-area {
+  flex-shrink: 0 !important;
 }
 
 /* ── Кнопка выхода из фокус-режима ── */
