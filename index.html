@@ -38083,6 +38083,7 @@ async function _grpLoadMyGroups(){
         emoji:c.avatar_emoji||'👥',avatar_url:c.avatar_url||null,owner_id:c.owner_id,
         role:roleMap[c.id]||'member',
         lastMsg:lm?lm.content:'',
+        lastMsgCt:lm?lm.content_type||'text':'',
         lastTime:lm?lm.created_at:c.created_at,
         lastMine:lm&&lm.from_user_id===_myId()
       };
@@ -38130,7 +38131,7 @@ async function _grpInjectSidebar(){
   }
 
   groups.forEach(function(g){
-    var preview=_grpPreviewText(g.lastMsg,g.lastMine);
+    var preview=_grpPreviewText(g.lastMsg,g.lastMine,g.lastMsgCt);
     // Build avatar HTML — image if available, else emoji
     var avInner=g.avatar_url
       ?'<img src="'+_esc(g.avatar_url)+'" style="width:100%;height:100%;object-fit:cover;border-radius:12px;" data-fb="'+_esc(g.emoji||'\xf0\x9f\x91\xa5')+'" onerror="_grpAvFb(this,this.dataset.fb)">'
@@ -38200,11 +38201,21 @@ async function _grpInjectSidebar(){
   }
 }
 
-function _grpPreviewText(content,isMine){
+function _grpPreviewText(content,isMine,ct){
   if(!content)return'Группа создана';
   var prefix=isMine?'Вы: ':'';
-  var text=content;
-  try{var o=JSON.parse(content);if(o&&o.t)text=o.t;}catch(e){}
+  ct=ct||'text';
+  var text='';
+  if(ct==='image'){
+    text='🖼 Фото';
+  } else if(ct==='voice'){
+    text='🎤 Голосовое';
+  } else if(ct==='file'){
+    try{var fo=JSON.parse(content);text='📎 '+(fo.name||'Файл');}catch(e){text='📎 Файл';}
+  } else {
+    /* text — extract o.t or fallback to raw */
+    try{var o=JSON.parse(content);if(o&&o.t!==undefined)text=o.t;else text=content;}catch(e){text=content;}
+  }
   if(text.length>42)text=text.slice(0,42)+'…';
   return prefix+text;
 }
@@ -39391,10 +39402,10 @@ function _grpShowPinBarDirect(msgId,text){
 }
 
 /* ── UPDATE SIDEBAR ── */
-function _grpUpdateSidebarPreview(groupId,text,isMine,time){
+function _grpUpdateSidebarPreview(groupId,text,isMine,time,ct){
   var prev=document.getElementById('grp-prev-'+groupId);
   var timeEl=document.getElementById('grp-time-'+groupId);
-  if(prev)prev.textContent=_grpPreviewText(text,isMine);
+  if(prev)prev.textContent=_grpPreviewText(text,isMine,ct);
   if(timeEl)timeEl.textContent=_fmtTime(time);
   var convEl=document.querySelector('.dtr-group-conv[data-group-id="'+groupId+'"]');
   // FIX: sort within group section only
@@ -39466,8 +39477,7 @@ function _grpSubscribeRealtime(groupId){
           return;
         }
         _grpAppendMessage(msg);
-        var txt=msg.content||'';try{var o=JSON.parse(txt);if(o&&o.t)txt=o.t;}catch(ex){}
-        _grpUpdateSidebarPreview(groupId,txt,false,msg.created_at);
+        _grpUpdateSidebarPreview(groupId,msg.content||'',false,msg.created_at,msg.content_type||'text');
         /* DTR: sound + sidebar unread badge */
         var _senderName=((_grpCache[groupId]&&_grpCache[groupId].members)||[]).find(function(m){return m.user_id===msg.from_user_id;});
         if(typeof _dtrOnGrpMsg==='function')_dtrOnGrpMsg(msg,groupId,_senderName?_senderName.username:'');
