@@ -18161,6 +18161,46 @@ function renderAchFull(){
     const rawCI=getBadgeSVG(catMeta.icon||'star');
     const ciInner=rawCI.replace(/<svg[^>]*>/,'').replace(/<\/svg>/,'');
     const ciFill=rawCI.includes('fill="currentColor"');
+    const isLast=(catIdx>=catList.length);
+
+    // Summary progress card — double width, appended as last item of last category
+    const summaryCard = isLast ? `<div class="ach-summary-btn">
+      <div class="ach-sb-top">
+        <div class="ach-sb-eyebrow">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
+          Прогресс наград
+        </div>
+        <div class="ach-sb-pct-big">${pct}<span class="ach-sb-sym">%</span></div>
+      </div>
+
+      <div class="ach-sb-bar-wrap">
+        <div class="ach-sb-bar-track">
+          <div class="ach-sb-bar-fill" style="width:${pct}%"></div>
+          <div class="ach-sb-bar-tip" style="left:${pct}%"></div>
+        </div>
+        <div class="ach-sb-bar-ends">
+          <span>0</span><span>${total}</span>
+        </div>
+      </div>
+
+      <div class="ach-sb-stats">
+        <div class="ach-sb-stat">
+          <div class="ach-sb-stat-val" style="color:var(--gold)">${unl}</div>
+          <div class="ach-sb-stat-lbl">Открыто</div>
+        </div>
+        <div class="ach-sb-divider"></div>
+        <div class="ach-sb-stat">
+          <div class="ach-sb-stat-val">${total - unl}</div>
+          <div class="ach-sb-stat-lbl">Осталось</div>
+        </div>
+        <div class="ach-sb-divider"></div>
+        <div class="ach-sb-stat">
+          <div class="ach-sb-stat-val" style="color:var(--green)">${totalXP.toLocaleString('ru')}</div>
+          <div class="ach-sb-stat-lbl">XP</div>
+        </div>
+      </div>
+    </div>` : '';
+
     const sec=document.createElement('div');
     sec.className='ach-cat-section';
     sec.innerHTML=`
@@ -18175,7 +18215,7 @@ function renderAchFull(){
         </div>
         <div class="ach-cat-hdr2-cnt" style="color:${catColor};border-color:${catColor}40;background:${catColor}0d">${catUnl}/${defs.length}</div>
       </div>
-      <div class="ach-badge-grid">${defs.map(d=>makeBadge(d)).join('')}</div>`;
+      <div class="ach-badge-grid">${defs.map(d=>makeBadge(d)).join('')}${summaryCard}</div>`;
     el.appendChild(sec);
     requestAnimationFrame(renderNextCat);
   }
@@ -35036,10 +35076,6 @@ function closeSettings(){
   flex-shrink:unset !important;
   scroll-snap-align:unset !important;
 }
-/* Последняя карточка — обычный размер */
-.ach-badge-grid .dtr-badge-wrap:last-child {
-  grid-column-end: auto;
-}
 @media(max-width:1200px){ .ach-badge-grid{ grid-template-columns:repeat(5,1fr); } }
 @media(max-width:900px){  .ach-badge-grid{ grid-template-columns:repeat(4,1fr); } }
 @media(max-width:600px){  .ach-badge-grid{ grid-template-columns:repeat(3,1fr); gap:6px; } }
@@ -41394,6 +41430,160 @@ window._dtrShowForwardPickerMulti = async function(ids, texts) {
   box-shadow: 0 4px 12px rgba(0,0,0,.3);
 }
 
+/* ── Achievement Summary Button — span 2, same height as badges ─ */
+.ach-summary-btn {
+  grid-column: span 2;
+  width: 100%;
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0;
+  padding: 14px 18px 12px;
+  border-radius: 18px;
+  background: linear-gradient(145deg,
+    rgba(22,18,10,.98) 0%,
+    rgba(14,13,18,.99) 100%
+  );
+  border: 1px solid rgba(245,200,66,.22);
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 0.5px rgba(245,200,66,.07),
+    0 4px 28px rgba(0,0,0,.55),
+    inset 0 1px 0 rgba(245,200,66,.08);
+  cursor: default;
+  box-sizing: border-box;
+}
+.ach-summary-btn::after {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 180px; height: 180px;
+  background: radial-gradient(circle, rgba(245,200,66,.07) 0%, transparent 65%);
+  pointer-events: none;
+}
+.ach-summary-btn::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(245,200,66,.5) 25%,
+    rgba(253,230,138,.85) 50%,
+    rgba(245,200,66,.5) 75%,
+    transparent 100%
+  );
+  border-radius: 18px 18px 0 0;
+}
+
+.ach-sb-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.ach-sb-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(245,200,66,.45);
+  padding-top: 2px;
+}
+.ach-sb-pct-big {
+  font-family: var(--font-mono);
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -.04em;
+  color: var(--gold);
+  text-shadow: 0 0 20px rgba(245,200,66,.3);
+}
+.ach-sb-sym {
+  font-size: 13px;
+  opacity: .55;
+  margin-left: 1px;
+}
+
+.ach-sb-bar-wrap { display: flex; flex-direction: column; gap: 5px; }
+.ach-sb-bar-track {
+  height: 4px;
+  background: rgba(255,255,255,.06);
+  border-radius: 2px;
+  overflow: visible;
+  position: relative;
+}
+.ach-sb-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #C89F28, #F5C842, #FDE68A);
+  border-radius: 2px;
+  transition: width 1.4s cubic-bezier(.4,0,.2,1);
+  box-shadow: 0 0 8px rgba(245,200,66,.3);
+}
+.ach-sb-bar-tip {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%,-50%);
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 0 3px rgba(245,200,66,.14), 0 0 12px rgba(245,200,66,.5);
+  transition: left 1.4s cubic-bezier(.4,0,.2,1);
+  pointer-events: none;
+}
+.ach-sb-bar-ends {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: rgba(255,255,255,.2);
+  letter-spacing: .02em;
+}
+
+.ach-sb-stats {
+  display: flex;
+  align-items: center;
+  padding-top: 6px;
+  border-top: 0.5px solid rgba(255,255,255,.05);
+}
+.ach-sb-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.ach-sb-stat-val {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--t1);
+  line-height: 1;
+  letter-spacing: -.03em;
+}
+.ach-sb-stat-lbl {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: rgba(168,168,176,.35);
+}
+.ach-sb-divider {
+  width: 0.5px;
+  height: 24px;
+  background: rgba(255,255,255,.07);
+  margin: 0 14px;
+  flex-shrink: 0;
+}
+
+@media(max-width:1200px){ .ach-summary-btn{ grid-column: span 1; } }
+@media(max-width:900px){  .ach-summary-btn{ grid-column: span 2; } }
+@media(max-width:600px){  .ach-summary-btn{ grid-column: span 1; } }
+
 /* Ring gradient via SVG defs injected */
 @keyframes achRingIn {
   from { stroke-dashoffset: 326.7; }
@@ -41407,6 +41597,9 @@ window._dtrShowForwardPickerMulti = async function(ids, texts) {
 
 .ach-prog-card {
   animation: achCardIn .4s cubic-bezier(.25,.46,.45,.94) both;
+}
+.ach-summary-btn {
+  animation: achCardIn .45s .1s cubic-bezier(.25,.46,.45,.94) both;
 }
 </style>
 </body>
