@@ -18042,77 +18042,80 @@ function renderAchFull(){
   const statusMsg=unl===0?'Начни свой путь 🚀':unl<10?'Хорошее начало!':unl<30?'На полпути — жми!':unl<60?'Настоящий коллекционер!':'Легенда платформы 🏆';
 
   el.innerHTML=`
-  <div class="ach-prog-card">
+  <div class="apc">
 
-    <!-- ── Ambient background glow ── -->
-    <div class="ach-prog-glow"></div>
-    <div class="ach-prog-topline"></div>
-
-    <!-- ── LEFT: circular arc progress ── -->
-    <div class="ach-prog-left">
-      <div class="ach-prog-ring-wrap">
-        <svg class="ach-prog-ring" viewBox="0 0 120 120">
-          <defs>
-            <linearGradient id="achRingGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#C89F28"/>
-              <stop offset="50%" stop-color="#F5C842"/>
-              <stop offset="100%" stop-color="#FDE68A"/>
-            </linearGradient>
-          </defs>
-          <circle class="ach-prog-ring-track" cx="60" cy="60" r="52"/>
-          <circle class="ach-prog-ring-fill" cx="60" cy="60" r="52"
-            style="stroke-dashoffset:${326.7 - (326.7 * pct / 100)}"/>
-        </svg>
-        <div class="ach-prog-ring-inner">
-          <div class="ach-prog-pct">${pct}<span class="ach-prog-pct-sym">%</span></div>
-          <div class="ach-prog-pct-lbl">выполнено</div>
-        </div>
+    <!-- Stats row -->
+    <div class="apc-grid">
+      <div class="apc-stat">
+        <div class="apc-val apc-val--gold"><span class="apc-n-unl">0</span><span class="apc-of"> / ${total}</span></div>
+        <div class="apc-lbl">Открыто</div>
       </div>
+      <div class="apc-divider"></div>
+      <div class="apc-stat">
+        <div class="apc-val"><span class="apc-n-rem">0</span></div>
+        <div class="apc-lbl">Осталось</div>
+      </div>
+      <div class="apc-divider"></div>
+      <div class="apc-stat">
+        <div class="apc-val apc-val--green"><span class="apc-n-xp">0</span></div>
+        <div class="apc-lbl">XP заработано</div>
+      </div>
+      <div class="apc-divider"></div>
+      <div class="apc-stat">
+        <div class="apc-val"><span class="apc-n-lvl">0</span></div>
+        <div class="apc-lbl">Уровень</div>
+      </div>
+      <div class="apc-divider"></div>
+      <div class="apc-stat">
+        <div class="apc-val apc-val--gold"><span class="apc-n-pct">0</span><span class="apc-sym">%</span></div>
+        <div class="apc-lbl">Прогресс</div>
+      </div>
+      <div class="apc-status">${statusMsg}</div>
     </div>
 
-    <!-- ── RIGHT: stats ── -->
-    <div class="ach-prog-right">
-
-      <!-- Title row -->
-      <div class="ach-prog-title-row">
-        <div class="ach-prog-eyebrow">Достижения</div>
-        <div class="ach-prog-status">${statusMsg}</div>
+    <!-- Progress bar -->
+    <div class="apc-bar-wrap">
+      <div class="apc-track">
+        <div class="apc-fill" data-w="${pct}" style="width:0%"></div>
       </div>
-
-      <!-- Count + XP row -->
-      <div class="ach-prog-kpis">
-        <div class="ach-prog-kpi">
-          <div class="ach-prog-kpi-val">${unl}<span class="ach-prog-kpi-of"> / ${total}</span></div>
-          <div class="ach-prog-kpi-lbl">Открыто</div>
-        </div>
-        <div class="ach-prog-kpi-div"></div>
-        <div class="ach-prog-kpi">
-          <div class="ach-prog-kpi-val">${totalXP.toLocaleString('ru')}</div>
-          <div class="ach-prog-kpi-lbl">XP заработано</div>
-        </div>
-        <div class="ach-prog-kpi-div"></div>
-        <div class="ach-prog-kpi">
-          <div class="ach-prog-kpi-val">Ур. ${lvl}</div>
-          <div class="ach-prog-kpi-lbl">Уровень</div>
-        </div>
-      </div>
-
-      <!-- Linear progress bar -->
-      <div class="ach-prog-bar-wrap">
-        <div class="ach-prog-bar-track">
-          <div class="ach-prog-bar-fill" style="width:${pct}%"></div>
-          <div class="ach-prog-bar-glow" style="left:${pct}%"></div>
-        </div>
-        <div class="ach-prog-bar-labels">
-          <span>0</span><span>${total}</span>
-        </div>
-      </div>
-
-      <!-- Rarity pills -->
-      <div class="ach-prog-rarity-row">${rarPills}</div>
-
+      <div class="apc-bar-ends"><span>0</span><span>${total}</span></div>
     </div>
+
+    <!-- Rarity pills -->
+    <div class="apc-pills">${rarPills}</div>
+
   </div>`;
+
+  /* ── Count-up animations ── */
+  (function(){
+    const card = el.querySelector('.apc');
+    if(!card) return;
+    function cnt(sel, to, delay, dur){
+      const node = card.querySelector(sel);
+      if(!node) return;
+      const fmt = n => n >= 1000 ? n.toLocaleString('ru') : String(n);
+      if(to === 0){ node.textContent = '0'; return; }
+      setTimeout(()=>{
+        const s = performance.now();
+        (function f(){
+          const p = Math.min((performance.now()-s)/dur, 1);
+          const e = 1 - Math.pow(1-p, 3);
+          node.textContent = fmt(Math.round(to * e));
+          if(p < 1) requestAnimationFrame(f);
+        })();
+      }, delay);
+    }
+    const fill = card.querySelector('.apc-fill');
+    if(fill){
+      const w = parseFloat(fill.getAttribute('data-w')) || 0;
+      setTimeout(()=>{ fill.style.transition='width 1.2s cubic-bezier(.4,0,.2,1)'; fill.style.width=w+'%'; }, 150);
+    }
+    cnt('.apc-n-unl', unl,      200, 900);
+    cnt('.apc-n-rem', total-unl, 280, 800);
+    cnt('.apc-n-xp',  totalXP,   360, 950);
+    cnt('.apc-n-lvl', lvl,       440, 700);
+    cnt('.apc-n-pct', pct,       520, 800);
+  })();
 
   function makeBadge(def){
     const ua=P.achievements.find(a=>a.id===def.id)||{unlocked:false};
@@ -34985,9 +34988,7 @@ function closeSettings(){
   overflow:visible !important;
 }
 #tab-achievements > .card > .ch{
-  border-bottom:none !important;
-  background:transparent !important;
-  padding-left:0 !important;
+  display: none !important;
 }
 #tab-achievements > .card > .cb{
   padding:0 !important;
@@ -41229,291 +41230,134 @@ window._dtrShowForwardPickerMulti = async function(ids, texts) {
 
 <style>
 /* ══════════════════════════════════════════════════════
-   ACHIEVEMENT PROGRESS CARD — Premium Design
+   ACHIEVEMENT PROGRESS CARD v2 — Clean Dashboard
 ══════════════════════════════════════════════════════ */
-.ach-prog-card {
+.apc {
   display: flex;
-  align-items: center;
-  gap: 32px;
+  flex-direction: column;
+  gap: 18px;
+  padding: 22px 26px 20px;
+  border-radius: 18px;
+  background: rgba(255,255,255,.02);
+  border: 1px solid rgba(255,255,255,.07);
+  border-top: 1.5px solid rgba(245,200,66,.35);
+  margin-bottom: 28px;
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg,
-    rgba(16,14,10,.98) 0%,
-    rgba(11,11,15,.99) 60%,
-    rgba(14,12,20,.98) 100%
+  animation: apcIn .4s cubic-bezier(.25,.46,.45,.94) both;
+}
+@keyframes apcIn {
+  from { opacity:0; transform:translateY(8px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+/* Diagonal texture */
+.apc::before {
+  content:'';
+  position:absolute;inset:0;
+  background:repeating-linear-gradient(
+    135deg,transparent,transparent 36px,
+    rgba(255,255,255,.008) 36px,rgba(255,255,255,.008) 37px
   );
-  border: 0.5px solid rgba(245,200,66,.18);
-  border-radius: 22px;
-  padding: 28px 32px;
-  margin-bottom: 32px;
-  box-shadow:
-    0 0 0 0.5px rgba(245,200,66,.06),
-    0 8px 48px rgba(0,0,0,.65),
-    0 2px 12px rgba(0,0,0,.4),
-    inset 0 1px 0 rgba(245,200,66,.08);
+  pointer-events:none;
 }
 
-/* Ambient gold glow top-left */
-.ach-prog-glow {
-  position: absolute;
-  top: -60px; left: -40px;
-  width: 280px; height: 280px;
-  background: radial-gradient(ellipse,
-    rgba(245,200,66,.07) 0%,
-    transparent 65%
-  );
-  pointer-events: none;
-  border-radius: 50%;
-}
-
-/* Top accent line */
-.ach-prog-topline {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 1px;
-  background: linear-gradient(90deg,
-    rgba(245,200,66,.6) 0%,
-    rgba(245,200,66,.25) 35%,
-    transparent 70%
-  );
-  border-radius: 22px 22px 0 0;
-}
-
-/* ── LEFT: SVG Ring ── */
-.ach-prog-left {
-  flex-shrink: 0;
-}
-
-.ach-prog-ring-wrap {
-  position: relative;
-  width: 120px;
-  height: 120px;
-}
-
-.ach-prog-ring {
-  width: 120px;
-  height: 120px;
-  transform: rotate(-90deg);
-}
-
-.ach-prog-ring-track {
-  fill: none;
-  stroke: rgba(255,255,255,.05);
-  stroke-width: 7;
-  stroke-linecap: round;
-}
-
-.ach-prog-ring-fill {
-  fill: none;
-  stroke: url(#achRingGrad);
-  stroke-width: 7;
-  stroke-linecap: round;
-  stroke-dasharray: 326.7;
-  transition: stroke-dashoffset 1.4s cubic-bezier(.4,0,.2,1);
-  filter: drop-shadow(0 0 6px rgba(245,200,66,.35));
-}
-
-/* SVG gradient def — injected inline */
-.ach-prog-ring-wrap::before {
-  content: '';
-  position: absolute;
-  inset: 10px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%,
-    rgba(245,200,66,.04) 0%,
-    transparent 70%
-  );
-}
-
-/* Inner text */
-.ach-prog-ring-inner {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-}
-
-.ach-prog-pct {
-  font-family: var(--font-mono);
-  font-size: 28px;
-  font-weight: 400;
-  color: var(--gold);
-  line-height: 1;
-  letter-spacing: -.04em;
-  text-shadow: 0 0 20px rgba(245,200,66,.35);
-}
-
-.ach-prog-pct-sym {
-  font-size: 14px;
-  font-weight: 400;
-  opacity: .7;
-  margin-left: 1px;
-}
-
-.ach-prog-pct-lbl {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: rgba(168,168,176,.5);
-}
-
-/* ── RIGHT: Stats ── */
-.ach-prog-right {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  min-width: 0;
-}
-
-.ach-prog-title-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.ach-prog-eyebrow {
-  font-family: var(--font-body);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: rgba(245,200,66,.55);
-}
-
-.ach-prog-status {
-  font-family: var(--font-display);
-  font-size: 13px;
-  font-weight: 600;
-  color: rgba(242,240,232,.55);
-  letter-spacing: -.01em;
-}
-
-/* KPI strip */
-.ach-prog-kpis {
+/* ── Stats grid ── */
+.apc-grid {
   display: flex;
   align-items: center;
   gap: 0;
 }
-
-.ach-prog-kpi {
-  flex: 1;
+.apc-stat {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
+  padding: 0 24px;
 }
-
-.ach-prog-kpi-div {
-  width: 0.5px;
-  height: 32px;
-  background: rgba(255,255,255,.07);
-  margin: 0 20px;
-  flex-shrink: 0;
-}
-
-.ach-prog-kpi-val {
+.apc-stat:first-child { padding-left: 0; }
+.apc-val {
   font-family: var(--font-mono);
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 400;
-  color: var(--t1);
   line-height: 1;
   letter-spacing: -.04em;
+  color: var(--t1);
 }
-
-.ach-prog-kpi-of {
-  font-size: 13px;
-  color: rgba(168,168,176,.4);
-  font-weight: 400;
-}
-
-.ach-prog-kpi-lbl {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: .04em;
+.apc-val--gold  { color: var(--gold); }
+.apc-val--green { color: #4ADE80; }
+.apc-of  { font-size: 14px; color: rgba(168,168,176,.35); margin-left: 3px; }
+.apc-sym { font-size: 13px; opacity: .45; margin-left: 1px; }
+.apc-lbl {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .08em;
   text-transform: uppercase;
-  color: rgba(168,168,176,.45);
+  color: rgba(168,168,176,.3);
+}
+.apc-divider {
+  width: 1px;
+  height: 30px;
+  background: rgba(255,255,255,.06);
+  flex-shrink: 0;
+}
+.apc-status {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(242,240,232,.35);
+  letter-spacing: -.01em;
+  white-space: nowrap;
+  padding-left: 20px;
 }
 
-/* Progress bar */
-.ach-prog-bar-wrap {
+/* ── Progress bar ── */
+.apc-bar-wrap {
   display: flex;
   flex-direction: column;
   gap: 5px;
 }
-
-.ach-prog-bar-track {
-  height: 5px;
-  background: rgba(255,255,255,.05);
-  border-radius: 3px;
-  overflow: visible;
-  position: relative;
+.apc-track {
+  height: 2px;
+  background: rgba(255,255,255,.07);
+  border-radius: 2px;
+  overflow: hidden;
 }
-
-.ach-prog-bar-fill {
+.apc-fill {
   height: 100%;
-  background: linear-gradient(90deg, #C89F28, #F5C842, #FDE68A);
-  border-radius: 3px;
-  position: relative;
-  transition: width 1.4s cubic-bezier(.4,0,.2,1);
-  box-shadow: 0 0 8px rgba(245,200,66,.3);
+  background: linear-gradient(90deg, #C89F28, #F5C842 60%, #FDE68A);
+  border-radius: 2px;
 }
-
-/* Glowing tip */
-.ach-prog-bar-glow {
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--gold);
-  box-shadow:
-    0 0 0 3px rgba(245,200,66,.15),
-    0 0 12px rgba(245,200,66,.5);
-  transition: left 1.4s cubic-bezier(.4,0,.2,1);
-  pointer-events: none;
-}
-
-.ach-prog-bar-labels {
+.apc-bar-ends {
   display: flex;
   justify-content: space-between;
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: .03em;
-  color: rgba(168,168,176,.3);
   font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: rgba(255,255,255,.16);
+  letter-spacing: .02em;
 }
 
-/* Rarity pills */
-.ach-prog-rarity-row {
+/* ── Rarity pills ── */
+.apc-pills {
   display: flex;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
 }
-
 .ach-rarity-pill {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 9px 3px 7px;
-  border-radius: 20px;
+  padding: 4px 9px;
+  border-radius: 6px;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .04em;
   border: 0.5px solid;
   font-family: var(--font-mono);
-  transition: transform .15s, box-shadow .15s;
+  transition: opacity .15s;
 }
+.ach-rarity-pill:hover { opacity: .8; }
 
-.ach-rarity-pill:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0,0,0,.3);
-}
+/* ── Achievement Summary Button — span 2, same height as badges ─ */
+
 
 /* ── Achievement Summary Button — span 2, same height as badges ─ */
 .ach-summary-btn {
