@@ -17137,14 +17137,14 @@ function renderDash(){
             align-items:baseline;
             gap:3px;
             margin-bottom:6px">
-            <span style="
+            <span class="kpi-anim-val" data-num="${k.val}" style="
               font-family:var(--font-mono);
               font-size:28px;
               font-weight:400;
               line-height:1;
               letter-spacing:-.03em;
               color:var(--t1)">
-              ${k.val}
+              0
             </span>
             <span style="
               font-family:var(--font-mono);
@@ -17167,6 +17167,13 @@ function renderDash(){
         ${sparkHtml}
       </div>`;
   }).join('');
+
+  /* Animate KPI values */
+  requestAnimationFrame(()=>{
+    kpiEl.querySelectorAll('.kpi-anim-val[data-num]').forEach((el, i) => {
+      setTimeout(()=> animateOdometer(el, parseFloat(el.dataset.num)), i * 80);
+    });
+  });
 
   // ── CHART ──
   const legendCats = ALL_CATS.filter(c => data[c.id] && data[c.id].some(v=>v>0));
@@ -18099,7 +18106,8 @@ function renderAchFull(){
         const s = performance.now();
         (function f(){
           const p = Math.min((performance.now()-s)/dur, 1);
-          const e = 1 - Math.pow(1-p, 3);
+          /* ease-in-out sine — плавный разгон и торможение */
+          const e = -(Math.cos(Math.PI * p) - 1) / 2;
           node.textContent = fmt(Math.round(to * e));
           if(p < 1) requestAnimationFrame(f);
         })();
@@ -18108,13 +18116,13 @@ function renderAchFull(){
     const fill = card.querySelector('.apc-fill');
     if(fill){
       const w = parseFloat(fill.getAttribute('data-w')) || 0;
-      setTimeout(()=>{ fill.style.transition='width 1.2s cubic-bezier(.4,0,.2,1)'; fill.style.width=w+'%'; }, 150);
+      setTimeout(()=>{ fill.style.transition='width 1.4s ease-in-out'; fill.style.width=w+'%'; }, 150);
     }
-    cnt('.apc-n-unl', unl,      200, 900);
-    cnt('.apc-n-rem', total-unl, 280, 800);
-    cnt('.apc-n-xp',  totalXP,   360, 950);
-    cnt('.apc-n-lvl', lvl,       440, 700);
-    cnt('.apc-n-pct', pct,       520, 800);
+    cnt('.apc-n-unl', unl,       200, 1400);
+    cnt('.apc-n-rem', total-unl, 280, 1300);
+    cnt('.apc-n-xp',  totalXP,   360, 1500);
+    cnt('.apc-n-lvl', lvl,       440, 1200);
+    cnt('.apc-n-pct', pct,       520, 1300);
   })();
 
   function makeBadge(def){
@@ -18234,7 +18242,8 @@ function renderAchFull(){
           const s = performance.now();
           (function f(){
             const p = Math.min((performance.now()-s)/dur, 1);
-            const e = 1 - Math.pow(1-p, 3); /* ease-out cubic */
+            /* ease-in-out sine */
+            const e = -(Math.cos(Math.PI * p) - 1) / 2;
             el.textContent = fmt(Math.round(to * e));
             if(p < 1) requestAnimationFrame(f);
           })();
@@ -24970,23 +24979,25 @@ function showMsgListOnMobile() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// ODOMETER — Number counter animation
+// ODOMETER — Number counter animation (ease-in-out sine)
 // ══════════════════════════════════════════════════════════════
 function animateOdometer(el, endVal, suffix = '') {
   if (!el) return;
-  const startVal = 0;
-  const duration = 900;
+  const duration = 1400;
   const startTime = performance.now();
   const isFloat = String(endVal).includes('.');
+  const fmt = n => {
+    if (isFloat) return n.toFixed(1);
+    return n >= 1000 ? Math.round(n).toLocaleString('ru') : String(Math.round(n));
+  };
 
   function step(now) {
-    const progress = Math.min((now - startTime) / duration, 1);
-    // Ease out cubic
-    const ease = 1 - Math.pow(1 - progress, 3);
-    const current = startVal + (endVal - startVal) * ease;
-    el.textContent = (isFloat ? current.toFixed(1) : Math.round(current)) + suffix;
-    if (progress < 1) requestAnimationFrame(step);
-    else el.textContent = (isFloat ? endVal.toFixed(1) : endVal) + suffix;
+    const p = Math.min((now - startTime) / duration, 1);
+    /* ease-in-out sine — плавный разгон и торможение */
+    const e = -(Math.cos(Math.PI * p) - 1) / 2;
+    el.textContent = fmt(endVal * e) + suffix;
+    if (p < 1) requestAnimationFrame(step);
+    else el.textContent = fmt(endVal) + suffix;
   }
   requestAnimationFrame(step);
 }
@@ -25243,19 +25254,19 @@ function applyLevelFrame(info){
 }
 
 // ══ ANIMATED COUNTER ═════════════════════════════════
-function animCount(el,end,dur=900){
-  if(!el)return;
-  const start=parseFloat(el.textContent)||0;
-  // Не анимируем если значение не изменилось
+function animCount(el, end, dur=1400){
+  if(!el) return;
+  const start = parseFloat(el.textContent) || 0;
   if(Math.abs(start - end) < 0.01) return;
-  const isFloat=!Number.isInteger(end)&&String(end).includes('.');
-  const t0=performance.now();
+  const isFloat = !Number.isInteger(end) && String(end).includes('.');
+  const t0 = performance.now();
   function tick(now){
-    const p=Math.min((now-t0)/dur,1);
-    const ease=1-Math.pow(1-p,3);
-    const v=start+(end-start)*ease;
-    el.textContent=isFloat?v.toFixed(1):Math.floor(v).toLocaleString('ru');
-    if(p<1)requestAnimationFrame(tick);
+    const p = Math.min((now-t0)/dur, 1);
+    /* ease-in-out sine */
+    const e = -(Math.cos(Math.PI * p) - 1) / 2;
+    const v = start + (end - start) * e;
+    el.textContent = isFloat ? v.toFixed(1) : Math.round(v).toLocaleString('ru');
+    if(p < 1) requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
 }
