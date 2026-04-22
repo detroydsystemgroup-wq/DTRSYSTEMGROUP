@@ -14977,7 +14977,6 @@ window.toggleLikeUser = async function(){
           <div class="tot-eyebrow">Часов вложено в себя</div>
           <div class="tot-hero-row">
             <span class="tot-num" id="totDisp">—</span>
-            <span class="tot-unit">ч</span>
           </div>
           <div class="tot-stats-grid">
             <div class="tot-stat">
@@ -14992,7 +14991,7 @@ window.toggleLikeUser = async function(){
             <div class="tot-stat-sep"></div>
             <div class="tot-stat">
               <div class="tot-stat-val tot-stat-val--week" id="weekDisp">+0.0</div>
-              <div class="tot-stat-lbl">Ч за неделю</div>
+              <div class="tot-stat-lbl">За неделю</div>
             </div>
           </div>
         </div>
@@ -16838,22 +16837,19 @@ function renderHeader(){
     titleEl.style.boxShadow = `0 0 16px ${tc}22,inset 0 1px 0 ${tc}20`;
     titleEl.style.textShadow = `0 0 20px ${tc}88`;
   }
-  // Update stat bar — set values immediately (no flicker) then animate
   const _thRaw = totalHrs();
-  const _th = _thRaw < 10 ? _thRaw.toFixed(1) : Math.round(_thRaw).toString();
+  const _th = fmtHrs(_thRaw);
   const _ss = P.totalSessions || 0;
   const _ac = P.achievements ? P.achievements.filter(a=>a.unlocked).length : 0;
-  const _st = P.streak || 0; // стрик — дни подряд без перерыва
+  const _st = P.streak || 0;
   const statTH=document.getElementById('statTotalHrs');
   const statSS=document.getElementById('statSessions');
   const statAC=document.getElementById('statAchs');
   const statST=document.getElementById('statStreak');
-  // Write immediately so user sees real values even if animation doesn't fire
   if(statTH) statTH.textContent = _th;
   if(statSS) statSS.textContent = _ss;
   if(statAC) statAC.textContent = _ac;
   if(statST) statST.textContent = _st;
-  // Then animate with odometer
   setTimeout(()=>{ if(typeof animStatBar==='function') animStatBar(); }, 120);
   // Apply cover frame
   const cover=document.getElementById('phCover');
@@ -16874,36 +16870,24 @@ function renderHeader(){
 // Анимация цифр в стат-баре профиля (запускается через 120мс после прямого присвоения)
 function animStatBar(){
   const thRaw = totalHrs();
-  const thTarget = thRaw < 10 ? parseFloat(thRaw.toFixed(1)) : Math.round(thRaw);
+  const el=document.getElementById('statTotalHrs');
+  if(el) animCount(el, thRaw, 800, fmtHrs);
   const pairs=[
-    {id:'statTotalHrs', val:thTarget, isFloat: thRaw < 10},
-    {id:'statSessions',  val:P.totalSessions||0, isFloat:false},
-    {id:'statAchs',      val:P.achievements ? P.achievements.filter(a=>a.unlocked).length : 0, isFloat:false},
-    {id:'statStreak',    val:P.streak||0, isFloat:false},
+    {id:'statSessions', val:P.totalSessions||0},
+    {id:'statAchs',     val:P.achievements ? P.achievements.filter(a=>a.unlocked).length : 0},
+    {id:'statStreak',   val:P.streak||0},
   ];
-  pairs.forEach(({id,val,isFloat})=>{
+  pairs.forEach(({id,val})=>{
     const el=document.getElementById(id);
     if(!el) return;
-    const from=parseFloat(el.textContent)||0;
-    if(Math.abs(from-val)<0.05) return; // уже актуально — не мигаем
-    const dur=600, start=performance.now();
-    (function step(now){
-      const p=Math.min((now-start)/dur,1);
-      const ease=1-Math.pow(1-p,3);
-      const cur=from+(val-from)*ease;
-      el.textContent=isFloat ? cur.toFixed(1) : Math.round(cur);
-      if(p<1) requestAnimationFrame(step);
-      else el.textContent=isFloat ? val.toFixed(1) : val;
-    })(performance.now());
+    animCount(el, val, 800);
   });
 }
 
 function renderTotals(){
   const totEl=document.getElementById('totDisp');
   const newVal=totalHrs();
-  // Показываем 1 знак после запятой для < 10ч — иначе 0.8 → 1 (неправильно)
-  const displayVal = newVal < 10 ? newVal : Math.round(newVal);
-  if(totEl) animCount(totEl, displayVal, 1200);
+  if(totEl) animCount(totEl, newVal, 1200, fmtHrs);
   if(totEl){ totEl.classList.remove('updated'); void totEl.offsetWidth; totEl.classList.add('updated'); }
   const streakEl = document.getElementById('streakDisp');
   if(streakEl) animCount(streakEl, P.streak||0, 1000);
@@ -16911,9 +16895,9 @@ function renderTotals(){
   if(activeDaysEl) animCount(activeDaysEl, P.totalActiveDays||0, 1100);
   const _wHrs = weekHrs();
   const weekEl=document.getElementById('weekDisp');
-  if(weekEl){ weekEl.textContent = '+' + _wHrs.toFixed(1); }
+  if(weekEl){ weekEl.textContent = '+' + fmtHrs(_wHrs); }
 
-  // ── Hero zone — те же данные, те же функции ──
+  // ── Hero zone ──
   const todayStart = new Date(); todayStart.setHours(0,0,0,0);
   const todayH = P.sessions
     .filter(s => sessTs(s) >= todayStart.getTime())
@@ -16933,10 +16917,10 @@ function renderTotals(){
   const sEl = document.getElementById('heroStreakVal');
   const wEl = document.getElementById('heroWeekHrs');
   const tEl = document.getElementById('heroTotalHrs');
-  if(hEl){ hEl.textContent = todayH.toFixed(1); hEl.style.color = todayH>0?'var(--gold)':'var(--t1)'; }
+  if(hEl){ hEl.textContent = fmtHrs(todayH); hEl.style.color = todayH>0?'var(--gold)':'var(--t1)'; }
   if(sEl)  sEl.textContent = P.streak || 0;
-  if(wEl)  wEl.textContent = weekH.toFixed(1);
-  if(tEl)  tEl.textContent = totalH < 10 ? totalH.toFixed(1) : Math.round(totalH).toString();
+  if(wEl)  wEl.textContent = fmtHrs(weekH);
+  if(tEl)  tEl.textContent = fmtHrs(totalH);
   if(mEl){ mEl.textContent = msg; mEl.style.color = msgColor; }
 }
 
@@ -17084,17 +17068,17 @@ function renderDash(){
   const makeRing=(pct,color,size=56)=>""; // removed for performance
 
   const kpis=[
-    {val:periodHrs.toFixed(1),unit:'ч',lbl:isWeek?'За неделю':'За месяц',
+    {val:fmtHrs(periodHrs),rawNum:periodHrs,unit:'',lbl:isWeek?'За неделю':'За месяц',
      sub:deltaRaw>=0?`↑ +${delta}% к прошлому`:`↓ ${Math.abs(delta)}% к прошлому`,
      subc:deltaRaw>=0?'var(--green)':'var(--red)',
      color:'var(--gold)',ring:Math.min(100,Math.round(periodHrs/(isWeek?14:60)*100))},
-    {val:avgPerDay.toFixed(1),unit:'ч',lbl:'В день',
+    {val:fmtHrs(avgPerDay),rawNum:avgPerDay,unit:'',lbl:'В день',
      sub:'Средний темп',subc:'var(--t3)',
      color:'var(--blue)',ring:Math.min(100,Math.round(avgPerDay/4*100))},
-    {val:activeDays,unit:'',lbl:'Активных дней',
+    {val:activeDays,rawNum:activeDays,unit:'',lbl:'Активных дней',
      sub:`из ${buckets} дней`,subc:activeDays>=Math.ceil(buckets*.7)?'var(--green)':'var(--orange)',
      color:'var(--green)',ring:Math.round(activeDays/buckets*100)},
-    {val:bestDay.toFixed(1),unit:'ч',lbl:'Лучший день',
+    {val:fmtHrs(bestDay),rawNum:bestDay,unit:'',lbl:'Лучший день',
      sub:'Личный рекорд',subc:'var(--t3)',
      color:'var(--purple)',ring:Math.min(100,Math.round(bestDay/8*100))},
   ];
@@ -17146,14 +17130,14 @@ function renderDash(){
             align-items:baseline;
             gap:3px;
             margin-bottom:6px">
-            <span class="kpi-anim-val" data-num="${k.val}" style="
+            <span class="kpi-anim-val" data-num="${k.rawNum}" data-fmt="${k.unit===''&&k.rawNum!==k.val?'hrs':''}" style="
               font-family:var(--font-mono);
               font-size:28px;
               font-weight:400;
               line-height:1;
               letter-spacing:-.03em;
               color:var(--t1)">
-              0
+              ${k.unit===''&&k.rawNum!==k.val?'0 м':0}
             </span>
             <span style="
               font-family:var(--font-mono);
@@ -17180,7 +17164,8 @@ function renderDash(){
   /* Animate KPI values */
   requestAnimationFrame(()=>{
     kpiEl.querySelectorAll('.kpi-anim-val[data-num]').forEach((el, i) => {
-      setTimeout(()=> animateOdometer(el, parseFloat(el.dataset.num)), i * 80);
+      const isHrs = el.dataset.fmt === 'hrs';
+      setTimeout(()=> animateOdometer(el, parseFloat(el.dataset.num), '', isHrs ? fmtHrs : null), i * 80);
     });
   });
 
@@ -17227,7 +17212,7 @@ function renderDash(){
   const tooltipId = 'dChart_tip';
 
   // ── Human-readable hour formatter ──────────────────────────
-  function fmtH(h) {
+  function fmtH_chart(h) {
     const totalMin = Math.round(h * 60);
     const hrs = Math.floor(totalMin / 60);
     const min = totalMin % 60;
@@ -17367,7 +17352,7 @@ function renderDash(){
 
     // ── Hover overlay
     const hoverHandlers = totalVal > 0
-      ? `onmouseenter="showDashTip(event,\`${tipData}\`,\`${fmtH(totalVal)}\`,\`${labelDay}\`)" onmouseleave="hideDashTip()" onclick="showDashTip(event,\`${tipData}\`,\`${fmtH(totalVal)}\`,\`${labelDay}\`)"`
+      ? `onmouseenter="showDashTip(event,\`${tipData}\`,\`${fmtH_chart(totalVal)}\`,\`${labelDay}\`)" onmouseleave="hideDashTip()" onclick="showDashTip(event,\`${tipData}\`,\`${fmtH_chart(totalVal)}\`,\`${labelDay}\`)"`
       : `onmouseleave="hideDashTip()"`;
     barsHTML += `<rect x="${x}" y="${padT}" width="${bWNum.toFixed(1)}" height="${plotH}"
       fill="transparent" rx="3" style="cursor:${totalVal > 0 ? 'pointer' : 'default'}"
@@ -17472,7 +17457,7 @@ function renderDash(){
       return s.cat===c.id && t>=cut;
     }).length;
     // Отображаем всего с 1 знаком после запятой — toFixed(0) округляет 0.5→"1" и 0.3→"0" (БАГИ)
-    const totalHrsLabel = c.hours < 10 ? c.hours.toFixed(1) : Math.round(c.hours).toString();
+    const totalHrsLabel = fmtHrs(c.hours);
     const periodLabel = isWeek ? 'за неделю' : 'за месяц';
     return `<div style="background:var(--card);border:0.5px solid rgba(255,255,255,.08);border-left:3px solid ${c.color};border-radius:14px;padding:16px;position:relative;overflow:hidden">
       <div style="position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,${c.color}44,transparent)"></div>
@@ -17856,7 +17841,7 @@ function renderManageGrid(){
     const col = c.color;
     const iconKey = {read:'read',lang:'lang',code:'code',trading:'trading',cooking:'cooking',intellect:'intellect',project:'project',study:'study'}[c.id];
     const delay = i * 55;
-    const hrsLabel = hrs > 0 ? (hrs >= 100 ? Math.round(hrs) : hrs.toFixed(1)) : null;
+    const hrsLabel = hrs > 0 ? (fmtHrs(hrs)) : null;
 
     // Color-derived values
     const colRgb = col.startsWith('#') ? `${parseInt(col.slice(1,3),16)},${parseInt(col.slice(3,5),16)},${parseInt(col.slice(5,7),16)}` : '255,255,255';
@@ -18547,12 +18532,12 @@ function getArenaValue(player, mode) {
 
 function formatArenaValue(val, mode) {
   switch(mode) {
-    case 'hours':   return val.toFixed(1) + ' ч';
+    case 'hours':   return fmtHrs(val);
     case 'streak':  return val + ' дн';
-    case 'week':    return val.toFixed(1) + ' ч';
-    case 'month':   return val.toFixed(1) + ' ч';
-    case 'session': return val.toFixed(1) + ' ч';
-    default:        return val.toFixed(1) + ' ч';
+    case 'week':    return fmtHrs(val);
+    case 'month':   return fmtHrs(val);
+    case 'session': return fmtHrs(val);
+    default:        return fmtHrs(val);
   }
 }
 
@@ -18918,9 +18903,9 @@ function _buildArenaHTML(cats, results){
       const rowDelay = cardDelay + 140 + i * 38;
 
       // Extra player data
-      const weekVal = p.weekHrs > 0 ? p.weekHrs.toFixed(1)+'ч' : null;
+      const weekVal = p.weekHrs > 0 ? fmtHrs(p.weekHrs) : null;
       const streakVal = p.streak > 0 ? p.streak+'д' : null;
-      const totalHrs = p.hrs > 0 ? (p.hrs>=100?Math.round(p.hrs):p.hrs.toFixed(1))+'ч' : null;
+      const totalHrs = p.hrs > 0 ? fmtHrs(p.hrs) : null;
 
       const av = isMe
         ? (P.avatarUrl ? `<img src="${esc(P.avatarUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:${isTop3?10:7}px" onerror="this.hidden=true">` : `<span style="font-size:${isTop3?19:15}px">${P.avatar}</span>`)
@@ -18990,8 +18975,8 @@ function _buildArenaHTML(cats, results){
       </div>`;
 
       // ROWS 4–10
-      const monthVal = p.monthHrs > 0 ? p.monthHrs.toFixed(1)+'ч' : null;
-      const bestVal  = p.bestSession > 0 ? p.bestSession.toFixed(1)+'ч' : null;
+      const monthVal = p.monthHrs > 0 ? fmtHrs(p.monthHrs) : null;
+      const bestVal  = p.bestSession > 0 ? fmtHrs(p.bestSession) : null;
       return `<div class="arena-row" ${isMe?'data-isme="true"':''}
         style="display:flex;align-items:center;gap:12px;animation-delay:${rowDelay}ms;
           padding:${isSingle?'12px 24px':'10px 20px'};
@@ -19072,15 +19057,15 @@ function _buildArenaHTML(cats, results){
 
     // Total hours / weekly summary strip
     const myMe = sorted.find(p=>p.isMe);
-    const myHrsTotal = myMe ? (myMe.hrs>=100?Math.round(myMe.hrs):myMe.hrs?.toFixed(1)) : null;
+    const myHrsTotal = myMe ? fmtHrs(myMe.hrs) : null;
     const myWeekHrs = myMe?.weekHrs > 0 ? myMe.weekHrs.toFixed(1) : null;
 
     // ── Epic single-league layout ──────────────────────────────
     if(isSingle){
       const totalMonth = rawPlayers.reduce((a,p)=>a+(p.monthHrs||0),0).toFixed(1);
-      const totalWeek  = rawPlayers.reduce((a,p)=>a+(p.weekHrs||0),0).toFixed(1);
+      const totalWeek  = fmtHrs(rawPlayers.reduce((a,p)=>a+(p.weekHrs||0),0));
       const topStreak  = rawPlayers.reduce((a,p)=>Math.max(a,p.streak||0),0);
-      const avgHrs     = rawPlayers.length ? (rawPlayers.reduce((a,p)=>a+(p.hrs||0),0)/rawPlayers.length).toFixed(1) : '0.0';
+      const avgHrs     = rawPlayers.length ? (rawPlayers.reduce((a,p)=>a+(p.hrs||0),0)/rawPlayers.length) : '0.0';
 
       return `<div class="arena-card" style="
         border-radius:18px;
@@ -19139,20 +19124,20 @@ function _buildArenaHTML(cats, results){
             const aboveVal = aboveMe ? getArenaValue(aboveMe, arenaMode) : null;
             const gapAbove = (aboveVal !== null && myVal !== null) ? Math.max(0, aboveVal - myVal) : null;
             const aboveName = aboveMe ? (aboveMe.name.length > 9 ? aboveMe.name.slice(0,9)+'…' : aboveMe.name) : null;
-            const gapAboveStr = gapAbove !== null ? (arenaMode==='streak' ? '+'+Math.ceil(gapAbove)+' дн' : (gapAbove < 1/60 ? '+1 мин' : gapAbove < 0.1 ? '+'+Math.round(gapAbove*60)+' мин' : '+'+gapAbove.toFixed(1)+' ч')) : null;
+            const gapAboveStr = gapAbove !== null ? (arenaMode==='streak' ? '+'+Math.ceil(gapAbove)+' дн' : (gapAbove < 1/60 ? '+1 мин' : gapAbove < 0.1 ? '+'+Math.round(gapAbove*60)+' мин' : '+'+fmtHrs(gapAbove))) : null;
 
             // Card 3: Leader gap (only if I'm not already #1 or #2)
             const leaderVal = leader ? getArenaValue(leader, arenaMode) : null;
             const gapLeader = (leaderVal !== null && myVal !== null && myRank > 1) ? Math.max(0, leaderVal - myVal) : null;
             const leaderName = leader ? (leader.name.length > 9 ? leader.name.slice(0,9)+'…' : leader.name) : null;
-            const gapLeaderStr = gapLeader !== null ? (arenaMode==='streak' ? '+'+Math.ceil(gapLeader)+' дн' : (gapLeader < 1/60 ? '+1 мин' : gapLeader < 0.1 ? '+'+Math.round(gapLeader*60)+' мин' : '+'+gapLeader.toFixed(1)+' ч')) : null;
+            const gapLeaderStr = gapLeader !== null ? (arenaMode==='streak' ? '+'+Math.ceil(gapLeader)+' дн' : (gapLeader < 1/60 ? '+1 мин' : gapLeader < 0.1 ? '+'+Math.round(gapLeader*60)+' мин' : '+'+fmtHrs(gapLeader))) : null;
 
             // Card 4: Total participants stat
             const totalWeekAll = rawPlayers.reduce((a,p)=>a+(p.weekHrs||0),0);
 
             // ── Smart stat cards ────────────────────────────────────────
             // fmtH: short format for hours value
-            const fmtH = (v) => arenaMode==='streak' ? v+' дн' : (v>=100?Math.round(v):v.toFixed(1))+' ч';
+            const fmtH = (v) => arenaMode==='streak' ? v+' дн' : fmtHrs(v);
             // fmtGap: форматирует разрыв — маленькие значения показывает в минутах, а не в '<0.1'
             const fmtGap = (v) => {
               if(arenaMode==='streak') return '+'+Math.ceil(v)+' дн';
@@ -19160,7 +19145,7 @@ function _buildArenaHTML(cats, results){
               if(v < 1/60) return '+1 мин';          // меньше 1 минуты → показываем 1 мин
               if(v < 0.1) return '+'+Math.round(v*60)+' мин'; // 1–5 мин → показываем минуты
               if(v >= 100) return '+'+Math.round(v)+' ч';
-              return '+'+v.toFixed(1)+' ч';
+              return '+'+fmtHrs(v);
             };
 
             // Card 1 — МОИ ЧАСЫ: моё значение + мой ранг
@@ -19266,7 +19251,7 @@ function _buildArenaHTML(cats, results){
             const c4lbl = isStreakMode ? 'Мой стрик' : 'Моя неделя';
             const c4val = isStreakMode
               ? (myWeekVal>0 ? myWeekVal+' дн' : '0 дн')
-              : (myWeekVal>0 ? myWeekVal.toFixed(1)+' ч' : '0.0 ч');
+              : (myWeekVal>0 ? fmtHrs(myWeekVal) : '0 м');
             const c4sub = weekRank>0 ? '#'+weekRank+(isStreakMode?' стрик-рейтинг':' нед. рейтинг') : '';
             const c4html = `<div style="padding:13px 16px;border-radius:12px;
               background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.1);min-width:0">
@@ -19356,7 +19341,7 @@ function _buildArenaHTML(cats, results){
           if(g < 1/60) return '+1 мин';
           if(g < 0.1) return '+'+Math.round(g*60)+' мин';
           if(g >= 100) return '+'+Math.round(g)+' ч';
-          return '+'+g.toFixed(1)+' ч';
+          return '+'+fmtHrs(g);
         };
         const gapEl1 = document.getElementById('arenaLiveGapAbove');
         if(gapEl1){
@@ -19850,7 +19835,7 @@ async function openUserProfile(userId, name, av, avUrl){
       `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>`
     ];
     const kpiData = [
-      {v: totalH<10?totalH.toFixed(1):Math.round(totalH), u:'ч',  l:'Часов'},
+      {v: fmtHrs(totalH), u:'', l:'Часов'},
       {v: streak,   u:'д',  l:'Дисциплина'},
       {v: sessions, u:'',   l:'Сессий'},
       {v: achCount, u:'',   l:'Наград'},
@@ -22424,9 +22409,9 @@ function renderDailyProgress() {
   const pctEl = document.getElementById('dailyRingPct');
   if (pctEl) pctEl.textContent = pct + '%';
   const doneEl = document.getElementById('dailyDoneLabel');
-  if (doneEl) doneEl.textContent = todayH.toFixed(1) + ' ч';
+  if (doneEl) doneEl.textContent = fmtHrs(todayH);
   const goalEl = document.getElementById('dailyGoalLabel');
-  if (goalEl) goalEl.textContent = 'из ' + goal + ' ч';
+  if (goalEl) goalEl.textContent = 'из ' + fmtHrs(goal);
   const bar = document.getElementById('dailyProgressBar');
   if (bar) bar.style.width = pct + '%';
   const msg = document.getElementById('dailyProgressMsg');
@@ -22437,8 +22422,8 @@ function renderDailyProgress() {
     const _svgClock = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
     const _svgRocket= `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg>`;
     if (pct >= 100) msg.innerHTML = _svgCheck + ' Цель выполнена! Отличная работа!';
-    else if (pct >= 75) msg.innerHTML = _svgFist  + ' Почти готово! Ещё ' + (goal - todayH).toFixed(1) + ' ч';
-    else if (pct >= 50) msg.innerHTML = _svgFlame + ' Половина пути! Ещё ' + (goal - todayH).toFixed(1) + ' ч';
+    else if (pct >= 75) msg.innerHTML = _svgFist  + ' Почти готово! Ещё ' + fmtHrs(goal - todayH);
+    else if (pct >= 50) msg.innerHTML = _svgFlame + ' Половина пути! Ещё ' + fmtHrs(goal - todayH);
     else if (pct > 0)   msg.innerHTML = _svgClock + ' В пути. Осталось ' + (goal - todayH).toFixed(1) + ' ч до цели';
     else                msg.innerHTML = _svgRocket+ ' Начни сессию чтобы двигаться к цели!';
   }
@@ -24988,25 +24973,34 @@ function showMsgListOnMobile() {
 }
 
 // ══════════════════════════════════════════════════════════════
+// fmtHrs — decimal hours → "X ч Y м" (human-readable)
+// ══════════════════════════════════════════════════════════════
+function fmtHrs(h) {
+  if (!h || h < 0) h = 0;
+  const totalMin = Math.round(h * 60);
+  const hrs  = Math.floor(totalMin / 60);
+  const mins = totalMin % 60;
+  if (hrs === 0) return `${mins} м`;
+  if (mins === 0) return `${hrs} ч`;
+  return `${hrs} ч ${mins} м`;
+}
+
+// ══════════════════════════════════════════════════════════════
 // ODOMETER — Number counter animation (ease-in-out sine)
 // ══════════════════════════════════════════════════════════════
-function animateOdometer(el, endVal, suffix = '') {
+function animateOdometer(el, endVal, suffix = '', fmt = null) {
   if (!el) return;
   const duration = 1400;
   const startTime = performance.now();
   const isFloat = String(endVal).includes('.');
-  const fmt = n => {
-    if (isFloat) return n.toFixed(1);
-    return n >= 1000 ? Math.round(n).toLocaleString('ru') : String(Math.round(n));
-  };
+  const render = v => fmt ? fmt(v) : ((isFloat ? v.toFixed(1) : Math.round(v).toLocaleString('ru')) + suffix);
 
   function step(now) {
     const p = Math.min((now - startTime) / duration, 1);
-    /* ease-in-out sine — плавный разгон и торможение */
     const e = -(Math.cos(Math.PI * p) - 1) / 2;
-    el.textContent = fmt(endVal * e) + suffix;
+    el.textContent = render(endVal * e);
     if (p < 1) requestAnimationFrame(step);
-    else el.textContent = fmt(endVal) + suffix;
+    else el.textContent = render(endVal);
   }
   requestAnimationFrame(step);
 }
@@ -25263,18 +25257,17 @@ function applyLevelFrame(info){
 }
 
 // ══ ANIMATED COUNTER ═════════════════════════════════
-function animCount(el, end, dur=1400){
+function animCount(el, end, dur=1400, fmt=null){
   if(!el) return;
   const start = parseFloat(el.textContent) || 0;
-  if(Math.abs(start - end) < 0.01) return;
+  if(Math.abs(start - end) < 0.01 && !fmt) return;
   const isFloat = !Number.isInteger(end) && String(end).includes('.');
   const t0 = performance.now();
+  const render = v => fmt ? fmt(v) : (isFloat ? v.toFixed(1) : Math.round(v).toLocaleString('ru'));
   function tick(now){
     const p = Math.min((now-t0)/dur, 1);
-    /* ease-in-out sine */
     const e = -(Math.cos(Math.PI * p) - 1) / 2;
-    const v = start + (end - start) * e;
-    el.textContent = isFloat ? v.toFixed(1) : Math.round(v).toLocaleString('ru');
+    el.textContent = render(start + (end - start) * e);
     if(p < 1) requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
@@ -25401,8 +25394,8 @@ function renderRecords(){
       'var(--orange)',
       iconBox('flame','#F97316',44,12),
       'Лучшая неделя',
-      bestWeek > 0 ? bestWeek.toFixed(1) + ' ч' : '—',
-      bestWeek > 0 ? `${(Math.round(bestWeek/7*10)/10).toFixed(1)} ч/день` : 'Нет данных'
+      bestWeek > 0 ? fmtHrs(bestWeek) : '—',
+      bestWeek > 0 ? fmtHrs(Math.round(bestWeek/7*10)/10) + '/день' : 'Нет данных'
     ) +
     recCard(
       topCat?.color || 'var(--purple)',
@@ -25411,7 +25404,7 @@ function renderRecords(){
         : iconBox('trophy','#A855F7',44,12),
       'Топ категория',
       topCat
-        ? (topCat.hours < 10 ? topCat.hours.toFixed(1) : Math.round(topCat.hours)) + ' ч'
+        ? fmtHrs(topCat.hours)
         : '—',
       topCat?.name || 'Нет данных'
     );
@@ -25592,13 +25585,13 @@ async function renderForecast(){
           </div>`;
         };
         const hrsMyW=Math.min(100,Math.round(myHrs/Math.max(myHrs,avgHrs,0.1)*100));
-        const hrsDiff=(myHrs-avgHrs).toFixed(1);
+        const hrsDiff=fmtHrs(Math.abs(myHrs-avgHrs));
         const stDiff=myStreak-avgStreakReal;
         const dayDiff2=parseFloat((myActiveDays-avgActiveDays).toFixed(1));
         return mkCmpCard(
           'Часы',
           '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
-          myHrs,myHrs+'ч',avgHrs,avgHrs+'ч','var(--gold)',
+          myHrs,fmtHrs(myHrs),avgHrs,fmtHrs(avgHrs),'var(--gold)',
           (myHrs>=avgHrs?'▲ +':'▼ ')+Math.abs(hrsDiff)+'ч '+(myHrs>=avgHrs?'выше среднего':'ниже среднего'),
           myHrs>=avgHrs?'up':'dn'
         )+mkCmpCard(
@@ -35569,7 +35562,7 @@ async function _rptBuild(){
       +'</div>'
     +'</div>'
     +'<div class="rpt-kpi-grid">'
-      +_rptKpiCell(periodHrs.toFixed(1),'ч',isWeek?'За неделю':'За месяц','#F5C842')
+      +_rptKpiCell(fmtHrs(periodHrs),'',isWeek?'За неделю':'За месяц','#F5C842')
       +_rptKpiCell(String(activeDays),' дн','Активных дней','#4ADE80')
       +_rptKpiCell(String(avgPerDay),'ч','В среднем/день','#1a9fff')
     +'</div>'
