@@ -18221,6 +18221,18 @@ function renderAchFull(){
   }
   requestAnimationFrame(renderNextCat);
   setTimeout(()=>{ if(typeof window._observeAchCards==='function') window._observeAchCards(); },600);
+  /* ── Sync progress card height to badge card height ── */
+  setTimeout(()=>{
+    const firstBadge = el.querySelector('.dtr-badge-wrap');
+    const summaryBtn = el.querySelector('.ach-summary-btn');
+    if(firstBadge && summaryBtn){
+      const h = firstBadge.offsetHeight;
+      if(h > 0){
+        summaryBtn.style.minHeight = h + 'px';
+        summaryBtn.style.height    = h + 'px';
+      }
+    }
+  }, 400);
 }
 
 function openAch(id){
@@ -35068,13 +35080,16 @@ function closeSettings(){
   margin-top:0;
   padding:4px 0 16px !important;
   overflow:visible !important;
+  align-items:stretch;
 }
-/* Карточки растягиваются на всю ширину колонки */
+/* Карточки растягиваются на всю ширину и высоту колонки */
 .ach-badge-grid .dtr-badge-wrap{
   width:100% !important;
   min-width:0 !important;
   flex-shrink:unset !important;
   scroll-snap-align:unset !important;
+  height:100% !important;
+  align-self:stretch !important;
 }
 @media(max-width:1200px){ .ach-badge-grid{ grid-template-columns:repeat(5,1fr); } }
 @media(max-width:900px){  .ach-badge-grid{ grid-template-columns:repeat(4,1fr); } }
