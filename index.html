@@ -9746,6 +9746,78 @@ html[data-theme="light"] .nav-icon-btn:hover {
   flex-shrink: 0 !important;
 }
 
+/* ═══════════════════════════════════════════
+   TOT TIME SPLIT — часы и минуты красиво
+═══════════════════════════════════════════ */
+.tot-time-split {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0 !important;
+  padding: 4px 0 8px !important;
+}
+.tot-time-block {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 12px 18px !important;
+  position: relative !important;
+}
+.tot-time-num {
+  font-family: var(--font-mono) !important;
+  font-size: 72px !important;
+  font-weight: 300 !important;
+  letter-spacing: -.06em !important;
+  line-height: 1 !important;
+  color: #4ADE80 !important;
+  text-shadow:
+    0 0 60px rgba(74,222,128,.35),
+    0 0 20px rgba(74,222,128,.15) !important;
+  animation: totNumIn .6s .15s cubic-bezier(.25,.46,.45,.94) both !important;
+  min-width: 2ch !important;
+  text-align: center !important;
+  /* Subtle inner glow via background-clip trick */
+  background: linear-gradient(180deg, #6EF0A2 0%, #4ADE80 60%, #2DBE65 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  filter: drop-shadow(0 0 18px rgba(74,222,128,.4)) !important;
+}
+.tot-time-num--mins {
+  background: linear-gradient(180deg, #93F3BD 0%, #4ADE80 50%, #22C55E 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  opacity: .75 !important;
+  filter: drop-shadow(0 0 12px rgba(74,222,128,.25)) !important;
+}
+.tot-time-lbl {
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  letter-spacing: .12em !important;
+  text-transform: uppercase !important;
+  color: rgba(74,222,128,.35) !important;
+  line-height: 1 !important;
+}
+.tot-time-colon {
+  font-family: var(--font-mono) !important;
+  font-size: 52px !important;
+  font-weight: 200 !important;
+  color: rgba(74,222,128,.18) !important;
+  line-height: 1 !important;
+  margin-top: -14px !important;
+  letter-spacing: 0 !important;
+  align-self: center !important;
+  animation: totNumIn .5s .1s cubic-bezier(.25,.46,.45,.94) both !important;
+  /* Pulse animation on colon */
+  animation: totColonPulse 2s ease-in-out infinite, totNumIn .5s .1s cubic-bezier(.25,.46,.45,.94) both !important;
+}
+@keyframes totColonPulse {
+  0%, 100% { opacity: .18; }
+  50%       { opacity: .35; }
+}
+
 /* ═══════════════════════════════════════════════════════════════
    MY ARENA MINI — Better row symmetry
    ═══════════════════════════════════════════════════════════════ */
@@ -14975,8 +15047,20 @@ window.toggleLikeUser = async function(){
       <div class="cb" style="padding:0">
         <div class="tot-wr">
           <div class="tot-eyebrow">Часов вложено в себя</div>
+          <!-- hidden span for JS compat (animCount writes here) -->
+          <span id="totDisp" style="display:none">—</span>
           <div class="tot-hero-row">
-            <span class="tot-num" id="totDisp">—</span>
+            <div class="tot-time-split">
+              <div class="tot-time-block" id="totHrsBlock">
+                <div class="tot-time-num" id="totHrsNum">0</div>
+                <div class="tot-time-lbl">часов</div>
+              </div>
+              <div class="tot-time-colon">:</div>
+              <div class="tot-time-block" id="totMinsBlock">
+                <div class="tot-time-num tot-time-num--mins" id="totMinsNum">0</div>
+                <div class="tot-time-lbl">минут</div>
+              </div>
+            </div>
           </div>
           <div class="tot-stats-grid">
             <div class="tot-stat">
@@ -16889,6 +16973,14 @@ function renderTotals(){
   const newVal=totalHrs();
   if(totEl) animCount(totEl, newVal, 1200, fmtHrs);
   if(totEl){ totEl.classList.remove('updated'); void totEl.offsetWidth; totEl.classList.add('updated'); }
+  // ── Beautiful split display ──
+  const totalMin = Math.round(newVal * 60);
+  const splitH = Math.floor(totalMin / 60);
+  const splitM = totalMin % 60;
+  const hEl2 = document.getElementById('totHrsNum');
+  const mEl2 = document.getElementById('totMinsNum');
+  if(hEl2) animCount(hEl2, splitH, 1200);
+  if(mEl2) animCount(mEl2, splitM, 1200);
   const streakEl = document.getElementById('streakDisp');
   if(streakEl) animCount(streakEl, P.streak||0, 1000);
   const activeDaysEl=document.getElementById('activeDaysDisp');
