@@ -9808,7 +9808,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 4px;
   width: 100%;
   padding: 10px 16px;
   background: transparent;
@@ -9822,6 +9822,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
   color: var(--gold);
   cursor: pointer;
   transition: background .12s;
+  text-align: center;
 }
 .dtr-drop-item:last-child { border-bottom: none; }
 .dtr-drop-item:hover { background: rgba(245,200,66,.08); color: var(--gold-l); }
@@ -10461,8 +10462,6 @@ html[data-theme="light"] .nav-icon-btn:hover {
 }
 
 /* Цель label next to selector */
-#dailyGoalSel ~ * ,
-.ch #dailyGoalSel + * { display: none; }
 
 /* ═══════════════════════════════════════════════════════════════
    FIX 2 — Session mini-list: no name truncation, allow wrap
@@ -14974,21 +14973,6 @@ window.toggleLikeUser = async function(){
             <span id="timerDropLabel">Таймер</span>
             <svg style="position:absolute;right:9px;top:50%;transform:translateY(-50%)" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
-          <div id="timerDropMenu" class="dtr-drop-menu" style="display:none">
-            <button class="dtr-drop-item" onclick="dtrSelectTimer(0,'Таймер')">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              Таймер
-            </button>
-            <button class="dtr-drop-item" onclick="dtrSelectTimer(5,'5 мин')">5 <span class="dtr-drop-unit">мин</span></button>
-            <button class="dtr-drop-item" onclick="dtrSelectTimer(10,'10 мин')">10 <span class="dtr-drop-unit">мин</span></button>
-            <button class="dtr-drop-item" onclick="dtrSelectTimer(15,'15 мин')">15 <span class="dtr-drop-unit">мин</span></button>
-            <button class="dtr-drop-item" onclick="dtrSelectTimer(25,'25 мин')">25 <span class="dtr-drop-unit">мин</span></button>
-            <button class="dtr-drop-item" onclick="dtrSelectTimer(30,'30 мин')">30 <span class="dtr-drop-unit">мин</span></button>
-            <button class="dtr-drop-item" onclick="dtrSelectTimer(45,'45 мин')">45 <span class="dtr-drop-unit">мин</span></button>
-            <button class="dtr-drop-item" onclick="dtrSelectTimer(60,'60 мин')">60 <span class="dtr-drop-unit">мин</span></button>
-            <button class="dtr-drop-item" onclick="dtrSelectTimer(90,'90 мин')">90 <span class="dtr-drop-unit">мин</span></button>
-            <button class="dtr-drop-item" onclick="dtrSelectTimer(120,'2 часа')">2 <span class="dtr-drop-unit">часа</span></button>
-          </div>
         </div>
       </div>
 
@@ -15031,7 +15015,7 @@ window.toggleLikeUser = async function(){
         </span>
         <div style="display:flex;align-items:center;gap:7px">
           <span style="font-size:11px;font-weight:600;color:var(--t3);letter-spacing:.05em;text-transform:uppercase">Цель</span>
-          <select id="dailyGoalSel" onchange="setDailyGoal(this.value)" style="background:rgba(245,200,66,.08);border:0.5px solid rgba(245,200,66,.22);border-radius:7px;color:var(--gold);font-size:12px;font-weight:700;padding:4px 10px;cursor:pointer;outline:none;font-family:var(--font-mono);min-width:52px;text-align:center;letter-spacing:.02em">
+          <select id="dailyGoalSel" onchange="setDailyGoal(this.value)" style="display:none">
             <option value="0.167">10 мин</option>
             <option value="0.25">15 мин</option>
             <option value="0.333">20 мин</option>
@@ -15047,6 +15031,13 @@ window.toggleLikeUser = async function(){
             <option value="9">9 ч</option>
             <option value="10">10 ч</option>
           </select>
+          <div style="position:relative" id="goalDropWrap">
+            <button id="goalDropBtn" onclick="dtrToggleDrop('goalDropMenu','goalDropBtn',event)"
+              style="background:rgba(245,200,66,.08);border:0.5px solid rgba(245,200,66,.22);border-radius:7px;color:var(--gold);font-size:12px;font-weight:700;padding:4px 10px 4px 10px;cursor:pointer;outline:none;font-family:var(--font-mono);min-width:52px;display:inline-flex;align-items:center;gap:5px;letter-spacing:.02em">
+              <span id="goalDropLabel">2 ч</span>
+              <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+          </div>
         </div>
       </div>
       <div class="cb" style="padding:18px 20px 20px">
@@ -41922,12 +41913,63 @@ function dtrSelectTimer(val, label) {
   dtrCloseDrop();
 }
 
-// Move menu to body on load
+function dtrSelectGoal(val, label) {
+  document.getElementById('goalDropLabel').textContent = label;
+  var sel = document.getElementById('dailyGoalSel');
+  if (sel) { sel.value = val; sel.dispatchEvent(new Event('change')); }
+  // Update active highlight
+  document.querySelectorAll('#goalDropMenu .dtr-drop-item').forEach(function(b) {
+    var oc = b.getAttribute('onclick') || '';
+    b.classList.toggle('dtr-active', oc.indexOf("'" + val + "'") !== -1);
+  });
+  dtrCloseDrop();
+}
+
+// Move menus to body on load
 document.addEventListener('DOMContentLoaded', function() {
-  var m = document.getElementById('timerDropMenu');
-  if (m) document.body.appendChild(m);
+  // Sync goal label with saved value
+  var sel = document.getElementById('dailyGoalSel');
+  var lbl = document.getElementById('goalDropLabel');
+  if (sel && lbl) {
+    var opt = sel.options[sel.selectedIndex];
+    if (opt) lbl.textContent = opt.text;
+  }
 });
 </script>
+
+<!-- DTR Dropdown Menus — live in body to escape overflow:hidden -->
+<div id="timerDropMenu" class="dtr-drop-menu" style="display:none">
+  <button class="dtr-drop-item" onclick="dtrSelectTimer(0,'Таймер')">
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    Таймер
+  </button>
+  <button class="dtr-drop-item" onclick="dtrSelectTimer(5,'5 мин')">5 <span class="dtr-drop-unit">мин</span></button>
+  <button class="dtr-drop-item" onclick="dtrSelectTimer(10,'10 мин')">10 <span class="dtr-drop-unit">мин</span></button>
+  <button class="dtr-drop-item" onclick="dtrSelectTimer(15,'15 мин')">15 <span class="dtr-drop-unit">мин</span></button>
+  <button class="dtr-drop-item" onclick="dtrSelectTimer(25,'25 мин')">25 <span class="dtr-drop-unit">мин</span></button>
+  <button class="dtr-drop-item" onclick="dtrSelectTimer(30,'30 мин')">30 <span class="dtr-drop-unit">мин</span></button>
+  <button class="dtr-drop-item" onclick="dtrSelectTimer(45,'45 мин')">45 <span class="dtr-drop-unit">мин</span></button>
+  <button class="dtr-drop-item" onclick="dtrSelectTimer(60,'60 мин')">60 <span class="dtr-drop-unit">мин</span></button>
+  <button class="dtr-drop-item" onclick="dtrSelectTimer(90,'90 мин')">90 <span class="dtr-drop-unit">мин</span></button>
+  <button class="dtr-drop-item" onclick="dtrSelectTimer(120,'2 часа')">2 <span class="dtr-drop-unit">часа</span></button>
+</div>
+
+<div id="goalDropMenu" class="dtr-drop-menu" style="display:none">
+  <button class="dtr-drop-item" onclick="dtrSelectGoal('0.167','10 мин')">10 <span class="dtr-drop-unit">мин</span></button>
+  <button class="dtr-drop-item" onclick="dtrSelectGoal('0.25','15 мин')">15 <span class="dtr-drop-unit">мин</span></button>
+  <button class="dtr-drop-item" onclick="dtrSelectGoal('0.333','20 мин')">20 <span class="dtr-drop-unit">мин</span></button>
+  <button class="dtr-drop-item" onclick="dtrSelectGoal('0.5','30 мин')">30 <span class="dtr-drop-unit">мин</span></button>
+  <button class="dtr-drop-item" onclick="dtrSelectGoal('1','1 ч')">1 <span class="dtr-drop-unit">ч</span></button>
+  <button class="dtr-drop-item dtr-active" onclick="dtrSelectGoal('2','2 ч')">2 <span class="dtr-drop-unit">ч</span></button>
+  <button class="dtr-drop-item" onclick="dtrSelectGoal('3','3 ч')">3 <span class="dtr-drop-unit">ч</span></button>
+  <button class="dtr-drop-item" onclick="dtrSelectGoal('4','4 ч')">4 <span class="dtr-drop-unit">ч</span></button>
+  <button class="dtr-drop-item" onclick="dtrSelectGoal('5','5 ч')">5 <span class="dtr-drop-unit">ч</span></button>
+  <button class="dtr-drop-item" onclick="dtrSelectGoal('6','6 ч')">6 <span class="dtr-drop-unit">ч</span></button>
+  <button class="dtr-drop-item" onclick="dtrSelectGoal('7','7 ч')">7 <span class="dtr-drop-unit">ч</span></button>
+  <button class="dtr-drop-item" onclick="dtrSelectGoal('8','8 ч')">8 <span class="dtr-drop-unit">ч</span></button>
+  <button class="dtr-drop-item" onclick="dtrSelectGoal('9','9 ч')">9 <span class="dtr-drop-unit">ч</span></button>
+  <button class="dtr-drop-item" onclick="dtrSelectGoal('10','10 ч')">10 <span class="dtr-drop-unit">ч</span></button>
+</div>
 
 </body>
 </html>
