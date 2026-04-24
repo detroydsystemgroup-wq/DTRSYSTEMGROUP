@@ -43076,6 +43076,14 @@ document.addEventListener('keydown',function(e){
     <div class="gp3-field"><label class="gp3-lbl">&#1050;&#1072;&#1090;&#1077;&#1075;&#1086;&#1088;&#1080;&#1103;</label><div class="gp3-cats" id="gp3MCats"></div><div style="margin-top:7px;display:none" id="gp3CustomCatWrap"><input class="gp3-inp" type="text" id="gp3CustomCat" placeholder="&#1057;&#1074;&#1086;&#1103; &#1082;&#1072;&#1090;&#1077;&#1075;&#1086;&#1088;&#1080;&#1103;"></div></div>
     <div class="gp3-field"><div class="gp3-grid2"><div><label class="gp3-lbl">&#1044;&#1077;&#1076;&#1083;&#1072;&#1081;&#1085;</label><input class="gp3-inp" type="date" id="gp3MDeadline"></div><div><label class="gp3-lbl">&#1054;&#1073;&#1098;&#1077;&#1084; (&#1095;)</label><input class="gp3-inp" type="number" id="gp3MHours" placeholder="240" style="font-family:var(--font-mono)"></div></div></div>
     <div class="gp3-field"><label class="gp3-lbl">&#1047;&#1072;&#1076;&#1072;&#1095;&#1080;</label><div class="gp3-tasks-builder" id="gp3MTasksBld"></div><button class="gp3-add-task-btn" onclick="gp3MAddTask()">+ &#1044;&#1086;&#1073;&#1072;&#1074;&#1080;&#1090;&#1100; &#1079;&#1072;&#1076;&#1072;&#1095;&#1091;</button></div>
+    <div class="gp3-field">
+      <label class="gp3-lbl">&#1055;&#1088;&#1080;&#1074;&#1099;&#1095;&#1082;&#1080; &#1094;&#1077;&#1083;&#1080; <span style="font-size:9px;color:var(--t3);font-weight:400;text-transform:none;letter-spacing:0">(&#1085;&#1077;&#1079;&#1072;&#1074;&#1080;&#1089;&#1080;&#1084;&#1086; &#1086;&#1090; &#1079;&#1072;&#1076;&#1072;&#1095;)</span></label>
+      <div id="gp3MGoalHabsList" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+      <button class="gp3-hab-btn" id="gp3MAddGoalHabBtn" onclick="gp3ShowGoalHabPopup(this)" style="font-size:11.5px;padding:6px 13px">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        &#1055;&#1088;&#1080;&#1074;&#1103;&#1079;&#1072;&#1090;&#1100; &#1087;&#1088;&#1080;&#1074;&#1099;&#1095;&#1082;&#1091;
+      </button>
+    </div>
     <div class="gp3-field"><div class="gp3-toggle-row"><div><div class="gp3-toggle-lbl">&#1055;&#1091;&#1073;&#1083;&#1080;&#1095;&#1085;&#1072;&#1103; &#1094;&#1077;&#1083;&#1100;</div><div class="gp3-toggle-sub">&#1074;&#1080;&#1076;&#1085;&#1072; &#1074; &#1040;&#1088;&#1077;&#1085;&#1077;</div></div><label class="gp3-toggle"><input type="checkbox" id="gp3MPublic" checked><span class="gp3-toggle-slider"></span></label></div></div>
     <div class="gp3-modal-acts"><button class="gp3-btn-glass" onclick="gp3CloseModal()">&#1054;&#1090;&#1084;&#1077;&#1085;&#1072;</button><button class="gp3-btn-gold" onclick="gp3SaveGoal()">&#1057;&#1086;&#1093;&#1088;&#1072;&#1085;&#1080;&#1090;&#1100;</button></div>
   </div>
@@ -43163,7 +43171,7 @@ var GP3_CATS=[
 var GP3={
   goals:[],seg:'all',activeId:null,activeTab:'tasks',
   arenaOn:false,arenaFilter:'all',arenaSearch:'',
-  loading:false,mTasks:[],activeHabBtn:null,
+  loading:false,mTasks:[],goalHabitIds:[],activeHabBtn:null,activeHabTarget:'task',
   delGoalId:null,delHabits:false
 };
 
@@ -43388,7 +43396,7 @@ function gRenderTasks(g){
   var el=document.getElementById('gp3TasksPane');if(!el)return;
   var color=gColor(g.category),habs=gHabs();
   if(!g.tasks.length){
-    el.innerHTML='<div style="text-align:center;padding:32px;color:var(--t3);font-size:12px">\u0417\u0430\u0434\u0430\u0447 \u043d\u0435\u0442 \u2014 <span style="color:var(--gold);cursor:pointer" onclick="gp3OpenModal()">+\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c</span></div>';return;
+    el.innerHTML='<div style="text-align:center;padding:32px;color:var(--t3);font-size:12px">\u0417\u0430\u0434\u0430\u0447 \u043d\u0435\u0442 \u2014 <span style="color:var(--gold);cursor:pointer" onclick="gp3OpenAddTask()">+\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c</span></div>';return;
   }
   el.innerHTML=g.tasks.map(function(t){
     var tp=gTaskPct(t);
@@ -43453,12 +43461,29 @@ function gRenderHabits(g){
   var el=document.getElementById('gp3HabitsPane');if(!el)return;
   var color=gColor(g.category),habs=gHabs();
   var rows=[];
+
+  /* Goal-level habits (stored as JSON array of habit IDs) */
+  var goalHabIds=[];
+  try{if(g.habits_linked)goalHabIds=JSON.parse(g.habits_linked);}catch(e){}
+  if(Array.isArray(g.habits_linked))goalHabIds=g.habits_linked;
+  goalHabIds.forEach(function(hid){
+    var h=habs.find(function(x){return x.id===hid;});
+    if(h)rows.push({h:h,label:'Привычка цели',deadline:g.deadline_date,created:g.created_at,isGoalLevel:true});
+  });
+
+  /* Task & subtask habits */
   g.tasks.forEach(function(t){
     if(t.habit_id){var h=habs.find(function(x){return x.id===t.habit_id;});if(h)rows.push({h:h,label:t.title,deadline:t.deadline_date,created:t.created_at});}
-    (t.subtasks||[]).forEach(function(sub){if(sub.habit_id){var h=habs.find(function(x){return x.id===sub.habit_id;});if(h)rows.push({h:h,label:t.title+' \u203a '+sub.title,deadline:sub.deadline_date,created:t.created_at});}});
+    (t.subtasks||[]).forEach(function(sub){if(sub.habit_id){var h=habs.find(function(x){return x.id===sub.habit_id;});if(h)rows.push({h:h,label:t.title+' › '+sub.title,deadline:sub.deadline_date,created:t.created_at});}});
   });
+
   if(!rows.length){
-    el.innerHTML='<div style="text-align:center;padding:32px;color:var(--t3);font-size:12px">\u041f\u0440\u0438\u0432\u044b\u0447\u043a\u0438 \u043d\u0435 \u043f\u0440\u0438\u0432\u044f\u0437\u0430\u043d\u044b<br><span style="font-size:11px;opacity:.6">\u0414\u043e\u0431\u0430\u0432\u044c \u043f\u0440\u0438\u0432\u044f\u0437\u043a\u0443 \u043f\u0440\u0438 \u0440\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0438 \u0437\u0430\u0434\u0430\u0447\u0438</span></div>';return;
+    el.innerHTML='<div style="text-align:center;padding:32px;color:var(--t3);font-size:12px">Привычки не привязаны</div>'+
+    '<div style="display:flex;justify-content:center;margin-top:8px">'+
+    '<button class="gp3-hab-btn" onclick="gp3QuickLinkHabit(\''+g.id+'\')">'+ 
+    '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'+
+    ' Привязать привычку</button></div>';
+    return;
   }
   el.innerHTML=rows.map(function(row){
     var a=gActualReps(row.h.id,row.created,row.deadline),p=gPlannedReps(row.h.id,row.deadline,row.created);
@@ -43528,6 +43553,8 @@ window.gp3Seg=function(el,val){
 /* ── Modal ── */
 window.gp3OpenModal=function(){
   GP3.mTasks=[{id:Date.now(),name:'',hrs:'',deadline:'',habitId:null,reps:''}];
+  GP3.goalHabitIds=[];
+  gRenderGoalHabsList();
   var ov=document.getElementById('gp3ModalOv');if(!ov)return;
   ['gp3MName','gp3MDesc','gp3MDeadline','gp3MHours'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
   var pub=document.getElementById('gp3MPublic');if(pub)pub.checked=true;
@@ -43813,6 +43840,67 @@ window.gp3PickEmoji = function(emoji) {
   document.removeEventListener('click', _gp3EmojiOutside, true);
 };
 
+/* ── Goal-level habit management ── */
+function gRenderGoalHabsList(){
+  var el=document.getElementById('gp3MGoalHabsList');if(!el)return;
+  var habs=gHabs();
+  var linked=GP3.goalHabitIds.map(function(id){return habs.find(function(h){return h.id===id;});}).filter(Boolean);
+  if(!linked.length){el.innerHTML='';return;}
+  el.innerHTML=linked.map(function(h){
+    return '<div style="display:inline-flex;align-items:center;gap:5px;background:rgba(245,200,66,.08);border:0.5px solid rgba(245,200,66,.22);border-radius:20px;padding:4px 10px 4px 8px;font-size:11.5px;font-weight:600;color:var(--gold);cursor:default">'+
+      '<span>'+gEsc(h.icon||'⭐')+'</span>'+
+      '<span>'+gEsc(h.name)+'</span>'+
+      '<span onclick="gp3RemoveGoalHab(\''+h.id+'\')" style="margin-left:3px;color:rgba(255,255,255,.3);cursor:pointer;font-size:14px;line-height:1" title="Удалить">×</span>'+
+    '</div>';
+  }).join('');
+}
+
+window.gp3RemoveGoalHab=function(hid){
+  GP3.goalHabitIds=GP3.goalHabitIds.filter(function(id){return id!==hid;});
+  gRenderGoalHabsList();
+};
+
+window.gp3ShowGoalHabPopup=function(btn){
+  var pop=document.getElementById('gp3HabPopup');if(!pop)return;
+  GP3.activeHabTarget='goal';
+  GP3.activeHabBtn=null;
+  var habs=gHabs();
+  var listEl=document.getElementById('gp3HabPopupList');
+  if(listEl){
+    if(!habs.length){
+      listEl.innerHTML='<div style="padding:10px 12px;font-size:11px;color:var(--t3)">Нет привычек — создай первую</div>';
+    } else {
+      listEl.innerHTML=habs.map(function(h){
+        var linked=GP3.goalHabitIds.indexOf(h.id)>=0;
+        return '<div class="gp3-hab-pop-item" onclick="event.stopPropagation();gp3SelGoalHabit(\''+h.id+'\')" style="'+(linked?'background:rgba(245,200,66,.08)':'')+'">'+
+          '<div class="gp3-hab-pop-icon">'+gEsc(h.icon||'⭐')+'</div>'+
+          '<div class="gp3-hab-pop-name">'+gEsc(h.name)+'</div>'+
+          '<div class="gp3-hab-pop-freq">'+h.freq+'х/нед</div>'+
+          (linked?'<div style="color:var(--gold);font-size:14px;font-weight:700">✓</div>':'')+
+        '</div>';
+      }).join('');
+    }
+  }
+  var rect=btn.getBoundingClientRect();
+  pop.style.position='fixed';
+  pop.style.top=(rect.bottom+6)+'px';
+  pop.style.left=Math.max(8,Math.min(rect.left,window.innerWidth-300))+'px';
+  pop.style.display='block';
+  clearTimeout(_habPopTimer);
+  _habPopTimer=setTimeout(function(){
+    document.addEventListener('click',_gp3OutsideClick,true);
+  },150);
+};
+
+window.gp3SelGoalHabit=function(hid){
+  var idx=GP3.goalHabitIds.indexOf(hid);
+  if(idx>=0)GP3.goalHabitIds.splice(idx,1); /* toggle off */
+  else GP3.goalHabitIds.push(hid);
+  gp3CloseHabPopup();
+  gRenderGoalHabsList();
+};
+
+
 /* Save */
 window.gp3SaveGoal=async function(){
   var sbc=gSB(),uid=gUID();
@@ -43833,6 +43921,10 @@ window.gp3SaveGoal=async function(){
     if(customCat)goalData.category_custom=customCat;
     var gr=await sbc.from('goals').insert(goalData).select().single();
     if(gr.error)throw gr.error;
+    /* Save goal-level habits as JSON in habits_linked column */
+    if(GP3.goalHabitIds.length){
+      try{await sbc.from('goals').update({habits_linked:JSON.stringify(GP3.goalHabitIds)}).eq('id',gr.data.id);}catch(e){console.log('habits_linked not in schema, skipping');}
+    }
     if(valid.length){
       await sbc.from('goal_tasks').insert(valid.map(function(t,i){
         return{goal_id:gr.data.id,title:t.name.trim(),planned_hours:parseFloat(t.hrs)||null,deadline_date:t.deadline||null,habit_id:t.habitId||null,planned_reps:t.reps?parseInt(t.reps):null,sort_order:i,is_done:false,actual_hours:0};
@@ -43903,6 +43995,141 @@ window.gp3DoDelete=async function(){
 
 /* Wrapper for delete btn (HTML onclick can't access IIFE closure) */
 window.gp3DeleteActive=function(){ if(GP3&&GP3.activeId) gp3ConfirmDelete(GP3.activeId); };
+
+window.gp3QuickLinkHabit=function(gid){
+  var g=GP3.goals.find(function(x){return x.id===gid;});if(!g)return;
+  /* Show popup anchored to habits pane add button */
+  var btn=document.querySelector('#gp3HabitsPane button');
+  if(!btn)btn=document.querySelector('.gp3-habits-body button');
+  GP3.activeHabTarget='goal-quick';
+  GP3._quickLinkGoalId=gid;
+  var habs=gHabs();
+  var listEl=document.getElementById('gp3HabPopupList');
+  var pop=document.getElementById('gp3HabPopup');if(!pop)return;
+  var goalHabIds=[];
+  try{if(g.habits_linked)goalHabIds=JSON.parse(g.habits_linked);}catch(e){}
+  if(Array.isArray(g.habits_linked))goalHabIds=g.habits_linked;
+  if(listEl){
+    listEl.innerHTML=!habs.length?
+      '<div style="padding:10px;font-size:11px;color:var(--t3)">Нет привычек</div>':
+      habs.map(function(h){
+        var linked=goalHabIds.indexOf(h.id)>=0;
+        return '<div class="gp3-hab-pop-item" onclick="event.stopPropagation();gp3QuickSelHabit(\''+h.id+'\',\''+gid+'\')" style="'+(linked?'background:rgba(245,200,66,.08)':'')+'">'+
+          '<div class="gp3-hab-pop-icon">'+gEsc(h.icon||'⭐')+'</div>'+
+          '<div class="gp3-hab-pop-name">'+gEsc(h.name)+'</div>'+
+          '<div class="gp3-hab-pop-freq">'+h.freq+'х/нед</div>'+
+          (linked?'<div style="color:var(--gold);font-size:14px">✓</div>':'')+
+        '</div>';
+      }).join('');
+  }
+  /* Position near bottom-center of habits pane */
+  var pane=document.getElementById('gp3HabitsPane');
+  var pr=pane?pane.getBoundingClientRect():{bottom:400,left:400};
+  pop.style.position='fixed';
+  pop.style.top=(pr.bottom-200)+'px';
+  pop.style.left=Math.max(8,Math.min(pr.left+20,window.innerWidth-300))+'px';
+  pop.style.display='block';
+  clearTimeout(_habPopTimer);
+  _habPopTimer=setTimeout(function(){document.addEventListener('click',_gp3OutsideClick,true);},150);
+};
+
+window.gp3QuickSelHabit=async function(hid,gid){
+  var sbc=gSB(),uid=gUID();
+  var g=GP3.goals.find(function(x){return x.id===gid;});if(!g)return;
+  var goalHabIds=[];
+  try{if(g.habits_linked)goalHabIds=JSON.parse(g.habits_linked);}catch(e){}
+  if(Array.isArray(g.habits_linked))goalHabIds=g.habits_linked.slice();
+  var idx=goalHabIds.indexOf(hid);
+  if(idx>=0)goalHabIds.splice(idx,1); else goalHabIds.push(hid);
+  g.habits_linked=JSON.stringify(goalHabIds);
+  gp3CloseHabPopup();
+  gRenderHabits(g);
+  if(sbc&&uid){
+    try{await sbc.from('goals').update({habits_linked:g.habits_linked}).eq('id',gid);}
+    catch(e){console.log('habits_linked save error:',e);}
+  }
+  gToast(goalHabIds.indexOf(hid)>=0?'Привычка привязана!':'Привычка отвязана');
+};
+
+/* ── Quick add task to current goal ── */
+window.gp3QAKey=function(e){if(e.key==='Enter')gp3SaveQuickTask();if(e.key==='Escape')gp3CancelQuickTask();};
+window.gp3OpenAddTask = function() {
+  if (!GP3.activeId) return;
+  /* Show inline quick-add row in tasks pane */
+  var pane = document.getElementById('gp3TasksPane');
+  if (!pane) return;
+  /* If quick-add form already exists, focus it */
+  var existing = document.getElementById('gp3QuickAddRow');
+  if (existing) {
+    var inp = existing.querySelector('input');
+    if (inp) inp.focus();
+    return;
+  }
+  var row = document.createElement('div');
+  row.id = 'gp3QuickAddRow';
+  row.style.cssText = 'display:flex;gap:8px;align-items:center;padding:12px 28px;border-top:0.5px solid rgba(255,255,255,.05);animation:gp2FadeUp .2s ease both';
+  row.innerHTML =
+    '<input id="gp3QAName" class="gp3-inp" type="text" placeholder="\u041d\u0430\u0437\u0432\u0430\u043d\u0438\u0435 \u0437\u0430\u0434\u0430\u0447\u0438" style="flex:1;padding:9px 13px" onkeydown="gp3QAKey(event)">' +
+    '<input id="gp3QAHrs" class="gp3-inp" type="number" placeholder="\u0447" style="width:70px;font-family:var(--font-mono);text-align:center;padding:9px 8px" onkeydown="gp3QAKey(event)">' +
+    '<input id="gp3QADate" class="gp3-inp" type="date" style="width:140px;padding:9px 11px;font-size:12px" onkeydown="gp3QAKey(event)">' +
+    '<button class="gp3-btn-gold" onclick="gp3SaveQuickTask()" style="padding:9px 16px;border-radius:10px;font-size:12px;white-space:nowrap">\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c</button>' +
+    '<button class="gp3-btn-glass" onclick="gp3CancelQuickTask()" style="padding:9px 12px;border-radius:10px;font-size:12px">\u00d7</button>';
+  pane.appendChild(row);
+  setTimeout(function() {
+    var inp = document.getElementById('gp3QAName');
+    if (inp) inp.focus();
+  }, 60);
+};
+
+window.gp3CancelQuickTask = function() {
+  var row = document.getElementById('gp3QuickAddRow');
+  if (row) row.remove();
+};
+
+window.gp3SaveQuickTask = async function() {
+  var nameEl = document.getElementById('gp3QAName');
+  var name   = (nameEl ? nameEl.value : '').trim();
+  if (!name) { if (nameEl) nameEl.focus(); return; }
+  var hrs      = parseFloat((document.getElementById('gp3QAHrs')  || {}).value  || 0) || null;
+  var deadline = ((document.getElementById('gp3QADate') || {}).value) || null;
+  var gid      = GP3.activeId;
+  if (!gid) return;
+  var sbc = gSB(), uid = gUID();
+  /* Remove input row immediately (optimistic) */
+  gp3CancelQuickTask();
+  gToast('Сохраняем...');
+  if (sbc && uid) {
+    try {
+      var g = GP3.goals.find(function(x) { return x.id === gid; });
+      var sort = g && g.tasks ? g.tasks.length : 0;
+      var r = await sbc.from('goal_tasks').insert({
+        goal_id: gid, title: name,
+        planned_hours: hrs, deadline_date: deadline,
+        sort_order: sort, is_done: false, actual_hours: 0
+      }).select().single();
+      if (r.error) throw r.error;
+      gToast('Задача добавлена!');
+      await window.gp3Render();
+      /* Re-open detail for same goal */
+      if (GP3.goals.find(function(x) { return x.id === gid; })) {
+        gp3ShowDetail(gid);
+      }
+    } catch(e) {
+      console.error(e);
+      gToast('Ошибка: ' + ((e && e.message) || ''), '#EF4444');
+    }
+  } else {
+    /* Demo mode: add locally */
+    var g = GP3.goals.find(function(x) { return x.id === gid; });
+    if (g) {
+      g.tasks = g.tasks || [];
+      g.tasks.push({ id: 'lt' + Date.now(), goal_id: gid, title: name, planned_hours: hrs, deadline_date: deadline, is_done: false, actual_hours: 0, subtasks: [] });
+      var gg = GP3.goals.find(function(x) { return x.id === gid; });
+      gRenderTasks(gg); gRenderHero(gg); gRenderSidebar(); gUpdateKpis();
+      gToast('Задача добавлена');
+    }
+  }
+};
 
 /* Init */
 document.addEventListener('DOMContentLoaded',function(){
