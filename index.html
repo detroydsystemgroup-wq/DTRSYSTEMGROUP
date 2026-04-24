@@ -43097,7 +43097,11 @@ document.addEventListener('keydown',function(e){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
       <div>
         <label style="font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-bottom:6px;display:block">&#1069;&#1084;&#1086;&#1076;&#1079;&#1080;</label>
-        <input id="gp3IHIcon" class="gp3-inp" type="text" placeholder="&#127775;" maxlength="4" style="font-size:22px;text-align:center;padding:7px">
+        <div id="gp3IHIconBtn" onclick="gp3ToggleEmojiPicker()" style="width:100%;height:46px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.1);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:24px;transition:border-color .15s;user-select:none" title="&#1074;&#1099;&#1073;&#1088;&#1072;&#1090;&#1100; &#1101;&#1084;&#1086;&#1076;&#1079;&#1080;">&#127775;</div>
+        <input id="gp3IHIcon" type="hidden" value="&#127775;">
+        <div id="gp3EmojiPicker" style="display:none;position:absolute;z-index:900;margin-top:6px;background:var(--card);border:0.5px solid rgba(255,255,255,.1);border-radius:14px;padding:10px;box-shadow:0 12px 40px rgba(0,0,0,.7);width:260px;max-height:200px;overflow-y:auto">
+          <div style="display:flex;flex-wrap:wrap;gap:4px" id="gp3EmojiGrid"></div>
+        </div>
       </div>
       <div>
         <label style="font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-bottom:6px;display:block">&#1063;&#1072;&#1089;&#1090;&#1086;&#1090;&#1072;/&#1085;&#1077;&#1076;</label>
@@ -43664,7 +43668,10 @@ window.gp3GoCreateHabit = function() {
   if (!form) return;
   /* Reset fields */
   var ni = document.getElementById('gp3IHName');   if (ni) ni.value = '';
-  var ii = document.getElementById('gp3IHIcon');   if (ii) ii.value = '';
+  var ii = document.getElementById('gp3IHIcon');   if (ii) ii.value = '⭐';
+  var ib = document.getElementById('gp3IHIconBtn'); if (ib) ib.textContent = '⭐';
+  /* Reset emoji grid so it rebuilds next open */
+  var eg = document.getElementById('gp3EmojiGrid'); if (eg) eg.innerHTML = '';
   var fi = document.getElementById('gp3IHFreq');   if (fi) fi.value = '5';
   /* Reset color selection */
   document.querySelectorAll('.gp3-ih-color').forEach(function(c, i) {
@@ -43737,6 +43744,75 @@ window.gp3IHColorSel = function(el) {
   el.classList.add('on');
 };
 
+/* ═══ EMOJI PICKER ═══════════════════════════════════ */
+var GP3_EMOJIS = [
+  // Активность и спорт
+  '🏃','🏋️','🚴','🧘','⚽','🏊','🥊','🎯','🏆','🥇',
+  // Учёба и работа
+  '📚','📖','✏️','🎓','💻','🖥️','📝','🔬','🧠','💡',
+  // Языки и общение
+  '🗣️','🌍','🌏','📢','💬','🎙️','📻','🔤','✍️','📜',
+  // Здоровье и питание
+  '🥗','🥦','💊','🍎','💪','🦷','😴','🧘','❤️','🩺',
+  // Творчество
+  '🎨','🎵','🎸','🎹','🎭','🎬','📸','✂️','🖌️','🎤',
+  // Деньги и проекты
+  '💰','📈','💼','🚀','⚡','🔑','🏗️','📊','💎','🌟',
+  // Духовность
+  '🙏','☮️','🕊️','🌸','🌿','🌙','⭐','🔮','🕯️','🌈',
+  // Хобби и досуг
+  '📷','🎮','🎲','♟️','🌱','🐾','🌺','🏕️','✈️','🎪',
+  // Прочее
+  '⏰','🔥','💫','🎯','🗓️','📌','🔗','🛠️','💪','🌻'
+];
+
+window.gp3ToggleEmojiPicker = function() {
+  var picker = document.getElementById('gp3EmojiPicker');
+  var grid   = document.getElementById('gp3EmojiGrid');
+  if (!picker) return;
+
+  if (picker.style.display === 'block') {
+    picker.style.display = 'none';
+    return;
+  }
+
+  /* Build grid */
+  if (grid && !grid.innerHTML) {
+    grid.innerHTML = GP3_EMOJIS.map(function(e) {
+      return '<div onclick="event.stopPropagation();gp3PickEmoji(\'' + e + '\')" ' +
+        'style="width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;' +
+        'font-size:20px;cursor:pointer;transition:background .12s;user-select:none" ' +
+        'onmouseover="this.style.background=\'rgba(255,255,255,.08)\'" ' +
+        'onmouseout="this.style.background=\'transparent\'">' + e + '</div>';
+    }).join('');
+  }
+
+  picker.style.display = 'block';
+
+  /* Close on outside click */
+  setTimeout(function() {
+    document.addEventListener('click', _gp3EmojiOutside, true);
+  }, 80);
+};
+
+function _gp3EmojiOutside(e) {
+  var picker = document.getElementById('gp3EmojiPicker');
+  var btn    = document.getElementById('gp3IHIconBtn');
+  if ((picker && picker.contains(e.target)) || (btn && btn.contains(e.target))) return;
+  if (picker) picker.style.display = 'none';
+  document.removeEventListener('click', _gp3EmojiOutside, true);
+}
+
+window.gp3PickEmoji = function(emoji) {
+  var hiddenInput = document.getElementById('gp3IHIcon');
+  var btn         = document.getElementById('gp3IHIconBtn');
+  var picker      = document.getElementById('gp3EmojiPicker');
+  if (hiddenInput) hiddenInput.value = emoji;
+  if (btn) btn.textContent = emoji;
+  if (picker) picker.style.display = 'none';
+  document.removeEventListener('click', _gp3EmojiOutside, true);
+};
+
 /* Save */
 window.gp3SaveGoal=async function(){
   var sbc=gSB(),uid=gUID();
@@ -43753,7 +43829,9 @@ window.gp3SaveGoal=async function(){
   var valid=GP3.mTasks.filter(function(t){return t.name.trim();});
   gp3CloseModal();gToast('\u0421\u043e\u0445\u0440\u0430\u043d\u044f\u0435\u043c...');
   try{
-    var gr=await sbc.from('goals').insert({user_id:uid,title:name,description:desc||null,category:catId,category_custom:customCat||null,deadline_date:deadline,total_planned_hours:totalH,is_public:isPublic}).select().single();
+    var goalData={user_id:uid,title:name,description:desc||null,category:catId,deadline_date:deadline,total_planned_hours:totalH,is_public:isPublic};
+    if(customCat)goalData.category_custom=customCat;
+    var gr=await sbc.from('goals').insert(goalData).select().single();
     if(gr.error)throw gr.error;
     if(valid.length){
       await sbc.from('goal_tasks').insert(valid.map(function(t,i){
