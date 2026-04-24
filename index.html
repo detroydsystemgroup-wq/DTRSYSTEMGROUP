@@ -15651,7 +15651,7 @@ window.toggleLikeUser = async function(){
               <div class="gp3-hero-top">
                 <div id="gp3HCat" class="gp3-hero-cat"></div>
                 <div class="gp3-hero-actions">
-                  <button class="gp3-btn-sm danger" id="gp3DelBtn" onclick="gp3ConfirmDelete(GP3.activeId)">
+                  <button class="gp3-btn-sm danger" id="gp3DelBtn" onclick="gp3DeleteActive()">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                     &#1059;&#1076;&#1072;&#1083;&#1080;&#1090;&#1100;
                   </button>
@@ -43067,7 +43067,7 @@ document.addEventListener('keydown',function(e){
 
 
 <!-- ══ DTR GOALS v3 MODAL ══ -->
-<div class="gp3-modal-ov" id="gp3ModalOv" onclick="if(event.target===this)gp3CloseModal()">
+<div class="gp3-modal-ov" id="gp3ModalOv">
   <div class="gp3-modal">
     <div class="gp3-modal-title">&#1053;&#1086;&#1074;&#1072;&#1103; &#1094;&#1077;&#1083;&#1100;</div>
     <div class="gp3-modal-sub">&#1055;&#1086;&#1089;&#1090;&#1072;&#1074;&#1100; &#1073;&#1086;&#1083;&#1100;&#1096;&#1091;&#1102; &#1094;&#1077;&#1083;&#1100; &#1080; &#1088;&#1072;&#1079;&#1073;&#1077;&#1081; &#1085;&#1072; &#1079;&#1072;&#1076;&#1072;&#1095;&#1080;</div>
@@ -43085,6 +43085,41 @@ document.addEventListener('keydown',function(e){
 <div class="gp3-hab-popup" id="gp3HabPopup" style="display:none">
   <div id="gp3HabPopupList"></div>
   <div class="gp3-hab-pop-create" onclick="gp3GoCreateHabit()">+ &#1057;&#1086;&#1079;&#1076;&#1072;&#1090;&#1100; &#1085;&#1086;&#1074;&#1091;&#1102; &#1087;&#1088;&#1080;&#1074;&#1099;&#1095;&#1082;&#1091;</div>
+<!-- Inline habit creation form -->
+<div id="gp3InlineHabForm" style="display:none;position:fixed;z-index:800;top:50%;left:50%;transform:translate(-50%,-50%);width:340px;background:var(--card);border:0.5px solid rgba(245,200,66,.2);border-radius:18px;padding:22px;box-shadow:0 24px 64px rgba(0,0,0,.8)">
+  <div style="font-size:16px;font-weight:900;color:var(--t1);letter-spacing:-.03em;margin-bottom:4px">&#1057;&#1086;&#1079;&#1076;&#1072;&#1090;&#1100; &#1087;&#1088;&#1080;&#1074;&#1099;&#1095;&#1082;&#1091;</div>
+  <div style="font-size:11px;color:var(--t3);margin-bottom:16px">&#1055;&#1086;&#1103;&#1074;&#1080;&#1090;&#1089;&#1103; &#1074; &#1090;&#1088;&#1077;&#1082;&#1077;&#1088;&#1077; &#1087;&#1088;&#1080;&#1074;&#1099;&#1095;&#1077;&#1082; &#1072;&#1074;&#1090;&#1086;&#1084;&#1072;&#1090;&#1080;&#1095;&#1077;&#1089;&#1082;&#1080;</div>
+  <div style="margin-bottom:12px">
+    <label style="font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-bottom:6px;display:block">&#1053;&#1072;&#1079;&#1074;&#1072;&#1085;&#1080;&#1077;</label>
+    <input id="gp3IHName" class="gp3-inp" type="text" placeholder="&#1085;&#1072;&#1087;&#1088;&#1080;&#1084;&#1077;&#1088;: &#1063;&#1080;&#1090;&#1072;&#1090;&#1100; 30 &#1084;&#1080;&#1085;/&#1076;&#1077;&#1085;&#1100;" style="margin-bottom:0">
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+    <div>
+      <label style="font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-bottom:6px;display:block">&#1069;&#1084;&#1086;&#1076;&#1079;&#1080;</label>
+      <input id="gp3IHIcon" class="gp3-inp" type="text" placeholder="&#127775;" maxlength="4" style="font-size:20px;text-align:center;padding:8px">
+    </div>
+    <div>
+      <label style="font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-bottom:6px;display:block">&#1063;&#1072;&#1089;&#1090;&#1086;&#1090;&#1072;/&#1085;&#1077;&#1076;</label>
+      <input id="gp3IHFreq" class="gp3-inp" type="number" min="1" max="7" value="5" style="font-family:var(--font-mono);text-align:center">
+    </div>
+  </div>
+  <div style="margin-bottom:16px">
+    <label style="font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-bottom:8px;display:block">&#1062;&#1074;&#1077;&#1090;</label>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <div class="gp3-ih-color on" data-color="#F5C842" onclick="gp3IHColorSel(this)" style="width:24px;height:24px;border-radius:7px;background:#F5C842;cursor:pointer;border:2px solid white;transition:transform .15s"></div>
+      <div class="gp3-ih-color" data-color="#30D158" onclick="gp3IHColorSel(this)" style="width:24px;height:24px;border-radius:7px;background:#30D158;cursor:pointer;border:2px solid transparent;transition:transform .15s"></div>
+      <div class="gp3-ih-color" data-color="#0A84FF" onclick="gp3IHColorSel(this)" style="width:24px;height:24px;border-radius:7px;background:#0A84FF;cursor:pointer;border:2px solid transparent;transition:transform .15s"></div>
+      <div class="gp3-ih-color" data-color="#BF5AF2" onclick="gp3IHColorSel(this)" style="width:24px;height:24px;border-radius:7px;background:#BF5AF2;cursor:pointer;border:2px solid transparent;transition:transform .15s"></div>
+      <div class="gp3-ih-color" data-color="#FF9F0A" onclick="gp3IHColorSel(this)" style="width:24px;height:24px;border-radius:7px;background:#FF9F0A;cursor:pointer;border:2px solid transparent;transition:transform .15s"></div>
+      <div class="gp3-ih-color" data-color="#FF453A" onclick="gp3IHColorSel(this)" style="width:24px;height:24px;border-radius:7px;background:#FF453A;cursor:pointer;border:2px solid transparent;transition:transform .15s"></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;justify-content:flex-end">
+    <button class="gp3-btn-glass" onclick="document.getElementById('gp3InlineHabForm').style.display='none'">&#1054;&#1090;&#1084;&#1077;&#1085;&#1072;</button>
+    <button class="gp3-btn-gold" onclick="gp3SaveInlineHabit()">&#1057;&#1086;&#1079;&#1076;&#1072;&#1090;&#1100;</button>
+  </div>
+</div>
+
 </div>
 
 <!-- Delete confirm -->
@@ -43501,7 +43536,7 @@ window.gp3CatSel=function(id,el){
 function gRenderModalCats(){
   var el=document.getElementById('gp3MCats');if(!el)return;
   el.innerHTML=GP3_CATS.map(function(c){
-    return '<div class="gp3-cat-chip" onclick="gp3CatSel(\''+c.id+'\',this)">'+
+    return '<div class="gp3-cat-chip" data-cat-id="'+c.id+'" onclick="gp3CatSel(\''+c.id+'\',this)">'+
       '<span class="gp3-cat-dot" style="background:'+c.color+'"></span>'+gEsc(c.label)+'</div>';
   }).join('');
   var f=el.querySelector('.gp3-cat-chip');if(f)f.classList.add('on');
@@ -43557,7 +43592,35 @@ window.gp3SelHabit=function(hid){
   if(GP3.mTasks[GP3.activeHabBtn])GP3.mTasks[GP3.activeHabBtn].habitId=hid;
   gp3CloseHabPopup();gRenderModalTasks();
 };
-window.gp3GoCreateHabit=function(){gp3CloseHabPopup();gp3CloseModal();if(typeof showTab==='function')showTab('habits');};
+window.gp3GoCreateHabit=function(){
+  gp3CloseHabPopup();
+  /* Show inline habit creation form */
+  var pop=document.getElementById('gp3InlineHabForm');
+  if(pop){pop.style.display='block';var inp=document.getElementById('gp3IHName');if(inp)inp.focus();}
+};
+
+window.gp3SaveInlineHabit=function(){
+  var name=((document.getElementById('gp3IHName')||{}).value||'').trim();
+  if(!name){gToast('Введи название привычки','#EF4444');return;}
+  var icon=((document.getElementById('gp3IHIcon')||{}).value||'').trim()||'⭐';
+  var freq=parseInt(((document.getElementById('gp3IHFreq')||{}).value)||5)||5;
+  var colorEl=document.querySelector('.gp3-ih-color.on');
+  var color=colorEl?colorEl.dataset.color:'#F5C842';
+  var newHab={id:'h'+Date.now(),name:name,icon:icon,color:color,freq:freq,tod:'any',created:Date.now()};
+  /* Save to localStorage tracker */
+  var habs=gHabs();habs.push(newHab);
+  localStorage.setItem('dtr_h3',JSON.stringify(habs));
+  /* Close inline form */
+  var pop=document.getElementById('gp3InlineHabForm');if(pop)pop.style.display='none';
+  var ni=document.getElementById('gp3IHName');if(ni)ni.value='';
+  /* Re-open habit popup so user can select the new habit */
+  if(GP3.activeHabBtn!==null){
+    var rows=document.querySelectorAll('.gp3-task-bld');
+    var btn=rows[GP3.activeHabBtn]&&rows[GP3.activeHabBtn].querySelector('.gp3-hab-btn');
+    if(btn){setTimeout(function(){gp3ShowHabPopup(GP3.activeHabBtn,btn);},50);}
+  }
+  gToast('Привычка создана!');
+};
 
 /* Save */
 window.gp3SaveGoal=async function(){
@@ -43566,8 +43629,7 @@ window.gp3SaveGoal=async function(){
   var name=((document.getElementById('gp3MName')||{}).value||'').trim();
   if(!name){gToast('\u0412\u0432\u0435\u0434\u0438 \u043d\u0430\u0437\u0432\u0430\u043d\u0438\u0435','#EF4444');return;}
   var catEl=document.querySelector('.gp3-cat-chip.on');
-  var catMatch=catEl&&catEl.getAttribute('onclick').match(/'([^']+)'/);
-  var catId=catMatch?catMatch[1]:'other';
+  var catId=(catEl&&catEl.getAttribute('data-cat-id'))||'other';
   var customCat=((document.getElementById('gp3CustomCat')||{}).value||'').trim();
   var desc=((document.getElementById('gp3MDesc')||{}).value||'').trim();
   var deadline=((document.getElementById('gp3MDeadline')||{}).value)||null;
@@ -43646,11 +43708,20 @@ window.gp3DoDelete=async function(){
   gToast('\u0426\u0435\u043b\u044c \u0443\u0434\u0430\u043b\u0435\u043d\u0430');
 };
 
+/* Wrapper for delete btn (HTML onclick can't access IIFE closure) */
+window.gp3DeleteActive=function(){ if(GP3&&GP3.activeId) gp3ConfirmDelete(GP3.activeId); };
+
 /* Init */
 document.addEventListener('DOMContentLoaded',function(){
   if(location.hash.replace('#','').toLowerCase()==='goals')setTimeout(window.gp3Render,300);
 });
 })();
+window.gp3IHColorSel=function(el){
+  document.querySelectorAll('.gp3-ih-color').forEach(function(c){c.style.border='2px solid transparent';c.style.transform='scale(1)';});
+  el.style.border='2px solid white';el.style.transform='scale(1.15)';
+  el.classList.add('on');
+  document.querySelectorAll('.gp3-ih-color').forEach(function(c){if(c!==el)c.classList.remove('on');});
+};
 
 </script>
 </body>
