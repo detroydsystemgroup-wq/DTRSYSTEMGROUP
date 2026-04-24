@@ -43267,6 +43267,13 @@ async function gLoad(){
       }
       goals.forEach(function(g){g.tasks=tasks.filter(function(t){return t.goal_id===g.id;});});
     } else goals.forEach(function(g){g.tasks=[];});
+    goals.forEach(function(g){
+      /* Normalize habits_linked: DB returns string, we want array */
+      if(typeof g.habits_linked==='string'&&g.habits_linked){
+        try{g.habits_linked=JSON.parse(g.habits_linked);}catch(e){g.habits_linked=[];}
+      }
+      if(!Array.isArray(g.habits_linked))g.habits_linked=[];
+    });
     GP3.goals=goals;
   }catch(e){console.error('gLoad:',e);GP3.goals=[];}
 }
@@ -43464,8 +43471,10 @@ function gRenderHabits(g){
 
   /* Goal-level habits (stored as JSON array of habit IDs) */
   var goalHabIds=[];
-  try{if(g.habits_linked)goalHabIds=JSON.parse(g.habits_linked);}catch(e){}
-  if(Array.isArray(g.habits_linked))goalHabIds=g.habits_linked;
+  try{
+    if(Array.isArray(g.habits_linked)) goalHabIds=g.habits_linked;
+    else if(typeof g.habits_linked==='string'&&g.habits_linked) goalHabIds=JSON.parse(g.habits_linked);
+  }catch(e){goalHabIds=[];}
   goalHabIds.forEach(function(hid){
     var h=habs.find(function(x){return x.id===hid;});
     if(h)rows.push({h:h,label:'Привычка цели',deadline:g.deadline_date,created:g.created_at,isGoalLevel:true});
@@ -44007,8 +44016,10 @@ window.gp3QuickLinkHabit=function(gid){
   var listEl=document.getElementById('gp3HabPopupList');
   var pop=document.getElementById('gp3HabPopup');if(!pop)return;
   var goalHabIds=[];
-  try{if(g.habits_linked)goalHabIds=JSON.parse(g.habits_linked);}catch(e){}
-  if(Array.isArray(g.habits_linked))goalHabIds=g.habits_linked;
+  try{
+    if(Array.isArray(g.habits_linked)) goalHabIds=g.habits_linked;
+    else if(typeof g.habits_linked==='string'&&g.habits_linked) goalHabIds=JSON.parse(g.habits_linked);
+  }catch(e){goalHabIds=[];}
   if(listEl){
     listEl.innerHTML=!habs.length?
       '<div style="padding:10px;font-size:11px;color:var(--t3)">Нет привычек</div>':
@@ -44041,14 +44052,16 @@ window.gp3QuickSelHabit=async function(hid,gid){
   if(Array.isArray(g.habits_linked))goalHabIds=g.habits_linked.slice();
   var idx=goalHabIds.indexOf(hid);
   if(idx>=0)goalHabIds.splice(idx,1); else goalHabIds.push(hid);
-  g.habits_linked=JSON.stringify(goalHabIds);
+  /* Store as array in memory, as JSON string in DB */
+  g.habits_linked=goalHabIds;
   gp3CloseHabPopup();
   gRenderHabits(g);
   if(sbc&&uid){
-    try{await sbc.from('goals').update({habits_linked:g.habits_linked}).eq('id',gid);}
+    try{await sbc.from('goals').update({habits_linked:JSON.stringify(goalHabIds)}).eq('id',gid);}
     catch(e){console.log('habits_linked save error:',e);}
   }
-  gToast(goalHabIds.indexOf(hid)>=0?'Привычка привязана!':'Привычка отвязана');
+  var added=goalHabIds.indexOf(hid)>=0;
+  gToast(added?'Привычка привязана!':'Привычка отвязана');
 };
 
 /* ── Quick add task to current goal ── */
