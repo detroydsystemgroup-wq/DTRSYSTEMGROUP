@@ -43268,11 +43268,23 @@ async function gLoad(){
       goals.forEach(function(g){g.tasks=tasks.filter(function(t){return t.goal_id===g.id;});});
     } else goals.forEach(function(g){g.tasks=[];});
     goals.forEach(function(g){
-      /* Normalize habits_linked: DB returns string, we want array */
+      /* Normalize habits_linked from DB */
       if(typeof g.habits_linked==='string'&&g.habits_linked){
         try{g.habits_linked=JSON.parse(g.habits_linked);}catch(e){g.habits_linked=[];}
       }
       if(!Array.isArray(g.habits_linked))g.habits_linked=[];
+      /* Merge with localStorage fallback (more reliable) */
+      try{
+        var lsKey='dtr_goal_habits_'+g.id;
+        var lsVal=localStorage.getItem(lsKey);
+        if(lsVal){
+          var lsIds=JSON.parse(lsVal);
+          if(Array.isArray(lsIds)&&lsIds.length){
+            /* Merge: union of DB and localStorage */
+            lsIds.forEach(function(id){if(g.habits_linked.indexOf(id)<0)g.habits_linked.push(id);});
+          }
+        }
+      }catch(e){}
     });
     GP3.goals=goals;
   }catch(e){console.error('gLoad:',e);GP3.goals=[];}
@@ -43497,12 +43509,16 @@ function gRenderHabits(g){
   el.innerHTML=rows.map(function(row){
     var a=gActualReps(row.h.id,row.created,row.deadline),p=gPlannedReps(row.h.id,row.deadline,row.created);
     var pct=p?Math.min(Math.round(a/p*100),100):0;
-    return '<div class="gp3-h-card">'+
+    return '<div class="gp3-h-card" onclick="gp3GoToHabit(\''+row.h.id+'\')" style="cursor:pointer" title="\u041f\u0435\u0440\u0435\u0439\u0442\u0438 \u0432 \u0442\u0440\u0435\u043a\u0435\u0440">'+
       '<div class="gp3-h-icon">'+gEsc(row.h.icon||'')+'</div>'+
       '<div class="gp3-h-info"><div class="gp3-h-name">'+gEsc(row.h.name)+'</div><div class="gp3-h-task">'+gEsc(row.label)+'</div>'+
       '<div style="height:3px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-top:5px;width:100%;max-width:220px"><div style="height:100%;border-radius:2px;background:'+color+';width:'+pct+'%"></div></div>'+
       '</div>'+
-      '<div style="text-align:right"><div style="font-family:var(--font-mono);font-size:13px;font-weight:500;color:var(--t1)">'+pct+'%</div><div style="font-size:10px;color:var(--t3);margin-top:2px">'+a+'/'+p+' \u043f\u043e\u0432\u0442.</div></div>'+
+      '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">'+
+        '<div style="font-family:var(--font-mono);font-size:13px;font-weight:500;color:var(--t1)">'+pct+'%</div>'+
+        '<div style="font-size:10px;color:var(--t3)">'+a+'/'+p+' \u043f\u043e\u0432\u0442.</div>'+
+        '<div style="font-size:9.5px;color:rgba(245,200,66,.5);margin-top:2px">\u2192 \u0442\u0440\u0435\u043a\u0435\u0440</div>'+
+      '</div>'+
     '</div>';
   }).join('');
 }
@@ -43930,9 +43946,11 @@ window.gp3SaveGoal=async function(){
     if(customCat)goalData.category_custom=customCat;
     var gr=await sbc.from('goals').insert(goalData).select().single();
     if(gr.error)throw gr.error;
-    /* Save goal-level habits as JSON in habits_linked column */
+    /* Save goal-level habits — localStorage always, DB if column exists */
     if(GP3.goalHabitIds.length){
-      try{await sbc.from('goals').update({habits_linked:JSON.stringify(GP3.goalHabitIds)}).eq('id',gr.data.id);}catch(e){console.log('habits_linked not in schema, skipping');}
+      try{localStorage.setItem('dtr_goal_habits_'+gr.data.id,JSON.stringify(GP3.goalHabitIds));}catch(e){}
+      try{await sbc.from('goals').update({habits_linked:JSON.stringify(GP3.goalHabitIds)}).eq('id',gr.data.id);}
+      catch(e){console.log('habits_linked DB skip:',e.message);}
     }
     if(valid.length){
       await sbc.from('goal_tasks').insert(valid.map(function(t,i){
@@ -43997,6 +44015,8 @@ window.gp3DoDelete=async function(){
     }catch(e){console.error(e);}
   }
   GP3.goals=GP3.goals.filter(function(x){return x.id!==gid;});
+  /* Clean up localStorage */
+  try{localStorage.removeItem('dtr_goal_habits_'+gid);}catch(e){}
   if(GP3.activeId===gid){GP3.activeId=null;gShowEmpty();}
   gRenderSidebar();gUpdateKpis();
   gToast('\u0426\u0435\u043b\u044c \u0443\u0434\u0430\u043b\u0435\u043d\u0430');
@@ -44056,11 +44076,15 @@ window.gp3QuickSelHabit=async function(hid,gid){
   g.habits_linked=goalHabIds;
   gp3CloseHabPopup();
   gRenderHabits(g);
+  /* Always save to localStorage as reliable fallback */
+  try{localStorage.setItem('dtr_goal_habits_'+gid,JSON.stringify(goalHabIds));}catch(e){}
   if(sbc&&uid){
-    try{await sbc.from('goals').update({habits_linked:JSON.stringify(goalHabIds)}).eq('id',gid);}
-    catch(e){console.log('habits_linked save error:',e);}
+    try{
+      await sbc.from('goals').update({habits_linked:JSON.stringify(goalHabIds)}).eq('id',gid);
+    }catch(e){
+      console.log('habits_linked DB skip (add column with SQL):',e.message);
+    }
   }
-  var added=goalHabIds.indexOf(hid)>=0;
   gToast(added?'Привычка привязана!':'Привычка отвязана');
 };
 
@@ -44142,6 +44166,36 @@ window.gp3SaveQuickTask = async function() {
       gToast('Задача добавлена');
     }
   }
+};
+
+window.gp3GoToHabit = function(habitId) {
+  if (typeof showTab === 'function') showTab('habits');
+  setTimeout(function() {
+    /* Tracker uses data-hid on .hab-prog-pct inside each .hab-row */
+    var pctEl = document.querySelector('.hab-prog-pct[data-hid="' + habitId + '"]');
+    if (!pctEl) {
+      /* Try generic data-hid */
+      pctEl = document.querySelector('[data-hid="' + habitId + '"]');
+    }
+    if (pctEl) {
+      /* Walk up to find the .hab-row parent */
+      var row = pctEl.closest('.hab-row') || pctEl.parentElement;
+      while (row && !row.classList.contains('hab-row') && row.parentElement) {
+        row = row.parentElement;
+      }
+      if (row) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        var origBg = row.style.background;
+        row.style.transition = 'background .3s, box-shadow .3s';
+        row.style.boxShadow = '0 0 0 2px rgba(245,200,66,.7), 0 0 20px rgba(245,200,66,.15)';
+        row.style.background = 'rgba(245,200,66,.06)';
+        setTimeout(function() {
+          row.style.boxShadow = '';
+          row.style.background = origBg;
+        }, 2500);
+      }
+    }
+  }, 350);
 };
 
 /* Init */
