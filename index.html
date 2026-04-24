@@ -43235,10 +43235,41 @@ function gTaskPct(task){
   return 0;
 }
 function gGoalPct(g){
-  var tasks=g.tasks||[];if(!tasks.length)return 0;
-  var tot=tasks.reduce(function(s,t){return s+(parseFloat(t.planned_hours)||1);},0);
-  if(!tot)return 0;
-  return Math.min(Math.round(tasks.reduce(function(s,t){return s+gTaskPct(t)*(parseFloat(t.planned_hours)||1)/tot;},0)),100);
+  var tasks=g.tasks||[];
+
+  /* — Есть задачи → считаем через задачи (взвешенно по часам) — */
+  if(tasks.length){
+    var tot=tasks.reduce(function(s,t){return s+(parseFloat(t.planned_hours)||1);},0);
+    if(!tot)return 0;
+    return Math.min(Math.round(tasks.reduce(function(s,t){
+      return s+gTaskPct(t)*(parseFloat(t.planned_hours)||1)/tot;
+    },0)),100);
+  }
+
+  /* — Нет задач, но есть привычки → считаем через привычки — */
+  var habIds=[];
+  try{
+    if(Array.isArray(g.habits_linked))habIds=g.habits_linked;
+    else if(typeof g.habits_linked==='string'&&g.habits_linked)habIds=JSON.parse(g.habits_linked);
+  }catch(e){}
+  /* Also merge localStorage */
+  try{
+    var lsVal=localStorage.getItem('dtr_goal_habits_'+g.id);
+    if(lsVal){var lsIds=JSON.parse(lsVal);lsIds.forEach(function(id){if(habIds.indexOf(id)<0)habIds.push(id);});}
+  }catch(e){}
+
+  if(habIds.length){
+    var total=0,sum=0;
+    habIds.forEach(function(hid){
+      var planned=gPlannedReps(hid,g.deadline_date,g.created_at);
+      var actual=gActualReps(hid,g.created_at,g.deadline_date);
+      if(planned>0){total++;sum+=Math.min(actual/planned,1);}
+    });
+    return total>0?Math.min(Math.round(sum/total*100),100):0;
+  }
+
+  /* — Ничего нет → 0% — */
+  return 0;
 }
 function gForecast(g){
   var pct=gGoalPct(g);if(pct>=100)return '\u0417\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u043e!';
