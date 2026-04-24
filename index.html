@@ -43200,15 +43200,27 @@ function gHabs(){try{return JSON.parse(localStorage.getItem('dtr_h3')||'[]');}ca
 function gLogs(){try{return JSON.parse(localStorage.getItem('dtr_l3')||'{}');}catch{return{};}}
 function gActualReps(habId,createdAt,deadline){
   var logs=gLogs()[habId]||{};var n=0;
-  var s=createdAt?new Date(createdAt):new Date(0),e=deadline?new Date(deadline):new Date();
-  Object.keys(logs).forEach(function(k){if(logs[k]){var d=new Date(k);if(d>=s&&d<=e)n++;}});
+  /* Compare as date strings (YYYY-MM-DD) to avoid timezone issues */
+  /* Log keys are already 'YYYY-MM-DD' format */
+  var sStr=createdAt?(createdAt.indexOf('T')>0?createdAt.split('T')[0]:createdAt):'2000-01-01';
+  var eStr=deadline?(deadline.indexOf('T')>0?deadline.split('T')[0]:deadline):
+    (function(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}());
+  Object.keys(logs).forEach(function(k){
+    if(logs[k]&&k>=sStr&&k<=eStr)n++;
+  });
   return n;
 }
 function gPlannedReps(habId,deadline,createdAt){
   var h=gHabs().find(function(x){return x.id===habId;});if(!h)return 0;
-  var freq=h.freq||5;
-  var s=createdAt?new Date(createdAt):new Date(),e=deadline?new Date(deadline):new Date(Date.now()+30*864e5);
-  return Math.max(1,Math.ceil(Math.max(0,Math.ceil((e-s)/864e5))*(freq/7)));
+  var freq=parseInt(h.freq)||5;
+  /* Parse dates safely, ignoring timezone for day-level accuracy */
+  var sStr=createdAt?(createdAt.indexOf('T')>0?createdAt.split('T')[0]:createdAt):
+    (function(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}());
+  var eStr=deadline?(deadline.indexOf('T')>0?deadline.split('T')[0]:deadline):
+    (function(){var d=new Date(Date.now()+30*864e5);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}());
+  var sDate=new Date(sStr+'T12:00:00'),eDate=new Date(eStr+'T12:00:00');
+  var days=Math.max(0,Math.ceil((eDate-sDate)/864e5));
+  return Math.max(1,Math.ceil(days*(freq/7)));
 }
 
 /* ── Progress math ── */
@@ -44289,6 +44301,19 @@ window.gp3UnlinkHabit = async function(hid, gid) {
 document.addEventListener('DOMContentLoaded',function(){
   if(location.hash.replace('#','').toLowerCase()==='goals')setTimeout(window.gp3Render,300);
 });
+
+/* Re-render goals when user returns to goals tab (picks up new habit logs) */
+(function(){
+  var _origST=window.showTab;
+  if(typeof _origST==='function'){
+    window.showTab=function(name,el,skip){
+      _origST.call(this,name,el,skip);
+      if(name==='goals'&&typeof window.gp3Render==='function'){
+        setTimeout(window.gp3Render,80);
+      }
+    };
+  }
+})();
 })();
 window.gp3IHColorSel=function(el){
   document.querySelectorAll('.gp3-ih-color').forEach(function(c){c.style.border='2px solid transparent';c.style.transform='scale(1)';});
