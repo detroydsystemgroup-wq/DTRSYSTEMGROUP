@@ -10124,30 +10124,19 @@ html[data-theme="light"] .nav-icon-btn:hover {
    SECTION HEADERS — Apple Files / Health style
    ═══════════════════════════════════════════════════════════════ */
 
-[id^="sec_"] {
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-  font-size: 11px !important;
-  font-weight: 700 !important;
-  letter-spacing: .07em !important;
-  text-transform: uppercase !important;
-  color: var(--t3) !important;
-  margin: 28px 0 12px !important;
-  opacity: 1 !important;
-  animation: appleFadeUp .35s cubic-bezier(.25,.46,.45,.94) both !important;
+/* [id^="sec_"] — replaced by .sw-hdr, rules neutralised */
+[id^="sec_"]:not(.sw-hdr) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--t3);
+  margin: 28px 0 12px;
+  opacity: 1;
 }
-[id^="sec_"]::before {
-  content: '' !important;
-  display: inline-block !important;
-  width: 3px !important;
-  height: 12px !important;
-  border-radius: 2px !important;
-  background: var(--gold) !important;
-  opacity: .7 !important;
-  flex-shrink: 0 !important;
-}
-[id^="sec_"]::after { content: none !important; display: none !important; }
 
 /* ═══════════════════════════════════════════════════════════════
    INSIGHT CARDS — stagger + Apple Health scale-in
@@ -13635,6 +13624,103 @@ html[data-theme="light"] .nav-icon-btn:hover {
 .neon-rec-lbl { font-size:9px !important; font-weight:700 !important; letter-spacing:.14em !important; color:#848490 !important; text-transform:uppercase !important; margin-bottom:14px !important; }
 .neon-rec-sub { font-size:10px !important; font-weight:600 !important; letter-spacing:.03em !important; opacity:1 !important; }
 .neon-rec > div[style*="border-radius"] { display:none !important; }
+
+/* ══ SECTION WRAPPERS — sw ══════════════════════════════════ */
+.sw {
+  border-radius: 22px;
+  border: 1px solid rgba(255,255,255,.06);
+  overflow: hidden;
+  background: #0D0D12;
+  margin-bottom: 10px;
+  transition: border-color .2s;
+}
+.sw-gold  { border-color: rgba(245,200,66,.12); }
+.sw-blue  { border-color: rgba(96,165,250,.12); }
+.sw-purple{ border-color: rgba(168,85,247,.12); }
+.sw-green { border-color: rgba(34,197,94,.12); }
+
+/* Section header */
+.sw-hdr {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  padding: 16px 18px !important;
+  position: relative !important;
+  cursor: default !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  /* override [id^="sec_"] */
+  font-size: unset !important;
+  font-weight: unset !important;
+  letter-spacing: unset !important;
+  text-transform: unset !important;
+  color: unset !important;
+  animation: none !important;
+}
+.sw-hdr::before { display: none !important; }
+.sw-hdr::after  { display: none !important; }
+
+/* Icon box */
+.sw-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Text */
+.sw-title {
+  font-family: 'DM Sans', var(--font-display), sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #F2F0E8;
+  letter-spacing: -.015em;
+  line-height: 1.2;
+  margin-bottom: 2px;
+}
+.sw-sub {
+  font-family: 'DM Sans', var(--font-display), sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  color: #848490;
+  letter-spacing: .01em;
+  line-height: 1.3;
+}
+
+/* Badge */
+.sw-tag {
+  font-family: 'DM Sans', var(--font-display), sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  padding: 4px 11px;
+  border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Divider */
+.sw-divider {
+  height: 1px;
+  background: rgba(255,255,255,.05);
+  margin: 0 18px;
+}
+
+/* Body */
+.sw-body {
+  padding: 14px;
+}
+
+/* Adjust inner grids when inside sw-body */
+.sw-body .insight-row { margin-bottom: 0 !important; }
+.sw-body .rec-grid    { margin-bottom: 0 !important; }
+.sw-body .cmp-row     { margin-top: 0 !important; }
+.sw-body .kpi-row     { margin-bottom: 0 !important; }
+.sw-body .cat-breakdown { margin-top: 0 !important; }
 </style>
   <link rel="manifest" id="pwaManifest">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23080808'/%3E%3Cpolygon points='58,10 38,52 52,52 42,90 62,46 46,46' fill='%23F5C842'/%3E%3C/svg%3E">
@@ -15603,24 +15689,55 @@ window.toggleLikeUser = async function(){
           </div>
           <!-- ── end hero zone ── -->
 
-          <div id="sec_activity" style=""></div>
-          <div class="kpi-row" id="kpiRow"></div>
-
-          <div style="margin-bottom:8px">
-            <div class="chart-legend" id="chartLegend"></div>
-            <div class="bar-chart" id="barChart"></div>
-            <div class="bar-axis"><span id="barAxisL"></span><span id="barAxisR"></span></div>
+          <!-- ── Activity wrapper ── -->
+          <div class="sw sw-gold" id="wrap_activity">
+            <div id="sec_activity"></div>
+            <div class="sw-divider"></div>
+            <div class="sw-body">
+              <div class="kpi-row" id="kpiRow"></div>
+              <div style="margin-top:10px">
+                <div class="chart-legend" id="chartLegend"></div>
+                <div class="bar-chart" id="barChart"></div>
+                <div class="bar-axis"><span id="barAxisL"></span><span id="barAxisR"></span></div>
+              </div>
+            </div>
           </div>
 
-          <div id="sec_by_cat" style=""></div>
-          <div class="cat-breakdown" id="catBreakdown"></div>
+          <!-- ── By category wrapper ── -->
+          <div class="sw sw-blue" id="wrap_by_cat">
+            <div id="sec_by_cat"></div>
+            <div class="sw-divider"></div>
+            <div class="sw-body">
+              <div class="cat-breakdown" id="catBreakdown"></div>
+            </div>
+          </div>
 
-          <div id="sec_kpi" style=""></div>
-          <div class="insight-row" id="insightRow"></div>
-          <div id="sec_records" style=""></div>
-          <div class="rec-grid" id="recGrid"></div>
-          <div id="sec_forecast" style=""></div>
-          <div class="cmp-row" id="forecastRow"></div>
+          <!-- ── Analytics (KPI) wrapper ── -->
+          <div class="sw sw-gold" id="wrap_kpi">
+            <div id="sec_kpi"></div>
+            <div class="sw-divider"></div>
+            <div class="sw-body">
+              <div class="insight-row" id="insightRow"></div>
+            </div>
+          </div>
+
+          <!-- ── Records wrapper ── -->
+          <div class="sw sw-purple" id="wrap_records">
+            <div id="sec_records"></div>
+            <div class="sw-divider"></div>
+            <div class="sw-body">
+              <div class="rec-grid" id="recGrid"></div>
+            </div>
+          </div>
+
+          <!-- ── League comparison wrapper ── -->
+          <div class="sw sw-green" id="wrap_forecast">
+            <div id="sec_forecast"></div>
+            <div class="sw-divider"></div>
+            <div class="sw-body">
+              <div class="cmp-row" id="forecastRow"></div>
+            </div>
+          </div>
 
           <div id="tab-heatmap-placeholder" style="display:none"></div>
         </div>
@@ -18194,41 +18311,52 @@ function renderDash(){
   const setSec = (id, cfg) => {
     const el = document.getElementById(id);
     if (!el) return;
+    const c = cfg.color || '#F5C842';
+    const rgb = cfg.rgb || '245,200,66';
+    const badge = cfg.badge || '';
+    el.className = 'sw-hdr';
     el.innerHTML = `
-      <div class="dsh">
-        <button class="dsh-icon" type="button" aria-label="${cfg.title}">${cfg.icon}</button>
-        <div class="dsh-body">
-          <div class="dsh-title">${cfg.title}</div>
-          <div class="dsh-sub">${cfg.sub}</div>
-        </div>
-        <div class="dsh-line"></div>
-      </div>`;
+      <div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(${rgb},.07),transparent 60%);pointer-events:none;border-radius:22px 22px 0 0"></div>
+      <div class="sw-icon" style="background:rgba(${rgb},.12);border:1px solid rgba(${rgb},.2);flex-shrink:0;position:relative;z-index:1">
+        ${cfg.icon}
+      </div>
+      <div style="flex:1;min-width:0;position:relative;z-index:1">
+        <div class="sw-title">${cfg.title}</div>
+        <div class="sw-sub">${cfg.sub}</div>
+      </div>
+      ${badge ? `<span class="sw-tag" style="background:rgba(${rgb},.1);color:${c};border:1px solid rgba(${rgb},.2);position:relative;z-index:1">${badge}</span>` : ''}`;
   };
 
+  const periodBadge = isWeek ? 'Неделя' : 'Месяц';
   setSec('sec_activity', {
-    icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
-    title: 'АКТИВНОСТЬ',
-    sub: isWeek ? 'Динамика за 7 дней' : 'Динамика за 30 дней'
+    icon: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F5C842" stroke-width="2.2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
+    title: 'Активность',
+    sub: isWeek ? 'Динамика за 7 дней' : 'Динамика за 30 дней',
+    color: '#F5C842', rgb: '245,200,66', badge: periodBadge
   });
   setSec('sec_by_cat', {
-    icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`,
-    title: 'ПО НАПРАВЛЕНИЯМ',
-    sub: 'Сколько часов в каждой категории'
+    icon: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`,
+    title: 'По направлениям',
+    sub: 'Сколько часов в каждой категории',
+    color: '#60A5FA', rgb: '96,165,250', badge: periodBadge
   });
   setSec('sec_kpi', {
-    icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>`,
-    title: 'АНАЛИТИКА',
-    sub: 'Средние значения и темп роста'
+    icon: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F5C842" stroke-width="2.2" stroke-linecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>`,
+    title: 'Аналитика',
+    sub: 'Средние значения и темп роста',
+    color: '#F5C842', rgb: '245,200,66', badge: periodBadge
   });
   setSec('sec_records', {
-    icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>`,
-    title: 'ЛИЧНЫЕ РЕКОРДЫ',
-    sub: 'Твои лучшие результаты за всё время'
+    icon: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#A855F7" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>`,
+    title: 'Личные рекорды',
+    sub: 'Твои лучшие результаты за всё время',
+    color: '#A855F7', rgb: '168,85,247', badge: '3 рекорда'
   });
   setSec('sec_forecast', {
-    icon: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><path d="M2 20h20"/></svg>`,
-    title: 'СРАВНЕНИЕ С ЛИГОЙ',
-    sub: 'Твой темп относительно других участников'
+    icon: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2.2" stroke-linecap="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>`,
+    title: 'Сравнение с лигой',
+    sub: 'Твой темп относительно участников',
+    color: '#22C55E', rgb: '34,197,94', badge: cmpPeriodDays + ' дней'
   });
 
   // ── PREMIUM KPI ROW ──
