@@ -1253,16 +1253,26 @@ textarea:focus-visible,
 .mot-banner{margin-bottom:20px;display:flex;align-items:center;gap:14px;}
 .mot-icon{width:36px;height:36px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:10px;background:rgba(245,200,66,.1);border:0.5px solid rgba(245,200,66,.2);color:var(--gold);}
 /* ── FORECAST ── */
+/* ══ COMPARISON — Value-First redesign ══ */
 .cmp-row{display:flex;flex-direction:column;gap:10px;margin-top:4px;}
-.cmp-card{background:var(--card);border:0.5px solid var(--border);border-radius:14px;padding:15px 16px;position:relative;overflow:hidden;}
-.cmp-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--cmp-c,var(--gold))08,transparent 65%);pointer-events:none;}
-.cmp-title{text-transform:uppercase;color:var(--t2);margin-bottom:10px;}
-.cmp-bars{display:flex;flex-direction:column;gap:7px;}
-.cmp-bar-row{display:flex;align-items:center;gap:8px;}
-.cmp-bar-lbl{color:var(--t3);width:54px;flex-shrink:0;white-space:nowrap;}
-.cmp-bar-wr{flex:1;height:6px;background:var(--bg);border-radius:3px;overflow:hidden;}
+
+/* Period selector */
+.cmp-seg{display:flex;gap:4px;background:#0D0D12;border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:4px;width:fit-content;margin-bottom:14px}
+.cmp-period-btn{font-family:var(--font-body);font-size:11px;font-weight:600;padding:6px 13px;border-radius:8px;border:none;background:transparent;color:#848490;cursor:pointer;transition:all .18s;letter-spacing:.03em;text-transform:uppercase}
+.cmp-period-btn:hover{color:#F2F0E8}
+.cmp-period-btn.active{background:rgba(245,200,66,.12);color:#F5C842;border:1px solid rgba(245,200,66,.22)}
+
+/* Metric card */
+.cmp-card{background:#0D0D12;border:1px solid rgba(255,255,255,.06);border-radius:20px;padding:20px 18px;position:relative;overflow:hidden;transition:border-color .22s,transform .22s;cursor:pointer}
+.cmp-card:hover{border-color:rgba(255,255,255,.12);transform:translateY(-2px)}
+.cmp-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);opacity:0;transition:opacity .22s;pointer-events:none}
+.cmp-card:hover::before{opacity:1}
+
+/* Category card */
+.cmp-cat-card{background:#0D0D12;border:1px solid rgba(255,255,255,.06);border-radius:20px;padding:20px 18px;transition:border-color .22s,transform .22s;cursor:pointer}
+.cmp-cat-card:hover{border-color:rgba(255,255,255,.1);transform:translateY(-1px)}
+
 .cmp-bar-fill{height:100%;border-radius:3px;transition:width 1s cubic-bezier(.34,1.2,.64,1);}
-.cmp-bar-val{width:40px;text-align:right;flex-shrink:0;}
 .cmp-diff{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:5px;margin-top:8px;}
 .cmp-diff.up{background:rgba(63,185,80,.1);color:#3fb950;border:0.5px solid rgba(63,185,80,.2);}
 .cmp-diff.dn{background:rgba(248,81,73,.08);color:#f85149;border:0.5px solid rgba(248,81,73,.18);}
@@ -11758,7 +11768,7 @@ html[data-theme="light"] .nav-icon-btn:hover {
 .insight:hover    { transform: translateY(-4px) scale(1.015) !important; }
 .cbd-item:hover   { transform: translateY(-4px) scale(1.015) !important; }
 .cat-item:hover   { transform: translateY(-3px) !important; }
-.cmp-card:hover   { transform: translateY(-3px) scale(1.01) !important; }
+.cmp-card:hover { transform:translateY(-2px) !important; box-shadow:none !important; }
 .up-kpi-cell:hover{ transform: translateY(-3px) scale(1.04) !important; }
 .snd-row:hover    { transform: translateX(3px) !important; }
 .notif-mel-row:hover { transform: translateX(3px) !important; }
@@ -26604,32 +26614,35 @@ async function renderForecast(){
   const days=cmpPeriodDays;
   const cats=activeCats();
 
-  // ── Bar helper — Apple-grade two-row comparison ──
-  const bar=(myNum,avgNum,myLbl,avgLbl,color='#4ade80')=>{
+  // ── Bar helper (new design) ──
+  const barPair=(myNum,avgNum,myLbl,avgLbl)=>{
     const mx=Math.max(myNum,avgNum,0.1);
     const myW=Math.min(100,Math.round((myNum/mx)*100));
     const avgW=Math.min(100,Math.round((avgNum/mx)*100));
     return `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
-        <div style="width:28px;font-size:11px;font-weight:800;letter-spacing:.05em;color:#22C55E;flex-shrink:0;text-transform:uppercase">Ты</div>
-        <div style="flex:1;height:5px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">
-          <div class="cmp-bar-fill" style="width:${myW}%;background:linear-gradient(90deg,#16a34a,#22C55E);box-shadow:0 0 8px rgba(34,197,94,.5)"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+        <div style="width:32px;font-size:9px;font-weight:700;letter-spacing:.08em;color:#22C55E;flex-shrink:0;text-transform:uppercase">Ты</div>
+        <div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden">
+          <div class="cmp-bar-fill" style="width:${myW}%;background:#22C55E"></div>
         </div>
-        <div style="width:36px;text-align:right;font-family:var(--font-mono);font-size:12px;font-weight:500;color:#22C55E;">${myLbl}</div>
+        <div style="width:36px;text-align:right;font-family:'Space Mono',var(--font-mono);font-size:11px;font-weight:400;color:#848490;">${myLbl}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <div style="width:28px;font-size:11px;font-weight:800;letter-spacing:.05em;color:#EF4444;flex-shrink:0;text-transform:uppercase">Лига</div>
-        <div style="flex:1;height:5px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">
-          <div class="cmp-bar-fill" style="width:${avgW}%;background:linear-gradient(90deg,#b91c1c,#EF4444);box-shadow:0 0 8px rgba(239,68,68,.4)"></div>
+        <div style="width:32px;font-size:9px;font-weight:700;letter-spacing:.08em;color:#EF4444;flex-shrink:0;text-transform:uppercase">Лига</div>
+        <div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden">
+          <div class="cmp-bar-fill" style="width:${avgW}%;background:#EF4444"></div>
         </div>
-        <div style="width:36px;text-align:right;font-family:var(--font-mono);font-size:12px;font-weight:500;color:#EF4444;">${avgLbl}</div>
-      </div>`
+        <div style="width:36px;text-align:right;font-family:'Space Mono',var(--font-mono);font-size:11px;font-weight:400;color:#848490;">${avgLbl}</div>
+      </div>`;
   };
 
+  // ── Period selector (segmented control) ──
+  const periodSel=`<div class="cmp-seg">
+    ${[1,3,7,10,14,30].map(d=>`<button class="cmp-period-btn${cmpPeriodDays===d?' active':''}" data-d="${d}" onclick="setCmpPeriod(${d})">${d} Д</button>`).join('')}
+  </div>`;
+
   // Show loading state
-  el.innerHTML=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
-    ${[1,3,7,10,14,30].map(d=>`<button class="cmp-period-btn${cmpPeriodDays===d?' active':''}" data-d="${d}" onclick="setCmpPeriod(${d})">${d===1?'1 день':d<=4?d+' дня':d+' дней'}</button>`).join('')}
-  </div><div style="color:var(--t3);font-size:12px;padding:12px 0">⏳ Загружаем данные лиги...</div>`;
+  el.innerHTML=periodSel+`<div style="color:var(--t3);font-size:12px;padding:12px 0;display:flex;align-items:center;gap:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="opacity:.5;animation:spin 1s linear infinite"><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0"/></svg> Загружаем данные лиги...</div>`;
 
   // ── Fetch REAL league data for comparison ──
   const cutISO=new Date(periodStart).toISOString();
@@ -26687,109 +26700,106 @@ async function renderForecast(){
     const myCatHrs=parseFloat(mySessInPeriod.filter(s=>s.cat===cat.id).reduce((s,x)=>s+x.dur/3600,0).toFixed(1));
     const avgCatHrs=parseFloat((avgHrs/Math.max(cats.length,1)).toFixed(1));
     const diff=parseFloat((myCatHrs-avgCatHrs).toFixed(1));
-    const cls=diff>0.1?'up':diff<-0.1?'dn':'eq';
-    const diffLbl=diff>0?`+${diff}ч`:diff<0?`${diff}ч`:'±0ч';
-    return `<div class="cmp-card" style="--cmp-c:${cat.color}">
-      <div class="cmp-title" style="color:${cat.color};display:flex;align-items:center;gap:6px">
-        <span style="display:flex;align-items:center;justify-content:center;width:14px;height:14px;color:${cat.color}">
-          ${(typeof ICONS !== 'undefined' && ICONS[cat.id]) ? ICONS[cat.id].replace(/width="20" height="20"/g,'width="14" height="14"') : ''}
+    const isUp=diff>0.1, isDn=diff<-0.1;
+    const diffLbl=isUp?`+${diff} ч`:isDn?`${diff} ч`:'±0 ч';
+    const badgeStyle=isUp?'background:rgba(34,197,94,.1);color:#22C55E':isDn?'background:rgba(239,68,68,.1);color:#EF4444':'background:rgba(132,132,144,.08);color:#848490';
+    const mx=Math.max(myCatHrs,avgCatHrs,0.1);
+    const myW=Math.min(100,Math.round(myCatHrs/mx*100));
+    const avgW=Math.min(100,Math.round(avgCatHrs/mx*100));
+    return `<div class="cmp-cat-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <span style="font-size:9px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#848490;display:flex;align-items:center;gap:6px">
+          <span style="width:5px;height:5px;border-radius:50%;background:${cat.color};flex-shrink:0;display:inline-block"></span>
+          ${cat.name}
         </span>
-        ${cat.name}
+        <span style="${badgeStyle};font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;letter-spacing:.03em">${diffLbl}</span>
       </div>
-      <div class="cmp-bars">${bar(myCatHrs,avgCatHrs,myCatHrs+'ч',avgCatHrs+'ч',cat.color)}</div>
-      <div style="margin-top:5px;font-size:10px;color:var(--t3)">Среднее по лиге за ${days} дн.: ${avgCatHrs}ч · ${othersCount} игроков</div>
-      <span class="cmp-diff ${cls}">${diffLbl} ${cls==='up'?'выше среднего':cls==='dn'?'ниже среднего':'на уровне'}</span>
+      <div style="display:flex;align-items:baseline;gap:0;margin-bottom:16px">
+        <span style="font-family:'Space Mono',var(--font-mono);font-size:40px;font-weight:400;letter-spacing:-.04em;line-height:1;color:#F2F0E8">${myCatHrs}</span>
+        <span style="font-family:'Space Mono',var(--font-mono);font-size:14px;color:#848490;margin-left:3px">ч</span>
+        <span style="font-size:11px;color:rgba(255,255,255,.15);margin:0 10px;align-self:center">vs</span>
+        <span style="font-family:'Space Mono',var(--font-mono);font-size:18px;color:#636370;align-self:center">${avgCatHrs}<span style="font-size:11px;color:#4a4a54;margin-left:2px">ч</span></span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#22C55E;width:32px;flex-shrink:0">Ты</span>
+          <div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden">
+            <div class="cmp-bar-fill" style="width:${myW}%;background:#22C55E"></div>
+          </div>
+          <span style="font-family:'Space Mono',var(--font-mono);font-size:11px;color:#848490;min-width:30px;text-align:right">${myCatHrs} ч</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#EF4444;width:32px;flex-shrink:0">Лига</span>
+          <div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden">
+            <div class="cmp-bar-fill" style="width:${avgW}%;background:#EF4444"></div>
+          </div>
+          <span style="font-family:'Space Mono',var(--font-mono);font-size:11px;color:#848490;min-width:30px;text-align:right">${avgCatHrs} ч</span>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#636370;margin-top:12px;font-weight:500">${othersCount} ${othersCount===1?'игрок':'игроков'} · ${days} дней</div>
     </div>`;
   }).join('');
 
-  // ── Streak diff ──
-  const streakDiff=myStreak-avgStreakReal;
-  const streakCls=streakDiff>0?'up':streakDiff<0?'dn':'eq';
+  // ── Streak & days diffs (numeric, no NaN) ──
+  const hrsDiffNum=parseFloat((myHrs-avgHrs).toFixed(1));
+  const stDiff=myStreak-avgStreakReal;
+  const dayDiff2=parseFloat((myActiveDays-avgActiveDays).toFixed(1));
 
-  // ── Active days diff ──
-  const daysDiff=parseFloat((myActiveDays-avgActiveDays).toFixed(1));
-  const daysCls=daysDiff>0?'up':daysDiff<0?'dn':'eq';
-
-  el.innerHTML=`
-    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:16px">
-      ${[1,3,7,10,14,30].map(d=>`<button class="cmp-period-btn${cmpPeriodDays===d?' active':''}" data-d="${d}" onclick="setCmpPeriod(${d})">${d===1?'1 д':d<=4?d+' д':d+' д'}</button>`).join('')}
-    </div>
-    <div class="cmp-header-lbl" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-      <span style="font-size:11px;color:var(--t3);font-weight:500;letter-spacing:.01em">
-        ${othersCount} ${othersCount===1?'участник':'участников'} · ${days} ${days===1?'день':days<=4?'дня':'дней'}
-      </span>
-      <span style="display:flex;align-items:center;gap:10px">
-        <span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#22C55E">
-          <span style="width:18px;height:4px;border-radius:2px;background:linear-gradient(90deg,#16a34a,#22C55E);display:inline-block;box-shadow:0 0 6px rgba(34,197,94,.5)"></span>
-          Ты
+  // ── Metric card builder (new design) ──
+  const mkMC=(title,svgIcon,myNum,myLbl,avgNum,avgLbl,accentColor,diffNum,diffUnit)=>{
+    const mx=Math.max(myNum,avgNum,0.1);
+    const myW=Math.min(100,Math.round(myNum/mx*100));
+    const avgW=Math.min(100,Math.round(avgNum/mx*100));
+    const isPos=diffNum>=0;
+    const absDiff=Math.abs(diffNum);
+    const diffStr=(isPos?'+':'')+diffNum+diffUnit;
+    const badgeStyle=isPos?'background:rgba(34,197,94,.1);color:#22C55E':'background:rgba(239,68,68,.1);color:#EF4444';
+    return `<div class="cmp-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+        <span style="font-size:9px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#848490;display:flex;align-items:center;gap:5px">
+          ${svgIcon} ${title}
         </span>
-        <span style="display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#EF4444">
-          <span style="width:18px;height:4px;border-radius:2px;background:linear-gradient(90deg,#b91c1c,#EF4444);display:inline-block;box-shadow:0 0 6px rgba(239,68,68,.4)"></span>
-          Лига
-        </span>
-      </span>
+        <span style="${badgeStyle};font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;letter-spacing:.03em">${diffStr}</span>
+      </div>
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px">
+        <div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#22C55E;margin-bottom:5px">Ты</div>
+          <div style="font-family:'Space Mono',var(--font-mono);font-size:40px;font-weight:400;letter-spacing:-.04em;line-height:1;color:#F2F0E8">${myNum}<span style="font-family:'Space Mono',var(--font-mono);font-size:16px;color:#848490;margin-left:2px;font-weight:400">${diffUnit}</span></div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#EF4444;margin-bottom:5px">Лига</div>
+          <div style="font-family:'Space Mono',var(--font-mono);font-size:24px;font-weight:400;letter-spacing:-.04em;line-height:1;color:#848490">${avgNum}<span style="font-family:'Space Mono',var(--font-mono);font-size:13px;color:#636370;margin-left:1px">${diffUnit}</span></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <div style="height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden"><div class="cmp-bar-fill" style="width:${myW}%;background:#22C55E"></div></div>
+        <div style="height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden"><div class="cmp-bar-fill" style="width:${avgW}%;background:#EF4444"></div></div>
+      </div>
+    </div>`;
+  };
+
+  const svgClock='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#F5C842" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+  const svgFlame='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="2.5" stroke-linecap="round"><path d="M12 2c0 6-8 10-8 14a8 8 0 0016 0c0-4-8-8-8-14z"/></svg>';
+  const svgCal='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+
+  // ── Assemble final HTML ──
+  const metaRow=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <span style="font-size:11px;color:#848490;font-weight:500">${othersCount} ${othersCount===1?'участник':'участников'} · ${days} ${days===1?'день':days<=4?'дня':'дней'}</span>
+    <span style="display:flex;align-items:center;gap:16px">
+      <span style="display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#22C55E"><span style="width:16px;height:2px;border-radius:1px;background:#22C55E;display:inline-block"></span>Ты</span>
+      <span style="display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#EF4444"><span style="width:16px;height:2px;border-radius:1px;background:#EF4444;display:inline-block"></span>Лига</span>
+    </span>
+  </div>`;
+
+  el.innerHTML=periodSel+metaRow+`
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">
+      ${mkMC('Часы',svgClock,myHrs,fmtHrs(myHrs),avgHrs,fmtHrs(avgHrs),'#F5C842',hrsDiffNum,'ч')}
+      ${mkMC('Дисциплина',svgFlame,myStreak,myStreak+'д',avgStreakReal,avgStreakReal+'д','#F97316',stDiff,'д')}
+      ${mkMC('Активность',svgCal,myActiveDays,myActiveDays+'д',avgActiveDays,avgActiveDays+'д','#60A5FA',dayDiff2,'д')}
     </div>
-
-    <!-- ── 3 главных метрики в ряд ── -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
-
-      ${(()=>{
-        const mkCmpCard=(title,svgIcon,myVal,myLbl,avgVal,avgLbl,accentColor,diffLabel,diffCls)=>{
-          const mx=Math.max(myVal,avgVal,0.1);
-          const myW=Math.min(100,Math.round(myVal/mx*100));
-          const avgW=Math.min(100,Math.round(avgVal/mx*100));
-          return `<div class="cmp-card" style="--cmp-c:${accentColor}">
-            <div class="cmp-title" style="color:${accentColor};margin-bottom:14px">
-              ${svgIcon} ${title}
-            </div>
-            <!-- Ты -->
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
-              <div style="width:28px;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#22C55E;flex-shrink:0">Ты</div>
-              <div style="flex:1;height:6px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">
-                <div style="height:100%;width:${myW}%;background:linear-gradient(90deg,#16a34a,#22C55E);border-radius:3px;box-shadow:0 0 10px rgba(34,197,94,.55)"></div>
-              </div>
-              <div style="width:36px;text-align:right;font-family:var(--font-mono);font-size:13px;font-weight:500;color:#22C55E;letter-spacing:-.02em">${myLbl}</div>
-            </div>
-            <!-- Лига -->
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-              <div style="width:28px;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#EF4444;flex-shrink:0">Лига</div>
-              <div style="flex:1;height:6px;background:rgba(255,255,255,.05);border-radius:3px;overflow:hidden">
-                <div style="height:100%;width:${avgW}%;background:linear-gradient(90deg,#b91c1c,#EF4444);border-radius:3px;box-shadow:0 0 10px rgba(239,68,68,.4)"></div>
-              </div>
-              <div style="width:36px;text-align:right;font-family:var(--font-mono);font-size:13px;font-weight:500;color:#EF4444;letter-spacing:-.02em">${avgLbl}</div>
-            </div>
-            <span class="cmp-diff ${diffCls}" style="font-size:10px">${diffLabel}</span>
-          </div>`;
-        };
-        const hrsMyW=Math.min(100,Math.round(myHrs/Math.max(myHrs,avgHrs,0.1)*100));
-        const hrsDiff=fmtHrs(Math.abs(myHrs-avgHrs));
-        const stDiff=myStreak-avgStreakReal;
-        const dayDiff2=parseFloat((myActiveDays-avgActiveDays).toFixed(1));
-        return mkCmpCard(
-          'Часы',
-          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
-          myHrs,fmtHrs(myHrs),avgHrs,fmtHrs(avgHrs),'var(--gold)',
-          (myHrs>=avgHrs?'▲ +':'▼ ')+Math.abs(hrsDiff)+'ч '+(myHrs>=avgHrs?'выше среднего':'ниже среднего'),
-          myHrs>=avgHrs?'up':'dn'
-        )+mkCmpCard(
-          'Дисциплина',
-          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>',
-          myStreak,myStreak+'д',avgStreakReal,avgStreakReal+'д','#f97316',
-          (stDiff>=0?'▲ +':'▼ ')+Math.abs(stDiff)+'д '+(stDiff>=0?'выше среднего':'ниже среднего'),
-          stDiff>=0?'up':'dn'
-        )+mkCmpCard(
-          'Активность',
-          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
-          myActiveDays,myActiveDays+'д',avgActiveDays,avgActiveDays+'д','var(--blue)',
-          (dayDiff2>=0?'▲ +':'▼ ')+Math.abs(dayDiff2)+'д '+(dayDiff2>=0?'выше среднего':'ниже среднего'),
-          dayDiff2>=0?'up':'dn'
-        );
-      })()}
-
-    </div>
-
-    <!-- ── Категории по одной ── -->
-    ${catCards}`;
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">
+      ${catCards}
+    </div>`;
 }
 
 // ══ CONFETTI ═════════════════════════════════════════
