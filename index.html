@@ -14632,6 +14632,19 @@ html[data-theme="light"] .dtr-philo-text strong { color: #2a2a2a; }
 /* Nav block when timer active */
 .stab.timer-locked{opacity:.35;pointer-events:none;filter:grayscale(1)}
 .stab.timer-locked::after{content:'⏱';position:absolute;bottom:2px;right:2px;font-size:8px;opacity:.5}
+
+/* ── Styled number input for daily limit ── */
+.hab-limit-inp[type=number]{-moz-appearance:textfield;appearance:textfield}
+.hab-limit-inp[type=number]::-webkit-inner-spin-button,
+.hab-limit-inp[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;appearance:none;margin:0}
+.hab-limit-inp-wrap{position:relative;display:flex;align-items:center}
+.hab-limit-inp-wrap .hab-limit-inp{padding-right:32px}
+.hab-limit-spinners{position:absolute;right:0;top:0;bottom:0;display:flex;flex-direction:column;width:28px;border-left:0.5px solid rgba(255,255,255,.07)}
+.hab-spin-btn{flex:1;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--t3);transition:background .15s,color .15s;user-select:none}
+.hab-spin-btn:first-child{border-radius:0 8px 0 0;border-bottom:0.5px solid rgba(255,255,255,.07)}
+.hab-spin-btn:last-child{border-radius:0 0 8px 0}
+.hab-spin-btn:hover{background:rgba(245,200,66,.1);color:var(--gold)}
+.hab-spin-btn:active{background:rgba(245,200,66,.2)}
 </style>
 </head>
 <body>
@@ -16391,7 +16404,17 @@ window.closePub = function(){
           <div class="hab-limit-row">
             <div>
               <div class="hab-flbl" style="margin-bottom:6px">Дневной лимит</div>
-              <input class="hab-limit-inp" id="habLimitVal" type="number" min="1" max="999" placeholder="30" value="30">
+              <div class="hab-limit-inp-wrap">
+                <input class="hab-limit-inp" id="habLimitVal" type="number" min="1" max="999" placeholder="30" value="30">
+                <div class="hab-limit-spinners">
+                  <div class="hab-spin-btn" onclick="var i=document.getElementById('habLimitVal');i.value=Math.min(999,parseInt(i.value||0)+1)">
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="18 15 12 9 6 15"/></svg>
+                  </div>
+                  <div class="hab-spin-btn" onclick="var i=document.getElementById('habLimitVal');i.value=Math.max(1,parseInt(i.value||1)-1)">
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </div>
+                </div>
+              </div>
             </div>
             <div>
               <div class="hab-flbl" style="margin-bottom:6px">Единица</div>
@@ -43231,7 +43254,7 @@ document.addEventListener('keydown',function(e){
     <div class="gp3-field"><label class="gp3-lbl">&#1053;&#1072;&#1079;&#1074;&#1072;&#1085;&#1080;&#1077;</label><input class="gp3-inp" type="text" id="gp3MName" placeholder="&#1085;&#1072;&#1087;&#1088;&#1080;&#1084;&#1077;&#1088;: &#1042;&#1099;&#1091;&#1095;&#1080;&#1090;&#1100; &#1072;&#1085;&#1075;&#1083;&#1080;&#1081;&#1089;&#1082;&#1080;&#1081; &#1076;&#1086; B2"></div>
     <div class="gp3-field"><label class="gp3-lbl">&#1054;&#1087;&#1080;&#1089;&#1072;&#1085;&#1080;&#1077;</label><textarea class="gp3-inp gp3-textarea" id="gp3MDesc" placeholder="&#1063;&#1090;&#1086; &#1082;&#1086;&#1085;&#1082;&#1088;&#1077;&#1090;&#1085;&#1086; &#1093;&#1086;&#1095;&#1077;&#1096;&#1100; &#1076;&#1086;&#1089;&#1090;&#1080;&#1095;&#1100;?"></textarea></div>
     <div class="gp3-field"><label class="gp3-lbl">&#1050;&#1072;&#1090;&#1077;&#1075;&#1086;&#1088;&#1080;&#1103;</label><div class="gp3-cats" id="gp3MCats"></div><div style="margin-top:7px;display:none" id="gp3CustomCatWrap"><input class="gp3-inp" type="text" id="gp3CustomCat" placeholder="&#1057;&#1074;&#1086;&#1103; &#1082;&#1072;&#1090;&#1077;&#1075;&#1086;&#1088;&#1080;&#1103;"></div></div>
-    <div class="gp3-field"><div class="gp3-grid2"><div><label class="gp3-lbl">&#1044;&#1077;&#1076;&#1083;&#1072;&#1081;&#1085;</label><input class="gp3-inp" type="date" id="gp3MDeadline"></div><div><label class="gp3-lbl">&#1054;&#1073;&#1098;&#1077;&#1084; (&#1095;)</label><input class="gp3-inp" type="number" id="gp3MHours" placeholder="240" style="font-family:var(--font-mono)"></div></div></div>
+    <div class="gp3-field"><div class="gp3-grid2"><div><label class="gp3-lbl">&#1044;&#1077;&#1076;&#1083;&#1072;&#1081;&#1085; <span style="color:var(--gold)">*</span></label><input class="gp3-inp" type="date" id="gp3MDeadline" required></div><div><label class="gp3-lbl">&#1054;&#1073;&#1098;&#1077;&#1084; (&#1095;)</label><input class="gp3-inp" type="number" id="gp3MHours" placeholder="240" style="font-family:var(--font-mono)"></div></div></div>
     <div class="gp3-field"><label class="gp3-lbl">&#1047;&#1072;&#1076;&#1072;&#1095;&#1080;</label><div class="gp3-tasks-builder" id="gp3MTasksBld"></div><button class="gp3-add-task-btn" onclick="gp3MAddTask()">+ &#1044;&#1086;&#1073;&#1072;&#1074;&#1080;&#1090;&#1100; &#1079;&#1072;&#1076;&#1072;&#1095;&#1091;</button></div>
     <div class="gp3-field">
       <label class="gp3-lbl">&#1055;&#1088;&#1080;&#1074;&#1099;&#1095;&#1082;&#1080; &#1094;&#1077;&#1083;&#1080; <span style="font-size:9px;color:var(--t3);font-weight:400;text-transform:none;letter-spacing:0">(&#1085;&#1077;&#1079;&#1072;&#1074;&#1080;&#1089;&#1080;&#1084;&#1086; &#1086;&#1090; &#1079;&#1072;&#1076;&#1072;&#1095;)</span></label>
@@ -43304,11 +43327,7 @@ document.addEventListener('keydown',function(e){
     <div class="gp3-confirm-msg" id="gp3ConfirmMsg">&#1069;&#1090;&#1086; &#1076;&#1077;&#1081;&#1089;&#1090;&#1074;&#1080;&#1077; &#1085;&#1077;&#1083;&#1100;&#1079;&#1103; &#1086;&#1090;&#1084;&#1077;&#1085;&#1080;&#1090;&#1100;. &#1042;&#1089;&#1077; &#1079;&#1072;&#1076;&#1072;&#1095;&#1080; &#1073;&#1091;&#1076;&#1091;&#1090; &#1091;&#1076;&#1072;&#1083;&#1077;&#1085;&#1099;.</div>
     <div class="gp3-confirm-habits" id="gp3ConfirmHabitsBlock" style="display:none"><div class="gp3-confirm-habits-title">&#1055;&#1088;&#1080;&#1074;&#1103;&#1079;&#1072;&#1085;&#1085;&#1099;&#1077; &#1087;&#1088;&#1080;&#1074;&#1099;&#1095;&#1082;&#1080;</div><div id="gp3ConfirmHabitsList"></div></div>
     <div class="gp3-confirm-check-row" id="gp3ConfirmHabCheck" style="display:none" onclick="gp3ToggleDelHabits()"><div class="gp3-confirm-checkbox" id="gp3DelHabChk"></div><div class="gp3-confirm-check-lbl">&#1059;&#1076;&#1072;&#1083;&#1080;&#1090;&#1100; &#1087;&#1088;&#1080;&#1074;&#1099;&#1095;&#1082;&#1080; &#1080;&#1079; &#1090;&#1088;&#1077;&#1082;&#1077;&#1088;&#1072;</div></div>
-    <div class="gp3-confirm-acts"><button class="gp3-btn-glass" onclick="gp3CloseConfirm()">&#1054;&#1090;&#1084;&#1077;&#1085;&#1072;</button><button class="gp3-btn-danger" onclick="gp3DoDelete()">&#1059;&#1076;&#1072;&#1083;&#1080;&#1090;&#1100;</button></div>
-  </div>
-</div>
-
-<script>
+    <div class="gp3-confirm-acts"><button class="gp3-btn-glass" onclick="gp3CloseConfirm()">&#1054;&#1090;&#1084;&#1077;&#1085;&#1072;</button><button class="gp3-btn-danger" onclick="gp3DoDelete()">&#1059;&#1076;&#1072;&#1083;&#1080;&#1090<script>
 /* DTR GOALS ENGINE v3.0 */
 (function(){
 'use strict';
@@ -44141,14 +44160,20 @@ window.gp3SelGoalHabit=function(hid){
 /* Save */
 window.gp3SaveGoal=async function(){
   var sbc=gSB(),uid=gUID();
-  if(!sbc||!uid){gToast('\u0412\u043e\u0439\u0434\u0438 \u0447\u0442\u043e\u0431\u044b \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c','#EF4444');return;}
-  var name=((document.getElementById('gp3MName')||{}).value||'').trim();
-  if(!name){gToast('\u0412\u0432\u0435\u0434\u0438 \u043d\u0430\u0437\u0432\u0430\u043d\u0438\u0435','#EF4444');return;}
+  if(!sbc||!uid){gToast('\u0412\u043e\u0439\u0434\u0438 \u0447\u0442\u043e\u0431\u044b \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c','#EF4444');return;}  var name=((document.getElementById('gp3MName')||{}).value||'').trim();
+  if(!name){gToast('\u0412\u0432\u0435\u0434\u0438 \u043d\u0430\u0437\u0432\u0430\u043d\u0438\u0435 \u0446\u0435\u043b\u0438','#EF4444');document.getElementById('gp3MName').focus();return;}
+  var deadline=((document.getElementById('gp3MDeadline')||{}).value)||null;
+  if(!deadline){
+    gToast('\u0423\u043a\u0430\u0436\u0438 \u0434\u0435\u0434\u043b\u0430\u0439\u043d \u0446\u0435\u043b\u0438','#EF4444');
+    var dl=document.getElementById('gp3MDeadline');
+    if(dl){dl.focus();dl.style.borderColor='rgba(239,68,68,.5)';setTimeout(function(){dl.style.borderColor='';},1500);}
+    return;
+  }
   var catEl=document.querySelector('.gp3-cat-chip.on');
   var catId=(catEl&&catEl.getAttribute('data-cat-id'))||'other';
   var customCat=((document.getElementById('gp3CustomCat')||{}).value||'').trim();
   var desc=((document.getElementById('gp3MDesc')||{}).value||'').trim();
-  var deadline=((document.getElementById('gp3MDeadline')||{}).value)||null;
+
   var totalH=parseFloat(((document.getElementById('gp3MHours')||{}).value)||0)||null;
   var isPublic=(document.getElementById('gp3MPublic')||{}).checked!==false;
   var valid=GP3.mTasks.filter(function(t){return t.name.trim();});
