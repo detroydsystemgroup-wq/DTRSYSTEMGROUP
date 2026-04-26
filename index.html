@@ -45559,10 +45559,16 @@ window.showTab = function(){
   if(arguments[0]==='activity') setTimeout(()=>render(), 80);
 };
 
-setTimeout(()=>{
-  const t=document.getElementById('tab-activity');
-  if(t && window.getComputedStyle(t).display!=='none') render();
-}, 700);
+/* ── renderDash hook — срабатывает после загрузки P.sessions ── */
+const _origRD = window.renderDash;
+window.renderDash = function(){
+  if(_origRD) _origRD.apply(this, arguments);
+  /* перерисовываем график если вкладка activity видна */
+  const t = document.getElementById('tab-activity');
+  if(t && window.getComputedStyle(t).display !== 'none'){
+    setTimeout(()=>render(), 60);
+  }
+};
 
 })();
 </script>
