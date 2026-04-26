@@ -33998,12 +33998,14 @@ async function _chabFetchAll(user, sb){
 
   await Promise.all(rooms.map(async room => {
     try {
-      const [memsRes, habsRes] = await Promise.all([
+      const [memsRes, habsRes, challRes] = await Promise.all([
         sb.from('collab_habit_members').select('user_id,role').eq('room_id',room.id),
-        sb.from('collab_habits').select('*').eq('room_id',room.id).neq('active',false)
+        sb.from('collab_habits').select('*').eq('room_id',room.id).neq('active',false),
+        sb.from('collab_challenges').select('*').eq('room_id',room.id).order('created_at',{ascending:false})
       ]);
       const rawMembers = memsRes.data||[];
       const habits = habsRes.data||[];
+      const challenges = challRes.data||[];
       const memberIds = rawMembers.map(m=>m.user_id);
 
       const [profilesRes, logsRes] = await Promise.all([
@@ -34023,8 +34025,8 @@ async function _chabFetchAll(user, sb){
         logs[e.user_id][e.habit_id][e.date]=true;
       });
 
-      _chabCache.perRoom[room.id] = { members, habits, logs };
-    } catch(e){ console.error('_chabFetchAll room:', room.id, e); _chabCache.perRoom[room.id] = {members:[],habits:[],logs:{}}; }
+      _chabCache.perRoom[room.id] = { members, habits, logs, challenges };
+    } catch(e){ console.error('_chabFetchAll room:', room.id, e); _chabCache.perRoom[room.id] = {members:[],habits:[],logs:{},challenges:[]}; }
   }));
 
   _chabCacheTs = Date.now();
@@ -34053,6 +34055,11 @@ async function _chabRefreshLogs(){
           logs[e.user_id][e.habit_id][e.date]=true;
         });
         rc.logs = logs;
+        /* Обновляем челленджи в кеше */
+        try {
+          const {data:challData} = await sb.from('collab_challenges').select('*').eq('room_id',room.id).order('created_at',{ascending:false});
+          rc.challenges = challData||[];
+        } catch(e){}
         // Патчим только ячейки в DOM — без перерисовки карточки
         _patchRoomCells(room.id, logs, user.id);
       } catch(e){}
@@ -46249,15 +46256,467 @@ setTimeout(()=>{
 
 <script>
 /* ════════════════════════════════════════════════
-   КОЛЛАБ ЧЕЛЛЕНДЖИ
+   КОЛЛАБ ЧЕЛЛЕНДЖИ — Supabase
 ════════════════════════════════════════════════ */
 (function(){
 'use strict';
 
-/* ── Storage ─────────────────────────────────────────────── */
-const ckKey = rid => 'dtr_cch_'+rid;
-const cLoad = rid => { try{ return JSON.parse(localStorage.getItem(ckKey(rid))||'[]'); }catch{ return []; } };
-const cSave = (rid,d) => localStorage.setItem(ckKey(rid), JSON.stringify(d));
+/* ── Supabase helpers (те же что в CollabHabits) ─────────── */
+function getSB2(){ try{ return sb; }catch(e){ return null; } }
+function getUser2(){ try{ return typeof SB_USER!=='undefined'?SB_USER:null; }catch(e){ return null; } }
+
+/* ── Date utils ─────────────────────────────────────────── */
+const pad2 = n => String(n).padStart(2,'0');
+const dk   = d => d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+const today = () => dk(new Date());
+const esc   = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function daysInRange(s, e){
+  const arr=[], sd=new Date(s+'T00:00:00'), ed=new Date(e+'T00:00:00');
+  for(let d=new Date(sd); d<=ed; d.setDate(d.getDate()+1)) arr.push(dk(new Date(d)));
+  return arr;
+}
+
+/* ── Получить челленджи из кеша ──────────────────────────── */
+function getChallenges(roomId){
+  try{
+    const rc = _chabCache?.perRoom?.[roomId];
+    return rc?.challenges || [];
+  } catch{ return []; }
+}
+
+/* ── Прогресс: день засчитывается только если все отметили ── */
+function calcCollabProgress(ch, members, logs){
+  const t = today();
+  const fullRange = daysInRange(ch.start_date, ch.end_date);
+  const total = fullRange.length;
+  if(!total || !members.length) return {done:0, total, pct:0, failed:false, win:false};
+
+  const doneEnd = ch.end_date < t ? ch.end_date : t;
+  const elapsed = ch.start_date > doneEnd ? [] : daysInRange(ch.start_date, doneEnd);
+  const memberIds = members.map(m => m.user_id);
+
+  let done = 0;
+  elapsed.forEach(day => {
+    const allDone = memberIds.every(uid =>
+      ch.habit_ids.every(hid => logs[uid]?.[hid]?.[day])
+    );
+    if(allDone) done++;
+  });
+
+  const fin    = t > ch.end_date;
+  const failed = fin && done < total;
+  const win    = fin && done === total;
+  const pct    = Math.round(done / total * 100);
+  return { done, total, pct, failed, win, elapsed: elapsed.length };
+}
+
+/* Сегодня: сколько участников отметили хотя бы одну привычку */
+function calcCollabToday(ch, members, logs){
+  const t = today();
+  if(t < ch.start_date || t > ch.end_date) return {markedCount:0, total:members.length};
+  const marked = members.filter(m =>
+    ch.habit_ids.some(hid => logs[m.user_id]?.[hid]?.[t])
+  ).length;
+  return { markedCount: marked, total: members.length };
+}
+
+/* ── SVG иконки ─────────────────────────────────────────── */
+const SVG_TROPHY = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>`;
+const SVG_PLUS  = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+const SVG_DEL   = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+const SVG_TARGET= `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`;
+const SVG_USERS = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+
+function fmtD(s){ const [y,m,d]=s.split('-'); return d+'.'+m+'.'+y.slice(2); }
+function daysLeft(end){
+  const now=new Date(); now.setHours(0,0,0,0);
+  const e=new Date(end+'T00:00:00');
+  const d=Math.round((e-now)/86400000);
+  if(d<0) return 'Завершён'; if(d===0) return 'Последний день';
+  return d+'д осталось';
+}
+
+/* ── Рендер секции под карточкой рума ────────────────────── */
+function renderCollabChallenges(roomId, members, logs, habits){
+  const roomCard = document.getElementById('chab-room-'+roomId);
+  if(!roomCard) return;
+
+  const sectId = 'cch-sect-'+roomId;
+  let sect = document.getElementById(sectId);
+  if(!sect){
+    sect = document.createElement('div');
+    sect.id = sectId; sect.className = 'cch-section';
+    roomCard.insertAdjacentElement('afterend', sect);
+  }
+
+  const list = getChallenges(roomId);
+  const habMap = {};
+  (habits||[]).forEach(h=>{ habMap[h.id] = h; });
+  const habName = id => (habMap[id]||{}).title || (habMap[id]||{}).name || String(id).slice(0,8);
+
+  let html = `<div class="cch-hdr">
+    <div class="cch-hdr-left">
+      ${SVG_TROPHY}
+      <span class="cch-hdr-title">Челленджи трекера</span>
+      ${list.length ? `<span class="cch-count">${list.length}</span>` : ''}
+    </div>
+    <button class="cch-add-btn" onclick="_cchOpen('${roomId}')">
+      ${SVG_PLUS} Новый
+    </button>
+  </div>`;
+
+  if(!list.length){
+    html += `<div class="cch-empty">
+      <div class="cch-empty-ttl">Нет совместных челленджей</div>
+      <div class="cch-empty-sub">День засчитывается только когда<br><b>все участники</b> отметились</div>
+    </div>`;
+  } else {
+    list.forEach((ch, idx) => {
+      const prog   = calcCollabProgress(ch, members||[], logs||{});
+      const tdStat = calcCollabToday(ch, members||[], logs||{});
+      const totalDays = daysInRange(ch.start_date, ch.end_date).length;
+
+      const tdVal = `${tdStat.markedCount}/${tdStat.total}`;
+      const tdSub = prog.failed ? 'провален' :
+                    prog.win    ? 'успешно ✓' :
+                    tdStat.markedCount === tdStat.total ? 'все отметились ✓' :
+                    `ждём ${tdStat.total - tdStat.markedCount}`;
+
+      const cardCls = prog.failed?' failed':prog.win?' fin':'';
+      const statusTag = prog.failed
+        ? `<span class="cch-status-tag failed-tag">Провалено</span>`
+        : prog.win
+        ? `<span class="cch-status-tag win-tag">Выполнено</span>`
+        : `<span class="cch-dl">${daysLeft(ch.end_date)}</span>`;
+
+      const user2 = getUser2();
+      const canDel = user2 && ch.created_by === user2.id;
+
+      html += `<div class="cch-card${cardCls}">
+        <div class="cch-card-bg"></div>
+        <div class="cch-inner">
+          <div class="cch-title-row">
+            <div>
+              <div class="cch-name">${esc(ch.name)}</div>
+              ${ch.goal ? `<div class="cch-goal">${esc(ch.goal)}</div>` : ''}
+            </div>
+            <div class="cch-title-right">
+              <div class="cch-dates">${fmtD(ch.start_date)} – ${fmtD(ch.end_date)}</div>
+              ${statusTag}
+              ${canDel ? `<button class="cch-del" onclick="_cchDel('${roomId}','${ch.id}')" title="Удалить">${SVG_DEL}</button>` : ''}
+            </div>
+          </div>
+
+          <div class="cch-panels">
+            <div class="cch-panel">
+              <div class="cch-panel-lbl">${SVG_TARGET} Общий прогресс</div>
+              <div class="cch-panel-val">${prog.pct}%</div>
+              <div class="cch-panel-sub">${prog.done} из ${prog.total} дней · ${prog.elapsed} прошло</div>
+            </div>
+            <div class="cch-panel today-p">
+              <div class="cch-panel-lbl">${SVG_USERS} Сегодня</div>
+              <div class="cch-panel-val">${tdVal}</div>
+              <div class="cch-panel-sub">${tdSub}</div>
+            </div>
+          </div>
+
+          <div>
+            <div class="cch-prog-head">
+              <span class="cch-prog-pct">${prog.pct}% выполнено</span>
+              <span class="cch-prog-label">${totalDays} дней · ${(members||[]).length} участников</span>
+            </div>
+            <div class="cch-prog-track">
+              <div class="cch-prog-fill" style="width:${prog.pct}%"></div>
+            </div>
+          </div>
+
+          <div class="cch-chips">
+            ${ch.habit_ids.slice(0,4).map(id=>`<span class="cch-chip">${esc(habName(id))}</span>`).join('')}
+            ${ch.habit_ids.length>4?`<span class="cch-chip">+${ch.habit_ids.length-4}</span>`:''}
+          </div>
+        </div>
+      </div>`;
+    });
+  }
+
+  sect.innerHTML = html;
+}
+
+/* ── refreshAllRooms — вызывается из триггеров ───────────── */
+function refreshAllRooms(){
+  try {
+    const cache = typeof _chabCache !== 'undefined' ? _chabCache : null;
+    if(!cache) return;
+    (cache.rooms||[]).forEach(r => {
+      const rc = cache.perRoom[r.id]||{};
+      renderCollabChallenges(r.id, rc.members||[], rc.logs||{}, rc.habits||[]);
+    });
+  } catch(e){}
+}
+
+/* ── Удалить из Supabase ─────────────────────────────────── */
+window._cchDel = async function(roomId, challId){
+  const sb = getSB2(), user = getUser2();
+  if(!sb || !user){ return; }
+  /* Оптимистично убираем из кеша */
+  try {
+    const rc = _chabCache?.perRoom?.[roomId];
+    if(rc?.challenges) rc.challenges = rc.challenges.filter(c=>c.id!==challId);
+    _chabSaveCache?.();
+  } catch{}
+  refreshAllRooms();
+  /* Удаляем из БД */
+  try {
+    await sb.from('collab_challenges').delete()
+      .eq('id', challId).eq('created_by', user.id);
+  } catch(e){ console.error('_cchDel error:', e); }
+};
+
+/* ── Модалка ─────────────────────────────────────────────── */
+let _cchOv = null, _cchRoomId = null;
+
+window._cchOpen = function(roomId){
+  if(_cchOv) return;
+  _cchRoomId = roomId;
+  const cache = typeof _chabCache !== 'undefined' ? _chabCache : null;
+  const rc = cache?.perRoom[roomId]||{};
+  const habits  = rc.habits||[];
+  const members = rc.members||[];
+  const t = today();
+  const defEnd = dk(new Date(Date.now()+29*86400000));
+
+  _cchOv = document.createElement('div');
+  _cchOv.className = 'cch-overlay';
+
+  const memHtml = members.length
+    ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+        ${members.map(m=>`<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;background:rgba(168,85,247,.1);border:0.5px solid rgba(168,85,247,.2);padding:4px 10px;border-radius:8px;color:var(--t1)">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          ${esc((m.users||{}).username||'?')}
+        </span>`).join('')}
+      </div>`
+    : `<div style="font-size:12px;color:var(--t3);margin-top:6px">Участники не найдены</div>`;
+
+  const habItems = habits.length
+    ? habits.map(h=>`
+        <div class="cch-hab-pick" data-id="${h.id}" onclick="this.classList.toggle('on')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${h.color||'#a855f7'}" stroke-width="2" stroke-linecap="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="m9 12 2 2 4-4"/></svg>
+          <span class="cch-hab-nm">${esc(h.title||h.name||h.id)}</span>
+        </div>`).join('')
+    : `<div style="grid-column:1/-1;text-align:center;padding:14px;font-size:12px;color:var(--t3)">Сначала создайте привычки в трекере</div>`;
+
+  _cchOv.innerHTML = `<div class="cch-modal">
+    <div class="cch-grip"></div>
+    <div class="cch-mo-title">Совместный челлендж</div>
+    <div class="cch-field">
+      <label class="cch-lbl">Участники</label>
+      ${memHtml}
+      <div style="font-size:10px;color:rgba(168,85,247,.6);margin-top:7px;font-weight:700;display:flex;align-items:center;gap:5px">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        День засчитывается только когда все отметились
+      </div>
+    </div>
+    <div class="cch-field">
+      <label class="cch-lbl">Название</label>
+      <input id="cchInpName" class="cch-inp" placeholder="Напр. 30 дней вместе" maxlength="80">
+    </div>
+    <div class="cch-field">
+      <label class="cch-lbl">Цель (необязательно)</label>
+      <textarea id="cchInpGoal" class="cch-inp" rows="2" placeholder="Общая цель команды"></textarea>
+    </div>
+    <div class="cch-dates-row">
+      <div class="cch-field">
+        <label class="cch-lbl">Начало</label>
+        <input id="cchInpStart" type="date" class="cch-inp" value="${t}">
+      </div>
+      <div class="cch-field">
+        <label class="cch-lbl">Конец</label>
+        <input id="cchInpEnd" type="date" class="cch-inp" value="${defEnd}">
+      </div>
+    </div>
+    <div class="cch-field">
+      <label class="cch-lbl">Привычки для отслеживания</label>
+      <div class="cch-hab-grid" id="cchHabGrid">${habItems}</div>
+    </div>
+    <div class="cch-mo-actions">
+      <button class="cch-btn-cancel" onclick="_cchClose()">Отмена</button>
+      <button class="cch-btn-save" id="cchSaveBtn" onclick="_cchSave()">Запустить</button>
+    </div>
+  </div>`;
+
+  document.body.appendChild(_cchOv);
+  _cchOv.addEventListener('click', e=>{ if(e.target===_cchOv) _cchClose(); });
+  setTimeout(()=>{ document.getElementById('cchInpName')?.focus(); }, 120);
+};
+
+window._cchClose = function(){
+  if(_cchOv){ _cchOv.remove(); _cchOv=null; _cchRoomId=null; }
+};
+
+/* ── Сохранить в Supabase ────────────────────────────────── */
+window._cchSave = async function(){
+  const name   = document.getElementById('cchInpName')?.value?.trim();
+  const goal   = document.getElementById('cchInpGoal')?.value?.trim();
+  const start  = document.getElementById('cchInpStart')?.value;
+  const end    = document.getElementById('cchInpEnd')?.value;
+  const habIds = [...document.querySelectorAll('.cch-hab-pick.on')].map(el=>el.dataset.id);
+
+  const shake = el => {
+    if(!el) return;
+    let i=0; const iv=setInterval(()=>{
+      el.style.transform = i%2?'translateX(-5px)':'translateX(5px)';
+      if(++i>5){ clearInterval(iv); el.style.transform=''; }
+    }, 55);
+  };
+
+  if(!name)                    return shake(document.getElementById('cchInpName'));
+  if(!start||!end||start>end)  return shake(document.getElementById('cchInpEnd'));
+  if(!habIds.length)           return shake(document.getElementById('cchHabGrid'));
+
+  const btn = document.getElementById('cchSaveBtn');
+  if(btn){ btn.disabled=true; btn.textContent='...'; }
+
+  const sb = getSB2(), user = getUser2();
+  const rid = _cchRoomId;
+
+  if(!sb || !user){
+    if(btn){ btn.disabled=false; btn.textContent='Запустить'; }
+    try{ showToast('Необходима авторизация','❌'); }catch{}
+    return;
+  }
+
+  try {
+    const {data, error} = await sb.from('collab_challenges').insert({
+      room_id:    rid,
+      created_by: user.id,
+      name,
+      goal:       goal||null,
+      start_date: start,
+      end_date:   end,
+      habit_ids:  habIds,
+    }).select().single();
+
+    if(error) throw error;
+
+    /* Добавляем в кеш немедленно */
+    try {
+      const rc = _chabCache?.perRoom?.[rid];
+      if(rc) {
+        if(!rc.challenges) rc.challenges=[];
+        rc.challenges.unshift(data);
+        _chabSaveCache?.();
+      }
+    } catch{}
+
+    _cchClose();
+    refreshAllRooms();
+    try{ showToast('Совместный челлендж запущен!'); }catch{}
+  } catch(e){
+    console.error('_cchSave error:', e);
+    if(btn){ btn.disabled=false; btn.textContent='Запустить'; }
+    try{ showToast('Ошибка сохранения: '+e.message,'❌'); }catch{}
+  }
+};
+
+/* ── Realtime подписка на collab_challenges ──────────────── */
+let _cchSub = null;
+function subscribeChallengesRealtime(){
+  const sb = getSB2();
+  if(!sb) return;
+  if(_cchSub){ try{ sb.removeChannel(_cchSub); }catch{} }
+  _cchSub = sb.channel('collab_challenges_rt')
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'collab_challenges'
+    }, async ()=>{
+      /* Обновляем челленджи для всех румов */
+      try {
+        const cache = typeof _chabCache!=='undefined' ? _chabCache : null;
+        if(!cache) return;
+        await Promise.all((cache.rooms||[]).map(async r=>{
+          const rc = cache.perRoom[r.id];
+          if(!rc) return;
+          const {data} = await sb.from('collab_challenges').select('*')
+            .eq('room_id',r.id).order('created_at',{ascending:false});
+          rc.challenges = data||[];
+        }));
+        _chabSaveCache?.();
+        refreshAllRooms();
+      } catch(e){ console.error('cch realtime error:', e); }
+    })
+    .subscribe();
+}
+
+/* ── Надёжный триггер через polling + прямые хуки ───────── */
+(function setupTriggers(){
+  function tryInject(){
+    if(document.querySelectorAll('[id^="chab-room-"]').length){
+      refreshAllRooms();
+    }
+  }
+
+  /* Polling на старте */
+  let _polls = 0;
+  const _pi = setInterval(()=>{
+    tryInject();
+    if(++_polls >= 37) clearInterval(_pi);
+  }, 400);
+
+  /* chabSetMode */
+  const _origCSM = window.chabSetMode;
+  window.chabSetMode = function(){
+    if(_origCSM) _origCSM.apply(this, arguments);
+    setTimeout(tryInject, 300);
+    setTimeout(tryInject, 800);
+    setTimeout(tryInject, 1500);
+  };
+
+  /* renderCollabView */
+  const _origRCV = window.renderCollabView;
+  window.renderCollabView = function(){
+    const r = _origRCV ? _origRCV.apply(this, arguments) : undefined;
+    setTimeout(tryInject, 400);
+    setTimeout(tryInject, 1000);
+    if(r && typeof r.then==='function') r.then(()=>setTimeout(tryInject, 300));
+    return r;
+  };
+
+  /* showTab */
+  const _origST = window.showTab;
+  window.showTab = function(){
+    if(_origST) _origST.apply(this, arguments);
+    if(arguments[0]==='habits') setTimeout(tryInject, 500);
+  };
+
+  /* MutationObserver */
+  const habRoot = document.getElementById('hab-root');
+  if(habRoot){
+    new MutationObserver(()=>{ setTimeout(tryInject, 100); })
+      .observe(habRoot, {childList:true, subtree:true});
+  }
+
+  /* Запускаем realtime после загрузки */
+  setTimeout(()=>{
+    subscribeChallengesRealtime();
+  }, 2000);
+
+  /* Патчим _patchRoomCells для realtime обновления прогресса */
+  const _origPatch = window._patchRoomCells;
+  if(typeof _origPatch === 'function'){
+    window._patchRoomCells = function(roomId, logs, myId){
+      if(_origPatch) _origPatch.apply(this, arguments);
+      const cache = typeof _chabCache!=='undefined' ? _chabCache : null;
+      const rc = cache?.perRoom?.[roomId]||{};
+      renderCollabChallenges(roomId, rc.members||[], logs||{}, rc.habits||[]);
+    };
+  }
+})();
+
+})();
+</script>
+
+</body>
+</html>
 
 /* ── Date utils ─────────────────────────────────────────── */
 const pad2 = n => String(n).padStart(2,'0');
