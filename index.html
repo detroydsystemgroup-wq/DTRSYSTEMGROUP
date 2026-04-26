@@ -16126,7 +16126,6 @@ window.toggleLikeUser = async function(){
 
 
     <div id="tab-habits" class="tc">
-      <div id="dtr-challenges"></div>
       <div id="hab-root"></div>
     </div>
     <div id="tab-learn" class="tc">
@@ -44946,188 +44945,258 @@ window._hSetUnit = function(unit, btn) {
 /* ════════════════════════════════════════════════
    CHALLENGES
 ════════════════════════════════════════════════ */
-#dtr-challenges { padding-bottom: 4px; }
+#dch-inject {
+  margin-bottom: 16px;
+}
 
-.dch-header {
+/* Header */
+.dch-hdr {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px 10px;
+  margin-bottom: 10px;
 }
-.dch-title {
+.dch-hdr-left {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
+}
+.dch-hdr-title {
   font-size: 13px;
   font-weight: 800;
   color: var(--t1);
   letter-spacing: -.02em;
 }
-.dch-count {
+.dch-hdr-count {
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 800;
   background: rgba(245,200,66,.14);
   color: var(--gold, #F5C842);
-  padding: 1px 7px;
+  padding: 2px 8px;
   border-radius: 6px;
 }
-.dch-add-btn {
-  display: flex;
+.dch-new-btn {
+  display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 14px;
-  border-radius: 8px;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 10px;
   background: var(--gold, #F5C842);
   color: #000;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   border: none;
   cursor: pointer;
-  transition: opacity .15s;
   font-family: inherit;
+  transition: opacity .15s;
 }
-.dch-add-btn:hover { opacity: .85; }
+.dch-new-btn:hover { opacity: .85; }
 
-/* Cards */
-.dch-list { display: flex; flex-direction: column; gap: 8px; padding: 0 16px; }
+/* Empty */
+.dch-empty {
+  background: var(--card, #111113);
+  border: 0.5px solid rgba(255,255,255,.07);
+  border-radius: 18px;
+  padding: 28px 20px;
+  text-align: center;
+}
+.dch-empty-icon { margin-bottom: 10px; opacity: .35; }
+.dch-empty-ttl { font-size: 14px; font-weight: 800; color: var(--t2); margin-bottom: 4px; }
+.dch-empty-sub { font-size: 12px; color: var(--t3); line-height: 1.5; }
 
+/* Card list */
+.dch-cards { display: flex; flex-direction: column; gap: 10px; }
+
+/* Card */
 .dch-card {
   background: var(--card, #111113);
   border: 0.5px solid rgba(245,200,66,.16);
-  border-radius: 14px;
-  padding: 14px;
-  animation: dchIn .25s ease both;
+  border-radius: 18px;
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
+  animation: dchCardIn .25s ease both;
 }
-.dch-card.fin { border-color: rgba(255,255,255,.07); opacity: .65; }
-@keyframes dchIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: none; } }
+.dch-card.fin {
+  border-color: rgba(255,255,255,.07);
+  opacity: .6;
+}
+@keyframes dchCardIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
 
-.dch-card-top {
+/* Ambient glow */
+.dch-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(245,200,66,.4), transparent);
+}
+.dch-card.fin::before { display: none; }
+
+/* Top row */
+.dch-top {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 12px;
+  margin-bottom: 14px;
 }
-.dch-card-name {
-  font-size: 14px;
+.dch-info { flex: 1; min-width: 0; }
+.dch-name {
+  font-size: 16px;
   font-weight: 800;
   color: var(--t1);
-  line-height: 1.3;
+  line-height: 1.25;
   margin-bottom: 3px;
+  letter-spacing: -.02em;
 }
-.dch-card-goal {
-  font-size: 11px;
+.dch-goal {
+  font-size: 12px;
   color: var(--t3);
   line-height: 1.5;
 }
-.dch-card-meta {
+.dch-right {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 5px;
+  gap: 6px;
   flex-shrink: 0;
 }
 .dch-dates {
-  font-size: 10px;
-  color: rgba(245,200,66,.55);
+  font-size: 11px;
+  color: rgba(245,200,66,.6);
   font-family: var(--font-mono, monospace);
   letter-spacing: .03em;
-  white-space: nowrap;
 }
 .dch-del {
   background: none;
   border: none;
   cursor: pointer;
   color: rgba(255,255,255,.18);
-  font-size: 16px;
-  line-height: 1;
-  padding: 0 2px;
+  padding: 2px;
+  border-radius: 5px;
   transition: color .15s;
-  border-radius: 4px;
+  display: flex;
+  align-items: center;
 }
-.dch-del:hover { color: rgba(239,68,68,.7); }
+.dch-del:hover { color: rgba(239,68,68,.65); }
 .dch-fin-tag {
   font-size: 9px;
   font-weight: 800;
   letter-spacing: .08em;
   text-transform: uppercase;
-  background: rgba(255,255,255,.06);
+  background: rgba(255,255,255,.07);
   color: var(--t3);
-  padding: 2px 7px;
+  padding: 2px 8px;
   border-radius: 5px;
 }
 
-/* Progress bar */
-.dch-bar-track {
-  height: 5px;
-  background: rgba(255,255,255,.06);
-  border-radius: 4px;
-  overflow: hidden;
-  margin-bottom: 9px;
+/* Two metrics row */
+.dch-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
 }
-.dch-bar-fill {
-  height: 100%;
-  border-radius: 4px;
-  background: linear-gradient(90deg, #F5C842, #ffd96a);
-  transition: width .5s cubic-bezier(.34,1.4,.64,1);
-  position: relative;
-  overflow: hidden;
+.dch-metric {
+  background: rgba(255,255,255,.04);
+  border: 0.5px solid rgba(255,255,255,.08);
+  border-radius: 12px;
+  padding: 12px 14px;
 }
-.dch-bar-fill::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,.25), transparent);
-  animation: dchShimmer 2.4s ease infinite;
-}
-.dch-card.fin .dch-bar-fill::after { display: none; }
-@keyframes dchShimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(200%)} }
-
-.dch-card-bot {
+.dch-metric-lbl {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--t3);
+  margin-bottom: 8px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
 }
-.dch-pct {
-  font-size: 13px;
+.dch-metric-lbl svg { flex-shrink: 0; }
+.dch-metric-val {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--t1);
+  letter-spacing: -.03em;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.dch-metric.today .dch-metric-val { color: var(--gold, #F5C842); }
+.dch-metric-sub {
+  font-size: 10px;
+  color: var(--t3);
+}
+
+/* Progress bar */
+.dch-prog-wrap { margin-bottom: 4px; }
+.dch-prog-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+.dch-prog-pct {
+  font-size: 11px;
   font-weight: 800;
   color: var(--gold, #F5C842);
   font-family: var(--font-mono, monospace);
 }
-.dch-days {
+.dch-prog-days {
   font-size: 10px;
   color: var(--t3);
 }
-.dch-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.dch-prog-track {
+  height: 5px;
+  background: rgba(255,255,255,.07);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.dch-prog-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #F5C842, #ffd96a);
+  border-radius: 4px;
+  transition: width .6s cubic-bezier(.34,1.4,.64,1);
+  position: relative;
+  overflow: hidden;
+}
+.dch-prog-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.3), transparent);
+  animation: dchShimmer 2.4s ease infinite;
+}
+.dch-card.fin .dch-prog-fill::after { display: none; }
+@keyframes dchShimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(200%)} }
+
+/* Habits chips */
+.dch-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 10px;
+}
 .dch-chip {
-  font-size: 10px;
-  padding: 2px 7px;
-  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 7px;
   background: rgba(255,255,255,.06);
-  color: var(--t3);
-  max-width: 90px;
+  color: var(--t2);
+  max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* Empty state */
-.dch-empty {
-  text-align: center;
-  padding: 20px 16px 12px;
-  color: var(--t3);
-  font-size: 12px;
-  line-height: 1.6;
-}
-.dch-empty-ico { font-size: 26px; opacity: .45; margin-bottom: 7px; }
-
 /* ── Modal ── */
 .dch-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,.6);
+  background: rgba(0,0,0,.65);
   backdrop-filter: blur(8px);
   z-index: 10000;
   display: flex;
@@ -45138,115 +45207,90 @@ window._hSetUnit = function(unit, btn) {
 @keyframes dchOvIn { from{opacity:0} to{opacity:1} }
 .dch-modal {
   background: var(--bg, #09090b);
-  border-radius: 20px 20px 0 0;
-  padding: 22px 20px 40px;
+  border-radius: 22px 22px 0 0;
+  padding: 10px 20px 44px;
   width: 100%;
-  max-width: 500px;
+  max-width: 520px;
   max-height: 90vh;
   overflow-y: auto;
-  animation: dchMoIn .28s cubic-bezier(.34,1.2,.64,1);
+  animation: dchMoIn .3s cubic-bezier(.34,1.2,.64,1);
 }
 @keyframes dchMoIn { from{transform:translateY(100%)} to{transform:none} }
-
-.dch-modal-grip {
-  width: 36px;
-  height: 4px;
+.dch-grip {
+  width: 38px; height: 4px;
   background: rgba(255,255,255,.12);
   border-radius: 2px;
-  margin: 0 auto 18px;
+  margin: 14px auto 20px;
 }
-.dch-modal-title {
-  font-size: 17px;
+.dch-mo-title {
+  font-size: 18px;
   font-weight: 900;
   color: var(--t1);
   margin-bottom: 20px;
   letter-spacing: -.03em;
 }
-.dch-field { margin-bottom: 13px; }
-.dch-label {
+.dch-field { margin-bottom: 14px; }
+.dch-lbl {
   display: block;
   font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: .08em;
+  letter-spacing: .09em;
   color: var(--t3);
   margin-bottom: 6px;
 }
-.dch-input {
+.dch-inp {
   width: 100%;
   box-sizing: border-box;
   background: rgba(255,255,255,.05);
   border: 0.5px solid rgba(255,255,255,.1);
   border-radius: 10px;
-  padding: 11px 13px;
-  color: var(--t1, #fff);
+  padding: 12px 14px;
+  color: var(--t1);
   font-size: 14px;
   outline: none;
   transition: border-color .15s;
   font-family: inherit;
   resize: none;
 }
-.dch-input:focus { border-color: rgba(245,200,66,.4); }
-.dch-input::placeholder { color: var(--t3); }
-.dch-row { display: flex; gap: 10px; }
-.dch-row .dch-field { flex: 1; }
-
+.dch-inp:focus { border-color: rgba(245,200,66,.45); }
+.dch-inp::placeholder { color: var(--t3); }
+.dch-dates-row { display: flex; gap: 10px; }
+.dch-dates-row .dch-field { flex: 1; }
 .dch-hab-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 6px;
-  max-height: 200px;
+  gap: 7px;
+  max-height: 220px;
   overflow-y: auto;
 }
-.dch-hab-item {
+.dch-hab-pick {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 11px;
+  padding: 10px 12px;
   border-radius: 10px;
   border: 0.5px solid rgba(255,255,255,.09);
   background: rgba(255,255,255,.03);
   cursor: pointer;
   transition: .15s;
 }
-.dch-hab-item:hover { border-color: rgba(245,200,66,.25); background: rgba(245,200,66,.04); }
-.dch-hab-item.on { border-color: rgba(245,200,66,.5); background: rgba(245,200,66,.09); }
-.dch-hab-ico { font-size: 15px; flex-shrink: 0; }
-.dch-hab-nm {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--t1);
-  line-height: 1.3;
-  word-break: break-word;
-}
-
-.dch-modal-actions { display: flex; gap: 9px; margin-top: 18px; }
+.dch-hab-pick:hover { border-color: rgba(245,200,66,.3); background: rgba(245,200,66,.05); }
+.dch-hab-pick.on { border-color: rgba(245,200,66,.55); background: rgba(245,200,66,.1); }
+.dch-hab-nm { font-size: 12px; font-weight: 600; color: var(--t1); line-height: 1.3; word-break: break-word; }
+.dch-mo-actions { display: flex; gap: 10px; margin-top: 20px; }
 .dch-btn-cancel {
-  flex: 1;
-  padding: 12px;
-  border-radius: 10px;
-  background: rgba(255,255,255,.07);
-  border: none;
-  color: var(--t2);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  transition: .15s;
+  flex: 1; padding: 13px; border-radius: 10px;
+  background: rgba(255,255,255,.07); border: none;
+  color: var(--t2); font-size: 14px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: .15s;
 }
 .dch-btn-cancel:hover { background: rgba(255,255,255,.11); }
 .dch-btn-save {
-  flex: 2;
-  padding: 12px;
-  border-radius: 10px;
-  background: var(--gold, #F5C842);
-  border: none;
-  color: #000;
-  font-size: 14px;
-  font-weight: 900;
-  cursor: pointer;
-  font-family: inherit;
-  transition: opacity .15s;
+  flex: 2; padding: 13px; border-radius: 10px;
+  background: var(--gold, #F5C842); border: none;
+  color: #000; font-size: 14px; font-weight: 900;
+  cursor: pointer; font-family: inherit; transition: opacity .15s;
 }
 .dch-btn-save:hover { opacity: .88; }
 .dch-btn-save:disabled { opacity: .35; cursor: not-allowed; }
@@ -45572,21 +45616,21 @@ window.renderDash = function(){
 
 <script>
 /* ════════════════════════════════════════════════
-   ФИЧА 2 — СИСТЕМА ЧЕЛЛЕНДЖЕЙ
+   ФИЧА 2 — СИСТЕМА ЧЕЛЛЕНДЖЕЙ (личные привычки)
 ════════════════════════════════════════════════ */
 (function(){
 'use strict';
 
-const CK='dtr_challenges';
-const load = () => { try{ return JSON.parse(localStorage.getItem(CK)||'[]'); }catch{ return []; } };
-const save = d => localStorage.setItem(CK, JSON.stringify(d));
-const loadH= () => { try{ return JSON.parse(localStorage.getItem('dtr_h3')||'[]'); }catch{ return []; } };
-const loadL= () => { try{ return JSON.parse(localStorage.getItem('dtr_l3')||'{}'); }catch{ return {}; } };
+const CK = 'dtr_challenges';
+const load  = () => { try{ return JSON.parse(localStorage.getItem(CK)||'[]'); }catch{ return []; } };
+const save  = d  => localStorage.setItem(CK, JSON.stringify(d));
+const loadH = () => { try{ return JSON.parse(localStorage.getItem('dtr_h3')||'[]'); }catch{ return []; } };
+const loadL = () => { try{ return JSON.parse(localStorage.getItem('dtr_l3')||'{}'); }catch{ return {}; } };
 
-const pad2 = n => String(n).padStart(2,'0');
-const dk   = d => d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+const pad2  = n  => String(n).padStart(2,'0');
+const dk    = d  => d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
 const today = () => dk(new Date());
-const esc   = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const esc   = s  => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
 function daysInRange(s, e){
   const arr=[], sd=new Date(s+'T00:00:00'), ed=new Date(e+'T00:00:00');
@@ -45594,157 +45638,226 @@ function daysInRange(s, e){
   return arr;
 }
 
-function progress(ch){
-  const logs=loadL();
-  const end = ch.endDate < today() ? ch.endDate : today();
-  const range = ch.startDate > end ? [] : daysInRange(ch.startDate, end);
-  const total = range.length * Math.max(ch.habitIds.length,1);
-  if(!total) return {done:0,total:0,pct:0};
-  let done=0;
-  ch.habitIds.forEach(id=>{
-    const hl=logs[id]||{};
-    range.forEach(d=>{ if(hl[d]) done++; });
+/* ── Прогресс ────────────────────────────────────────────── */
+function calcProgress(ch){
+  const logs = loadL();
+  const t = today();
+  const rangeEnd = ch.endDate < t ? ch.endDate : t;
+  if(ch.startDate > rangeEnd) return {done:0, total:0, pct:0};
+  const range = daysInRange(ch.startDate, rangeEnd);
+  const total = range.length * Math.max(ch.habitIds.length, 1);
+  let done = 0;
+  ch.habitIds.forEach(id => {
+    const hl = logs[id]||{};
+    range.forEach(d => { if(hl[d]) done++; });
   });
-  return {done, total, pct: Math.round(done/total*100)};
+  return { done, total, pct: total ? Math.round(done/total*100) : 0 };
 }
 
-function fmtD(s){ const [y,m,d]=s.split('-'); return d+'.'+m+'.'+y; }
+/* Сегодняшний прогресс */
+function calcToday(ch){
+  const logs = loadL();
+  const t = today();
+  if(t < ch.startDate || t > ch.endDate) return {done:0, total:0};
+  let done=0, total=ch.habitIds.length;
+  ch.habitIds.forEach(id => { if((logs[id]||{})[t]) done++; });
+  return {done, total};
+}
 
+/* ── Форматирование дат ──────────────────────────────────── */
+function fmtD(s){
+  const [y,m,d]=s.split('-'); return d+'.'+m+'.'+y.slice(2);
+}
 function daysLeft(end){
   const now=new Date(); now.setHours(0,0,0,0);
   const e=new Date(end+'T00:00:00');
   const d=Math.round((e-now)/86400000);
   if(d<0) return 'Завершён';
   if(d===0) return 'Последний день';
-  return 'Осталось '+d+'д';
+  return d+'д осталось';
 }
 
-/* ── Render ─────────────────────────────────────────────── */
-function renderChallenges(){
-  const root=document.getElementById('dtr-challenges');
-  if(!root) return;
-  const list=load(), habits=loadH();
-  const habName=id=>{ const h=habits.find(h=>h.id===id); return h?(h.icon||'')+(h.icon?' ':'')+h.name:id; };
+/* ── SVG иконки ──────────────────────────────────────────── */
+const SVG_TROPHY = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--gold,#F5C842)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>`;
+const SVG_PLUS = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+const SVG_TARGET = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`;
+const SVG_SUN = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>`;
+const SVG_DEL = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+const SVG_EMPTY_TROPHY = `<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>`;
 
-  let html=`<div class="dch-header">
-    <div class="dch-title">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold,#F5C842)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
-        <path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
-        <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
-        <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
-      </svg>
-      Челленджи
-      ${list.length ? `<span class="dch-count">${list.length}</span>` : ''}
+/* ── Построить блок и вставить после #habModeBar ─────────── */
+function injectChallenges(){
+  const modeBar = document.getElementById('habModeBar');
+  if(!modeBar) return;
+
+  /* только для личного режима */
+  const mode = localStorage.getItem('dtr_chab_mode') || 'personal';
+  const existing = document.getElementById('dch-inject');
+
+  if(mode !== 'personal'){
+    if(existing) existing.remove();
+    return;
+  }
+
+  const list = load();
+  const habits = loadH();
+  const habName = id => {
+    const h = habits.find(h=>h.id===id);
+    return h ? h.name : id;
+  };
+
+  /* Build HTML */
+  let inner = `<div class="dch-hdr">
+    <div class="dch-hdr-left">
+      ${SVG_TROPHY}
+      <span class="dch-hdr-title">Челленджи</span>
+      ${list.length ? `<span class="dch-hdr-count">${list.length}</span>` : ''}
     </div>
-    <button class="dch-add-btn" onclick="_dchOpen()">
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Новый
+    <button class="dch-new-btn" onclick="_dchOpen()">
+      ${SVG_PLUS} Новый
     </button>
   </div>`;
 
   if(!list.length){
-    html+=`<div class="dch-empty">
-      <div class="dch-empty-ico">🏆</div>
-      <div style="font-weight:800;color:var(--t2);margin-bottom:3px">Нет активных челленджей</div>
-      <div>Запусти вызов и следи за прогрессом<br>своих привычек за период</div>
+    inner += `<div class="dch-empty">
+      <div class="dch-empty-icon">${SVG_EMPTY_TROPHY}</div>
+      <div class="dch-empty-ttl">Нет активных челленджей</div>
+      <div class="dch-empty-sub">Запусти вызов — следи за выполнением<br>своих привычек за выбранный период</div>
     </div>`;
   } else {
-    html+='<div class="dch-list">';
-    list.forEach((ch,idx)=>{
-      const p=progress(ch), fin=today()>ch.endDate;
-      html+=`<div class="dch-card${fin?' fin':''}">
-        <div class="dch-card-top">
-          <div>
-            <div class="dch-card-name">${esc(ch.name)}</div>
-            ${ch.goal?`<div class="dch-card-goal">${esc(ch.goal)}</div>`:''}
-            ${fin?'<span class="dch-fin-tag">✓ Завершён</span>':''}
+    inner += '<div class="dch-cards">';
+    list.forEach((ch, idx) => {
+      const prog  = calcProgress(ch);
+      const td    = calcToday(ch);
+      const fin   = today() > ch.endDate;
+      const dl    = daysLeft(ch.endDate);
+      const totalDays = daysInRange(ch.startDate, ch.endDate).length;
+
+      /* Today metric */
+      const todayPct = td.total ? Math.round(td.done/td.total*100) : 0;
+      const todayLbl = fin ? '—' : (td.total === 0 ? 'Не активен' : `${td.done}/${td.total}`);
+      const todaySubLbl = fin ? 'завершён' : (todayPct===100 ? 'выполнено ✓' : `${todayPct}% выполнено`);
+
+      inner += `<div class="dch-card${fin?' fin':''}">
+        <div class="dch-top">
+          <div class="dch-info">
+            <div class="dch-name">${esc(ch.name)}</div>
+            ${ch.goal ? `<div class="dch-goal">${esc(ch.goal)}</div>` : ''}
           </div>
-          <div class="dch-card-meta">
+          <div class="dch-right">
             <div class="dch-dates">${fmtD(ch.startDate)} – ${fmtD(ch.endDate)}</div>
-            <button class="dch-del" onclick="_dchDel(${idx})" title="Удалить">×</button>
+            ${fin ? '<span class="dch-fin-tag">Завершён</span>' : `<span class="dch-fin-tag" style="color:var(--t2);background:transparent;padding:0">${dl}</span>`}
+            <button class="dch-del" onclick="_dchDel(${idx})" title="Удалить">${SVG_DEL}</button>
           </div>
         </div>
-        <div class="dch-bar-track"><div class="dch-bar-fill" style="width:${p.pct}%"></div></div>
-        <div class="dch-card-bot">
-          <div>
-            <span class="dch-pct">${p.pct}%</span>
-            <span class="dch-days"> · ${fin ? p.done+'/'+p.total+' дней' : daysLeft(ch.endDate)}</span>
+
+        <div class="dch-metrics">
+          <div class="dch-metric">
+            <div class="dch-metric-lbl">${SVG_TARGET} Общий прогресс</div>
+            <div class="dch-metric-val">${prog.pct}%</div>
+            <div class="dch-metric-sub">${prog.done} из ${prog.total} выполнений</div>
           </div>
-          <div class="dch-chips">
-            ${ch.habitIds.slice(0,3).map(id=>`<span class="dch-chip">${esc(habName(id))}</span>`).join('')}
-            ${ch.habitIds.length>3?`<span class="dch-chip">+${ch.habitIds.length-3}</span>`:''}
+          <div class="dch-metric today">
+            <div class="dch-metric-lbl">${SVG_SUN} Сегодня</div>
+            <div class="dch-metric-val">${todayLbl}</div>
+            <div class="dch-metric-sub">${todaySubLbl}</div>
           </div>
+        </div>
+
+        <div class="dch-prog-wrap">
+          <div class="dch-prog-labels">
+            <span class="dch-prog-pct">${prog.pct}%</span>
+            <span class="dch-prog-days">${totalDays} дней</span>
+          </div>
+          <div class="dch-prog-track">
+            <div class="dch-prog-fill" style="width:${prog.pct}%"></div>
+          </div>
+        </div>
+
+        <div class="dch-chips">
+          ${ch.habitIds.slice(0,4).map(id=>`<span class="dch-chip">${esc(habName(id))}</span>`).join('')}
+          ${ch.habitIds.length>4?`<span class="dch-chip">+${ch.habitIds.length-4}</span>`:''}
         </div>
       </div>`;
     });
-    html+='</div>';
+    inner += '</div>';
   }
 
-  root.innerHTML=html;
+  if(existing){
+    existing.innerHTML = inner;
+  } else {
+    const div = document.createElement('div');
+    div.id = 'dch-inject';
+    div.className = 'dch-inject';
+    div.innerHTML = inner;
+    modeBar.insertAdjacentElement('afterend', div);
+  }
 }
 
-/* ── Delete ─────────────────────────────────────────────── */
+/* ── Удалить ─────────────────────────────────────────────── */
 window._dchDel = function(idx){
-  const l=load(); l.splice(idx,1); save(l); renderChallenges();
+  const l=load(); l.splice(idx,1); save(l); injectChallenges();
 };
 
-/* ── Modal ──────────────────────────────────────────────── */
-let _ov=null;
+/* ── Модалка ─────────────────────────────────────────────── */
+let _ov = null;
 
 window._dchOpen = function(){
   if(_ov) return;
-  const habits=loadH();
-  const t=today(), def=dk(new Date(Date.now()+29*86400000));
-  _ov=document.createElement('div');
-  _ov.className='dch-overlay';
+  const habits = loadH();
+  const t = today();
+  const defEnd = dk(new Date(Date.now()+29*86400000));
+
+  _ov = document.createElement('div');
+  _ov.className = 'dch-overlay';
 
   const habItems = habits.length
-    ? habits.map(h=>`<div class="dch-hab-item" data-id="${h.id}" onclick="this.classList.toggle('on')">
-        <span class="dch-hab-ico">${h.icon||'📌'}</span>
+    ? habits.map(h=>`
+      <div class="dch-hab-pick" data-id="${h.id}" onclick="this.classList.toggle('on')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${h.color||'#F5C842'}" stroke-width="2" stroke-linecap="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="m9 12 2 2 4-4"/></svg>
         <span class="dch-hab-nm">${esc(h.name)}</span>
       </div>`).join('')
-    : `<div style="grid-column:1/-1;text-align:center;padding:14px;font-size:12px;color:var(--t3)">Сначала добавь привычки</div>`;
+    : `<div style="grid-column:1/-1;text-align:center;padding:16px;font-size:12px;color:var(--t3)">Сначала добавь привычки в трекер</div>`;
 
-  _ov.innerHTML=`<div class="dch-modal">
-    <div class="dch-modal-grip"></div>
-    <div class="dch-modal-title">Новый челлендж</div>
+  _ov.innerHTML = `<div class="dch-modal">
+    <div class="dch-grip"></div>
+    <div class="dch-mo-title">Новый челлендж</div>
 
     <div class="dch-field">
-      <label class="dch-label">Название</label>
-      <input id="dchName" class="dch-input" placeholder="Напр. 30 дней без пропусков" maxlength="80">
+      <label class="dch-lbl">Название</label>
+      <input id="dchInpName" class="dch-inp" placeholder="Напр. 30 дней без пропусков" maxlength="80">
     </div>
 
     <div class="dch-field">
-      <label class="dch-label">Цель (необязательно)</label>
-      <textarea id="dchGoal" class="dch-input" rows="2" placeholder="Чего хочешь достичь?"></textarea>
+      <label class="dch-lbl">Цель (необязательно)</label>
+      <textarea id="dchInpGoal" class="dch-inp" rows="2" placeholder="Чего хочешь достичь?"></textarea>
     </div>
 
-    <div class="dch-row">
+    <div class="dch-dates-row">
       <div class="dch-field">
-        <label class="dch-label">Начало</label>
-        <input id="dchStart" type="date" class="dch-input" value="${t}">
+        <label class="dch-lbl">Начало</label>
+        <input id="dchInpStart" type="date" class="dch-inp" value="${t}">
       </div>
       <div class="dch-field">
-        <label class="dch-label">Конец</label>
-        <input id="dchEnd" type="date" class="dch-input" value="${def}">
+        <label class="dch-lbl">Конец</label>
+        <input id="dchInpEnd" type="date" class="dch-inp" value="${defEnd}">
       </div>
     </div>
 
     <div class="dch-field">
-      <label class="dch-label">Привычки для отслеживания</label>
-      <div class="dch-hab-grid">${habItems}</div>
+      <label class="dch-lbl">Привычки для отслеживания</label>
+      <div class="dch-hab-grid" id="dchHabGrid">${habItems}</div>
     </div>
 
-    <div class="dch-modal-actions">
+    <div class="dch-mo-actions">
       <button class="dch-btn-cancel" onclick="_dchClose()">Отмена</button>
-      <button class="dch-btn-save" onclick="_dchSave()">Запустить 🚀</button>
+      <button class="dch-btn-save" onclick="_dchSave()">Запустить</button>
     </div>
   </div>`;
 
   document.body.appendChild(_ov);
-  _ov.addEventListener('click',e=>{ if(e.target===_ov) _dchClose(); });
-  setTimeout(()=>{ const el=document.getElementById('dchName'); if(el) el.focus(); }, 120);
+  _ov.addEventListener('click', e=>{ if(e.target===_ov) _dchClose(); });
+  setTimeout(()=>{ document.getElementById('dchInpName')?.focus(); }, 120);
 };
 
 window._dchClose = function(){
@@ -45752,45 +45865,71 @@ window._dchClose = function(){
 };
 
 window._dchSave = function(){
-  const name  =(document.getElementById('dchName')||{}).value?.trim();
-  const goal  =(document.getElementById('dchGoal')||{}).value?.trim();
-  const start =(document.getElementById('dchStart')||{}).value;
-  const end   =(document.getElementById('dchEnd')||{}).value;
-  const ids   =[...document.querySelectorAll('.dch-hab-item.on')].map(el=>el.dataset.id);
+  const name  = document.getElementById('dchInpName')?.value?.trim();
+  const goal  = document.getElementById('dchInpGoal')?.value?.trim();
+  const start = document.getElementById('dchInpStart')?.value;
+  const end   = document.getElementById('dchInpEnd')?.value;
+  const ids   = [...document.querySelectorAll('.dch-hab-pick.on')].map(el=>el.dataset.id);
 
-  function shake(el){ if(!el)return; let i=0; const iv=setInterval(()=>{ el.style.transform=i%2?'translateX(-5px)':'translateX(5px)'; if(++i>5){clearInterval(iv);el.style.transform='';} },55); }
+  const shake = el => {
+    if(!el) return;
+    let i=0; const iv=setInterval(()=>{
+      el.style.transform = i%2 ? 'translateX(-5px)':'translateX(5px)';
+      if(++i>5){ clearInterval(iv); el.style.transform=''; }
+    }, 55);
+  };
 
-  if(!name) return shake(document.getElementById('dchName'));
-  if(!start||!end||start>end) return shake(document.getElementById('dchEnd'));
-  if(!ids.length) return shake(document.querySelector('.dch-hab-grid'));
+  if(!name)          return shake(document.getElementById('dchInpName'));
+  if(!start||!end||start>end) return shake(document.getElementById('dchInpEnd'));
+  if(!ids.length)    return shake(document.getElementById('dchHabGrid'));
 
-  const btn=document.getElementById('dchSaveBtn');
-  const list=load();
-  list.unshift({id:'ch'+Date.now(), name, goal:goal||'', startDate:start, endDate:end, habitIds:ids, type:'personal', createdAt:Date.now()});
+  const list = load();
+  list.unshift({
+    id: 'ch'+Date.now(), name, goal: goal||'',
+    startDate: start, endDate: end,
+    habitIds: ids, type:'personal', createdAt: Date.now()
+  });
   save(list);
   _dchClose();
-  renderChallenges();
-  if(window.showToast) window.showToast('Челлендж запущен! 🏆');
+  injectChallenges();
+  if(window.showToast) window.showToast('Челлендж запущен!');
 };
 
-/* ── showTab hook ────────────────────────────────────────── */
-const _orig2=window.showTab;
-window.showTab=function(){
-  if(_orig2) _orig2.apply(this,arguments);
-  if(arguments[0]==='habits') setTimeout(renderChallenges, 80);
+/* ── Хуки ─────────────────────────────────────────────────── */
+
+/* showTab */
+const _orig2 = window.showTab;
+window.showTab = function(){
+  if(_orig2) _orig2.apply(this, arguments);
+  if(arguments[0]==='habits') setTimeout(injectChallenges, 120);
 };
 
-/* ── localStorage watch (re-render on log change) ──────── */
-const _origSet=localStorage.setItem.bind(localStorage);
-localStorage.setItem=function(k,v){
-  _origSet(k,v);
-  if(k==='dtr_l3') setTimeout(()=>{ if(document.querySelector('.dch-card')) renderChallenges(); }, 120);
+/* Переключение режима личный/совместный */
+const _origChabSet = window.chabSetMode;
+window.chabSetMode = function(){
+  if(_origChabSet) _origChabSet.apply(this, arguments);
+  setTimeout(injectChallenges, 120);
 };
 
+/* habToggle — обновляем сегодняшний прогресс */
+const _origToggle = window.habToggle;
+window.habToggle = function(){
+  if(_origToggle) _origToggle.apply(this, arguments);
+  setTimeout(injectChallenges, 80);
+};
+
+/* localStorage watch (на случай внешних изменений) */
+const _origSet = localStorage.setItem.bind(localStorage);
+localStorage.setItem = function(k, v){
+  _origSet(k, v);
+  if(k==='dtr_l3') setTimeout(()=>{ if(document.getElementById('dch-inject')) injectChallenges(); }, 100);
+};
+
+/* Авто-запуск */
 setTimeout(()=>{
-  const t=document.getElementById('tab-habits');
-  if(t && window.getComputedStyle(t).display!=='none') renderChallenges();
-}, 800);
+  const t = document.getElementById('tab-habits');
+  if(t && window.getComputedStyle(t).display !== 'none') injectChallenges();
+}, 900);
 
 })();
 </script>
