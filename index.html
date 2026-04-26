@@ -44719,5 +44719,58 @@ function ttkNavLock(lock) {
 })();
 
 </script>
+
+<script>
+/* Habit type/unit toggles for modal */
+var _habType = 'count', _habUnit = 'min';
+
+window._hSetType = function(type, btn) {
+  _habType = type;
+  document.querySelectorAll('.hab-type-btn').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  var wrap = document.getElementById('habLimitWrap');
+  if (wrap) {
+    wrap.classList.toggle('open', type === 'time');
+  }
+};
+
+window._hSetUnit = function(unit, btn) {
+  _habUnit = unit;
+  document.querySelectorAll('.hab-limit-unit-btn').forEach(function(b){ b.classList.remove('on'); });
+  if (btn) btn.classList.add('on');
+};
+
+/* Patch _hSave to inject habType + dailyLimitHrs */
+(function(){
+  var _orig = window._hSave;
+  if (typeof _orig !== 'function') return;
+  window._hSave = function() {
+    /* Temporarily override hLoad/hSave to inject fields */
+    var _origLS = localStorage.getItem.bind(localStorage);
+    var _origSet = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = function(key, val) {
+      if (key === 'dtr_h3') {
+        try {
+          var data = JSON.parse(val);
+          if (Array.isArray(data) && data.length) {
+            var last = data[data.length - 1];
+            if (last && !last.habType) {
+              var limitVal = parseFloat((document.getElementById('habLimitVal') || {}).value || 0) || 30;
+              var limitHrs = _habType === 'time' ? (_habUnit === 'min' ? limitVal / 60 : limitVal) : 0;
+              last.habType = _habType;
+              last.dailyLimitHrs = limitHrs;
+            }
+          }
+          val = JSON.stringify(data);
+        } catch(e) {}
+      }
+      _origSet(key, val);
+      /* Restore */
+      localStorage.setItem = _origSet;
+    };
+    _orig.apply(this, arguments);
+  };
+})();
+</script>
 </body>
 </html>
