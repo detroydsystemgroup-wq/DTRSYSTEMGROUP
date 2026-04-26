@@ -33998,14 +33998,18 @@ async function _chabFetchAll(user, sb){
 
   await Promise.all(rooms.map(async room => {
     try {
-      const [memsRes, habsRes, challRes] = await Promise.all([
+      const [memsRes, habsRes] = await Promise.all([
         sb.from('collab_habit_members').select('user_id,role').eq('room_id',room.id),
-        sb.from('collab_habits').select('*').eq('room_id',room.id).neq('active',false),
-        sb.from('collab_challenges').select('*').eq('room_id',room.id).order('created_at',{ascending:false})
+        sb.from('collab_habits').select('*').eq('room_id',room.id).neq('active',false)
       ]);
       const rawMembers = memsRes.data||[];
       const habits = habsRes.data||[];
-      const challenges = challRes.data||[];
+      /* Запрос челленджей — не фатален если таблица ещё не создана */
+      let challenges = [];
+      try {
+        const challRes = await sb.from('collab_challenges').select('*').eq('room_id',room.id).order('created_at',{ascending:false});
+        challenges = challRes.data||[];
+      } catch(e){ /* таблица ещё не создана */ }
       const memberIds = rawMembers.map(m=>m.user_id);
 
       const [profilesRes, logsRes] = await Promise.all([
@@ -34055,10 +34059,10 @@ async function _chabRefreshLogs(){
           logs[e.user_id][e.habit_id][e.date]=true;
         });
         rc.logs = logs;
-        /* Обновляем челленджи в кеше */
+        /* Обновляем челленджи в кеше — не фатально если таблица не создана */
         try {
-          const {data:challData} = await sb.from('collab_challenges').select('*').eq('room_id',room.id).order('created_at',{ascending:false});
-          rc.challenges = challData||[];
+          const challRes = await sb.from('collab_challenges').select('*').eq('room_id',room.id).order('created_at',{ascending:false});
+          if(!challRes.error) rc.challenges = challRes.data||[];
         } catch(e){}
         // Патчим только ячейки в DOM — без перерисовки карточки
         _patchRoomCells(room.id, logs, user.id);
@@ -35116,6 +35120,13 @@ window.showTab=function(t,btn,skip){
 };
 
 window.renderCollabView=renderCollabView;
+/* Экспортируем кеш для внешних модулей (коллаб-челленджи) */
+Object.defineProperty(window, '_chabCache', {
+  get: function(){ return _chabCache; },
+  set: function(v){ _chabCache = v; },
+  configurable: true
+});
+window._chabSaveCache = _chabSaveCache;
 })();
 
 
@@ -46278,11 +46289,23 @@ function daysInRange(s, e){
 }
 
 /* ── Получить челленджи из кеша ──────────────────────────── */
+function getCache(){ return window._chabCache || null; }
+
 function getChallenges(roomId){
-  try{
-    const rc = _chabCache?.perRoom?.[roomId];
-    return rc?.challenges || [];
-  } catch{ return []; }
+  try{ return getCache()?.perRoom?.[roomId]?.challenges || []; }
+  catch{ return []; }
+}
+
+/* ── refreshAllRooms ─────────────────────────────────────── */
+function refreshAllRooms(){
+  try {
+    const cache = getCache();
+    if(!cache) return;
+    (cache.rooms||[]).forEach(r => {
+      const rc = cache.perRoom[r.id]||{};
+      renderCollabChallenges(r.id, rc.members||[], rc.logs||{}, rc.habits||[]);
+    });
+  } catch(e){ console.error('refreshAllRooms:', e); }
 }
 
 /* ── Прогресс: день засчитывается только если все отметили ── */
@@ -46443,18 +46466,6 @@ function renderCollabChallenges(roomId, members, logs, habits){
   sect.innerHTML = html;
 }
 
-/* ── refreshAllRooms — вызывается из триггеров ───────────── */
-function refreshAllRooms(){
-  try {
-    const cache = typeof _chabCache !== 'undefined' ? _chabCache : null;
-    if(!cache) return;
-    (cache.rooms||[]).forEach(r => {
-      const rc = cache.perRoom[r.id]||{};
-      renderCollabChallenges(r.id, rc.members||[], rc.logs||{}, rc.habits||[]);
-    });
-  } catch(e){}
-}
-
 /* ── Удалить из Supabase ─────────────────────────────────── */
 window._cchDel = async function(roomId, challId){
   const sb = getSB2(), user = getUser2();
@@ -46463,7 +46474,7 @@ window._cchDel = async function(roomId, challId){
   try {
     const rc = _chabCache?.perRoom?.[roomId];
     if(rc?.challenges) rc.challenges = rc.challenges.filter(c=>c.id!==challId);
-    _chabSaveCache?.();
+    window._chabSaveCache?.();
   } catch{}
   refreshAllRooms();
   /* Удаляем из БД */
@@ -46479,7 +46490,7 @@ let _cchOv = null, _cchRoomId = null;
 window._cchOpen = function(roomId){
   if(_cchOv) return;
   _cchRoomId = roomId;
-  const cache = typeof _chabCache !== 'undefined' ? _chabCache : null;
+  const cache = window._chabCache || null;
   const rc = cache?.perRoom[roomId]||{};
   const habits  = rc.habits||[];
   const members = rc.members||[];
@@ -46605,7 +46616,7 @@ window._cchSave = async function(){
       if(rc) {
         if(!rc.challenges) rc.challenges=[];
         rc.challenges.unshift(data);
-        _chabSaveCache?.();
+        window._chabSaveCache?.();
       }
     } catch{}
 
@@ -46631,7 +46642,7 @@ function subscribeChallengesRealtime(){
     }, async ()=>{
       /* Обновляем челленджи для всех румов */
       try {
-        const cache = typeof _chabCache!=='undefined' ? _chabCache : null;
+        const cache = window._chabCache || null;
         if(!cache) return;
         await Promise.all((cache.rooms||[]).map(async r=>{
           const rc = cache.perRoom[r.id];
@@ -46640,7 +46651,7 @@ function subscribeChallengesRealtime(){
             .eq('room_id',r.id).order('created_at',{ascending:false});
           rc.challenges = data||[];
         }));
-        _chabSaveCache?.();
+        window._chabSaveCache?.();
         refreshAllRooms();
       } catch(e){ console.error('cch realtime error:', e); }
     })
@@ -46705,7 +46716,7 @@ function subscribeChallengesRealtime(){
   if(typeof _origPatch === 'function'){
     window._patchRoomCells = function(roomId, logs, myId){
       if(_origPatch) _origPatch.apply(this, arguments);
-      const cache = typeof _chabCache!=='undefined' ? _chabCache : null;
+      const cache = window._chabCache || null;
       const rc = cache?.perRoom?.[roomId]||{};
       renderCollabChallenges(roomId, rc.members||[], logs||{}, rc.habits||[]);
     };
