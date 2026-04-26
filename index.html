@@ -46117,6 +46117,11 @@ setTimeout(()=>{
   display:flex; align-items:center; transition: color .15s;
 }
 .cch-del:hover { color: rgba(239,68,68,.6); }
+.cch-lock-wrap {
+  padding: 3px; color: rgba(255,255,255,.2);
+  display: flex; align-items: center;
+  cursor: not-allowed;
+}
 
 /* Panels */
 .cch-panels {
@@ -46458,6 +46463,17 @@ function renderCollabChallenges(roomId, members, logs, habits){
 
       const user2 = getUser2();
       const canDel = user2 && ch.created_by === user2.id;
+      const t2 = today();
+      const isActive = t2 >= ch.start_date && t2 <= ch.end_date; /* идёт прямо сейчас */
+      const notStarted = t2 < ch.start_date;
+
+      /* Кнопка удаления: показываем только создателю и только до/после активного периода */
+      const delBtn = !canDel ? '' :
+        isActive
+          ? `<div class="cch-lock-wrap" title="Нельзя удалить активный челлендж">
+               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+             </div>`
+          : `<button class="cch-del" onclick="_cchDel('${roomId}','${ch.id}')" title="${notStarted?'Удалить (не начат)':'Удалить (завершён)'}">${SVG_DEL}</button>`;
 
       html += `<div class="cch-card${cardCls}">
         <div class="cch-card-bg"></div>
@@ -46470,7 +46486,7 @@ function renderCollabChallenges(roomId, members, logs, habits){
             <div class="cch-title-right">
               <div class="cch-dates">${fmtD(ch.start_date)} – ${fmtD(ch.end_date)}</div>
               ${statusTag}
-              ${canDel ? `<button class="cch-del" onclick="_cchDel('${roomId}','${ch.id}')" title="Удалить">${SVG_DEL}</button>` : ''}
+              ${delBtn}
             </div>
           </div>
 
@@ -46511,6 +46527,16 @@ function renderCollabChallenges(roomId, members, logs, habits){
 
 /* ── Удалить из Supabase ─────────────────────────────────── */
 window._cchDel = async function(roomId, challId){
+  /* Двойная проверка: не удаляем активный челлендж */
+  const allChalls = [...getChallenges(roomId), ...lsLoad(roomId)];
+  const ch = allChalls.find(c => c.id === challId);
+  if(ch){
+    const t2 = today();
+    if(t2 >= ch.start_date && t2 <= ch.end_date){
+      try{ showToast('Нельзя удалить активный челлендж 🔒'); }catch{}
+      return;
+    }
+  }
   /* Убираем из кеша */
   const rc = window._chabCache?.perRoom?.[roomId];
   if(rc?.challenges) rc.challenges = rc.challenges.filter(c=>c.id!==challId);
