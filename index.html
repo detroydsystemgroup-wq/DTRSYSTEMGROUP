@@ -46444,42 +46444,57 @@ function refreshAllRooms(){
   });
 }
 
-/* ── MutationObserver — надёжный способ поймать рендер румов ── */
-(function setupObserver(){
-  let _debounce = null;
+/* ── Надёжный триггер через polling + прямые хуки ───────── */
+(function setupTriggers(){
 
+  /* Пробуем вставить — если румы уже в DOM */
   function tryInject(){
-    clearTimeout(_debounce);
-    _debounce = setTimeout(()=>{
-      const rooms = document.querySelectorAll('[id^="chab-room-"]');
-      if(!rooms.length) return;
+    if(document.querySelectorAll('[id^="chab-room-"]').length){
       refreshAllRooms();
-    }, 150);
+    }
   }
 
-  /* Наблюдаем за hab-root — туда рендерится весь коллаб контент */
-  const habRoot = document.getElementById('hab-root');
-  if(habRoot){
-    new MutationObserver(tryInject).observe(habRoot, {childList:true, subtree:true});
-  } else {
-    /* hab-root ещё не в DOM — ждём его появления */
-    new MutationObserver((_,obs)=>{
-      const root = document.getElementById('hab-root');
-      if(root){
-        obs.disconnect();
-        new MutationObserver(tryInject).observe(root, {childList:true, subtree:true});
-      }
-    }).observe(document.body, {childList:true, subtree:false});
-  }
+  /* 1. Polling на старте — каждые 400мс первые 15 секунд */
+  let _polls = 0;
+  const _pi = setInterval(()=>{
+    tryInject();
+    if(++_polls >= 37) clearInterval(_pi); /* ~15 сек */
+  }, 400);
 
-  /* Также хукаем window.renderCollabView как запасной вариант */
+  /* 2. Хук на chabSetMode — вызывается при переключении на совместный */
+  const _origCSM = window.chabSetMode;
+  window.chabSetMode = function(){
+    if(_origCSM) _origCSM.apply(this, arguments);
+    setTimeout(tryInject, 300);
+    setTimeout(tryInject, 800);
+    setTimeout(tryInject, 1500);
+  };
+
+  /* 3. Хук на window.renderCollabView (запасной) */
   const _origRCV = window.renderCollabView;
   window.renderCollabView = function(){
     const r = _origRCV ? _origRCV.apply(this, arguments) : undefined;
-    if(r && typeof r.then === 'function') r.then(()=>setTimeout(refreshAllRooms, 300));
-    else setTimeout(refreshAllRooms, 600);
+    setTimeout(tryInject, 400);
+    setTimeout(tryInject, 1000);
+    if(r && typeof r.then === 'function') r.then(()=>setTimeout(tryInject, 300));
     return r;
   };
+
+  /* 4. Хук на showTab */
+  const _origST = window.showTab;
+  window.showTab = function(){
+    if(_origST) _origST.apply(this, arguments);
+    if(arguments[0]==='habits') setTimeout(tryInject, 500);
+  };
+
+  /* 5. MutationObserver как дополнение */
+  function attachObserver(root){
+    new MutationObserver(()=>{ setTimeout(tryInject, 100); })
+      .observe(root, {childList:true, subtree:true});
+  }
+  const habRoot = document.getElementById('hab-root');
+  if(habRoot) attachObserver(habRoot);
+
 })();
 
 /* ── Удалить ─────────────────────────────────────────────── */
