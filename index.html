@@ -45331,8 +45331,59 @@ function render(period){
   const root = document.getElementById('dtr-act-chart');
   if(!root) return;
 
-  const sessions = (typeof P !== 'undefined' && P && P.sessions) ? P.sessions : [];
+  const baseSessions = (typeof P !== 'undefined' && P && P.sessions) ? P.sessions : [];
   const n = _period==='week' ? 7 : _period==='month' ? 30 : 90;
+
+  /* Для квартала: если P.sessions может не покрывать 90 дней — подгружаем из Supabase */
+  if(_period === 'quarter' && _quarterSessions){
+    _renderChart(_quarterSessions, n, root);
+    return;
+  }
+  if(_period === 'quarter' && !_quarterFetching){
+    _fetchQuarterSessions(root, n);
+  }
+  _renderChart(baseSessions, n, root);
+}
+
+/* Кеш квартальных сессий */
+let _quarterSessions = null;
+let _quarterFetching = false;
+
+async function _fetchQuarterSessions(root, n){
+  _quarterFetching = true;
+  try {
+    const sbQ = (typeof sb !== 'undefined') ? sb : null;
+    const userQ = (typeof SB_USER !== 'undefined') ? SB_USER : null;
+    if(!sbQ || !userQ){ _quarterFetching=false; return; }
+    const d90 = new Date(); d90.setDate(d90.getDate()-91);
+    const {data} = await sbQ.from('sessions')
+      .select('id,category_id,duration_seconds,created_at')
+      .eq('user_id', userQ.id)
+      .gte('created_at', d90.toISOString())
+      .order('created_at',{ascending:false})
+      .limit(2000);
+    if(data && data.length){
+      /* Форматируем так же как P.sessions */
+      const catLookup = {};
+      if(typeof ALL_CATS !== 'undefined') ALL_CATS.forEach(c=>{ catLookup[c.id]=c; });
+      _quarterSessions = data.map(s=>{
+        const c = catLookup[s.category_id]||{name:s.category_id,icon:'⏱',color:'var(--t2)'};
+        const ts = new Date(s.created_at).getTime();
+        return {id:s.id,cat:s.category_id,name:c.name,color:c.color,dur:s.duration_seconds,ts,isoDate:s.created_at};
+      });
+    } else {
+      _quarterSessions = (typeof P !== 'undefined' && P?.sessions) ? P.sessions : [];
+    }
+  } catch(e){ _quarterSessions = (typeof P !== 'undefined' && P?.sessions) ? P.sessions : []; }
+  _quarterFetching = false;
+  /* Перерисовываем если всё ещё на квартале */
+  if(_period === 'quarter'){
+    const root2 = document.getElementById('dtr-act-chart');
+    if(root2) _renderChart(_quarterSessions, n, root2);
+  }
+}
+
+function _renderChart(sessions, n, root){
   const days = dayRange(n);
   const map  = buildMap(sessions, days);
   const vals = days.map(d=>map[d]);
@@ -45606,6 +45657,64 @@ const save  = d  => localStorage.setItem(CK, JSON.stringify(d));
 const loadH = () => { try{ return JSON.parse(localStorage.getItem('dtr_h3')||'[]'); }catch{ return []; } };
 const loadL = () => { try{ return JSON.parse(localStorage.getItem('dtr_l3')||'{}'); }catch{ return {}; } };
 
+/* ── Supabase helpers для личных челленджей ──────────────── */
+function pSB(){ try{ return sb; }catch{ return null; } }
+function pUser(){ try{ return typeof SB_USER!=='undefined'?SB_USER:null; }catch{ return null; } }
+
+/* Загрузка из Supabase → merge с localStorage */
+async function loadFromSupabase(){
+  const sbI = pSB(), u = pUser();
+  if(!sbI||!u) return;
+  try {
+    const {data,error} = await sbI.from('user_challenges')
+      .select('*').eq('user_id',u.id).order('created_at',{ascending:false});
+    if(error||!data) return;
+    /* Конвертируем snake_case → camelCase */
+    const remote = data.map(r=>({
+      id:r.id, name:r.name, goal:r.goal||'',
+      startDate:r.start_date, endDate:r.end_date,
+      habitIds:r.habit_ids||[], createdAt:r.created_at,
+      _synced:true
+    }));
+    /* Merge: remote приоритет, локальные не-синхронизированные добавляем */
+    const local = load().filter(c=>!c._synced);
+    const merged = [...remote, ...local];
+    save(merged);
+    injectChallenges();
+    /* Синхронизируем локальные в Supabase */
+    for(const c of local){
+      try{
+        await sbI.from('user_challenges').insert({
+          user_id:u.id, name:c.name, goal:c.goal||null,
+          start_date:c.startDate, end_date:c.endDate, habit_ids:c.habitIds
+        });
+      }catch{}
+    }
+  }catch(e){ console.warn('loadFromSupabase personal:', e.message); }
+}
+
+/* Сохранить в Supabase */
+async function saveToSupabase(ch){
+  const sbI = pSB(), u = pUser();
+  if(!sbI||!u) return null;
+  try {
+    const {data,error} = await sbI.from('user_challenges').insert({
+      user_id:u.id, name:ch.name, goal:ch.goal||null,
+      start_date:ch.startDate, end_date:ch.endDate, habit_ids:ch.habitIds
+    }).select().single();
+    if(error) throw error;
+    return data.id;
+  }catch(e){ console.warn('saveToSupabase personal:', e.message); return null; }
+}
+
+/* Удалить из Supabase */
+async function deleteFromSupabase(id){
+  const sbI = pSB(), u = pUser();
+  if(!sbI||!u||!id) return;
+  try{ await sbI.from('user_challenges').delete().eq('id',id).eq('user_id',u.id); }
+  catch(e){ console.warn('deleteFromSupabase personal:', e.message); }
+}
+
 const pad2  = n  => String(n).padStart(2,'0');
 const dk    = d  => d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
 const today = () => dk(new Date());
@@ -45806,7 +45915,11 @@ function injectChallenges(){
 
 /* ── Удалить ─────────────────────────────────────────────── */
 window._dchDel = function(idx){
-  const l=load(); l.splice(idx,1); save(l); injectChallenges();
+  const l=load();
+  const ch = l[idx];
+  l.splice(idx,1); save(l); injectChallenges();
+  /* Удаляем из Supabase если там был */
+  if(ch?._synced && ch?.id) deleteFromSupabase(ch.id);
 };
 
 /* ── Модалка ─────────────────────────────────────────────── */
@@ -45953,16 +46066,25 @@ window._dchSave = function(){
   if(!start||!end||start>end) return shake(document.getElementById('dchInpEnd'));
   if(!ids.length)    return shake(document.getElementById('dchHabGrid'));
 
-  const list = load();
-  list.unshift({
+  const newCh = {
     id: 'ch'+Date.now(), name, goal: goal||'',
     startDate: start, endDate: end,
-    habitIds: ids, type:'personal', createdAt: Date.now()
-  });
+    habitIds: ids, type:'personal', createdAt: Date.now(),
+    _synced: false
+  };
+  const list = load();
+  list.unshift(newCh);
   save(list);
   _dchClose();
   injectChallenges();
   if(window.showToast) window.showToast('Челлендж запущен!');
+  /* Асинхронно сохраняем в Supabase и обновляем ID */
+  saveToSupabase(newCh).then(sbId => {
+    if(!sbId) return;
+    const l = load();
+    const i = l.findIndex(c => c.id === newCh.id);
+    if(i>=0){ l[i].id = sbId; l[i]._synced = true; save(l); }
+  });
 };
 
 /* ── Хуки ─────────────────────────────────────────────────── */
@@ -45971,7 +46093,10 @@ window._dchSave = function(){
 const _orig2 = window.showTab;
 window.showTab = function(){
   if(_orig2) _orig2.apply(this, arguments);
-  if(arguments[0]==='habits') setTimeout(injectChallenges, 120);
+  if(arguments[0]==='habits'){
+    setTimeout(injectChallenges, 120);
+    setTimeout(loadFromSupabase, 500); /* sync с Supabase при каждом открытии */
+  }
 };
 
 /* Переключение режима личный/совместный */
@@ -46740,24 +46865,70 @@ function subscribeChallengesRealtime(){
   if(_cchSub){ try{ sb.removeChannel(_cchSub); }catch{} }
   _cchSub = sb.channel('collab_challenges_rt')
     .on('postgres_changes', {
-      event: '*', schema: 'public', table: 'collab_challenges'
-    }, async ()=>{
-      /* Обновляем челленджи для всех румов */
-      try {
-        const cache = window._chabCache || null;
-        if(!cache) return;
-        await Promise.all((cache.rooms||[]).map(async r=>{
-          const rc = cache.perRoom[r.id];
-          if(!rc) return;
-          const {data} = await sb.from('collab_challenges').select('*')
-            .eq('room_id',r.id).order('created_at',{ascending:false});
-          rc.challenges = data||[];
-        }));
-        window._chabSaveCache?.();
-        refreshAllRooms();
-      } catch(e){ console.error('cch realtime error:', e); }
+      event: 'INSERT', schema: 'public', table: 'collab_challenges'
+    }, async (payload)=>{
+      /* Уведомляем если создал не я */
+      const user = getUser2();
+      const newCh = payload.new;
+      if(newCh && user && newCh.created_by !== user.id){
+        try{ showToast(`Новый челлендж: ${newCh.name} 🏆`); }catch{}
+      }
+      await _refreshChallengesCache(sb);
     })
+    .on('postgres_changes', {
+      event: 'DELETE', schema: 'public', table: 'collab_challenges'
+    }, async ()=>{ await _refreshChallengesCache(sb); })
     .subscribe();
+}
+
+async function _refreshChallengesCache(sb){
+  try {
+    const cache = window._chabCache || null;
+    if(!cache) return;
+    await Promise.all((cache.rooms||[]).map(async r=>{
+      const rc = cache.perRoom[r.id];
+      if(!rc) return;
+      const {data} = await sb.from('collab_challenges').select('*')
+        .eq('room_id',r.id).order('created_at',{ascending:false});
+      if(!data?.error) rc.challenges = data||[];
+    }));
+    window._chabSaveCache?.();
+    window._cchForceRefresh?.();
+  } catch(e){ console.error('cch realtime error:', e); }
+}
+
+/* ── Миграция localStorage → Supabase для коллаб-челленджей ─ */
+async function _migrateLocalToSupabase(){
+  const sb = getSB2(), user = getUser2();
+  if(!sb || !user) return;
+  /* Находим все ключи dtr_cch_* в localStorage */
+  const keys = Object.keys(localStorage).filter(k=>k.startsWith('dtr_cch_'));
+  if(!keys.length) return;
+  for(const key of keys){
+    const roomId = key.replace('dtr_cch_','');
+    const items  = lsLoad(roomId).filter(c=>String(c.id).startsWith('cch_ls_'));
+    if(!items.length) continue;
+    for(const ch of items){
+      try {
+        const {data,error} = await sb.from('collab_challenges').insert({
+          room_id:         roomId,
+          created_by:      user.id,
+          name:            ch.name,
+          goal:            ch.goal||null,
+          start_date:      ch.start_date || ch.startDate,
+          end_date:        ch.end_date   || ch.endDate,
+          habit_ids:       ch.habit_ids  || ch.habitIds || [],
+          participant_ids: ch.participant_ids || [],
+        }).select().single();
+        if(!error && data){
+          /* Удаляем из localStorage после успешной миграции */
+          const ls = lsLoad(roomId).filter(c=>c.id!==ch.id);
+          lsSave(roomId, ls);
+          console.log('[DTR] Migrated collab challenge to Supabase:', data.id);
+        }
+      } catch(e){ console.warn('[DTR] Migration failed for', ch.id, e.message); }
+    }
+  }
 }
 
 /* ── Надёжный триггер через polling + прямые хуки ───────── */
@@ -46837,8 +47008,11 @@ function subscribeChallengesRealtime(){
     obs.observe(habRoot, {childList:true, subtree:true});
   }
 
-  /* 6. Realtime */
-  setTimeout(subscribeChallengesRealtime, 2000);
+  /* 6. Realtime + авто-миграция localStorage → Supabase */
+  setTimeout(()=>{
+    subscribeChallengesRealtime();
+    _migrateLocalToSupabase();
+  }, 2500);
 
   /* 7. _patchRoomCells — обновление при отметке привычки */
   const _origPatch = window._patchRoomCells;
