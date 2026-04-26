@@ -46444,18 +46444,43 @@ function refreshAllRooms(){
   });
 }
 
-/* ── Хук на renderCollabView ─────────────────────────────── */
-const _origRCV = window.renderCollabView;
-window.renderCollabView = function(){
-  const r = _origRCV ? _origRCV.apply(this, arguments) : undefined;
-  /* ждём пока DOM отрендерится */
-  if(r && typeof r.then === 'function'){
-    r.then(()=>setTimeout(refreshAllRooms, 200));
-  } else {
-    setTimeout(refreshAllRooms, 500);
+/* ── MutationObserver — надёжный способ поймать рендер румов ── */
+(function setupObserver(){
+  let _debounce = null;
+
+  function tryInject(){
+    clearTimeout(_debounce);
+    _debounce = setTimeout(()=>{
+      const rooms = document.querySelectorAll('[id^="chab-room-"]');
+      if(!rooms.length) return;
+      refreshAllRooms();
+    }, 150);
   }
-  return r;
-};
+
+  /* Наблюдаем за hab-root — туда рендерится весь коллаб контент */
+  const habRoot = document.getElementById('hab-root');
+  if(habRoot){
+    new MutationObserver(tryInject).observe(habRoot, {childList:true, subtree:true});
+  } else {
+    /* hab-root ещё не в DOM — ждём его появления */
+    new MutationObserver((_,obs)=>{
+      const root = document.getElementById('hab-root');
+      if(root){
+        obs.disconnect();
+        new MutationObserver(tryInject).observe(root, {childList:true, subtree:true});
+      }
+    }).observe(document.body, {childList:true, subtree:false});
+  }
+
+  /* Также хукаем window.renderCollabView как запасной вариант */
+  const _origRCV = window.renderCollabView;
+  window.renderCollabView = function(){
+    const r = _origRCV ? _origRCV.apply(this, arguments) : undefined;
+    if(r && typeof r.then === 'function') r.then(()=>setTimeout(refreshAllRooms, 300));
+    else setTimeout(refreshAllRooms, 600);
+    return r;
+  };
+})();
 
 /* ── Удалить ─────────────────────────────────────────────── */
 window._cchDel = function(roomId, idx){
@@ -46587,8 +46612,7 @@ window._cchSave = function(){
 };
 
 /* ── Обновлять при смене логов (реалтайм) ────────────────── */
-const _origRCV2 = window.renderCollabView;
-/* уже перехвачено выше — дополнительно слушаем realtime патч */
+/* ── Обновлять при realtime патче ячеек ─────────────────── */
 const _origPatch = window._patchRoomCells;
 if(typeof _origPatch === 'function'){
   window._patchRoomCells = function(roomId, logs, myId){
