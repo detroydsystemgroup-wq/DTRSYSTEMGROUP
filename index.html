@@ -16004,6 +16004,7 @@ window.toggleLikeUser = async function(){
     </div>
 
     <div id="tab-activity" class="tc">
+      <div id="dtr-act-chart"></div>
       <!-- Filter bar -->
       <div class="sess-filter-bar" id="sessFilterBar">
         <button class="sfb active" onclick="setSessionFilter('today',this)">Сегодня</button>
@@ -16125,6 +16126,7 @@ window.toggleLikeUser = async function(){
 
 
     <div id="tab-habits" class="tc">
+      <div id="dtr-challenges"></div>
       <div id="hab-root"></div>
     </div>
     <div id="tab-learn" class="tc">
@@ -44779,6 +44781,1014 @@ window._hSetUnit = function(unit, btn) {
     });
     _orig && _orig.apply(this, arguments);
   };
+})();
+</script>
+
+<style id="dtr-features-css">
+/* ════════════════════════════════════════════════
+   ACTIVITY CHART
+════════════════════════════════════════════════ */
+#dtr-act-chart {
+  margin: 0 0 8px;
+}
+.dac-wrap {
+  background: var(--card, #111113);
+  border: 0.5px solid rgba(255,255,255,.07);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+/* Header */
+.dac-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px 16px 0;
+  gap: 12px;
+}
+.dac-head-left {}
+.dac-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--t3);
+  margin-bottom: 5px;
+}
+.dac-big {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.dac-big-num {
+  font-size: 38px;
+  font-weight: 900;
+  color: var(--t1);
+  letter-spacing: -.04em;
+  line-height: 1;
+}
+.dac-big-unit {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--t3);
+}
+.dac-trend {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.dac-trend.up   { background: rgba(52,211,153,.12); color: #34D399; }
+.dac-trend.dn   { background: rgba(239,68,68,.1);   color: rgba(239,68,68,.85); }
+
+/* Period selector */
+.dac-periods {
+  display: flex;
+  gap: 0;
+  background: rgba(255,255,255,.05);
+  border: 0.5px solid rgba(255,255,255,.08);
+  border-radius: 8px;
+  padding: 3px;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+.dac-ptab {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 13px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  background: transparent;
+  color: var(--t3);
+  transition: .15s;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.dac-ptab:hover:not(.on) { background: rgba(255,255,255,.06); color: var(--t2); }
+.dac-ptab.on {
+  background: var(--gold, #F5C842);
+  color: #000;
+  font-weight: 800;
+  box-shadow: 0 1px 8px rgba(245,200,66,.2);
+}
+
+/* SVG area */
+.dac-svg-wrap {
+  position: relative;
+  padding: 14px 16px 4px;
+}
+.dac-svg-wrap svg { display: block; overflow: visible; }
+.dac-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 130px;
+  color: var(--t3);
+  font-size: 13px;
+}
+
+/* Metric buttons grid */
+.dac-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 8px 16px 16px;
+}
+.dac-mbtn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px 11px;
+  border-radius: 10px;
+  border: 0.5px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.02);
+  cursor: pointer;
+  transition: .15s;
+  font-family: inherit;
+  text-align: left;
+}
+.dac-mbtn:hover { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.14); }
+.dac-mbtn.on { background: rgba(245,200,66,.09); border-color: rgba(245,200,66,.32); }
+.dac-mbtn-val {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--t1);
+  font-family: var(--font-mono, monospace);
+  letter-spacing: -.02em;
+  line-height: 1;
+}
+.dac-mbtn.on .dac-mbtn-val { color: var(--gold, #F5C842); }
+.dac-mbtn-lbl {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--t3);
+  line-height: 1;
+}
+
+/* Tooltip */
+.dac-tip {
+  position: fixed;
+  z-index: 9999;
+  background: #1a1a1d;
+  border: 0.5px solid rgba(245,200,66,.28);
+  border-radius: 8px;
+  padding: 7px 12px;
+  pointer-events: none;
+  font-size: 12px;
+  color: var(--t1, #fff);
+  box-shadow: 0 8px 28px rgba(0,0,0,.55);
+  white-space: nowrap;
+  display: none;
+}
+
+/* ════════════════════════════════════════════════
+   CHALLENGES
+════════════════════════════════════════════════ */
+#dtr-challenges { padding-bottom: 4px; }
+
+.dch-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+}
+.dch-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--t1);
+  letter-spacing: -.02em;
+}
+.dch-count {
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(245,200,66,.14);
+  color: var(--gold, #F5C842);
+  padding: 1px 7px;
+  border-radius: 6px;
+}
+.dch-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: var(--gold, #F5C842);
+  color: #000;
+  font-size: 11px;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+  transition: opacity .15s;
+  font-family: inherit;
+}
+.dch-add-btn:hover { opacity: .85; }
+
+/* Cards */
+.dch-list { display: flex; flex-direction: column; gap: 8px; padding: 0 16px; }
+
+.dch-card {
+  background: var(--card, #111113);
+  border: 0.5px solid rgba(245,200,66,.16);
+  border-radius: 14px;
+  padding: 14px;
+  animation: dchIn .25s ease both;
+}
+.dch-card.fin { border-color: rgba(255,255,255,.07); opacity: .65; }
+@keyframes dchIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: none; } }
+
+.dch-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.dch-card-name {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--t1);
+  line-height: 1.3;
+  margin-bottom: 3px;
+}
+.dch-card-goal {
+  font-size: 11px;
+  color: var(--t3);
+  line-height: 1.5;
+}
+.dch-card-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.dch-dates {
+  font-size: 10px;
+  color: rgba(245,200,66,.55);
+  font-family: var(--font-mono, monospace);
+  letter-spacing: .03em;
+  white-space: nowrap;
+}
+.dch-del {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(255,255,255,.18);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  transition: color .15s;
+  border-radius: 4px;
+}
+.dch-del:hover { color: rgba(239,68,68,.7); }
+.dch-fin-tag {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  background: rgba(255,255,255,.06);
+  color: var(--t3);
+  padding: 2px 7px;
+  border-radius: 5px;
+}
+
+/* Progress bar */
+.dch-bar-track {
+  height: 5px;
+  background: rgba(255,255,255,.06);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 9px;
+}
+.dch-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #F5C842, #ffd96a);
+  transition: width .5s cubic-bezier(.34,1.4,.64,1);
+  position: relative;
+  overflow: hidden;
+}
+.dch-bar-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.25), transparent);
+  animation: dchShimmer 2.4s ease infinite;
+}
+.dch-card.fin .dch-bar-fill::after { display: none; }
+@keyframes dchShimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(200%)} }
+
+.dch-card-bot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dch-pct {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--gold, #F5C842);
+  font-family: var(--font-mono, monospace);
+}
+.dch-days {
+  font-size: 10px;
+  color: var(--t3);
+}
+.dch-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.dch-chip {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(255,255,255,.06);
+  color: var(--t3);
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Empty state */
+.dch-empty {
+  text-align: center;
+  padding: 20px 16px 12px;
+  color: var(--t3);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.dch-empty-ico { font-size: 26px; opacity: .45; margin-bottom: 7px; }
+
+/* ── Modal ── */
+.dch-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+  backdrop-filter: blur(8px);
+  z-index: 10000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: dchOvIn .2s ease;
+}
+@keyframes dchOvIn { from{opacity:0} to{opacity:1} }
+.dch-modal {
+  background: var(--bg, #09090b);
+  border-radius: 20px 20px 0 0;
+  padding: 22px 20px 40px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: dchMoIn .28s cubic-bezier(.34,1.2,.64,1);
+}
+@keyframes dchMoIn { from{transform:translateY(100%)} to{transform:none} }
+
+.dch-modal-grip {
+  width: 36px;
+  height: 4px;
+  background: rgba(255,255,255,.12);
+  border-radius: 2px;
+  margin: 0 auto 18px;
+}
+.dch-modal-title {
+  font-size: 17px;
+  font-weight: 900;
+  color: var(--t1);
+  margin-bottom: 20px;
+  letter-spacing: -.03em;
+}
+.dch-field { margin-bottom: 13px; }
+.dch-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--t3);
+  margin-bottom: 6px;
+}
+.dch-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(255,255,255,.05);
+  border: 0.5px solid rgba(255,255,255,.1);
+  border-radius: 10px;
+  padding: 11px 13px;
+  color: var(--t1, #fff);
+  font-size: 14px;
+  outline: none;
+  transition: border-color .15s;
+  font-family: inherit;
+  resize: none;
+}
+.dch-input:focus { border-color: rgba(245,200,66,.4); }
+.dch-input::placeholder { color: var(--t3); }
+.dch-row { display: flex; gap: 10px; }
+.dch-row .dch-field { flex: 1; }
+
+.dch-hab-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.dch-hab-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 0.5px solid rgba(255,255,255,.09);
+  background: rgba(255,255,255,.03);
+  cursor: pointer;
+  transition: .15s;
+}
+.dch-hab-item:hover { border-color: rgba(245,200,66,.25); background: rgba(245,200,66,.04); }
+.dch-hab-item.on { border-color: rgba(245,200,66,.5); background: rgba(245,200,66,.09); }
+.dch-hab-ico { font-size: 15px; flex-shrink: 0; }
+.dch-hab-nm {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--t1);
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.dch-modal-actions { display: flex; gap: 9px; margin-top: 18px; }
+.dch-btn-cancel {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.07);
+  border: none;
+  color: var(--t2);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: .15s;
+}
+.dch-btn-cancel:hover { background: rgba(255,255,255,.11); }
+.dch-btn-save {
+  flex: 2;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--gold, #F5C842);
+  border: none;
+  color: #000;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity .15s;
+}
+.dch-btn-save:hover { opacity: .88; }
+.dch-btn-save:disabled { opacity: .35; cursor: not-allowed; }
+</style>
+
+<script>
+/* ════════════════════════════════════════════════
+   ФИЧА 1 — ГРАФИК АКТИВНОСТИ
+════════════════════════════════════════════════ */
+(function(){
+'use strict';
+
+/* ── Helpers ────────────────────────────────────────────── */
+const pad2 = n => String(n).padStart(2,'0');
+function dk(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+
+function dayRange(n){
+  const arr = [], now = new Date(); now.setHours(0,0,0,0);
+  for(let i=n-1;i>=0;i--){
+    arr.push(dk(new Date(now.getTime()-i*86400000)));
+  }
+  return arr;
+}
+
+function buildMap(sessions, days){
+  const m = {}; days.forEach(d=>{ m[d]=0; });
+  sessions.forEach(s=>{
+    const t = s.ts || (s.isoDate ? new Date(s.isoDate).getTime() : 0);
+    if(!t) return;
+    const key = dk(new Date(t));
+    if(key in m) m[key] += (s.dur||0)/3600;
+  });
+  return m;
+}
+
+const fmtH = h => {
+  if(h<=0) return '0м';
+  if(h<1) return Math.round(h*60)+'м';
+  const hh=Math.floor(h), mm=Math.round((h-hh)*60);
+  return mm ? hh+'ч '+mm+'м' : hh+'ч';
+};
+
+/* ── Tooltip ──────────────────────────────────────────── */
+let _tip;
+function getTip(){
+  if(_tip) return _tip;
+  _tip = document.createElement('div');
+  _tip.className = 'dac-tip';
+  document.body.appendChild(_tip);
+  return _tip;
+}
+
+/* ── State ─────────────────────────────────────────────── */
+let _period = 'week';
+let _activeM = 0;
+
+/* ── Render chart ──────────────────────────────────────── */
+function render(period){
+  _period = period || _period;
+  const root = document.getElementById('dtr-act-chart');
+  if(!root) return;
+
+  const sessions = (window.P && window.P.sessions) || [];
+  const n = _period==='week' ? 7 : _period==='month' ? 30 : 90;
+  const days = dayRange(n);
+  const map  = buildMap(sessions, days);
+  const vals = days.map(d=>map[d]);
+  const total = vals.reduce((a,b)=>a+b,0);
+  const best  = Math.max(...vals, 0);
+  const active= vals.filter(v=>v>0).length;
+  const avg   = total/n;
+  const maxV  = Math.max(best, 0.01);
+  const todayStr = days[days.length-1];
+
+  /* trend vs prev period */
+  const pDays = dayRange(n*2).slice(0,n);
+  const pMap  = buildMap(sessions, pDays);
+  const pTotal= pDays.map(d=>pMap[d]).reduce((a,b)=>a+b,0);
+  let trendHtml = '';
+  if(pTotal>0.05){
+    const pct = Math.round((total-pTotal)/pTotal*100);
+    trendHtml = `<span class="dac-trend ${pct>=0?'up':'dn'}">${pct>=0?'▲':'▼'} ${Math.abs(pct)}%</span>`;
+  }
+
+  /* big number */
+  const bigNum  = total<1 ? Math.round(total*60) : total.toFixed(1);
+  const bigUnit = total<1 ? 'м' : 'ч';
+
+  /* metrics */
+  const metrics = [
+    {v: fmtH(total), l:'Всего'},
+    {v: fmtH(avg),   l:'В день'},
+    {v: active+'д',  l:'Активных'},
+    {v: fmtH(best),  l:'Рекорд'},
+  ];
+
+  /* SVG */
+  const SVG_H = 130;
+  const PAD_T = 8, PAD_B = 22;
+  const chartH = SVG_H - PAD_T - PAD_B;
+  const GOLD = '#F5C842';
+  const ns = 'http://www.w3.org/2000/svg';
+
+  const metricsHtml = metrics.map((m,i)=>`
+    <button class="dac-mbtn${i===_activeM?' on':''}" onclick="_dacMetric(${i})">
+      <span class="dac-mbtn-val">${m.v}</span>
+      <span class="dac-mbtn-lbl">${m.l}</span>
+    </button>`).join('');
+
+  root.innerHTML = `<div class="dac-wrap">
+    <div class="dac-head">
+      <div class="dac-head-left">
+        <div class="dac-eyebrow">Активность</div>
+        <div class="dac-big">
+          <span class="dac-big-num">${bigNum}</span>
+          <span class="dac-big-unit">${bigUnit}</span>
+          ${trendHtml}
+        </div>
+      </div>
+      <div class="dac-periods">
+        <button class="dac-ptab${_period==='week'?' on':''}"    onclick="_dacPeriod('week',this)">Неделя</button>
+        <button class="dac-ptab${_period==='month'?' on':''}"   onclick="_dacPeriod('month',this)">Месяц</button>
+        <button class="dac-ptab${_period==='quarter'?' on':''}" onclick="_dacPeriod('quarter',this)">Квартал</button>
+      </div>
+    </div>
+    <div class="dac-svg-wrap">
+      ${total<0.01
+        ? `<div class="dac-empty">
+             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+             Нет сессий за период
+           </div>`
+        : `<svg id="dacSvg" width="100%" height="${SVG_H}" style="overflow:visible"></svg>`
+      }
+    </div>
+    <div class="dac-metrics">${metricsHtml}</div>
+  </div>`;
+
+  if(total<0.01) return;
+
+  /* draw SVG */
+  const svg = document.getElementById('dacSvg');
+  if(!svg) return;
+
+  /* wait for layout */
+  requestAnimationFrame(()=>{
+    const W = svg.clientWidth || 320;
+    svg.setAttribute('viewBox',`0 0 ${W} ${SVG_H}`);
+
+    const gap  = n>30 ? 2 : n>7 ? 3 : 6;
+    const barW = Math.max(3, (W - gap*(n+1)) / n);
+
+    /* defs */
+    const defs = document.createElementNS(ns,'defs');
+
+    const makeGrad = (id,stops)=>{
+      const g = document.createElementNS(ns,'linearGradient');
+      g.id=id; g.setAttribute('x1','0'); g.setAttribute('x2','0');
+      g.setAttribute('y1','0'); g.setAttribute('y2','1');
+      stops.forEach(([off,clr,op])=>{
+        const s=document.createElementNS(ns,'stop');
+        s.setAttribute('offset',off);
+        s.setAttribute('stop-color',clr);
+        if(op!=null) s.setAttribute('stop-opacity',op);
+        g.appendChild(s);
+      });
+      defs.appendChild(g);
+    };
+    makeGrad('dacBarG',[['0%','#ffd96a',null],['100%','#F5C842',null]]);
+    makeGrad('dacAreaG',[['0%',GOLD,.14],['100%',GOLD,0]]);
+    svg.appendChild(defs);
+
+    /* grid lines */
+    [.25,.5,.75,1].forEach(f=>{
+      const y = PAD_T + (1-f)*chartH;
+      const l = document.createElementNS(ns,'line');
+      l.setAttribute('x1','0'); l.setAttribute('x2',String(W));
+      l.setAttribute('y1',String(y)); l.setAttribute('y2',String(y));
+      l.setAttribute('stroke', f===.5 ? 'rgba(255,255,255,.07)' : 'rgba(255,255,255,.04)');
+      l.setAttribute('stroke-width','1');
+      svg.appendChild(l);
+    });
+
+    /* bar positions */
+    const pts = vals.map((v,i)=>({
+      x: gap + i*(barW+gap),
+      cx: gap + i*(barW+gap) + barW/2,
+      y: PAD_T + (1-v/maxV)*chartH,
+      v
+    }));
+
+    /* area + line (≤30d) */
+    if(n<=30){
+      let aPath = `M${pts[0].cx},${PAD_T+chartH}`;
+      pts.forEach(p=>{ aPath+=` L${p.cx},${p.v>0?p.y:PAD_T+chartH}`; });
+      aPath+=` L${pts[pts.length-1].cx},${PAD_T+chartH} Z`;
+      const area = document.createElementNS(ns,'path');
+      area.setAttribute('d',aPath); area.setAttribute('fill','url(#dacAreaG)');
+      svg.appendChild(area);
+
+      let lPath = `M${pts[0].cx},${pts[0].v>0?pts[0].y:PAD_T+chartH}`;
+      pts.forEach((p,i)=>{ if(i>0) lPath+=` L${p.cx},${p.v>0?p.y:PAD_T+chartH}`; });
+      const line = document.createElementNS(ns,'path');
+      line.setAttribute('d',lPath); line.setAttribute('fill','none');
+      line.setAttribute('stroke',GOLD); line.setAttribute('stroke-width','1.5');
+      line.setAttribute('stroke-opacity','.25'); line.setAttribute('stroke-linejoin','round');
+      svg.appendChild(line);
+    }
+
+    /* bars */
+    pts.forEach((p,i)=>{
+      const isT = days[i]===todayStr;
+      const bh  = Math.max(p.v>0?3:0,(p.v/maxV)*chartH);
+      const by  = PAD_T+chartH-bh;
+      const rx  = barW>8?4:barW>4?2:1;
+
+      if(p.v===0){
+        const r=document.createElementNS(ns,'rect');
+        r.setAttribute('x',String(p.x)); r.setAttribute('y',String(PAD_T+chartH-2));
+        r.setAttribute('width',String(barW)); r.setAttribute('height','2');
+        r.setAttribute('rx',String(rx)); r.setAttribute('fill','rgba(255,255,255,.05)');
+        svg.appendChild(r);
+      } else {
+        if(isT){
+          /* glow */
+          const gl=document.createElementNS(ns,'rect');
+          gl.setAttribute('x',String(p.x-2)); gl.setAttribute('y',String(by-2));
+          gl.setAttribute('width',String(barW+4)); gl.setAttribute('height',String(bh+4));
+          gl.setAttribute('rx',String(rx+2)); gl.setAttribute('fill','none');
+          gl.setAttribute('stroke',GOLD); gl.setAttribute('stroke-width','1.2');
+          gl.setAttribute('stroke-opacity','.35');
+          svg.appendChild(gl);
+        }
+        const r=document.createElementNS(ns,'rect');
+        r.setAttribute('x',String(p.x)); r.setAttribute('y',String(by));
+        r.setAttribute('width',String(barW)); r.setAttribute('height',String(bh));
+        r.setAttribute('rx',String(rx));
+        r.setAttribute('fill', isT ? 'url(#dacBarG)' : GOLD);
+        if(!isT) r.setAttribute('opacity','.52');
+        svg.appendChild(r);
+
+        /* dot on top (7d) */
+        if(n<=7){
+          const dot=document.createElementNS(ns,'circle');
+          dot.setAttribute('cx',String(p.cx)); dot.setAttribute('cy',String(by));
+          dot.setAttribute('r','3');
+          dot.setAttribute('fill', isT ? GOLD : 'rgba(245,200,66,.7)');
+          svg.appendChild(dot);
+        }
+      }
+
+      /* X label */
+      const showL = n<=7 || (n<=30 && i%5===0) || (n>30 && i%15===0) || i===n-1;
+      if(showL){
+        const mn=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+        const [yr,mo,dy]=days[i].split('-').map(Number);
+        const lbl = n<=7 ? mn[new Date(yr,mo-1,dy).getDay()] : dy+'.'+pad2(mo);
+        const t=document.createElementNS(ns,'text');
+        t.setAttribute('x',String(p.cx)); t.setAttribute('y',String(SVG_H-5));
+        t.setAttribute('text-anchor','middle');
+        t.setAttribute('font-size', n>30?'7':n>7?'8':'9');
+        t.setAttribute('fill', isT ? GOLD : 'rgba(255,255,255,.28)');
+        t.setAttribute('font-weight', isT?'700':'400');
+        t.setAttribute('font-family','var(--font-sans,sans-serif)');
+        t.textContent=lbl;
+        svg.appendChild(t);
+      }
+
+      /* hit area */
+      const hit=document.createElementNS(ns,'rect');
+      hit.setAttribute('x',String(p.x-gap/2)); hit.setAttribute('y','0');
+      hit.setAttribute('width',String(barW+gap)); hit.setAttribute('height',String(SVG_H));
+      hit.setAttribute('fill','transparent'); hit.style.cursor='default';
+      const wns=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+      const mns=['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+      const [yr,mo,dy]=days[i].split('-').map(Number);
+      const lbl = n<=7 ? wns[new Date(yr,mo-1,dy).getDay()]+', '+dy+' '+mns[mo-1] : dy+' '+mns[mo-1];
+      const hStr = fmtH(p.v);
+      hit.addEventListener('mouseenter',e=>{
+        const tip=getTip();
+        tip.innerHTML=`<b style="color:${GOLD}">${hStr}</b>&nbsp;<span style="color:rgba(255,255,255,.4)">·</span>&nbsp;<span style="color:rgba(255,255,255,.55)">${lbl}</span>`;
+        tip.style.display='block';
+        tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY-40)+'px';
+      });
+      hit.addEventListener('mousemove',e=>{
+        getTip().style.left=(e.clientX+14)+'px';
+        getTip().style.top=(e.clientY-40)+'px';
+      });
+      hit.addEventListener('mouseleave',()=>{ getTip().style.display='none'; });
+      svg.appendChild(hit);
+    });
+  });
+}
+
+/* ── Public ─────────────────────────────────────────────── */
+window._dacPeriod = function(p){ _period=p; render(p); };
+window._dacMetric = function(i){
+  _activeM=i;
+  document.querySelectorAll('.dac-mbtn').forEach((b,j)=>b.classList.toggle('on',j===i));
+};
+
+/* ── showTab hook ────────────────────────────────────────── */
+const _orig1 = window.showTab;
+window.showTab = function(){
+  if(_orig1) _orig1.apply(this, arguments);
+  if(arguments[0]==='activity') setTimeout(()=>render(), 80);
+};
+
+setTimeout(()=>{
+  const t=document.getElementById('tab-activity');
+  if(t && window.getComputedStyle(t).display!=='none') render();
+}, 700);
+
+})();
+</script>
+
+<script>
+/* ════════════════════════════════════════════════
+   ФИЧА 2 — СИСТЕМА ЧЕЛЛЕНДЖЕЙ
+════════════════════════════════════════════════ */
+(function(){
+'use strict';
+
+const CK='dtr_challenges';
+const load = () => { try{ return JSON.parse(localStorage.getItem(CK)||'[]'); }catch{ return []; } };
+const save = d => localStorage.setItem(CK, JSON.stringify(d));
+const loadH= () => { try{ return JSON.parse(localStorage.getItem('dtr_h3')||'[]'); }catch{ return []; } };
+const loadL= () => { try{ return JSON.parse(localStorage.getItem('dtr_l3')||'{}'); }catch{ return {}; } };
+
+const pad2 = n => String(n).padStart(2,'0');
+const dk   = d => d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+const today = () => dk(new Date());
+const esc   = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function daysInRange(s, e){
+  const arr=[], sd=new Date(s+'T00:00:00'), ed=new Date(e+'T00:00:00');
+  for(let d=new Date(sd); d<=ed; d.setDate(d.getDate()+1)) arr.push(dk(new Date(d)));
+  return arr;
+}
+
+function progress(ch){
+  const logs=loadL();
+  const end = ch.endDate < today() ? ch.endDate : today();
+  const range = ch.startDate > end ? [] : daysInRange(ch.startDate, end);
+  const total = range.length * Math.max(ch.habitIds.length,1);
+  if(!total) return {done:0,total:0,pct:0};
+  let done=0;
+  ch.habitIds.forEach(id=>{
+    const hl=logs[id]||{};
+    range.forEach(d=>{ if(hl[d]) done++; });
+  });
+  return {done, total, pct: Math.round(done/total*100)};
+}
+
+function fmtD(s){ const [y,m,d]=s.split('-'); return d+'.'+m+'.'+y; }
+
+function daysLeft(end){
+  const now=new Date(); now.setHours(0,0,0,0);
+  const e=new Date(end+'T00:00:00');
+  const d=Math.round((e-now)/86400000);
+  if(d<0) return 'Завершён';
+  if(d===0) return 'Последний день';
+  return 'Осталось '+d+'д';
+}
+
+/* ── Render ─────────────────────────────────────────────── */
+function renderChallenges(){
+  const root=document.getElementById('dtr-challenges');
+  if(!root) return;
+  const list=load(), habits=loadH();
+  const habName=id=>{ const h=habits.find(h=>h.id===id); return h?(h.icon||'')+(h.icon?' ':'')+h.name:id; };
+
+  let html=`<div class="dch-header">
+    <div class="dch-title">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold,#F5C842)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+        <path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
+        <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
+        <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
+      </svg>
+      Челленджи
+      ${list.length ? `<span class="dch-count">${list.length}</span>` : ''}
+    </div>
+    <button class="dch-add-btn" onclick="_dchOpen()">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Новый
+    </button>
+  </div>`;
+
+  if(!list.length){
+    html+=`<div class="dch-empty">
+      <div class="dch-empty-ico">🏆</div>
+      <div style="font-weight:800;color:var(--t2);margin-bottom:3px">Нет активных челленджей</div>
+      <div>Запусти вызов и следи за прогрессом<br>своих привычек за период</div>
+    </div>`;
+  } else {
+    html+='<div class="dch-list">';
+    list.forEach((ch,idx)=>{
+      const p=progress(ch), fin=today()>ch.endDate;
+      html+=`<div class="dch-card${fin?' fin':''}">
+        <div class="dch-card-top">
+          <div>
+            <div class="dch-card-name">${esc(ch.name)}</div>
+            ${ch.goal?`<div class="dch-card-goal">${esc(ch.goal)}</div>`:''}
+            ${fin?'<span class="dch-fin-tag">✓ Завершён</span>':''}
+          </div>
+          <div class="dch-card-meta">
+            <div class="dch-dates">${fmtD(ch.startDate)} – ${fmtD(ch.endDate)}</div>
+            <button class="dch-del" onclick="_dchDel(${idx})" title="Удалить">×</button>
+          </div>
+        </div>
+        <div class="dch-bar-track"><div class="dch-bar-fill" style="width:${p.pct}%"></div></div>
+        <div class="dch-card-bot">
+          <div>
+            <span class="dch-pct">${p.pct}%</span>
+            <span class="dch-days"> · ${fin ? p.done+'/'+p.total+' дней' : daysLeft(ch.endDate)}</span>
+          </div>
+          <div class="dch-chips">
+            ${ch.habitIds.slice(0,3).map(id=>`<span class="dch-chip">${esc(habName(id))}</span>`).join('')}
+            ${ch.habitIds.length>3?`<span class="dch-chip">+${ch.habitIds.length-3}</span>`:''}
+          </div>
+        </div>
+      </div>`;
+    });
+    html+='</div>';
+  }
+
+  root.innerHTML=html;
+}
+
+/* ── Delete ─────────────────────────────────────────────── */
+window._dchDel = function(idx){
+  const l=load(); l.splice(idx,1); save(l); renderChallenges();
+};
+
+/* ── Modal ──────────────────────────────────────────────── */
+let _ov=null;
+
+window._dchOpen = function(){
+  if(_ov) return;
+  const habits=loadH();
+  const t=today(), def=dk(new Date(Date.now()+29*86400000));
+  _ov=document.createElement('div');
+  _ov.className='dch-overlay';
+
+  const habItems = habits.length
+    ? habits.map(h=>`<div class="dch-hab-item" data-id="${h.id}" onclick="this.classList.toggle('on')">
+        <span class="dch-hab-ico">${h.icon||'📌'}</span>
+        <span class="dch-hab-nm">${esc(h.name)}</span>
+      </div>`).join('')
+    : `<div style="grid-column:1/-1;text-align:center;padding:14px;font-size:12px;color:var(--t3)">Сначала добавь привычки</div>`;
+
+  _ov.innerHTML=`<div class="dch-modal">
+    <div class="dch-modal-grip"></div>
+    <div class="dch-modal-title">Новый челлендж</div>
+
+    <div class="dch-field">
+      <label class="dch-label">Название</label>
+      <input id="dchName" class="dch-input" placeholder="Напр. 30 дней без пропусков" maxlength="80">
+    </div>
+
+    <div class="dch-field">
+      <label class="dch-label">Цель (необязательно)</label>
+      <textarea id="dchGoal" class="dch-input" rows="2" placeholder="Чего хочешь достичь?"></textarea>
+    </div>
+
+    <div class="dch-row">
+      <div class="dch-field">
+        <label class="dch-label">Начало</label>
+        <input id="dchStart" type="date" class="dch-input" value="${t}">
+      </div>
+      <div class="dch-field">
+        <label class="dch-label">Конец</label>
+        <input id="dchEnd" type="date" class="dch-input" value="${def}">
+      </div>
+    </div>
+
+    <div class="dch-field">
+      <label class="dch-label">Привычки для отслеживания</label>
+      <div class="dch-hab-grid">${habItems}</div>
+    </div>
+
+    <div class="dch-modal-actions">
+      <button class="dch-btn-cancel" onclick="_dchClose()">Отмена</button>
+      <button class="dch-btn-save" onclick="_dchSave()">Запустить 🚀</button>
+    </div>
+  </div>`;
+
+  document.body.appendChild(_ov);
+  _ov.addEventListener('click',e=>{ if(e.target===_ov) _dchClose(); });
+  setTimeout(()=>{ const el=document.getElementById('dchName'); if(el) el.focus(); }, 120);
+};
+
+window._dchClose = function(){
+  if(_ov){ _ov.remove(); _ov=null; }
+};
+
+window._dchSave = function(){
+  const name  =(document.getElementById('dchName')||{}).value?.trim();
+  const goal  =(document.getElementById('dchGoal')||{}).value?.trim();
+  const start =(document.getElementById('dchStart')||{}).value;
+  const end   =(document.getElementById('dchEnd')||{}).value;
+  const ids   =[...document.querySelectorAll('.dch-hab-item.on')].map(el=>el.dataset.id);
+
+  function shake(el){ if(!el)return; let i=0; const iv=setInterval(()=>{ el.style.transform=i%2?'translateX(-5px)':'translateX(5px)'; if(++i>5){clearInterval(iv);el.style.transform='';} },55); }
+
+  if(!name) return shake(document.getElementById('dchName'));
+  if(!start||!end||start>end) return shake(document.getElementById('dchEnd'));
+  if(!ids.length) return shake(document.querySelector('.dch-hab-grid'));
+
+  const btn=document.getElementById('dchSaveBtn');
+  const list=load();
+  list.unshift({id:'ch'+Date.now(), name, goal:goal||'', startDate:start, endDate:end, habitIds:ids, type:'personal', createdAt:Date.now()});
+  save(list);
+  _dchClose();
+  renderChallenges();
+  if(window.showToast) window.showToast('Челлендж запущен! 🏆');
+};
+
+/* ── showTab hook ────────────────────────────────────────── */
+const _orig2=window.showTab;
+window.showTab=function(){
+  if(_orig2) _orig2.apply(this,arguments);
+  if(arguments[0]==='habits') setTimeout(renderChallenges, 80);
+};
+
+/* ── localStorage watch (re-render on log change) ──────── */
+const _origSet=localStorage.setItem.bind(localStorage);
+localStorage.setItem=function(k,v){
+  _origSet(k,v);
+  if(k==='dtr_l3') setTimeout(()=>{ if(document.querySelector('.dch-card')) renderChallenges(); }, 120);
+};
+
+setTimeout(()=>{
+  const t=document.getElementById('tab-habits');
+  if(t && window.getComputedStyle(t).display!=='none') renderChallenges();
+}, 800);
+
 })();
 </script>
 
