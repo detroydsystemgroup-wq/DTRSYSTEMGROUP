@@ -44943,11 +44943,318 @@ window._hSetUnit = function(unit, btn) {
 }
 
 /* ════════════════════════════════════════════════
-   CHALLENGES
+   CHALLENGES — premium redesign
 ════════════════════════════════════════════════ */
-#dch-inject {
+#dch-inject { margin-bottom: 20px; }
+
+/* ── Section header ── */
+.dch-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 2px 12px;
+}
+.dch-hdr-left { display: flex; align-items: center; gap: 8px; }
+.dch-hdr-title {
+  font-size: 13px; font-weight: 800;
+  color: var(--t1); letter-spacing: -.02em;
+}
+.dch-hdr-count {
+  font-size: 10px; font-weight: 800;
+  background: rgba(245,200,66,.14);
+  color: var(--gold,#F5C842);
+  padding: 2px 8px; border-radius: 6px;
+}
+.dch-new-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 15px; border-radius: 10px;
+  background: var(--gold,#F5C842); color: #000;
+  font-size: 12px; font-weight: 800;
+  border: none; cursor: pointer; font-family: inherit;
+  transition: opacity .15s, transform .12s;
+}
+.dch-new-btn:hover { opacity: .88; transform: translateY(-1px); }
+.dch-new-btn:active { transform: none; }
+
+/* ── Empty state ── */
+.dch-empty {
+  background: var(--card,#111113);
+  border: 0.5px solid rgba(255,255,255,.07);
+  border-radius: 20px;
+  padding: 32px 24px;
+  text-align: center;
+}
+.dch-empty-icon { margin-bottom: 12px; opacity: .3; }
+.dch-empty-ttl { font-size: 15px; font-weight: 800; color: var(--t2); margin-bottom: 5px; }
+.dch-empty-sub { font-size: 12px; color: var(--t3); line-height: 1.6; }
+
+/* ── Cards list ── */
+.dch-cards { display: flex; flex-direction: column; gap: 12px; }
+
+/* ── Card ── */
+.dch-card {
+  position: relative;
+  background: var(--card,#111113);
+  border-radius: 20px;
+  overflow: hidden;
+  animation: dchCardIn .3s cubic-bezier(.34,1.1,.64,1) both;
+  /* subtle gold border */
+  border: 0.5px solid rgba(245,200,66,.2);
+}
+.dch-card.fin { border-color: rgba(255,255,255,.06); opacity: .6; }
+@keyframes dchCardIn { from{opacity:0;transform:translateY(12px) scale(.98)} to{opacity:1;transform:none} }
+
+/* top gold line */
+.dch-card::before {
+  content: '';
+  position: absolute; top:0; left:0; right:0; height: 2px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(245,200,66,.6) 30%,
+    rgba(245,200,66,.9) 50%,
+    rgba(245,200,66,.6) 70%,
+    transparent 100%);
+}
+.dch-card.fin::before { display: none; }
+
+/* ambient glow backdrop */
+.dch-card-bg {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 70% 80% at 0% 50%,
+    rgba(245,200,66,.05) 0%, transparent 60%);
+}
+.dch-card.fin .dch-card-bg { display: none; }
+
+/* ── Card inner ── */
+.dch-card-inner { position: relative; padding: 18px 18px 16px; }
+
+/* ── Title row ── */
+.dch-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 16px;
 }
+.dch-title-left { flex: 1; min-width: 0; }
+.dch-name {
+  font-size: 17px; font-weight: 900;
+  color: var(--t1); line-height: 1.2;
+  letter-spacing: -.03em;
+  margin-bottom: 4px;
+}
+.dch-goal-txt {
+  font-size: 12px; color: var(--t3); line-height: 1.5;
+}
+.dch-title-right {
+  display: flex; flex-direction: column;
+  align-items: flex-end; gap: 5px; flex-shrink: 0;
+}
+.dch-dates {
+  font-size: 11px;
+  color: rgba(245,200,66,.55);
+  font-family: var(--font-mono,monospace);
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+.dch-dl-tag {
+  font-size: 10px; font-weight: 700;
+  color: var(--t3);
+}
+.dch-fin-tag {
+  font-size: 9px; font-weight: 800;
+  letter-spacing: .08em; text-transform: uppercase;
+  background: rgba(255,255,255,.07); color: var(--t3);
+  padding: 3px 8px; border-radius: 6px;
+}
+.dch-del {
+  background: none; border: none; cursor: pointer;
+  color: rgba(255,255,255,.15); padding: 3px;
+  border-radius: 6px; transition: color .15s;
+  display: flex; align-items: center;
+}
+.dch-del:hover { color: rgba(239,68,68,.6); }
+
+/* ── Two metric panels ── */
+.dch-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.dch-panel {
+  background: rgba(255,255,255,.04);
+  border: 0.5px solid rgba(255,255,255,.08);
+  border-radius: 14px;
+  padding: 14px 15px;
+  position: relative;
+  overflow: hidden;
+}
+.dch-panel.today-panel {
+  border-color: rgba(245,200,66,.2);
+  background: rgba(245,200,66,.05);
+}
+/* subtle inner glow for today */
+.dch-panel.today-panel::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 80% 80% at 100% 0%,
+    rgba(245,200,66,.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+.dch-panel-lbl {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 9px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .09em;
+  color: var(--t3); margin-bottom: 10px;
+}
+.dch-panel-val {
+  font-size: 28px; font-weight: 900;
+  color: var(--t1); letter-spacing: -.04em;
+  line-height: 1; margin-bottom: 5px;
+}
+.dch-panel.today-panel .dch-panel-val { color: var(--gold,#F5C842); }
+.dch-panel-sub {
+  font-size: 11px; color: var(--t3); line-height: 1.3;
+}
+
+/* ── Progress bar section ── */
+.dch-prog {
+  margin-bottom: 12px;
+}
+.dch-prog-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.dch-prog-pct {
+  font-size: 12px; font-weight: 800;
+  color: var(--gold,#F5C842);
+  font-family: var(--font-mono,monospace);
+}
+.dch-prog-label {
+  font-size: 10px; color: var(--t3);
+}
+.dch-prog-track {
+  height: 6px;
+  background: rgba(255,255,255,.07);
+  border-radius: 4px; overflow: hidden;
+  position: relative;
+}
+.dch-prog-fill {
+  height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, #C89F28, #F5C842, #ffd96a);
+  transition: width .7s cubic-bezier(.34,1.3,.64,1);
+  position: relative; overflow: hidden;
+}
+.dch-prog-fill::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg,
+    transparent, rgba(255,255,255,.35), transparent);
+  animation: dchShimmer 2.6s ease infinite;
+}
+.dch-card.fin .dch-prog-fill::after { display: none; }
+@keyframes dchShimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(200%)} }
+
+/* ── Habit chips ── */
+.dch-chips {
+  display: flex; flex-wrap: wrap; gap: 5px;
+}
+.dch-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 600;
+  padding: 4px 10px; border-radius: 8px;
+  background: rgba(255,255,255,.06);
+  border: 0.5px solid rgba(255,255,255,.08);
+  color: var(--t2);
+  max-width: 130px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── Modal ── */
+.dch-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.65);
+  backdrop-filter: blur(10px);
+  z-index: 10000;
+  display: flex; align-items: flex-end; justify-content: center;
+  animation: dchOvIn .2s ease;
+}
+@keyframes dchOvIn { from{opacity:0} to{opacity:1} }
+.dch-modal {
+  background: var(--bg,#09090b);
+  border-radius: 22px 22px 0 0;
+  padding: 10px 20px 44px;
+  width: 100%; max-width: 520px;
+  max-height: 90vh; overflow-y: auto;
+  animation: dchMoIn .3s cubic-bezier(.34,1.2,.64,1);
+}
+@keyframes dchMoIn { from{transform:translateY(100%)} to{transform:none} }
+.dch-grip {
+  width: 38px; height: 4px;
+  background: rgba(255,255,255,.12);
+  border-radius: 2px; margin: 14px auto 20px;
+}
+.dch-mo-title {
+  font-size: 18px; font-weight: 900;
+  color: var(--t1); margin-bottom: 20px;
+  letter-spacing: -.03em;
+}
+.dch-field { margin-bottom: 14px; }
+.dch-lbl {
+  display: block; font-size: 10px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .09em;
+  color: var(--t3); margin-bottom: 6px;
+}
+.dch-inp {
+  width: 100%; box-sizing: border-box;
+  background: rgba(255,255,255,.05);
+  border: 0.5px solid rgba(255,255,255,.1);
+  border-radius: 10px; padding: 12px 14px;
+  color: var(--t1); font-size: 14px;
+  outline: none; transition: border-color .15s;
+  font-family: inherit; resize: none;
+}
+.dch-inp:focus { border-color: rgba(245,200,66,.45); }
+.dch-inp::placeholder { color: var(--t3); }
+.dch-dates-row { display: flex; gap: 10px; }
+.dch-dates-row .dch-field { flex: 1; }
+.dch-hab-grid {
+  display: grid; grid-template-columns: repeat(2,1fr);
+  gap: 7px; max-height: 220px; overflow-y: auto;
+}
+.dch-hab-pick {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; border-radius: 10px;
+  border: 0.5px solid rgba(255,255,255,.09);
+  background: rgba(255,255,255,.03);
+  cursor: pointer; transition: .15s;
+}
+.dch-hab-pick:hover { border-color: rgba(245,200,66,.3); background: rgba(245,200,66,.05); }
+.dch-hab-pick.on { border-color: rgba(245,200,66,.55); background: rgba(245,200,66,.1); }
+.dch-hab-nm {
+  font-size: 12px; font-weight: 600; color: var(--t1);
+  line-height: 1.3; word-break: break-word;
+}
+.dch-mo-actions { display: flex; gap: 10px; margin-top: 20px; }
+.dch-btn-cancel {
+  flex: 1; padding: 13px; border-radius: 10px;
+  background: rgba(255,255,255,.07); border: none;
+  color: var(--t2); font-size: 14px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: .15s;
+}
+.dch-btn-cancel:hover { background: rgba(255,255,255,.11); }
+.dch-btn-save {
+  flex: 2; padding: 13px; border-radius: 10px;
+  background: var(--gold,#F5C842); border: none;
+  color: #000; font-size: 14px; font-weight: 900;
+  cursor: pointer; font-family: inherit; transition: opacity .15s;
+}
+.dch-btn-save:hover { opacity: .88; }
+.dch-btn-save:disabled { opacity: .35; cursor: not-allowed; }
+</style>
 
 /* Header */
 .dch-hdr {
@@ -45642,16 +45949,20 @@ function daysInRange(s, e){
 function calcProgress(ch){
   const logs = loadL();
   const t = today();
-  const rangeEnd = ch.endDate < t ? ch.endDate : t;
-  if(ch.startDate > rangeEnd) return {done:0, total:0, pct:0};
-  const range = daysInRange(ch.startDate, rangeEnd);
-  const total = range.length * Math.max(ch.habitIds.length, 1);
+  /* знаменатель = весь период челленджа */
+  const fullRange = daysInRange(ch.startDate, ch.endDate);
+  const total = fullRange.length * Math.max(ch.habitIds.length, 1);
+  if(!total) return {done:0, total:0, pct:0};
+  /* числитель = только прошедшие дни (до сегодня включительно) */
+  const doneEnd = ch.endDate < t ? ch.endDate : t;
+  if(ch.startDate > doneEnd) return {done:0, total, pct:0};
+  const elapsed = daysInRange(ch.startDate, doneEnd);
   let done = 0;
   ch.habitIds.forEach(id => {
     const hl = logs[id]||{};
-    range.forEach(d => { if(hl[d]) done++; });
+    elapsed.forEach(d => { if(hl[d]) done++; });
   });
-  return { done, total, pct: total ? Math.round(done/total*100) : 0 };
+  return { done, total, pct: Math.round(done/total*100) };
 }
 
 /* Сегодняшний прогресс */
@@ -45727,56 +46038,83 @@ function injectChallenges(){
   } else {
     inner += '<div class="dch-cards">';
     list.forEach((ch, idx) => {
-      const prog  = calcProgress(ch);
-      const td    = calcToday(ch);
-      const fin   = today() > ch.endDate;
-      const dl    = daysLeft(ch.endDate);
-      const totalDays = daysInRange(ch.startDate, ch.endDate).length;
+      const prog     = calcProgress(ch);
+      const td       = calcToday(ch);
+      const fin      = today() > ch.endDate;
+      const totalDays= daysInRange(ch.startDate, ch.endDate).length;
 
-      /* Today metric */
-      const todayPct = td.total ? Math.round(td.done/td.total*100) : 0;
-      const todayLbl = fin ? '—' : (td.total === 0 ? 'Не активен' : `${td.done}/${td.total}`);
-      const todaySubLbl = fin ? 'завершён' : (todayPct===100 ? 'выполнено ✓' : `${todayPct}% выполнено`);
+      /* сколько дней прошло */
+      const t = today();
+      const elapsed = ch.startDate > t ? 0 :
+        daysInRange(ch.startDate, ch.endDate < t ? ch.endDate : t).length;
+
+      /* today panel */
+      const todayPct    = td.total ? Math.round(td.done/td.total*100) : 0;
+      const todayVal    = fin ? '—' : (td.total===0 ? '—' : `${td.done}/${td.total}`);
+      const todaySub    = fin ? 'челлендж завершён' :
+                          td.total===0 ? 'не активен сегодня' :
+                          todayPct===100 ? 'все выполнено ✓' :
+                          `${todayPct}% сделано`;
+
+      /* days left string */
+      const daysLeftStr = fin ? 'Завершён' : daysLeft(ch.endDate);
 
       inner += `<div class="dch-card${fin?' fin':''}">
-        <div class="dch-top">
-          <div class="dch-info">
-            <div class="dch-name">${esc(ch.name)}</div>
-            ${ch.goal ? `<div class="dch-goal">${esc(ch.goal)}</div>` : ''}
-          </div>
-          <div class="dch-right">
-            <div class="dch-dates">${fmtD(ch.startDate)} – ${fmtD(ch.endDate)}</div>
-            ${fin ? '<span class="dch-fin-tag">Завершён</span>' : `<span class="dch-fin-tag" style="color:var(--t2);background:transparent;padding:0">${dl}</span>`}
-            <button class="dch-del" onclick="_dchDel(${idx})" title="Удалить">${SVG_DEL}</button>
-          </div>
-        </div>
+        <div class="dch-card-bg"></div>
+        <div class="dch-card-inner">
 
-        <div class="dch-metrics">
-          <div class="dch-metric">
-            <div class="dch-metric-lbl">${SVG_TARGET} Общий прогресс</div>
-            <div class="dch-metric-val">${prog.pct}%</div>
-            <div class="dch-metric-sub">${prog.done} из ${prog.total} выполнений</div>
+          <!-- Title row -->
+          <div class="dch-title-row">
+            <div class="dch-title-left">
+              <div class="dch-name">${esc(ch.name)}</div>
+              ${ch.goal ? `<div class="dch-goal-txt">${esc(ch.goal)}</div>` : ''}
+            </div>
+            <div class="dch-title-right">
+              <div class="dch-dates">${fmtD(ch.startDate)} – ${fmtD(ch.endDate)}</div>
+              ${fin
+                ? '<span class="dch-fin-tag">Завершён</span>'
+                : `<span class="dch-dl-tag">${daysLeftStr}</span>`}
+              <button class="dch-del" onclick="_dchDel(${idx})" title="Удалить">${SVG_DEL}</button>
+            </div>
           </div>
-          <div class="dch-metric today">
-            <div class="dch-metric-lbl">${SVG_SUN} Сегодня</div>
-            <div class="dch-metric-val">${todayLbl}</div>
-            <div class="dch-metric-sub">${todaySubLbl}</div>
-          </div>
-        </div>
 
-        <div class="dch-prog-wrap">
-          <div class="dch-prog-labels">
-            <span class="dch-prog-pct">${prog.pct}%</span>
-            <span class="dch-prog-days">${totalDays} дней</span>
+          <!-- Two metric panels -->
+          <div class="dch-panels">
+            <div class="dch-panel">
+              <div class="dch-panel-lbl">
+                ${SVG_TARGET}
+                Общий прогресс
+              </div>
+              <div class="dch-panel-val">${prog.pct}%</div>
+              <div class="dch-panel-sub">${prog.done} из ${prog.total} отметок · ${elapsed} из ${totalDays} дн.</div>
+            </div>
+            <div class="dch-panel today-panel">
+              <div class="dch-panel-lbl">
+                ${SVG_SUN}
+                Сегодня
+              </div>
+              <div class="dch-panel-val">${todayVal}</div>
+              <div class="dch-panel-sub">${todaySub}</div>
+            </div>
           </div>
-          <div class="dch-prog-track">
-            <div class="dch-prog-fill" style="width:${prog.pct}%"></div>
-          </div>
-        </div>
 
-        <div class="dch-chips">
-          ${ch.habitIds.slice(0,4).map(id=>`<span class="dch-chip">${esc(habName(id))}</span>`).join('')}
-          ${ch.habitIds.length>4?`<span class="dch-chip">+${ch.habitIds.length-4}</span>`:''}
+          <!-- Progress bar -->
+          <div class="dch-prog">
+            <div class="dch-prog-head">
+              <span class="dch-prog-pct">${prog.pct}% выполнено</span>
+              <span class="dch-prog-label">${totalDays} дней</span>
+            </div>
+            <div class="dch-prog-track">
+              <div class="dch-prog-fill" style="width:${prog.pct}%"></div>
+            </div>
+          </div>
+
+          <!-- Habit chips -->
+          <div class="dch-chips">
+            ${ch.habitIds.slice(0,4).map(id=>`<span class="dch-chip">${esc(habName(id))}</span>`).join('')}
+            ${ch.habitIds.length>4 ? `<span class="dch-chip">+${ch.habitIds.length-4}</span>` : ''}
+          </div>
+
         </div>
       </div>`;
     });
