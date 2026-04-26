@@ -45986,5 +45986,621 @@ setTimeout(()=>{
 })();
 </script>
 
+<style id="dtr-collab-ch-css">
+/* ════════════════════════════════════════
+   COLLAB CHALLENGES
+════════════════════════════════════════ */
+.cch-section {
+  margin-top: 12px;
+  margin-bottom: 20px;
+}
+.cch-hdr {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 4px 2px 10px;
+}
+.cch-hdr-left { display: flex; align-items: center; gap: 8px; }
+.cch-hdr-title {
+  font-size: 13px; font-weight: 800;
+  color: var(--t1); letter-spacing: -.02em;
+}
+.cch-count {
+  font-size: 10px; font-weight: 800;
+  background: rgba(168,85,247,.15);
+  color: #c084fc;
+  padding: 2px 8px; border-radius: 6px;
+}
+.cch-add-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 10px;
+  background: #a855f7; color: #fff;
+  font-size: 12px; font-weight: 800;
+  border: none; cursor: pointer; font-family: inherit;
+  transition: opacity .15s, transform .12s;
+}
+.cch-add-btn:hover { opacity: .85; transform: translateY(-1px); }
+
+/* Empty */
+.cch-empty {
+  background: var(--card,#111113);
+  border: 0.5px solid rgba(168,85,247,.1);
+  border-radius: 18px; padding: 24px;
+  text-align: center;
+}
+.cch-empty-ttl { font-size: 14px; font-weight: 800; color: var(--t2); margin-bottom: 4px; }
+.cch-empty-sub { font-size: 12px; color: var(--t3); line-height: 1.5; }
+
+/* Card */
+.cch-card {
+  position: relative;
+  background: var(--card,#111113);
+  border: 0.5px solid rgba(168,85,247,.2);
+  border-radius: 20px; overflow: hidden;
+  margin-bottom: 10px;
+  animation: cchIn .3s cubic-bezier(.34,1.1,.64,1) both;
+}
+@keyframes cchIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+.cch-card::before {
+  content: '';
+  position: absolute; top:0; left:0; right:0; height: 2px;
+  background: linear-gradient(90deg,
+    transparent, rgba(168,85,247,.7), rgba(192,132,252,.9), rgba(168,85,247,.7), transparent);
+}
+.cch-card.failed { border-color: rgba(239,68,68,.2); opacity:.75; }
+.cch-card.failed::before {
+  background: linear-gradient(90deg, transparent, rgba(239,68,68,.6), transparent);
+}
+.cch-card.fin { border-color: rgba(255,255,255,.06); opacity:.6; }
+.cch-card.fin::before {
+  background: linear-gradient(90deg, transparent, rgba(52,211,153,.5), transparent);
+}
+.cch-card-bg {
+  position:absolute; inset:0; pointer-events:none;
+  background: radial-gradient(ellipse 70% 80% at 0% 50%,
+    rgba(168,85,247,.05) 0%, transparent 60%);
+}
+.cch-card.failed .cch-card-bg {
+  background: radial-gradient(ellipse 60% 70% at 0% 50%,
+    rgba(239,68,68,.04) 0%, transparent 60%);
+}
+
+.cch-inner { position: relative; padding: 18px; }
+
+/* Title row */
+.cch-title-row {
+  display: flex; align-items: flex-start;
+  justify-content: space-between; gap: 12px; margin-bottom: 14px;
+}
+.cch-name {
+  font-size: 16px; font-weight: 800; color: var(--t1);
+  letter-spacing: -.03em; line-height: 1.2; margin-bottom: 3px;
+}
+.cch-goal { font-size: 12px; color: var(--t3); line-height: 1.5; }
+.cch-title-right {
+  display: flex; flex-direction: column;
+  align-items: flex-end; gap: 5px; flex-shrink: 0;
+}
+.cch-dates {
+  font-size: 11px; color: rgba(168,85,247,.7);
+  font-family: var(--font-mono,monospace);
+  letter-spacing: .02em; white-space: nowrap;
+}
+.cch-dl { font-size: 10px; font-weight: 700; color: var(--t3); }
+.cch-status-tag {
+  font-size: 9px; font-weight: 900;
+  letter-spacing: .1em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 6px;
+}
+.cch-status-tag.failed-tag { background:rgba(239,68,68,.12); color:#f87171; }
+.cch-status-tag.win-tag    { background:rgba(52,211,153,.12); color:#34d399; }
+.cch-del {
+  background:none; border:none; cursor:pointer;
+  color: rgba(255,255,255,.15); padding:3px; border-radius:6px;
+  display:flex; align-items:center; transition: color .15s;
+}
+.cch-del:hover { color: rgba(239,68,68,.6); }
+
+/* Panels */
+.cch-panels {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px; margin-bottom: 14px;
+}
+.cch-panel {
+  background: rgba(255,255,255,.04);
+  border: 0.5px solid rgba(255,255,255,.07);
+  border-radius: 12px; padding: 13px 14px;
+  position: relative; overflow: hidden;
+}
+.cch-panel.today-p {
+  border-color: rgba(168,85,247,.25);
+  background: rgba(168,85,247,.06);
+}
+.cch-panel-lbl {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 9px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .09em;
+  color: var(--t3); margin-bottom: 9px;
+}
+.cch-panel-val {
+  font-size: 26px; font-weight: 600;
+  color: var(--t1); letter-spacing: -.03em;
+  line-height: 1; margin-bottom: 5px;
+}
+.cch-panel.today-p .cch-panel-val { color: #c084fc; font-weight: 700; }
+.cch-panel-sub { font-size: 11px; color: var(--t3); }
+
+/* Progress bar */
+.cch-prog-head {
+  display: flex; justify-content: space-between;
+  align-items: center; margin-bottom: 6px;
+}
+.cch-prog-pct {
+  font-size: 12px; font-weight: 800;
+  color: #c084fc; font-family: var(--font-mono,monospace);
+}
+.cch-card.failed .cch-prog-pct { color: #f87171; }
+.cch-card.fin .cch-prog-pct { color: #34d399; }
+.cch-prog-label { font-size: 10px; color: var(--t3); }
+.cch-prog-track {
+  height: 6px; background: rgba(255,255,255,.07);
+  border-radius: 4px; overflow: hidden;
+}
+.cch-prog-fill {
+  height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, #7c3aed, #a855f7, #c084fc);
+  transition: width .7s cubic-bezier(.34,1.3,.64,1);
+  position: relative; overflow: hidden;
+}
+.cch-card.failed .cch-prog-fill { background: linear-gradient(90deg,#b91c1c,#ef4444); }
+.cch-card.fin    .cch-prog-fill { background: linear-gradient(90deg,#059669,#34d399); }
+.cch-prog-fill::after {
+  content:''; position:absolute; inset:0;
+  background: linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);
+  animation: cchShimmer 2.5s ease infinite;
+}
+.cch-card.failed .cch-prog-fill::after,
+.cch-card.fin    .cch-prog-fill::after { display: none; }
+@keyframes cchShimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(200%)} }
+
+/* Habit chips */
+.cch-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.cch-chip {
+  font-size: 11px; padding: 3px 9px; border-radius: 7px;
+  background: rgba(168,85,247,.08);
+  border: 0.5px solid rgba(168,85,247,.18);
+  color: rgba(192,132,252,.8);
+}
+
+/* ── Modal ── */
+.cch-overlay {
+  position:fixed; inset:0;
+  background:rgba(0,0,0,.65); backdrop-filter:blur(10px);
+  z-index:10000;
+  display:flex; align-items:flex-end; justify-content:center;
+  animation: cchOvIn .2s ease;
+}
+@keyframes cchOvIn { from{opacity:0} to{opacity:1} }
+.cch-modal {
+  background:var(--bg,#09090b);
+  border-radius:22px 22px 0 0;
+  padding:10px 20px 44px;
+  width:100%; max-width:520px;
+  max-height:90vh; overflow-y:auto;
+  animation: cchMoIn .3s cubic-bezier(.34,1.2,.64,1);
+}
+@keyframes cchMoIn { from{transform:translateY(100%)} to{transform:none} }
+.cch-grip {
+  width:38px; height:4px; background:rgba(255,255,255,.12);
+  border-radius:2px; margin:14px auto 20px;
+}
+.cch-mo-title {
+  font-size:18px; font-weight:900; color:var(--t1);
+  margin-bottom:20px; letter-spacing:-.03em;
+}
+.cch-field { margin-bottom:14px; }
+.cch-lbl {
+  display:block; font-size:10px; font-weight:800;
+  text-transform:uppercase; letter-spacing:.09em;
+  color:var(--t3); margin-bottom:6px;
+}
+.cch-inp {
+  width:100%; box-sizing:border-box;
+  background:rgba(255,255,255,.05);
+  border:0.5px solid rgba(255,255,255,.1);
+  border-radius:10px; padding:12px 14px;
+  color:var(--t1); font-size:14px;
+  outline:none; transition:border-color .15s;
+  font-family:inherit; resize:none;
+}
+.cch-inp:focus { border-color:rgba(168,85,247,.5); }
+.cch-inp::placeholder { color:var(--t3); }
+.cch-dates-row { display:flex; gap:10px; }
+.cch-dates-row .cch-field { flex:1; }
+.cch-hab-grid {
+  display:grid; grid-template-columns:repeat(2,1fr);
+  gap:7px; max-height:200px; overflow-y:auto;
+}
+.cch-hab-pick {
+  display:flex; align-items:center; gap:8px;
+  padding:10px 12px; border-radius:10px;
+  border:0.5px solid rgba(255,255,255,.09);
+  background:rgba(255,255,255,.03);
+  cursor:pointer; transition:.15s;
+}
+.cch-hab-pick:hover { border-color:rgba(168,85,247,.35); background:rgba(168,85,247,.06); }
+.cch-hab-pick.on { border-color:rgba(168,85,247,.6); background:rgba(168,85,247,.12); }
+.cch-hab-nm { font-size:12px; font-weight:600; color:var(--t1); }
+.cch-mo-actions { display:flex; gap:10px; margin-top:20px; }
+.cch-btn-cancel {
+  flex:1; padding:13px; border-radius:10px;
+  background:rgba(255,255,255,.07); border:none;
+  color:var(--t2); font-size:14px; font-weight:600;
+  cursor:pointer; font-family:inherit; transition:.15s;
+}
+.cch-btn-cancel:hover { background:rgba(255,255,255,.11); }
+.cch-btn-save {
+  flex:2; padding:13px; border-radius:10px;
+  background:#a855f7; border:none;
+  color:#fff; font-size:14px; font-weight:900;
+  cursor:pointer; font-family:inherit; transition:opacity .15s;
+}
+.cch-btn-save:hover { opacity:.88; }
+</style>
+
+<script>
+/* ════════════════════════════════════════════════
+   КОЛЛАБ ЧЕЛЛЕНДЖИ
+════════════════════════════════════════════════ */
+(function(){
+'use strict';
+
+/* ── Storage ─────────────────────────────────────────────── */
+const ckKey = rid => 'dtr_cch_'+rid;
+const cLoad = rid => { try{ return JSON.parse(localStorage.getItem(ckKey(rid))||'[]'); }catch{ return []; } };
+const cSave = (rid,d) => localStorage.setItem(ckKey(rid), JSON.stringify(d));
+
+/* ── Date utils ─────────────────────────────────────────── */
+const pad2 = n => String(n).padStart(2,'0');
+const dk   = d => d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+const today = () => dk(new Date());
+const esc   = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function daysInRange(s, e){
+  const arr=[], sd=new Date(s+'T00:00:00'), ed=new Date(e+'T00:00:00');
+  for(let d=new Date(sd); d<=ed; d.setDate(d.getDate()+1)) arr.push(dk(new Date(d)));
+  return arr;
+}
+
+/* ── Прогресс с механикой "все или ничего" ───────────────── */
+function calcCollabProgress(ch, members, logs){
+  const t = today();
+  const fullRange = daysInRange(ch.startDate, ch.endDate);
+  const total = fullRange.length;
+  if(!total || !members.length) return {done:0, total, pct:0, failed:false};
+
+  /* прошедшие дни (до сегодня включительно) */
+  const doneEnd   = ch.endDate < t ? ch.endDate : t;
+  const elapsed   = ch.startDate > doneEnd ? [] : daysInRange(ch.startDate, doneEnd);
+  const memberIds = members.map(m => m.user_id);
+
+  let done = 0;
+  elapsed.forEach(day => {
+    /* день засчитывается только если ВСЕ участники отметили ВСЕ привычки */
+    const allDone = memberIds.every(uid =>
+      ch.habitIds.every(hid => logs[uid]?.[hid]?.[day])
+    );
+    if(allDone) done++;
+  });
+
+  const fin    = t > ch.endDate;
+  const failed = fin && done < total;
+  const win    = fin && done === total;
+  const pct    = Math.round(done / total * 100);
+  return { done, total, pct, failed, win, elapsed: elapsed.length };
+}
+
+/* Сегодня: сколько участников отметили */
+function calcCollabToday(ch, members, logs){
+  const t = today();
+  if(t < ch.startDate || t > ch.endDate) return {markedCount:0, total:members.length};
+  const memberIds = members.map(m => m.user_id);
+  /* участник засчитан если отметил хотя бы одну из привычек */
+  const marked = memberIds.filter(uid =>
+    ch.habitIds.some(hid => logs[uid]?.[hid]?.[t])
+  ).length;
+  return { markedCount: marked, total: memberIds.length };
+}
+
+/* ── SVG иконки ─────────────────────────────────────────── */
+const SVG_TROPHY = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>`;
+const SVG_PLUS  = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+const SVG_DEL   = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+const SVG_TARGET= `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`;
+const SVG_USERS = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+
+/* ── Формат даты ─────────────────────────────────────────── */
+function fmtD(s){ const [y,m,d]=s.split('-'); return d+'.'+m+'.'+y.slice(2); }
+function daysLeft(end){
+  const now=new Date(); now.setHours(0,0,0,0);
+  const e=new Date(end+'T00:00:00');
+  const d=Math.round((e-now)/86400000);
+  if(d<0) return 'Завершён'; if(d===0) return 'Последний день';
+  return d+'д осталось';
+}
+
+/* ── Рендер секции челленджей для одного рума ────────────── */
+function renderCollabChallenges(roomId, members, logs, habits){
+  /* находим контейнер */
+  const roomCard = document.getElementById('chab-room-'+roomId);
+  if(!roomCard) return;
+  const sectId = 'cch-sect-'+roomId;
+  let sect = document.getElementById(sectId);
+  if(!sect){
+    sect = document.createElement('div');
+    sect.id = sectId; sect.className = 'cch-section';
+    roomCard.insertAdjacentElement('afterend', sect);
+  }
+
+  const list = cLoad(roomId);
+  const habMap = {};
+  (habits||[]).forEach(h=>{ habMap[h.id]=h; });
+  const habName = id => (habMap[id]||{}).title || (habMap[id]||{}).name || id;
+
+  /* ── Header ── */
+  let html = `<div class="cch-hdr">
+    <div class="cch-hdr-left">
+      ${SVG_TROPHY}
+      <span class="cch-hdr-title">Челленджи трекера</span>
+      ${list.length ? `<span class="cch-count">${list.length}</span>` : ''}
+    </div>
+    <button class="cch-add-btn" onclick="_cchOpen('${roomId}')">
+      ${SVG_PLUS} Новый
+    </button>
+  </div>`;
+
+  if(!list.length){
+    html += `<div class="cch-empty">
+      <div class="cch-empty-ttl">Нет совместных челленджей</div>
+      <div class="cch-empty-sub">Запустите вызов — прогресс засчитывается<br>только когда <b>все участники</b> отметились</div>
+    </div>`;
+  } else {
+    list.forEach((ch, idx) => {
+      const prog = calcCollabProgress(ch, members||[], logs||{});
+      const tdStat = calcCollabToday(ch, members||[], logs||{});
+      const totalDays = daysInRange(ch.startDate, ch.endDate).length;
+
+      /* today panel text */
+      const tdVal  = `${tdStat.markedCount}/${tdStat.total}`;
+      const tdSub  = prog.failed ? 'челлендж провален' :
+                     prog.win    ? 'успешно завершён'  :
+                     tdStat.markedCount === tdStat.total ? 'все отметились ✓' :
+                     `ждём ${tdStat.total - tdStat.markedCount} участников`;
+
+      const cardCls = prog.failed ? ' failed' : prog.win ? ' fin' : '';
+      const statusTag = prog.failed
+        ? `<span class="cch-status-tag failed-tag">Провалено</span>`
+        : prog.win
+        ? `<span class="cch-status-tag win-tag">Выполнено</span>`
+        : `<span class="cch-dl">${daysLeft(ch.endDate)}</span>`;
+
+      html += `<div class="cch-card${cardCls}">
+        <div class="cch-card-bg"></div>
+        <div class="cch-inner">
+          <div class="cch-title-row">
+            <div>
+              <div class="cch-name">${esc(ch.name)}</div>
+              ${ch.goal ? `<div class="cch-goal">${esc(ch.goal)}</div>` : ''}
+            </div>
+            <div class="cch-title-right">
+              <div class="cch-dates">${fmtD(ch.startDate)} – ${fmtD(ch.endDate)}</div>
+              ${statusTag}
+              <button class="cch-del" onclick="_cchDel('${roomId}',${idx})">${SVG_DEL}</button>
+            </div>
+          </div>
+
+          <div class="cch-panels">
+            <div class="cch-panel">
+              <div class="cch-panel-lbl">${SVG_TARGET} Общий прогресс</div>
+              <div class="cch-panel-val">${prog.pct}%</div>
+              <div class="cch-panel-sub">${prog.done} из ${prog.total} дней · ${prog.elapsed} прошло</div>
+            </div>
+            <div class="cch-panel today-p">
+              <div class="cch-panel-lbl">${SVG_USERS} Сегодня</div>
+              <div class="cch-panel-val">${tdVal}</div>
+              <div class="cch-panel-sub">${tdSub}</div>
+            </div>
+          </div>
+
+          <div>
+            <div class="cch-prog-head">
+              <span class="cch-prog-pct">${prog.pct}% выполнено</span>
+              <span class="cch-prog-label">${totalDays} дней · ${(members||[]).length} участников</span>
+            </div>
+            <div class="cch-prog-track">
+              <div class="cch-prog-fill" style="width:${prog.pct}%"></div>
+            </div>
+          </div>
+
+          <div class="cch-chips">
+            ${ch.habitIds.slice(0,4).map(id=>`<span class="cch-chip">${esc(habName(id))}</span>`).join('')}
+            ${ch.habitIds.length>4?`<span class="cch-chip">+${ch.habitIds.length-4}</span>`:''}
+          </div>
+        </div>
+      </div>`;
+    });
+  }
+
+  sect.innerHTML = html;
+}
+
+/* ── Обновляем все румы после рендера ────────────────────── */
+function refreshAllRooms(){
+  const cache = (typeof _chabCache !== 'undefined') ? _chabCache : null;
+  if(!cache) return;
+  const rooms = cache.rooms||[];
+  rooms.forEach(r => {
+    const rc = cache.perRoom[r.id]||{};
+    renderCollabChallenges(r.id, rc.members||[], rc.logs||{}, rc.habits||[]);
+  });
+}
+
+/* ── Хук на renderCollabView ─────────────────────────────── */
+const _origRCV = window.renderCollabView;
+window.renderCollabView = function(){
+  const r = _origRCV ? _origRCV.apply(this, arguments) : undefined;
+  /* ждём пока DOM отрендерится */
+  if(r && typeof r.then === 'function'){
+    r.then(()=>setTimeout(refreshAllRooms, 200));
+  } else {
+    setTimeout(refreshAllRooms, 500);
+  }
+  return r;
+};
+
+/* ── Удалить ─────────────────────────────────────────────── */
+window._cchDel = function(roomId, idx){
+  const list = cLoad(roomId);
+  list.splice(idx, 1);
+  cSave(roomId, list);
+  refreshAllRooms();
+};
+
+/* ── Модалка ─────────────────────────────────────────────── */
+let _cchOv = null, _cchRoomId = null;
+
+window._cchOpen = function(roomId){
+  if(_cchOv) return;
+  _cchRoomId = roomId;
+  const cache = (typeof _chabCache !== 'undefined') ? _chabCache : null;
+  const rc = cache?.perRoom[roomId]||{};
+  const habits  = rc.habits||[];
+  const members = rc.members||[];
+  const t = today();
+  const defEnd = dk(new Date(Date.now()+29*86400000));
+
+  _cchOv = document.createElement('div');
+  _cchOv.className = 'cch-overlay';
+
+  /* участники */
+  const memHtml = members.length
+    ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+        ${members.map(m=>`<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;background:rgba(168,85,247,.1);border:0.5px solid rgba(168,85,247,.2);padding:4px 10px;border-radius:8px;color:var(--t1)">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          ${esc((m.users||{}).username||'?')}
+        </span>`).join('')}
+      </div>`
+    : `<div style="font-size:12px;color:var(--t3);margin-top:6px">Участники не найдены</div>`;
+
+  /* привычки рума */
+  const habItems = habits.length
+    ? habits.map(h=>`
+        <div class="cch-hab-pick" data-id="${h.id}" onclick="this.classList.toggle('on')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${h.color||'#a855f7'}" stroke-width="2" stroke-linecap="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="m9 12 2 2 4-4"/></svg>
+          <span class="cch-hab-nm">${esc(h.title||h.name||h.id)}</span>
+        </div>`).join('')
+    : `<div style="grid-column:1/-1;text-align:center;padding:14px;font-size:12px;color:var(--t3)">Сначала создайте привычки в трекере</div>`;
+
+  _cchOv.innerHTML = `<div class="cch-modal">
+    <div class="cch-grip"></div>
+    <div class="cch-mo-title">Совместный челлендж</div>
+
+    <div class="cch-field">
+      <label class="cch-lbl">Участники</label>
+      ${memHtml}
+      <div style="font-size:10px;color:rgba(168,85,247,.6);margin-top:6px;font-weight:700">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        День засчитывается только когда все отметились
+      </div>
+    </div>
+
+    <div class="cch-field">
+      <label class="cch-lbl">Название</label>
+      <input id="cchInpName" class="cch-inp" placeholder="Напр. 30 дней вместе" maxlength="80">
+    </div>
+
+    <div class="cch-field">
+      <label class="cch-lbl">Цель (необязательно)</label>
+      <textarea id="cchInpGoal" class="cch-inp" rows="2" placeholder="Общая цель команды"></textarea>
+    </div>
+
+    <div class="cch-dates-row">
+      <div class="cch-field">
+        <label class="cch-lbl">Начало</label>
+        <input id="cchInpStart" type="date" class="cch-inp" value="${t}">
+      </div>
+      <div class="cch-field">
+        <label class="cch-lbl">Конец</label>
+        <input id="cchInpEnd" type="date" class="cch-inp" value="${defEnd}">
+      </div>
+    </div>
+
+    <div class="cch-field">
+      <label class="cch-lbl">Привычки для отслеживания</label>
+      <div class="cch-hab-grid" id="cchHabGrid">${habItems}</div>
+    </div>
+
+    <div class="cch-mo-actions">
+      <button class="cch-btn-cancel" onclick="_cchClose()">Отмена</button>
+      <button class="cch-btn-save" onclick="_cchSave()">Запустить</button>
+    </div>
+  </div>`;
+
+  document.body.appendChild(_cchOv);
+  _cchOv.addEventListener('click', e=>{ if(e.target===_cchOv) _cchClose(); });
+  setTimeout(()=>{ document.getElementById('cchInpName')?.focus(); }, 120);
+};
+
+window._cchClose = function(){
+  if(_cchOv){ _cchOv.remove(); _cchOv=null; _cchRoomId=null; }
+};
+
+window._cchSave = function(){
+  const name  = document.getElementById('cchInpName')?.value?.trim();
+  const goal  = document.getElementById('cchInpGoal')?.value?.trim();
+  const start = document.getElementById('cchInpStart')?.value;
+  const end   = document.getElementById('cchInpEnd')?.value;
+  const ids   = [...document.querySelectorAll('.cch-hab-pick.on')].map(el=>el.dataset.id);
+
+  const shake = el => {
+    if(!el) return;
+    let i=0; const iv=setInterval(()=>{
+      el.style.transform = i%2?'translateX(-5px)':'translateX(5px)';
+      if(++i>5){ clearInterval(iv); el.style.transform=''; }
+    }, 55);
+  };
+
+  if(!name) return shake(document.getElementById('cchInpName'));
+  if(!start||!end||start>end) return shake(document.getElementById('cchInpEnd'));
+  if(!ids.length) return shake(document.getElementById('cchHabGrid'));
+
+  const rid = _cchRoomId;
+  const list = cLoad(rid);
+  list.unshift({
+    id: 'cch'+Date.now(), name, goal:goal||'',
+    startDate:start, endDate:end,
+    habitIds:ids, createdAt:Date.now()
+  });
+  cSave(rid, list);
+  _cchClose();
+  refreshAllRooms();
+  if(window.showToast) window.showToast('Совместный челлендж запущен!');
+};
+
+/* ── Обновлять при смене логов (реалтайм) ────────────────── */
+const _origRCV2 = window.renderCollabView;
+/* уже перехвачено выше — дополнительно слушаем realtime патч */
+const _origPatch = window._patchRoomCells;
+if(typeof _origPatch === 'function'){
+  window._patchRoomCells = function(roomId, logs, myId){
+    if(_origPatch) _origPatch.apply(this, arguments);
+    const cache = (typeof _chabCache !== 'undefined') ? _chabCache : null;
+    const rc = cache?.perRoom[roomId]||{};
+    renderCollabChallenges(roomId, rc.members||[], logs||{}, rc.habits||[]);
+  };
+}
+
+})();
+</script>
+
 </body>
 </html>
