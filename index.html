@@ -44822,9 +44822,9 @@ window._hSetUnit = function(unit, btn) {
 }
 .dac-big-num {
   font-size: 38px;
-  font-weight: 900;
+  font-weight: 600;
   color: var(--t1);
-  letter-spacing: -.04em;
+  letter-spacing: -.03em;
   line-height: 1;
 }
 .dac-big-unit {
@@ -44907,22 +44907,17 @@ window._hSetUnit = function(unit, btn) {
   border-radius: 10px;
   border: 0.5px solid rgba(255,255,255,.08);
   background: rgba(255,255,255,.02);
-  cursor: pointer;
-  transition: .15s;
   font-family: inherit;
   text-align: left;
 }
-.dac-mbtn:hover { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.14); }
-.dac-mbtn.on { background: rgba(245,200,66,.09); border-color: rgba(245,200,66,.32); }
 .dac-mbtn-val {
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--t1);
   font-family: var(--font-mono, monospace);
   letter-spacing: -.02em;
   line-height: 1;
 }
-.dac-mbtn.on .dac-mbtn-val { color: var(--gold, #F5C842); }
 .dac-mbtn-lbl {
   font-size: 9px;
   font-weight: 700;
@@ -45306,7 +45301,6 @@ function getTip(){
 
 /* ── State ─────────────────────────────────────────────── */
 let _period = 'week';
-let _activeM = 0;
 
 /* ── Render chart ──────────────────────────────────────── */
 function render(period){
@@ -45314,7 +45308,7 @@ function render(period){
   const root = document.getElementById('dtr-act-chart');
   if(!root) return;
 
-  const sessions = (window.P && window.P.sessions) || [];
+  const sessions = (typeof P !== 'undefined' && P && P.sessions) ? P.sessions : [];
   const n = _period==='week' ? 7 : _period==='month' ? 30 : 90;
   const days = dayRange(n);
   const map  = buildMap(sessions, days);
@@ -45336,11 +45330,19 @@ function render(period){
     trendHtml = `<span class="dac-trend ${pct>=0?'up':'dn'}">${pct>=0?'▲':'▼'} ${Math.abs(pct)}%</span>`;
   }
 
-  /* big number */
-  const bigNum  = total<1 ? Math.round(total*60) : total.toFixed(1);
-  const bigUnit = total<1 ? 'м' : 'ч';
+  /* big number — формат "4ч 30м" без десятичных */
+  const bigHtml = (() => {
+    if(total <= 0) return '<span class="dac-big-num">0</span><span class="dac-big-unit">м</span>';
+    if(total < 1){
+      return `<span class="dac-big-num">${Math.round(total*60)}</span><span class="dac-big-unit">м</span>`;
+    }
+    const hh = Math.floor(total);
+    const mm = Math.round((total - hh) * 60);
+    if(mm === 0) return `<span class="dac-big-num">${hh}</span><span class="dac-big-unit">ч</span>`;
+    return `<span class="dac-big-num">${hh}</span><span class="dac-big-unit">ч</span><span class="dac-big-num" style="margin-left:4px">${mm}</span><span class="dac-big-unit">м</span>`;
+  })();
 
-  /* metrics */
+  /* metrics — просто div, не кнопки */
   const metrics = [
     {v: fmtH(total), l:'Всего'},
     {v: fmtH(avg),   l:'В день'},
@@ -45355,19 +45357,18 @@ function render(period){
   const GOLD = '#F5C842';
   const ns = 'http://www.w3.org/2000/svg';
 
-  const metricsHtml = metrics.map((m,i)=>`
-    <button class="dac-mbtn${i===_activeM?' on':''}" onclick="_dacMetric(${i})">
+  const metricsHtml = metrics.map(m=>`
+    <div class="dac-mbtn">
       <span class="dac-mbtn-val">${m.v}</span>
       <span class="dac-mbtn-lbl">${m.l}</span>
-    </button>`).join('');
+    </div>`).join('');
 
   root.innerHTML = `<div class="dac-wrap">
     <div class="dac-head">
       <div class="dac-head-left">
         <div class="dac-eyebrow">Активность</div>
         <div class="dac-big">
-          <span class="dac-big-num">${bigNum}</span>
-          <span class="dac-big-unit">${bigUnit}</span>
+          ${bigHtml}
           ${trendHtml}
         </div>
       </div>
@@ -45547,10 +45548,6 @@ function render(period){
 
 /* ── Public ─────────────────────────────────────────────── */
 window._dacPeriod = function(p){ _period=p; render(p); };
-window._dacMetric = function(i){
-  _activeM=i;
-  document.querySelectorAll('.dac-mbtn').forEach((b,j)=>b.classList.toggle('on',j===i));
-};
 
 /* ── showTab hook ────────────────────────────────────────── */
 const _orig1 = window.showTab;
