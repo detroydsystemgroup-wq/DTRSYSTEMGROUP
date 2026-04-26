@@ -46234,6 +46234,32 @@ setTimeout(()=>{
 .cch-inp::placeholder { color:var(--t3); }
 .cch-dates-row { display:flex; gap:10px; }
 .cch-dates-row .cch-field { flex:1; }
+.cch-mem-grid {
+  display: flex; flex-wrap: wrap; gap: 7px; margin-top: 6px;
+}
+.cch-mem-pick {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 10px;
+  border: 0.5px solid rgba(255,255,255,.09);
+  background: rgba(255,255,255,.03);
+  cursor: pointer; transition: .15s;
+  font-size: 12px; font-weight: 600; color: var(--t1);
+}
+.cch-mem-pick:hover { border-color:rgba(168,85,247,.35); background:rgba(168,85,247,.06); }
+.cch-mem-pick.on  { border-color:rgba(168,85,247,.6);  background:rgba(168,85,247,.12); }
+.cch-mem-av {
+  width:24px; height:24px; border-radius:7px; flex-shrink:0;
+  background:rgba(168,85,247,.2); overflow:hidden;
+  display:flex; align-items:center; justify-content:center; font-size:11px;
+}
+.cch-mem-av img { width:100%; height:100%; object-fit:cover; border-radius:7px; }
+.cch-mem-chk {
+  width:16px; height:16px; flex-shrink:0; border-radius:5px;
+  border:1.5px solid rgba(255,255,255,.2);
+  display:flex; align-items:center; justify-content:center; transition:.15s;
+}
+.cch-mem-pick.on .cch-mem-chk { background:#a855f7; border-color:#a855f7; }
+
 .cch-hab-grid {
   display:grid; grid-template-columns:repeat(2,1fr);
   gap:7px; max-height:200px; overflow-y:auto;
@@ -46323,15 +46349,20 @@ function calcCollabProgress(ch, members, logs){
   const t = today();
   const fullRange = daysInRange(ch.start_date, ch.end_date);
   const total = fullRange.length;
-  if(!total || !members.length) return {done:0, total, pct:0, failed:false, win:false};
+  if(!total) return {done:0, total, pct:0, failed:false, win:false, elapsed:0};
+
+  /* Используем только выбранных участников; fallback — все члены рума */
+  const selIds = (ch.participant_ids && ch.participant_ids.length)
+    ? ch.participant_ids
+    : members.map(m=>m.user_id);
+  if(!selIds.length) return {done:0, total, pct:0, failed:false, win:false, elapsed:0};
 
   const doneEnd = ch.end_date < t ? ch.end_date : t;
   const elapsed = ch.start_date > doneEnd ? [] : daysInRange(ch.start_date, doneEnd);
-  const memberIds = members.map(m => m.user_id);
 
   let done = 0;
   elapsed.forEach(day => {
-    const allDone = memberIds.every(uid =>
+    const allDone = selIds.every(uid =>
       ch.habit_ids.every(hid => logs[uid]?.[hid]?.[day])
     );
     if(allDone) done++;
@@ -46340,18 +46371,20 @@ function calcCollabProgress(ch, members, logs){
   const fin    = t > ch.end_date;
   const failed = fin && done < total;
   const win    = fin && done === total;
-  const pct    = Math.round(done / total * 100);
-  return { done, total, pct, failed, win, elapsed: elapsed.length };
+  return { done, total, pct: Math.round(done/total*100), failed, win, elapsed: elapsed.length };
 }
 
 /* Сегодня: сколько участников отметили хотя бы одну привычку */
 function calcCollabToday(ch, members, logs){
   const t = today();
-  if(t < ch.start_date || t > ch.end_date) return {markedCount:0, total:members.length};
-  const marked = members.filter(m =>
-    ch.habit_ids.some(hid => logs[m.user_id]?.[hid]?.[t])
+  if(t < ch.start_date || t > ch.end_date) return {markedCount:0, total:0};
+  const selIds = (ch.participant_ids && ch.participant_ids.length)
+    ? ch.participant_ids
+    : members.map(m=>m.user_id);
+  const marked = selIds.filter(uid =>
+    ch.habit_ids.some(hid => logs[uid]?.[hid]?.[t])
   ).length;
-  return { markedCount: marked, total: members.length };
+  return { markedCount: marked, total: selIds.length };
 }
 
 /* ── SVG иконки ─────────────────────────────────────────── */
@@ -46457,7 +46490,7 @@ function renderCollabChallenges(roomId, members, logs, habits){
           <div>
             <div class="cch-prog-head">
               <span class="cch-prog-pct">${prog.pct}% выполнено</span>
-              <span class="cch-prog-label">${totalDays} дней · ${(members||[]).length} участников</span>
+              <span class="cch-prog-label">${totalDays} дней · ${(ch.participant_ids||members||[]).length} участников</span>
             </div>
             <div class="cch-prog-track">
               <div class="cch-prog-fill" style="width:${prog.pct}%"></div>
@@ -46509,15 +46542,25 @@ window._cchOpen = function(roomId){
   _cchOv = document.createElement('div');
   _cchOv.className = 'cch-overlay';
 
-  const memHtml = members.length
-    ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
-        ${members.map(m=>`<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;background:rgba(168,85,247,.1);border:0.5px solid rgba(168,85,247,.2);padding:4px 10px;border-radius:8px;color:var(--t1)">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          ${esc((m.users||{}).username||'?')}
-        </span>`).join('')}
-      </div>`
-    : `<div style="font-size:12px;color:var(--t3);margin-top:6px">Участники не найдены</div>`;
+  /* ── Выбор участников ── */
+  const memItems = members.length
+    ? members.map(m => {
+        const u = m.users||{};
+        const name = esc(u.username||'?');
+        const av = u.avatar_url
+          ? `<img src="${esc(u.avatar_url)}" onerror="this.style.display='none'">`
+          : `<span>${(u.avatar||u.username||'?')[0]}</span>`;
+        return `<div class="cch-mem-pick on" data-uid="${m.user_id}" onclick="this.classList.toggle('on')">
+          <div class="cch-mem-av">${av}</div>
+          <span>${name}</span>
+          <div class="cch-mem-chk">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+        </div>`;
+      }).join('')
+    : `<div style="font-size:12px;color:var(--t3)">Участники не найдены</div>`;
 
+  /* ── Выбор привычек ── */
   const habItems = habits.length
     ? habits.map(h=>`
         <div class="cch-hab-pick" data-id="${h.id}" onclick="this.classList.toggle('on')">
@@ -46529,14 +46572,16 @@ window._cchOpen = function(roomId){
   _cchOv.innerHTML = `<div class="cch-modal">
     <div class="cch-grip"></div>
     <div class="cch-mo-title">Совместный челлендж</div>
+
     <div class="cch-field">
       <label class="cch-lbl">Участники</label>
-      ${memHtml}
-      <div style="font-size:10px;color:rgba(168,85,247,.6);margin-top:7px;font-weight:700;display:flex;align-items:center;gap:5px">
+      <div class="cch-mem-grid" id="cchMemGrid">${memItems}</div>
+      <div style="font-size:10px;color:rgba(168,85,247,.6);margin-top:8px;font-weight:700;display:flex;align-items:center;gap:5px">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        День засчитывается только когда все отметились
+        День засчитывается только когда все выбранные отметились
       </div>
     </div>
+
     <div class="cch-field">
       <label class="cch-lbl">Название</label>
       <input id="cchInpName" class="cch-inp" placeholder="Напр. 30 дней вместе" maxlength="80">
@@ -46594,6 +46639,9 @@ window._cchSave = async function(){
   if(!start||!end||start>end) return shake(document.getElementById('cchInpEnd'));
   if(!habIds.length)          return shake(document.getElementById('cchHabGrid'));
 
+  const participantIds = [...document.querySelectorAll('.cch-mem-pick.on')].map(el=>el.dataset.uid);
+  if(!participantIds.length)  return shake(document.getElementById('cchMemGrid'));
+
   const btn = document.getElementById('cchSaveBtn');
   if(btn){ btn.disabled=true; btn.textContent='...'; }
 
@@ -46603,15 +46651,16 @@ window._cchSave = async function(){
 
   /* Базовый объект челленджа */
   const newChallenge = {
-    id:         'cch_ls_'+Date.now(),
-    room_id:    rid,
-    created_by: user?.id || 'local',
+    id:              'cch_ls_'+Date.now(),
+    room_id:         rid,
+    created_by:      user?.id || 'local',
     name,
-    goal:       goal||null,
-    start_date: start,
-    end_date:   end,
-    habit_ids:  habIds,
-    created_at: new Date().toISOString(),
+    goal:            goal||null,
+    start_date:      start,
+    end_date:        end,
+    habit_ids:       habIds,
+    participant_ids: participantIds,
+    created_at:      new Date().toISOString(),
   };
 
   let savedToSupabase = false;
@@ -46620,13 +46669,14 @@ window._cchSave = async function(){
   if(sb && user){
     try {
       const {data, error} = await sb.from('collab_challenges').insert({
-        room_id:    rid,
-        created_by: user.id,
+        room_id:         rid,
+        created_by:      user.id,
         name,
-        goal:       goal||null,
-        start_date: start,
-        end_date:   end,
-        habit_ids:  habIds,
+        goal:            goal||null,
+        start_date:      start,
+        end_date:        end,
+        habit_ids:       habIds,
+        participant_ids: participantIds,
       }).select().single();
 
       if(!error && data){
