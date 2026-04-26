@@ -9759,13 +9759,14 @@ html[data-theme="light"] .nav-icon-btn:hover {
 
 .tot-prem-val {
   font-family: 'Space Mono', var(--font-mono) !important;
-  font-size: 80px !important;
+  font-size: var(--tot-fs, 76px) !important;
   font-weight: 400 !important;
   letter-spacing: -.05em !important;
   line-height: .9 !important;
   color: var(--t1) !important;
   text-shadow: none !important;
   animation: totNumIn .65s .12s cubic-bezier(.22,1,.36,1) both !important;
+  transition: font-size .4s cubic-bezier(.4,0,.2,1) !important;
   /* Liquid Gold */
   background: linear-gradient(180deg, #FDE68A 0%, #F5C842 50%, #C89F28 100%) !important;
   -webkit-background-clip: text !important;
@@ -9774,8 +9775,9 @@ html[data-theme="light"] .nav-icon-btn:hover {
 }
 
 .tot-prem-val--min {
-  font-size: 80px !important;
+  font-size: var(--tot-fs, 76px) !important;
   font-weight: 400 !important;
+  transition: font-size .4s cubic-bezier(.4,0,.2,1) !important;
   background: linear-gradient(180deg, rgba(253,230,138,.55) 0%, rgba(245,200,66,.45) 50%, rgba(200,159,40,.35) 100%) !important;
   -webkit-background-clip: text !important;
   background-clip: text !important;
@@ -9785,7 +9787,8 @@ html[data-theme="light"] .nav-icon-btn:hover {
 
 .tot-prem-label {
   font-family: var(--font-mono) !important;
-  font-size: 15px !important;
+  font-size: var(--tot-unit-fs, 14px) !important;
+  transition: font-size .4s cubic-bezier(.4,0,.2,1) !important;
   font-weight: 400 !important;
   letter-spacing: .02em !important;
   color: rgba(168,168,176,.3) !important;
@@ -13758,6 +13761,326 @@ html[data-theme="light"] .nav-icon-btn:hover {
 .tot-today-wrap { position: relative !important; }
 
 .tot-stat, .tot-stat-sep, .tot-stats-grid { display:none !important; }
+
+/* ════════════════════════════════════════════
+   GOALS NEW DESIGN — gn-* classes
+   ════════════════════════════════════════════ */
+#tab-goals { padding: 0 !important; }
+
+.gn-wrap {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 56px);
+  background: #060608;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Mesh ambient */
+.gn-wrap::before {
+  content: '';
+  position: absolute;
+  top: -80px; left: -60px;
+  width: 500px; height: 340px;
+  background: radial-gradient(ellipse 60% 45% at 15% 0%, rgba(245,200,66,.055) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+.gn-wrap::after {
+  content: '';
+  position: absolute;
+  bottom: -60px; right: -40px;
+  width: 400px; height: 280px;
+  background: radial-gradient(ellipse 55% 45% at 85% 100%, rgba(168,85,247,.035) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Header ── */
+.gn-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 16px 14px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+.gn-hdr-left { display: flex; align-items: baseline; gap: 8px; }
+.gn-hdr-right { display: flex; align-items: center; gap: 8px; }
+
+.gn-title {
+  font-family: 'DM Sans', var(--font-display), sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -.035em;
+  color: #F2F0E8;
+}
+.gn-count {
+  font-family: 'Space Mono', var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  color: #3A3A48;
+}
+
+/* Seg filter */
+.gn-seg {
+  display: flex;
+  gap: 2px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 22px;
+  padding: 3px;
+}
+.gn-seg-btn {
+  font-family: 'DM Sans', var(--font-display), sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 18px;
+  border: none;
+  background: transparent;
+  color: #636370;
+  cursor: pointer;
+  letter-spacing: .02em;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.gn-seg-btn.on {
+  background: rgba(245,200,66,.12);
+  color: #F5C842;
+  border: 1px solid rgba(245,200,66,.2);
+}
+
+/* Add button */
+.gn-add-btn {
+  width: 30px; height: 30px;
+  border-radius: 9px;
+  background: rgba(245,200,66,.1);
+  border: 1px solid rgba(245,200,66,.2);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  color: #F5C842;
+  font-size: 20px; line-height: 1; font-weight: 300;
+  transition: background .15s, transform .15s;
+  flex-shrink: 0;
+}
+.gn-add-btn:hover { background: rgba(245,200,66,.18); transform: scale(1.05) rotate(90deg); }
+
+/* ── List ── */
+.gn-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+  z-index: 1;
+}
+.gn-list::-webkit-scrollbar { width: 3px; }
+.gn-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 2px; }
+
+/* ── Goal Card ── */
+.gn-card {
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,.07);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color .22s, transform .18s;
+  background: rgba(255,255,255,.025);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  position: relative;
+}
+.gn-card:hover { border-color: rgba(255,255,255,.12); transform: translateY(-1px); }
+.gn-card.open {
+  border-color: rgba(var(--gc),0.3) !important;
+  transform: none;
+  cursor: default;
+}
+
+/* ── Collapsed header ── */
+.gn-collapsed {
+  padding: 14px 16px;
+  position: relative;
+}
+/* Left accent bar */
+.gn-collapsed::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 12px; bottom: 12px;
+  width: 2px; border-radius: 2px;
+  background: rgba(var(--gc), .75);
+}
+
+.gn-cat {
+  font-size: 9px; font-weight: 700;
+  letter-spacing: .13em; text-transform: uppercase;
+  color: rgba(var(--gc), 1);
+  margin-bottom: 5px;
+  font-family: 'DM Sans', var(--font-display), sans-serif;
+}
+
+.gn-name {
+  font-size: 15px; font-weight: 700;
+  color: #ECEAE4;
+  letter-spacing: -.02em;
+  line-height: 1.3;
+  margin-bottom: 12px;
+  font-family: 'DM Sans', var(--font-display), sans-serif;
+}
+
+.gn-bottom {
+  display: flex; align-items: center; gap: 8px;
+}
+.gn-bar-wrap {
+  flex: 1; height: 3px;
+  background: rgba(255,255,255,.07);
+  border-radius: 2px; overflow: hidden;
+}
+.gn-bar-fill {
+  height: 100%; border-radius: 2px;
+  background: rgba(var(--gc), 1);
+  transition: width .8s cubic-bezier(.4,0,.2,1);
+}
+.gn-pct {
+  font-family: 'Space Mono', var(--font-mono);
+  font-size: 11px;
+  color: rgba(var(--gc), .9);
+  min-width: 34px; text-align: right;
+  flex-shrink: 0;
+}
+.gn-dead {
+  font-size: 9px; font-weight: 600;
+  color: #3A3A48; flex-shrink: 0;
+}
+
+/* ── Expanded section ── */
+.gn-expanded {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .38s cubic-bezier(.4,0,.2,1);
+}
+.gn-card.open .gn-expanded { max-height: 400px; }
+
+.gn-exp-inner {
+  border-top: 1px solid rgba(255,255,255,.05);
+  padding: 14px 16px 16px;
+}
+
+/* KPIs */
+.gn-kpis {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.gn-kpi {
+  background: rgba(0,0,0,.3);
+  border: 1px solid rgba(255,255,255,.05);
+  border-radius: 11px;
+  padding: 10px 12px;
+}
+.gn-kpi-v {
+  font-family: 'Space Mono', var(--font-mono);
+  font-size: 15px; color: #F2F0E8;
+  letter-spacing: -.04em; line-height: 1;
+  margin-bottom: 3px;
+}
+.gn-kpi-l {
+  font-size: 8px; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: #3A3A48;
+}
+
+/* Action row in expanded */
+.gn-actions {
+  display: flex; align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.gn-del-btn {
+  font-size: 10px; font-weight: 600;
+  color: #636370;
+  padding: 5px 12px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 8px; cursor: pointer;
+  font-family: 'DM Sans', var(--font-display), sans-serif;
+  letter-spacing: .02em;
+  transition: all .15s;
+}
+.gn-del-btn:hover { background: rgba(239,68,68,.1); color: #EF4444; border-color: rgba(239,68,68,.2); }
+
+/* Tabs */
+.gn-tabs {
+  display: flex; gap: 2px;
+  background: rgba(0,0,0,.2);
+  border-radius: 10px; padding: 3px;
+  margin-bottom: 12px;
+}
+.gn-tab {
+  flex: 1; font-size: 10px; font-weight: 600;
+  padding: 5px 0; border-radius: 8px;
+  border: none; background: transparent;
+  color: #636370; cursor: pointer;
+  letter-spacing: .02em;
+  transition: all .15s;
+  font-family: 'DM Sans', var(--font-display), sans-serif;
+}
+.gn-tab.on {
+  background: rgba(var(--gc), .12);
+  color: rgba(var(--gc), 1);
+  border: 1px solid rgba(var(--gc), .2);
+}
+
+/* Panes */
+.gn-pane { display: none; }
+.gn-pane.on { display: block; }
+
+/* Empty state */
+.gn-empty-card {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 40px 20px; gap: 12px;
+  cursor: pointer;
+}
+.gn-empty-card:hover .gn-empty-icon { transform: scale(1.1) rotate(6deg); }
+.gn-empty-icon {
+  width: 44px; height: 44px; border-radius: 14px;
+  background: rgba(245,200,66,.08);
+  border: 1px solid rgba(245,200,66,.18);
+  display: flex; align-items: center; justify-content: center;
+  color: #F5C842; font-size: 22px; line-height: 1;
+  transition: transform .22s cubic-bezier(.34,1.56,.64,1);
+}
+.gn-empty-t { font-size: 13px; font-weight: 700; color: #848490; font-family: 'DM Sans', var(--font-display), sans-serif; }
+.gn-empty-s { font-size: 11px; color: #3A3A48; text-align: center; font-family: 'DM Sans', var(--font-display), sans-serif; }
+
+/* ── Footer ── */
+.gn-footer {
+  flex-shrink: 0;
+  padding: 12px 18px;
+  border-top: 1px solid rgba(255,255,255,.05);
+  display: flex; align-items: center; gap: 0;
+  position: relative; z-index: 1;
+}
+.gn-fstat { display: flex; align-items: baseline; gap: 5px; padding: 0 14px; }
+.gn-fstat:first-child { padding-left: 0; }
+.gn-fstat + .gn-fstat { border-left: 1px solid rgba(255,255,255,.06); }
+.gn-fnum {
+  font-family: 'Space Mono', var(--font-mono);
+  font-size: 14px; letter-spacing: -.04em; color: #F2F0E8;
+}
+.gn-fnum.gold {
+  background: linear-gradient(180deg,#FDE68A,#F5C842);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.gn-flbl { font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #3A3A48; }
+.gn-fsep { width: 1px; height: 14px; background: rgba(255,255,255,.06); }
 </style>
   <link rel="manifest" id="pwaManifest">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23080808'/%3E%3Cpolygon points='58,10 38,52 52,52 42,90 62,46 46,46' fill='%23F5C842'/%3E%3C/svg%3E">
@@ -16136,70 +16459,61 @@ window.toggleLikeUser = async function(){
     </div>
 
     <div id="tab-goals" class="tc">
-      <div class="gp3-wrap">
-        <div class="gp3-kpi-bar">
-          <div class="gp3-kpi"><div class="gp3-kpi-val gold" id="gp3K0">&mdash;</div><div class="gp3-kpi-lbl">Активных целей</div></div>
-          <div class="gp3-kpi"><div class="gp3-kpi-val" id="gp3K1">&mdash;</div><div class="gp3-kpi-lbl">Общий прогресс</div></div>
-          <div class="gp3-kpi"><div class="gp3-kpi-val" id="gp3K2">&mdash;</div><div class="gp3-kpi-lbl">Часов вложено</div></div>
+      <div class="gn-wrap">
+
+        <!-- Header -->
+        <div class="gn-hdr">
+          <div class="gn-hdr-left">
+            <span class="gn-title">Цели</span>
+            <span class="gn-count" id="gp3K0">—</span>
+          </div>
+          <div class="gn-hdr-right">
+            <div class="gn-seg">
+              <button class="gn-seg-btn on" onclick="gp3Seg(this,'all')">Все</button>
+              <button class="gn-seg-btn" onclick="gp3Seg(this,'active')">Активные</button>
+              <button class="gn-seg-btn" onclick="gp3Seg(this,'done')">Готово</button>
+            </div>
+            <div class="gn-add-btn" onclick="gp3OpenModal()" title="Новая цель">+</div>
+          </div>
         </div>
-        <div class="gp3-split">
-          <div class="gp3-sidebar">
-            <div class="gp3-sidebar-head">
-              <span class="gp3-sidebar-title">МОИ ЦЕЛИ</span>
-              <div class="gp3-sidebar-actions">
-                <div class="gp3-new-btn" onclick="gp3OpenModal()" title="Новая цель">+</div>
-              </div>
-            </div>
-            <div class="gp3-seg">
-              <button class="gp3-seg-btn on" onclick="gp3Seg(this,'all')">Все</button>
-              <button class="gp3-seg-btn" onclick="gp3Seg(this,'active')">Активные</button>
-              <button class="gp3-seg-btn" onclick="gp3Seg(this,'done')">Готово</button>
-            </div>
-            <div class="gp3-goals-list" id="gp3GoalsList"></div>
+
+        <!-- Goal list (accordion) -->
+        <div class="gn-list" id="gp3GoalsList"></div>
+
+        <!-- Footer stats -->
+        <div class="gn-footer">
+          <div class="gn-fstat">
+            <span class="gn-fnum gold" id="gp3K0f">—</span>
+            <span class="gn-flbl">активных</span>
           </div>
-          <div class="gp3-detail" id="gp3Detail">
-            <div class="gp3-detail-empty" id="gp3DetailEmpty">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-              <div class="gp3-detail-empty-t">Выбери цель слева</div>
-            </div>
-            <div class="gp3-hero" id="gp3Hero" style="display:none">
-              <div class="gp3-hero-top">
-                <div id="gp3HCat" class="gp3-hero-cat"></div>
-                <div class="gp3-hero-actions">
-                  <button class="gp3-btn-sm danger" onclick="gp3ConfirmDelete(window._gp3ActiveId)">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-                    Удалить
-                  </button>
-                </div>
-              </div>
-              <div id="gp3HName" class="gp3-hero-name"></div>
-              <div id="gp3HDesc" class="gp3-hero-desc" style="display:none"></div>
-              <div id="gp3HTags" class="gp3-hero-tags"></div>
-              <div class="gp3-hero-prog">
-                <div class="gp3-arc">
-                  <svg width="72" height="72" viewBox="0 0 72 72">
-                    <circle cx="36" cy="36" r="28" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="4"/>
-                    <circle id="gp3Arc" cx="36" cy="36" r="28" fill="none" stroke="#F5C842" stroke-width="4"
-                      stroke-dasharray="0 175.9" stroke-linecap="round"
-                      style="transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dasharray 1.4s cubic-bezier(.25,.46,.45,.94)"/>
-                  </svg>
-                  <div class="gp3-arc-txt">
-                    <div id="gp3ArcPct" class="gp3-arc-pct">0%</div>
-                    <div class="gp3-arc-sub">цель</div>
-                  </div>
-                </div>
-                <div class="gp3-hero-kpis" id="gp3HKpis"></div>
-              </div>
-            </div>
-            <div class="gp3-tabs" id="gp3Tabs" style="display:none">
-              <div class="gp3-tab on" onclick="gp3Tab(this,'tasks')">Задачи</div>
-              <div class="gp3-tab" onclick="gp3Tab(this,'habits')">Привычки</div>
-              <div class="gp3-tab" onclick="gp3Tab(this,'arena')">Арена</div>
-            </div>
-            <div id="gp3TasksPane" class="gp3-tasks-body" style="display:none"></div>
-            <div id="gp3HabitsPane" class="gp3-habits-body" style="display:none"></div>
-            <div id="gp3ArenaPane" class="gp3-arena-body" style="display:none"></div>
+          <div class="gn-fsep"></div>
+          <div class="gn-fstat">
+            <span class="gn-fnum" id="gp3K1">—</span>
+            <span class="gn-flbl">прогресс</span>
           </div>
+          <div class="gn-fsep"></div>
+          <div class="gn-fstat">
+            <span class="gn-fnum" id="gp3K2">—</span>
+            <span class="gn-flbl">вложено</span>
+          </div>
+        </div>
+
+        <!-- Hidden stubs for JS compat -->
+        <div style="display:none">
+          <div id="gp3Detail"></div>
+          <div id="gp3DetailEmpty"></div>
+          <div id="gp3Hero"></div>
+          <div id="gp3HCat"></div>
+          <div id="gp3HName"></div>
+          <div id="gp3HDesc"></div>
+          <div id="gp3HTags"></div>
+          <div id="gp3HKpis"></div>
+          <div id="gp3Tabs"></div>
+          <div id="gp3TasksPane"></div>
+          <div id="gp3HabitsPane"></div>
+          <div id="gp3ArenaPane"></div>
+          <circle id="gp3Arc"></circle>
+          <div id="gp3ArcPct"></div>
         </div>
       </div>
     </div>
@@ -18333,6 +18647,14 @@ function animStatBar(){
   });
 }
 
+function adaptTotSize(hrs){
+  const digits = String(Math.floor(Math.max(hrs, 0))).length;
+  const fs = digits <= 1 ? 76 : digits === 2 ? 64 : digits === 3 ? 52 : 40;
+  const unitFs = digits <= 1 ? 14 : digits === 2 ? 13 : digits === 3 ? 12 : 11;
+  document.documentElement.style.setProperty('--tot-fs', fs + 'px');
+  document.documentElement.style.setProperty('--tot-unit-fs', unitFs + 'px');
+}
+
 function renderTotals(){
   const totEl=document.getElementById('totDisp');
   const newVal=totalHrs();
@@ -18346,6 +18668,8 @@ function renderTotals(){
   const mEl2 = document.getElementById('totMinsNum');
   if(hEl2) animCount(hEl2, splitH, 1200);
   if(mEl2) animCount(mEl2, splitM, 1200);
+  // ── Adaptive font size based on digit count ──
+  adaptTotSize(splitH);
   // Today's hours for single stat
   const _todayStart2 = new Date(); _todayStart2.setHours(0,0,0,0);
   const _todayH2 = P.sessions
@@ -43843,6 +44167,21 @@ function gEsc(s){ var d=document.createElement('div');d.textContent=s||'';return
 function gFmt(iso){ if(!iso)return'\u2014'; var d=new Date(iso); return isNaN(d)?iso:d.toLocaleDateString('ru',{day:'numeric',month:'short',year:'numeric'}); }
 function gDL(iso){ if(!iso)return null; return Math.ceil((new Date(iso)-new Date())/864e5); }
 function gColor(cat){ var c=GP3_CATS.find(function(x){return x.id===cat;}); return c?c.color:'#F5C842'; }
+function gColorRgb(cat){
+  var hex=gColor(cat).replace('#','');
+  if(hex.length===3)hex=hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+  var r=parseInt(hex.slice(0,2),16),g2=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);
+  return r+','+g2+','+b;
+}
+function gDeadColor(dateStr){
+  if(!dateStr)return '#3A3A48';
+  var d=new Date(dateStr),now=new Date();
+  var days=Math.ceil((d-now)/(1000*60*60*24));
+  if(days<0)return '#EF4444';
+  if(days<=7)return '#F97316';
+  if(days<=30)return '#F5C842';
+  return '#22C55E';
+}
 function gCatLbl(cat,custom){ if(cat==='custom')return custom||'\u0414\u0440\u0443\u0433\u043e\u0435'; var c=GP3_CATS.find(function(x){return x.id===cat;}); return c?c.label:cat; }
 function gHabs(){ try{return JSON.parse(localStorage.getItem('dtr_h3')||'[]');}catch(e){return[];} }
 function gLogs(){ try{return JSON.parse(localStorage.getItem('dtr_l3')||'{}');}catch(e){return{};} }
@@ -43962,23 +44301,143 @@ function gRenderSidebar() {
     return true;
   });
   var el=document.getElementById('gp3GoalsList'); if(!el)return;
+  var act=GP3.goals.filter(function(g){return!g.completed_at;});
+  ['gp3K0','gp3K0f'].forEach(function(id){var e=document.getElementById(id);if(e)e.textContent=act.length;});
+
   if (!goals.length) {
-    el.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 16px;gap:10px;cursor:pointer" onclick="gp3OpenModal()">'+
-      '<div style="width:40px;height:40px;border-radius:12px;background:rgba(245,200,66,.07);border:0.5px solid rgba(245,200,66,.18);display:flex;align-items:center;justify-content:center;color:var(--gold);font-size:20px">+</div>'+
-      '<div style="font-size:12px;font-weight:800;color:var(--t2)">\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u043f\u0435\u0440\u0432\u0443\u044e \u0446\u0435\u043b\u044c</div>'+
+    el.innerHTML='<div class="gn-empty-card" onclick="gp3OpenModal()">'+
+      '<div class="gn-empty-icon">+</div>'+
+      '<div class="gn-empty-t">Добавить первую цель</div>'+
+      '<div class="gn-empty-s">Поставь цель и отслеживай прогресс</div>'+
     '</div>';
     return;
   }
   el.innerHTML=goals.map(function(g){
-    var pct=gGoalPct(g), color=gColor(g.category);
-    var active=GP3.activeId===g.id;
-    return '<div class="gp3-goal-item'+(active?' active':'')+'" onclick="gp3ShowDetail(\''+g.id+'\')">'+
-      '<div class="gp3-gi-top"><div class="gp3-gi-name">'+gEsc(g.title)+'</div>'+
-      '<div class="gp3-gi-pct" style="color:'+color+'">'+pct+'%</div></div>'+
-      '<div class="gp3-gi-cat">'+gEsc(gCatLbl(g.category,g.category_custom))+'</div>'+
-      '<div class="gp3-gi-bar"><div class="gp3-gi-fill" style="width:'+pct+'%;background:'+color+'"></div></div>'+
+    var pct=gGoalPct(g), rgb=gColorRgb(g.category);
+    var isOpen=GP3.activeId===g.id;
+    var catLbl=gEsc(gCatLbl(g.category,g.category_custom));
+    var dead=g.deadline_date?gFmt(g.deadline_date):'Без дедлайна';
+    var deadColor=gDeadColor(g.deadline_date);
+    var factH=(g.tasks||[]).reduce(function(s,t){return s+(parseFloat(t.actual_hours)||0);},0);
+    var planH=(g.tasks||[]).reduce(function(s,t){return s+(parseFloat(t.planned_hours)||0);},0);
+    var remaining=Math.max(0,planH-factH);
+    return '<div class="gn-card'+(isOpen?' open':'')+'" id="gnc-'+g.id+'" data-gid="'+g.id+'" style="--gc:'+rgb+'" onclick="gnToggle(event,this.dataset.gid)">'+
+      '<div class="gn-collapsed">'+
+        '<div class="gn-cat">'+catLbl+'</div>'+
+        '<div class="gn-name">'+gEsc(g.title)+'</div>'+
+        '<div class="gn-bottom">'+
+          '<div class="gn-bar-wrap"><div class="gn-bar-fill" style="width:'+pct+'%"></div></div>'+
+          '<span class="gn-pct">'+pct+'%</span>'+
+          '<span class="gn-dead">'+dead+'</span>'+
+        '</div>'+
+      '</div>'+
+      '<div class="gn-expanded">'+
+        '<div class="gn-exp-inner">'+
+          '<div class="gn-kpis">'+
+            '<div class="gn-kpi"><div class="gn-kpi-v">'+factH.toFixed(1)+'<span style="font-size:10px;color:#3A3A48;margin-left:1px">ч</span></div><div class="gn-kpi-l">Вложено</div></div>'+
+            '<div class="gn-kpi"><div class="gn-kpi-v" style="'+(remaining?'':'color:#3A3A48')+'">'+(remaining?remaining.toFixed(0):'—')+'</div><div class="gn-kpi-l">Осталось</div></div>'+
+            '<div class="gn-kpi"><div class="gn-kpi-v" style="font-size:12px;color:'+deadColor+'">'+dead+'</div><div class="gn-kpi-l">Дедлайн</div></div>'+
+          '</div>'+
+          '<div class="gn-actions">'+
+            '<button class="gn-del-btn" data-delgid="'+g.id+'" onclick="event.stopPropagation();gp3ConfirmDelete(this.dataset.delgid)">'+
+              '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>'+
+              ' Удалить</button>'+
+          '</div>'+
+          '<div class="gn-tabs" id="gntabs-'+g.id+'">'+
+            '<button class="gn-tab on" data-tabgid="'+g.id+'" onclick="event.stopPropagation();gnTab(this,this.dataset.tabgid,\'tasks\')">Задачи</button>'+
+            '<button class="gn-tab" data-tabgid="'+g.id+'" onclick="event.stopPropagation();gnTab(this,this.dataset.tabgid,\'habits\')">Привычки</button>'+
+            '<button class="gn-tab" data-tabgid="'+g.id+'" onclick="event.stopPropagation();gnTab(this,this.dataset.tabgid,\'arena\')">Арена</button>'+
+'<div class="gn-pane on" id="gnpane-tasks-'+g.id+'"></div>'+
+          '<div class="gn-pane" id="gnpane-habits-'+g.id+'"></div>'+
+          '<div class="gn-pane" id="gnpane-arena-'+g.id+'"></div>'+
+        '</div>'+
+      '</div>'+
     '</div>';
   }).join('');
+}
+
+/* ── New accordion helpers ── */
+window.gnToggle = function(event, gid) {
+  // Don't toggle if clicking inside expanded area
+  if(event.target.closest('.gn-expanded')) return;
+  var card=document.getElementById('gnc-'+gid);
+  if(!card)return;
+  var isOpen=card.classList.contains('open');
+  // Close all
+  document.querySelectorAll('.gn-card.open').forEach(function(c){c.classList.remove('open');});
+  GP3.activeId=null; window._gp3ActiveId=null;
+  if(!isOpen){
+    card.classList.add('open');
+    GP3.activeId=gid; window._gp3ActiveId=gid;
+    // Render tasks for this card
+    var g=GP3.goals.find(function(x){return x.id===gid;});
+    if(g) gnRenderTasks(g);
+  }
+};
+
+window.gnTab = function(btn, gid, tab) {
+  // Switch tabs within a card
+  var tabs=document.getElementById('gntabs-'+gid);
+  if(tabs) tabs.querySelectorAll('.gn-tab').forEach(function(b){b.classList.remove('on');});
+  btn.classList.add('on');
+  ['tasks','habits','arena'].forEach(function(t){
+    var p=document.getElementById('gnpane-'+t+'-'+gid);
+    if(p){p.classList.remove('on');if(t===tab)p.classList.add('on');}
+  });
+  var g=GP3.goals.find(function(x){return x.id===gid;});
+  if(!g)return;
+  if(tab==='tasks') gnRenderTasks(g);
+  else if(tab==='habits') gnRenderHabits(g);
+  else {
+    var p=document.getElementById('gnpane-arena-'+gid);
+    if(p) p.innerHTML='<div style="padding:20px;text-align:center;color:#3A3A48;font-size:11px">Арена в разработке</div>';
+  }
+};
+
+function gnRenderTasks(g) {
+  var el=document.getElementById('gnpane-tasks-'+g.id); if(!el)return;
+  var color=gColor(g.category);
+  if (!g.tasks||!g.tasks.length) {
+    el.innerHTML='<div style="padding:16px 0;text-align:center;color:#3A3A48;font-size:11px">Задач нет — <span style="color:#F5C842;cursor:pointer;font-weight:700" onclick="gp3OpenAddTask()">+Добавить</span></div>';
+    return;
+  }
+  var habs=gHabs();
+  el.innerHTML=g.tasks.map(function(t){
+    var tp=gTaskPct(t);
+    var hh=t.habit_id?habs.find(function(x){return x.id===t.habit_id;}):null;
+    var actual=hh?gActualReps(t.habit_id,t.created_at,t.deadline_date):0;
+    var planned=hh?gPlannedReps(t.habit_id,t.deadline_date,t.created_at):0;
+    var dlDays=gDL(t.deadline_date);
+    var dlLbl=dlDays===null?'':dlDays<0?'просроч':dlDays===0?'сегодня':dlDays<=14?dlDays+'д':gFmt(t.deadline_date);
+    var dlCls=dlDays!==null&&dlDays<=14?'warn':'';
+    return '<div class="gp3-task" data-tid="'+t.id+'" data-gid="'+g.id+'" onclick="gp3ToggleTask(this.dataset.tid,this.dataset.gid)">'+
+      '<div class="gp3-task-head">'+
+        '<div class="gp3-chk'+(t.is_done?' done':'')+'"><svg viewBox="0 0 10 10" fill="none"><polyline points="1.5,5.5 4,8 8.5,2" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg></div>'+
+        '<div class="gp3-task-info">'+
+          '<div class="gp3-task-name'+(t.is_done?' done':'')+'">'+gEsc(t.title)+'</div>'+
+          '<div class="gp3-task-meta">'+
+            (t.planned_hours?'<span class="gp3-tchip">'+parseFloat(t.actual_hours||0).toFixed(0)+'/'+parseFloat(t.planned_hours).toFixed(0)+' ч</span>':'')+
+            (hh?'<span class="gp3-tchip habit">'+gEsc(hh.icon||'')+' '+gEsc(hh.name)+' &middot; '+actual+'/'+planned+'</span>':'')+
+            (dlLbl?'<span class="gp3-tchip '+dlCls+'">'+dlLbl+'</span>':'')+
+            (t.is_done?'<span class="gp3-tchip green">Готово</span>':'')+
+          '</div>'+
+        '</div>'+
+        '<div class="gp3-task-right">'+
+          '<div class="gp3-task-bar"><div class="gp3-task-bar-fill" style="width:'+tp+'%;background:'+(t.is_done?'#30D158':color)+'"></div></div>'+
+          '<div class="gp3-task-pct-pill" style="'+(tp===100?'background:rgba(48,209,88,.1);color:#30D158;border-color:rgba(48,209,88,.2)':'')+'">'+tp+'%</div>'+
+          '<div data-dtid="'+t.id+'" data-dgid="'+g.id+'" onclick="event.stopPropagation();gp3DeleteTask(this.dataset.dtid,this.dataset.dgid)" style="width:22px;height:22px;border-radius:6px;background:rgba(239,68,68,.07);border:0.5px solid rgba(239,68,68,.13);color:rgba(239,68,68,.4);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;flex-shrink:0">'+'</div>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  }).join('')+
+  '<div style="padding:8px 0"><button style="width:100%;background:none;border:0.5px dashed rgba(245,200,66,.18);border-radius:10px;padding:8px;color:rgba(245,200,66,.45);font-family:var(--font-display);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px" onclick="gp3OpenAddTask()">+ Добавить задачу</button></div>';
+}
+
+function gnRenderHabits(g) {
+  var el=document.getElementById('gnpane-habits-'+g.id); if(!el)return;
+  gRenderHabits(g); // reuse existing but copy result
+  var src=document.getElementById('gp3HabitsPane');
+  if(src) el.innerHTML=src.innerHTML;
 }
 
 function gUpdateKpis() {
@@ -44048,12 +44507,15 @@ window.gp3Tab = function(el,tab) {
 };
 
 window.gp3Seg = function(el,val) {
-  document.querySelectorAll('.gp3-seg-btn').forEach(function(b){b.classList.remove('on');}); el.classList.add('on');
+  document.querySelectorAll('.gp3-seg-btn,.gn-seg-btn').forEach(function(b){b.classList.remove('on');});
+  el.classList.add('on');
   GP3.seg=val; gRenderSidebar();
 };
 
 /* ── Tasks ── */
 function gRenderTasks(g) {
+  // Also render into new accordion card if present
+  if(document.getElementById('gnpane-tasks-'+g.id)) { gnRenderTasks(g); }
   var el=document.getElementById('gp3TasksPane'); if(!el)return;
   var color=gColor(g.category), habs=gHabs();
   if (!g.tasks.length) {
@@ -44379,7 +44841,7 @@ window.gp3DoDelete=async function(){
   if(sbc&&uid&&g){try{if(g.tasks&&g.tasks.length){var tids=g.tasks.map(function(t){return t.id;});await sbc.from('goal_subtasks').delete().in('task_id',tids);}await sbc.from('goal_tasks').delete().eq('goal_id',gid);await sbc.from('goals').delete().eq('id',gid).eq('user_id',uid);}catch(e){console.error(e);}}
   GP3.goals=GP3.goals.filter(function(x){return x.id!==gid;});
   try{localStorage.removeItem('dtr_goal_habits_'+gid);}catch(e){}
-  if(GP3.activeId===gid){GP3.activeId=null;window._gp3ActiveId=null;gShowEmpty();}
+  if(GP3.activeId===gid){GP3.activeId=null;window._gp3ActiveId=null;}
   gRenderSidebar();gUpdateKpis();gToast('\u0426\u0435\u043b\u044c \u0443\u0434\u0430\u043b\u0435\u043d\u0430');
 };
 
