@@ -44721,7 +44721,7 @@ function ttkNavLock(lock) {
 </script>
 
 <script>
-/* Habit type/unit toggles for modal */
+/* ── Habit type/unit toggles ── */
 var _habType = 'count', _habUnit = 'min';
 
 window._hSetType = function(type, btn) {
@@ -44729,9 +44729,7 @@ window._hSetType = function(type, btn) {
   document.querySelectorAll('.hab-type-btn').forEach(function(b){ b.classList.remove('active'); });
   if (btn) btn.classList.add('active');
   var wrap = document.getElementById('habLimitWrap');
-  if (wrap) {
-    wrap.classList.toggle('open', type === 'time');
-  }
+  if (wrap) wrap.classList.toggle('open', type === 'time');
 };
 
 window._hSetUnit = function(unit, btn) {
@@ -44740,37 +44738,49 @@ window._hSetUnit = function(unit, btn) {
   if (btn) btn.classList.add('on');
 };
 
-/* Patch _hSave to inject habType + dailyLimitHrs */
+/* After _hSave runs, patch the last saved habit with type+limit */
 (function(){
   var _orig = window._hSave;
   if (typeof _orig !== 'function') return;
   window._hSave = function() {
-    /* Temporarily override hLoad/hSave to inject fields */
-    var _origLS = localStorage.getItem.bind(localStorage);
-    var _origSet = localStorage.setItem.bind(localStorage);
-    localStorage.setItem = function(key, val) {
-      if (key === 'dtr_h3') {
-        try {
-          var data = JSON.parse(val);
-          if (Array.isArray(data) && data.length) {
-            var last = data[data.length - 1];
-            if (last && !last.habType) {
-              var limitVal = parseFloat((document.getElementById('habLimitVal') || {}).value || 0) || 30;
-              var limitHrs = _habType === 'time' ? (_habUnit === 'min' ? limitVal / 60 : limitVal) : 0;
-              last.habType = _habType;
-              last.dailyLimitHrs = limitHrs;
-            }
-          }
-          val = JSON.stringify(data);
-        } catch(e) {}
-      }
-      _origSet(key, val);
-      /* Restore */
-      localStorage.setItem = _origSet;
-    };
     _orig.apply(this, arguments);
+    /* Now patch the last habit in dtr_h3 */
+    try {
+      var data = JSON.parse(localStorage.getItem('dtr_h3') || '[]');
+      if (Array.isArray(data) && data.length) {
+        var last = data[data.length - 1];
+        if (last) {
+          var limitVal = parseFloat((document.getElementById('habLimitVal') || {}).value || 30) || 30;
+          last.habType = _habType;
+          last.dailyLimitHrs = _habType === 'time'
+            ? (_habUnit === 'min' ? limitVal / 60 : limitVal)
+            : 0;
+          localStorage.setItem('dtr_h3', JSON.stringify(data));
+        }
+      }
+      /* Reset type UI */
+      _habType = 'count'; _habUnit = 'min';
+    } catch(e) { console.error('_hSave patch:', e); }
+  };
+})();
+
+/* Reset type UI when modal closes */
+(function(){
+  var _orig = window._hClose;
+  window._hClose = function() {
+    _habType = 'count'; _habUnit = 'min';
+    var wrap = document.getElementById('habLimitWrap');
+    if (wrap) wrap.classList.remove('open');
+    document.querySelectorAll('.hab-type-btn').forEach(function(b, i){
+      b.classList.toggle('active', i === 0);
+    });
+    document.querySelectorAll('.hab-limit-unit-btn').forEach(function(b, i){
+      b.classList.toggle('on', i === 0);
+    });
+    _orig && _orig.apply(this, arguments);
   };
 })();
 </script>
+
 </body>
 </html>
