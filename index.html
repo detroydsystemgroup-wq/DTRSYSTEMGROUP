@@ -46291,9 +46291,19 @@ function daysInRange(s, e){
 /* ── Получить челленджи из кеша ──────────────────────────── */
 function getCache(){ return window._chabCache || null; }
 
+/* ── localStorage fallback ───────────────────────────────── */
+const LS_KEY = rid => 'dtr_cch_'+rid;
+function lsLoad(rid){ try{ return JSON.parse(localStorage.getItem(LS_KEY(rid))||'[]'); }catch{ return []; } }
+function lsSave(rid,d){ try{ localStorage.setItem(LS_KEY(rid), JSON.stringify(d)); }catch{} }
+
 function getChallenges(roomId){
-  try{ return getCache()?.perRoom?.[roomId]?.challenges || []; }
-  catch{ return []; }
+  /* Supabase кеш приоритетнее — если есть данные оттуда, используем их */
+  try{
+    const fromCache = getCache()?.perRoom?.[roomId]?.challenges;
+    if(fromCache !== undefined) return fromCache;
+  } catch{}
+  /* Fallback: localStorage */
+  return lsLoad(roomId);
 }
 
 /* ── refreshAllRooms ─────────────────────────────────────── */
@@ -46468,20 +46478,19 @@ function renderCollabChallenges(roomId, members, logs, habits){
 
 /* ── Удалить из Supabase ─────────────────────────────────── */
 window._cchDel = async function(roomId, challId){
-  const sb = getSB2(), user = getUser2();
-  if(!sb || !user){ return; }
-  /* Оптимистично убираем из кеша */
-  try {
-    const rc = _chabCache?.perRoom?.[roomId];
-    if(rc?.challenges) rc.challenges = rc.challenges.filter(c=>c.id!==challId);
-    window._chabSaveCache?.();
-  } catch{}
+  /* Убираем из кеша */
+  const rc = window._chabCache?.perRoom?.[roomId];
+  if(rc?.challenges) rc.challenges = rc.challenges.filter(c=>c.id!==challId);
+  window._chabSaveCache?.();
+  /* Убираем из localStorage */
+  lsSave(roomId, lsLoad(roomId).filter(c=>c.id!==challId));
   refreshAllRooms();
-  /* Удаляем из БД */
-  try {
-    await sb.from('collab_challenges').delete()
-      .eq('id', challId).eq('created_by', user.id);
-  } catch(e){ console.error('_cchDel error:', e); }
+  /* Пробуем удалить из Supabase (только если не локальный ID) */
+  const sb = getSB2(), user = getUser2();
+  if(sb && user && !String(challId).startsWith('cch_ls_')){
+    try{ await sb.from('collab_challenges').delete().eq('id',challId).eq('created_by',user.id); }
+    catch(e){ console.warn('_cchDel supabase:', e.message); }
+  }
 };
 
 /* ── Модалка ─────────────────────────────────────────────── */
@@ -46565,7 +46574,7 @@ window._cchClose = function(){
   if(_cchOv){ _cchOv.remove(); _cchOv=null; _cchRoomId=null; }
 };
 
-/* ── Сохранить в Supabase ────────────────────────────────── */
+/* ── Сохранить: Supabase → localStorage fallback ─────────── */
 window._cchSave = async function(){
   const name   = document.getElementById('cchInpName')?.value?.trim();
   const goal   = document.getElementById('cchInpGoal')?.value?.trim();
@@ -46581,53 +46590,70 @@ window._cchSave = async function(){
     }, 55);
   };
 
-  if(!name)                    return shake(document.getElementById('cchInpName'));
-  if(!start||!end||start>end)  return shake(document.getElementById('cchInpEnd'));
-  if(!habIds.length)           return shake(document.getElementById('cchHabGrid'));
+  if(!name)                   return shake(document.getElementById('cchInpName'));
+  if(!start||!end||start>end) return shake(document.getElementById('cchInpEnd'));
+  if(!habIds.length)          return shake(document.getElementById('cchHabGrid'));
 
   const btn = document.getElementById('cchSaveBtn');
   if(btn){ btn.disabled=true; btn.textContent='...'; }
 
-  const sb = getSB2(), user = getUser2();
-  const rid = _cchRoomId;
+  const sb   = getSB2();
+  const user = getUser2();
+  const rid  = _cchRoomId;
 
-  if(!sb || !user){
-    if(btn){ btn.disabled=false; btn.textContent='Запустить'; }
-    try{ showToast('Необходима авторизация','❌'); }catch{}
-    return;
-  }
+  /* Базовый объект челленджа */
+  const newChallenge = {
+    id:         'cch_ls_'+Date.now(),
+    room_id:    rid,
+    created_by: user?.id || 'local',
+    name,
+    goal:       goal||null,
+    start_date: start,
+    end_date:   end,
+    habit_ids:  habIds,
+    created_at: new Date().toISOString(),
+  };
 
-  try {
-    const {data, error} = await sb.from('collab_challenges').insert({
-      room_id:    rid,
-      created_by: user.id,
-      name,
-      goal:       goal||null,
-      start_date: start,
-      end_date:   end,
-      habit_ids:  habIds,
-    }).select().single();
+  let savedToSupabase = false;
 
-    if(error) throw error;
-
-    /* Добавляем в кеш немедленно */
+  /* 1. Пробуем Supabase */
+  if(sb && user){
     try {
-      const rc = _chabCache?.perRoom?.[rid];
-      if(rc) {
-        if(!rc.challenges) rc.challenges=[];
-        rc.challenges.unshift(data);
-        window._chabSaveCache?.();
-      }
-    } catch{}
+      const {data, error} = await sb.from('collab_challenges').insert({
+        room_id:    rid,
+        created_by: user.id,
+        name,
+        goal:       goal||null,
+        start_date: start,
+        end_date:   end,
+        habit_ids:  habIds,
+      }).select().single();
 
-    _cchClose();
-    refreshAllRooms();
-    try{ showToast('Совместный челлендж запущен!'); }catch{}
-  } catch(e){
-    console.error('_cchSave error:', e);
-    if(btn){ btn.disabled=false; btn.textContent='Запустить'; }
-    try{ showToast('Ошибка сохранения: '+e.message,'❌'); }catch{}
+      if(!error && data){
+        newChallenge.id = data.id;
+        savedToSupabase = true;
+        /* Обновляем Supabase-кеш */
+        const rc = window._chabCache?.perRoom?.[rid];
+        if(rc){ if(!rc.challenges) rc.challenges=[]; rc.challenges.unshift(data); window._chabSaveCache?.(); }
+      }
+    } catch(e){
+      console.warn('collab_challenges table не найдена — сохраняем локально:', e.message);
+    }
   }
+
+  /* 2. Fallback: localStorage */
+  if(!savedToSupabase){
+    const ls = lsLoad(rid);
+    ls.unshift(newChallenge);
+    lsSave(rid, ls);
+    /* Также кладём в кеш для немедленного рендера */
+    const rc = window._chabCache?.perRoom?.[rid];
+    if(rc){ if(!rc.challenges) rc.challenges=[]; rc.challenges.unshift(newChallenge); }
+  }
+
+  _cchClose();
+  refreshAllRooms();
+  try{ showToast(savedToSupabase ? 'Челлендж запущен!' : 'Челлендж запущен (локально)'); }catch{}
 };
 
 /* ── Realtime подписка на collab_challenges ──────────────── */
