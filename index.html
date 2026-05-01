@@ -6348,23 +6348,95 @@ body {
 }
 
 /* ── MATRIX GRID ── */
+/* ── HABIT MATRIX — новый блочный стиль ── */
 .hab-matrix{
-  background:linear-gradient(135deg,rgba(255,255,255,.018),rgba(255,255,255,.008));
+  background:rgba(255,255,255,.02);
   border:0.5px solid rgba(255,255,255,.07);
   border-radius:18px;overflow:hidden;margin-bottom:16px;
-  transition:border-color .25s, box-shadow .25s;
+  position:relative;
 }
-.hab-matrix:hover{ border-color:rgba(255,255,255,.12); box-shadow:0 4px 20px rgba(0,0,0,.2); }
+.hab-matrix::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(139,92,246,.4),rgba(74,222,128,.5),rgba(244,114,182,.3),transparent);
+}
 .hab-matrix-head{display:grid;padding:10px 20px 8px;align-items:center;gap:12px;}
 .hab-matrix-head-left{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);}
+
+/* Шапка блока с заголовком и сортировкой */
+.hab-block-topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 20px 12px;
+  border-bottom:0.5px solid rgba(255,255,255,.05);
+}
+.hab-block-toplabel{
+  display:flex;align-items:center;gap:8px;
+  font-size:11px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:rgba(255,255,255,.3);
+}
+
+/* Заголовки дней */
 .hab-col-lbl{text-align:center;}
-.hab-col-day{font-size:8px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px;}
-.hab-col-date{width:26px;height:26px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;transition:all .18s cubic-bezier(.34,1.56,.64,1);}
-.hab-col-date:hover{ transform:scale(1.15); }
-.hab-col-date.is-today{background:rgba(245,200,66,.15);color:var(--gold);outline:1.5px solid rgba(245,200,66,.45);outline-offset:1px;animation:todayPulse 3s ease infinite;}
-@keyframes todayPulse{0%,100%{box-shadow:0 0 0 0 rgba(245,200,66,.3)}50%{box-shadow:0 0 0 4px rgba(245,200,66,.0)}}
-.hab-col-date.is-past{color:var(--t2);}
-.hab-col-date.is-future{color:var(--t3);opacity:.45;}
+.hab-col-day{font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;margin-bottom:3px;color:rgba(255,255,255,.22);}
+.hab-col-day.is-today{color:#F5C842;}
+.hab-col-date{width:26px;height:26px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:rgba(255,255,255,.45);transition:all .18s cubic-bezier(.34,1.56,.64,1);}
+.hab-col-date.is-today{background:rgba(245,200,66,.12);color:var(--gold);outline:1.5px solid rgba(245,200,66,.4);outline-offset:1px;}
+.hab-col-date.is-past{color:rgba(255,255,255,.6);}
+.hab-col-date.is-future{color:rgba(255,255,255,.25);opacity:.6;}
+
+/* Контейнер карточек */
+.hab-cards-wrap{
+  display:flex;flex-direction:column;
+  gap:8px;
+  padding:12px 14px;
+}
+
+/* Карточка отдельной привычки */
+.hab-row{
+  display:grid;align-items:center;gap:12px;
+  padding:10px 14px;
+  background:rgba(255,255,255,.03);
+  border:0.5px solid rgba(255,255,255,.07);
+  border-radius:12px;
+  transition:border-color .18s,background .18s;
+  position:relative;overflow:hidden;
+}
+.hab-row:hover{
+  background:rgba(255,255,255,.05);
+  border-color:rgba(255,255,255,.12);
+}
+.hab-row.at-risk{
+  border-color:rgba(249,115,22,.25);
+  background:rgba(249,115,22,.03);
+  animation:atRiskPulse 3s ease infinite;
+}
+@keyframes atRiskPulse{0%,100%{background:rgba(249,115,22,.03)}50%{background:rgba(249,115,22,.055)}}
+.hab-row.perfect{
+  border-color:rgba(245,200,66,.18);
+  background:rgba(245,200,66,.025);
+}
+.hab-row.perfect::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;
+  width:2.5px;border-radius:2px 0 0 2px;
+  background:linear-gradient(180deg,rgba(245,200,66,.3),rgba(245,200,66,.6),rgba(245,200,66,.3));
+}
+.hab-row-name{ display:flex;align-items:center;gap:12px;min-width:0; }
+.hab-row-icon{
+  width:38px;height:38px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;flex-shrink:0;
+  transition:transform .2s cubic-bezier(.34,1.56,.64,1);
+  position:relative;overflow:hidden;
+}
+.hab-row:hover .hab-row-icon{ transform:scale(1.08); }
+.hab-row-label{ min-width:0; }
+.hab-row-title{
+  font-size:13px;font-weight:700;color:var(--t1);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;
+}
+.hab-row-sub{
+  font-size:10px;color:var(--t3);margin-top:2px;
+  display:flex;align-items:center;gap:5px;
+}
 
 /* ══ HABIT ROW — Apple Design ══════════════════════════════ */
 .hab-row{
@@ -6413,45 +6485,47 @@ body {
   display:flex;align-items:center;gap:6px;
 }
 
-/* ── CHECK CELL — pill style ── */
+/* ── CHECK CELL — новый стиль ── */
 .hab-cell{
-  width:42px;height:42px;border-radius:12px;
+  width:40px;height:40px;border-radius:10px;
   display:flex;align-items:center;justify-content:center;
   cursor:pointer;
-  border:1.5px solid rgba(255,255,255,.08);
-  background:rgba(255,255,255,.03);
-  transition:background-color .2s,border-color .2s,color .2s,box-shadow .2s,opacity .2s cubic-bezier(.34,1.56,.64,1);
+  border:0.5px solid rgba(255,255,255,.07);
+  background:rgba(255,255,255,.04);
+  transition:background .15s,border-color .15s,transform .12s,box-shadow .15s;
   position:relative;overflow:hidden;flex-shrink:0;
 }
 .hab-cell:hover:not(.cell-future):not(.cell-off){
-  border-color:rgba(255,255,255,.2);
-  background:rgba(255,255,255,.06);
-  transform:scale(1.1);
+  background:rgba(255,255,255,.09);
+  transform:scale(1.08);
+}
+.hab-cell:active:not(.cell-future):not(.cell-off){
+  transform:scale(.88)!important;
 }
 .hab-cell.cell-done{
-  box-shadow:0 3px 14px rgba(0,0,0,.3);
-  border-color:transparent !important;
+  overflow:visible;
 }
 .hab-cell.cell-future{ opacity:.2;pointer-events:none; }
 .hab-cell.cell-off{ opacity:.1;pointer-events:none; }
 .hab-cell.cell-today{
-  box-shadow:0 0 0 2.5px rgba(245,200,66,.5),0 3px 12px rgba(245,200,66,.15);
+  border:1.5px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.05);
 }
 @keyframes cellPop{
-  0%  { transform:scale(.4) rotate(-20deg);opacity:0 }
-  55% { transform:scale(1.22) rotate(6deg) }
-  80% { transform:scale(.94) }
+  0%  { transform:scale(0) rotate(-20deg);opacity:0 }
+  55% { transform:scale(1.3) rotate(5deg) }
+  80% { transform:scale(.93) }
   100%{ transform:scale(1);opacity:1 }
 }
-.hab-cell.cell-done .cell-check{ animation:cellPop .35s cubic-bezier(.34,1.56,.64,1) both; }
+.hab-cell.cell-done .cell-check{ animation:cellPop .38s cubic-bezier(.34,1.56,.64,1) both; }
 .cell-check{ width:100%;height:100%;display:flex;align-items:center;justify-content:center; }
-@keyframes rippleCell{ to{ transform:scale(3.5);opacity:0 } }
+@keyframes rippleCell{ to{ transform:scale(4.5);opacity:0 } }
 .hab-cell::after{
   content:'';position:absolute;inset:0;border-radius:50%;
   background:rgba(255,255,255,.25);
   transform:scale(0);opacity:0;
 }
-.hab-cell.cell-done::after{ animation:rippleCell .45s ease; }
+.hab-cell.cell-done::after{ animation:rippleCell .5s ease; }
 
 /* ── PROGRESS BAR (replaces ring) ── */
 .hab-prog-wrap{
@@ -28198,12 +28272,9 @@ function render(){
   // ── column day headers ──
   const colHead=days.map((d,i)=>{
     const isToday=dk(d)===td;const isPast=d<now&&!isToday;
-    return `<div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px">
-      <div style="font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:${isToday?'var(--gold)':'var(--t3)'}">${DLBL[i]}</div>
-      <div style="width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;
-        background:${isToday?'rgba(245,200,66,.15)':'transparent'};
-        color:${isToday?'var(--gold)':isPast?'var(--t1)':'var(--t3)'};
-        ${isToday?'outline:2px solid rgba(245,200,66,.45);outline-offset:1px':''}">${d.getDate()}</div>
+    return `<div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px">
+      <div class="hab-col-day${isToday?' is-today':''}">${DLBL[i]}</div>
+      <div class="hab-col-date${isToday?' is-today':isPast?' is-past':' is-future'}">${d.getDate()}</div>
     </div>`;
   }).join('');
 
@@ -28222,13 +28293,13 @@ function render(){
       if(isToday)cls+=' cell-today';
       if(future)cls+=' cell-future';
       if(!active)cls+=' cell-off';
-      return `<div class="${cls}" style="${done?`background:${color};border-color:${color};box-shadow:0 3px 12px ${color}55`:''}"
+      return `<div class="${cls}" style="${done?`background:linear-gradient(135deg,${color}40,${color}20);border:0.5px solid ${color}70;box-shadow:0 2px 10px ${color}35`:''}"
         onclick="habToggle('${h.id}','${key}')" title="${d.toLocaleDateString('ru',{day:'numeric',month:'short'})}">
         ${done
-          ?`<div class="cell-check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.95)" stroke-width="2.8" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>`
+          ?`<div class="cell-check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.8" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>`
           :active&&!future
-            ?`<div style="width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.09);box-shadow:0 0 0 2px rgba(255,255,255,.06)"></div>`
-            :`<div style="width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.03)"></div>`
+            ?`<div style="width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.1)"></div>`
+            :`<div style="width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.04)"></div>`
         }
       </div>`;
     }).join('');
@@ -28238,9 +28309,15 @@ function render(){
     const rowAccent=atRiskRow?'border-left:3px solid rgba(249,115,22,.6);background:rgba(249,115,22,.025)':
                    perfectRow?'border-left:3px solid rgba(245,200,66,.5);background:rgba(245,200,66,.025)':'';
     const todLabel={any:'',morning:'🌅',evening:'🌙'}[h.tod||'any']||'';
-    return `<div class="hab-row" style="grid-template-columns:${colsDesktop};${rowAccent}">
+    return `<div class="hab-row${atRiskRow?' at-risk':''}${perfectRow?' perfect':''}" style="grid-template-columns:${colsDesktop}">
       <div class="hab-row-name">
-        <div class="hab-row-icon" style="background:${color}15;border:0.5px solid ${color}30">${esc(h.icon||'🎯')}</div>
+        <div class="hab-row-icon" style="background:${color}18;border:0.5px solid ${color}35;position:relative;overflow:hidden">
+          <div style="position:absolute;inset:0;background:radial-gradient(circle at 35% 35%,${color}40,transparent 65%);pointer-events:none"></div>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <defs><linearGradient id="hig_${h.id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity=".7"/><stop offset="100%" stop-color="${color}"/></linearGradient></defs>
+            <path stroke="url(#hig_${h.id})" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
         <div class="hab-row-label" style="min-width:0">
           <div class="hab-row-title" style="font-size:14px">${esc(h.name)}</div>
           <div class="hab-row-sub">
@@ -28381,18 +28458,27 @@ function render(){
 
   <!-- ═══ HABIT MATRIX ═══ -->
   ${habits.length?`
-  ${sortBar}
   <div class="hab-matrix">
-    <!-- Column headers -->
-    <div style="display:grid;grid-template-columns:${colsDesktop};align-items:center;gap:12px;padding:10px 20px 8px;border-bottom:0.5px solid rgba(255,255,255,.05)">
-      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)">ПРИВЫЧКА</div>
+    <!-- Шапка блока -->
+    <div class="hab-block-topbar">
+      <div class="hab-block-toplabel">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" opacity=".6" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Привычки
+      </div>
+      <div style="display:flex;gap:5px">${sortBar.replace('<div style="display:flex;align-items:center;gap:6px;padding:0 2px;margin-bottom:12px">','').replace('</div>','')}</div>
+    </div>
+    <!-- Заголовки дней -->
+    <div style="display:grid;grid-template-columns:${colsDesktop};align-items:center;gap:12px;padding:10px 20px 10px;border-bottom:0.5px solid rgba(255,255,255,.04)">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.2)">Привычка</div>
       ${colHead}
-      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)">ПРОГРЕСС</div>
+      <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.2);padding-left:4px">Прогресс</div>
       <div></div>
     </div>
-    <!-- Rows -->
-    ${habList}
-    <!-- Add row -->
+    <!-- Карточки привычек -->
+    <div class="hab-cards-wrap">
+      ${habList}
+    </div>
+    <!-- Добавить -->
     <div class="hab-add-row" onclick="_hOpenModal()">
       <div class="hab-add-circle">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
