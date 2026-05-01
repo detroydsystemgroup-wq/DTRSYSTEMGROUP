@@ -6511,6 +6511,9 @@ body {
   border:1.5px solid rgba(255,255,255,.18);
   background:rgba(255,255,255,.05);
 }
+@keyframes rippleNew{0%{transform:scale(0);opacity:.7}100%{transform:scale(4.5);opacity:0}}
+@keyframes floatNewStar{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,calc(-50% - 20px)) scale(.2)}}
+@keyframes cellBounceNew{0%{transform:scale(1)}30%{transform:scale(1.22)}65%{transform:scale(.93)}100%{transform:scale(1)}}
 @keyframes cellPop{
   0%  { transform:scale(0) rotate(-20deg);opacity:0 }
   55% { transform:scale(1.3) rotate(5deg) }
@@ -28563,19 +28566,47 @@ window.habToggle=function(hid,key){
   if(!h){ render(); return; } // fallback для безопасности
   const color=h.color||'#F5C842';
 
-  // ── 2. Патчим ячейку ──
+  // ── 2. Патчим ячейку — новый дизайн ──
   const cells=document.querySelectorAll(`[onclick*="habToggle('${hid}','${key}')"]`);
   cells.forEach(cell=>{
     const done=isDone(hid,key);
+    const wrap=cell.parentElement;
+
     if(done){
-      cell.className='hab-cell cell-done'+(key===td?' cell-today':'');
-      cell.style.background=color; cell.style.borderColor=color;
-      cell.style.boxShadow=`0 3px 12px ${color}55`;
-      cell.innerHTML=`<div class="cell-check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.95)" stroke-width="2.8" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>`;
+      // Всплеск — круговой ряб
+      const rip=document.createElement('div');
+      rip.style.cssText=`position:absolute;width:40px;height:40px;border-radius:50%;background:${color}55;pointer-events:none;z-index:5;top:0;left:0;animation:rippleNew .55s ease-out forwards`;
+      if(wrap) wrap.appendChild(rip);
+      setTimeout(()=>rip&&rip.remove(),650);
+
+      // Частицы разлетаются
+      ['✦','·','★','✦','·'].forEach((p,i)=>{
+        const angle=(i/5)*Math.PI*2;
+        const d=18+Math.random()*10;
+        const s=document.createElement('div');
+        s.textContent=p;
+        s.style.cssText=`position:absolute;color:${color};font-size:${7+Math.random()*5}px;`+
+          `left:${19+Math.cos(angle)*d}px;top:${19+Math.sin(angle)*d}px;`+
+          `transform:translate(-50%,-50%);pointer-events:none;z-index:10;`+
+          `animation:floatNewStar .6s ease-out ${i*45}ms forwards`;
+        if(wrap) wrap.appendChild(s);
+        setTimeout(()=>s&&s.remove(),900);
+      });
+
+      // Ячейка прыгает → выполнена
+      cell.style.animation='cellBounceNew .38s cubic-bezier(.34,1.4,.64,1)';
+      setTimeout(()=>{
+        cell.style.animation='';
+        cell.className='hab-cell cell-done'+(key===td?' cell-today':'');
+        cell.style.background=`linear-gradient(135deg,${color}40,${color}20)`;
+        cell.style.borderColor=`${color}70`;
+        cell.style.boxShadow=`0 0 0 2px ${color}20, 0 3px 14px ${color}35`;
+        cell.innerHTML=`<div class="cell-check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.8" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>`;
+      },180);
     } else {
       cell.className='hab-cell'+(key===td?' cell-today':'');
-      cell.style.background=''; cell.style.borderColor=''; cell.style.boxShadow='';
-      cell.innerHTML=`<div style="width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.09);box-shadow:0 0 0 2px rgba(255,255,255,.06)"></div>`;
+      cell.style.background=''; cell.style.borderColor=''; cell.style.boxShadow=''; cell.style.animation='';
+      cell.innerHTML=`<div style="width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.1)"></div>`;
     }
   });
 
