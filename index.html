@@ -45147,6 +45147,10 @@ document.addEventListener('keydown',function(e){
       }
       console.log('[GV2A] writing innerHTML:', html.length, 'chars,', STATE.rows.length, 'rows');
       listEl.innerHTML = html;
+      // Кешируем правильный HTML и включаем self-heal observer
+      _lastRenderedHtml = html;
+      _selfHealEnabled = true;
+      _selfHealCount = 0;
       console.log('[GV2A] after write — DOM length:', listEl.innerHTML.length, 'children:', listEl.children.length);
     } catch(err) {
       console.error('[GV2A] render fatal error:', err);
@@ -45383,6 +45387,11 @@ document.addEventListener('keydown',function(e){
     STATE.expanded[userId] = !STATE.expanded[userId];
     var el = document.querySelector('.gv2a-user[data-uid="' + cssEscape(userId) + '"]');
     if (el) el.classList.toggle('expanded', !!STATE.expanded[userId]);
+    // Обновить кеш HTML, чтобы self-heal не откатил изменение класса expanded
+    var listEl = document.getElementById('gv2aList');
+    if (listEl && _selfHealEnabled) {
+      _lastRenderedHtml = listEl.innerHTML;
+    }
   }
   function cssEscape(s) {
     return String(s).replace(/[^a-zA-Z0-9_-]/g, function(ch){
@@ -45390,8 +45399,47 @@ document.addEventListener('keydown',function(e){
     });
   }
 
-  /* Stub — диагностика больше не нужна, но функция остаётся вызываемой из render */
-  function _gv2aInstallObserver() {}
+  /* Self-healing observer: если кто-то стёр наш DOM — мгновенно восстанавливаем */
+  var _lastRenderedHtml = '';      // последний правильно срендеренный HTML
+  var _selfHealEnabled = false;    // включаем после первого успешного рендера
+  var _selfHealCount = 0;          // счётчик восстановлений (для предотвращения бесконечной петли)
+  var _selfHealResetTimer = null;
+
+  function _gv2aInstallObserver() {
+    var listEl = document.getElementById('gv2aList');
+    if (!listEl || listEl._gv2aObserved) return;
+    listEl._gv2aObserved = true;
+
+    var obs = new MutationObserver(function(mutations) {
+      // Проверяем — пропал ли наш контент
+      if (!_selfHealEnabled || !_lastRenderedHtml) return;
+      if (_renderInFlight) return; // мы сами сейчас перерисовываем — это нормально
+
+      // Признак того что нас стёрли: содержимое стало радикально короче кеша
+      var currentLen = listEl.innerHTML.length;
+      var cachedLen  = _lastRenderedHtml.length;
+      if (currentLen < cachedLen * 0.5 && cachedLen > 1000) {
+        // Кто-то нас стёр. Восстанавливаем.
+        if (_selfHealCount > 5) {
+          console.error('[GV2A] self-heal aborted — too many restorations, suspect infinite loop');
+          _selfHealEnabled = false;
+          return;
+        }
+        _selfHealCount++;
+        if (_selfHealResetTimer) clearTimeout(_selfHealResetTimer);
+        _selfHealResetTimer = setTimeout(function(){ _selfHealCount = 0; }, 5000);
+
+        console.warn('[GV2A] self-heal: DOM was wiped (' + currentLen + ' chars), restoring ' + cachedLen + ' chars (#' + _selfHealCount + ')');
+        // Используем requestAnimationFrame чтобы не дёргать DOM прямо в callback observer
+        requestAnimationFrame(function(){
+          if (listEl.innerHTML.length < cachedLen * 0.5) {
+            listEl.innerHTML = _lastRenderedHtml;
+          }
+        });
+      }
+    });
+    obs.observe(listEl, { childList: true, characterData: true, subtree: true });
+  }
 
   function updateCatBtnLabel() {
     var labelEl = document.getElementById('gv2aCatLabel');
@@ -45461,6 +45509,9 @@ document.addEventListener('keydown',function(e){
     }
     STATE.selectedCatId = catId;
     STATE.expanded = {}; // сбросить раскрытия
+    // Отключаем self-heal — кеш HTML относится к старой категории
+    _selfHealEnabled = false;
+    _lastRenderedHtml = '';
     toggleCatMenu();
     render();
   }
@@ -45504,6 +45555,11 @@ document.addEventListener('keydown',function(e){
                 (myId ? (like.mine ? 'Убрать лайк' : 'Поставить лайк') : 'Войдите, чтобы лайкнуть');
     btn.setAttribute('title', title);
     btn.setAttribute('aria-label', title);
+    // Обновить кеш HTML
+    var listEl = document.getElementById('gv2aList');
+    if (listEl && _selfHealEnabled) {
+      _lastRenderedHtml = listEl.innerHTML;
+    }
   }
 
   /* Анимация-пульс при клике */
