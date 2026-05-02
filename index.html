@@ -45090,7 +45090,6 @@ document.addEventListener('keydown',function(e){
     // Если уже идёт render — поставим в очередь и выйдем
     if (_renderInFlight) {
       _renderQueued = true;
-      console.log('[GV2A] render: SKIPPED (already in flight)');
       return;
     }
     _renderInFlight = true;
@@ -45145,13 +45144,11 @@ document.addEventListener('keydown',function(e){
       for (var i = 0; i < STATE.rows.length; i++) {
         html += renderRow(STATE.rows[i], i);
       }
-      console.log('[GV2A] writing innerHTML:', html.length, 'chars,', STATE.rows.length, 'rows');
       listEl.innerHTML = html;
       // Кешируем правильный HTML и включаем self-heal observer
       _lastRenderedHtml = html;
       _selfHealEnabled = true;
       _selfHealCount = 0;
-      console.log('[GV2A] after write — DOM length:', listEl.innerHTML.length, 'children:', listEl.children.length);
     } catch(err) {
       console.error('[GV2A] render fatal error:', err);
       listEl.innerHTML = '<div class="gv2a-empty">' +
