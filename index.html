@@ -16270,8 +16270,31 @@ html[data-theme="light"] .dtr-philo-text strong { color: #2a2a2a; }
   font-size: 12px;
   font-weight: 700;
   color: var(--t2);
-  cursor: default;
+  cursor: pointer;
   user-select: none;
+  transition: background .15s, border-color .15s;
+}
+.gv2a-own-summary:hover {
+  background: rgba(245,200,66,.1);
+  border-color: rgba(245,200,66,.25);
+}
+.gv2a-own-summary.expanded {
+  background: rgba(245,200,66,.12);
+  border-color: rgba(245,200,66,.3);
+}
+.gv2a-own-summary-chev {
+  margin-left: 4px;
+  color: var(--t3);
+  transition: transform .25s cubic-bezier(.4,0,.2,1);
+  display: inline-flex;
+  align-items: center;
+}
+.gv2a-own-summary-chev svg {
+  width: 12px; height: 12px;
+}
+.gv2a-own-summary.expanded .gv2a-own-summary-chev {
+  transform: rotate(180deg);
+  color: var(--gold);
 }
 .gv2a-own-summary-item {
   display: inline-flex;
@@ -45973,7 +45996,9 @@ document.addEventListener('keydown',function(e){
     var commentsSectionHtml;
     if (isOwn) {
       actionsHtml =
-        '<div class="gv2a-own-summary" data-gid="' + esc(g.id) + '">' +
+        '<div class="gv2a-own-summary' + (commentsExpanded ? ' expanded' : '') + '" data-gid="' + esc(g.id) + '" ' +
+          'onclick="event.stopPropagation();GV2A.toggleComments(\'' + esc(g.id) + '\')" ' +
+          'role="button" tabindex="0" aria-label="Показать комментарии">' +
           '<span class="gv2a-own-summary-item likes">' +
             '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>' +
             '<span class="num">' + likeData.count + '</span>' +
@@ -45985,15 +46010,23 @@ document.addEventListener('keydown',function(e){
             '<span class="num">' + commentData.count + '</span>' +
             plural(commentData.count, ['комментарий','комментария','комментариев']) +
           '</span>' +
+          '<span class="gv2a-own-summary-chev">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>' +
+          '</span>' +
         '</div>';
-      // Секцию комментариев на своей цели не рендерим — она не открывается
-      commentsSectionHtml = '';
+      // Секция комментариев — read-only (без формы ввода)
+      commentsSectionHtml =
+        '<div class="gv2a-comments-section' + (commentsExpanded ? ' expanded' : '') + '" data-gid="' + esc(g.id) + '">' +
+          '<div class="gv2a-comments-inner" data-gid="' + esc(g.id) + '">' +
+            (commentsExpanded ? renderCommentsBody(g.id, true) : '') +
+          '</div>' +
+        '</div>';
     } else {
       actionsHtml = likeBtnHtml + commentBtnHtml;
       commentsSectionHtml =
         '<div class="gv2a-comments-section' + (commentsExpanded ? ' expanded' : '') + '" data-gid="' + esc(g.id) + '">' +
           '<div class="gv2a-comments-inner" data-gid="' + esc(g.id) + '">' +
-            (commentsExpanded ? renderCommentsBody(g.id) : '') +
+            (commentsExpanded ? renderCommentsBody(g.id, false) : '') +
           '</div>' +
         '</div>';
     }
@@ -46353,7 +46386,7 @@ document.addEventListener('keydown',function(e){
   }
 
   /* Рендер тела секции комментариев — список + форма */
-  function renderCommentsBody(gid) {
+  function renderCommentsBody(gid, readOnly) {
     var data = STATE.comments[gid] || { count: 0, items: [], loaded: false };
     var html = '';
 
@@ -46362,7 +46395,10 @@ document.addEventListener('keydown',function(e){
     } else {
       // Список
       if (data.items.length === 0) {
-        html += '<div class="gv2a-comments-empty">Пока нет комментариев — будь первым</div>';
+        var emptyMsg = readOnly
+          ? 'Пока никто не оставил комментариев'
+          : 'Пока нет комментариев — будь первым';
+        html += '<div class="gv2a-comments-empty">' + emptyMsg + '</div>';
       } else {
         html += '<div class="gv2a-comments-list">' +
           data.items.map(function(c){ return _renderCommentItem(c); }).join('') +
@@ -46370,16 +46406,18 @@ document.addEventListener('keydown',function(e){
       }
     }
 
-    // Форма ввода (только для авторизованных)
-    var myId = uid();
-    if (myId) {
-      html += '<form class="gv2a-comment-form" onsubmit="event.preventDefault();GV2A.postComment(\'' + esc(gid) + '\');return false;">' +
-        '<textarea class="gv2a-comment-input" id="gv2a-cinp-' + esc(gid) + '" placeholder="Напиши что-нибудь поддерживающее…" maxlength="500" rows="1" oninput="GV2A.updateCommentCounter(\'' + esc(gid) + '\')"></textarea>' +
-        '<button type="submit" class="gv2a-comment-send" id="gv2a-csend-' + esc(gid) + '">Отправить</button>' +
-      '</form>' +
-      '<div class="gv2a-comment-counter" id="gv2a-ccount-' + esc(gid) + '">0 / 500</div>';
-    } else {
-      html += '<div class="gv2a-comment-login-prompt">Войдите, чтобы оставить комментарий</div>';
+    // Форма ввода — НЕ рендерим в read-only режиме (на своей цели)
+    if (!readOnly) {
+      var myId = uid();
+      if (myId) {
+        html += '<form class="gv2a-comment-form" onsubmit="event.preventDefault();GV2A.postComment(\'' + esc(gid) + '\');return false;">' +
+          '<textarea class="gv2a-comment-input" id="gv2a-cinp-' + esc(gid) + '" placeholder="Напиши что-нибудь поддерживающее…" maxlength="500" rows="1" oninput="GV2A.updateCommentCounter(\'' + esc(gid) + '\')"></textarea>' +
+          '<button type="submit" class="gv2a-comment-send" id="gv2a-csend-' + esc(gid) + '">Отправить</button>' +
+        '</form>' +
+        '<div class="gv2a-comment-counter" id="gv2a-ccount-' + esc(gid) + '">0 / 500</div>';
+      } else {
+        html += '<div class="gv2a-comment-login-prompt">Войдите, чтобы оставить комментарий</div>';
+      }
     }
 
     return html;
@@ -46409,14 +46447,26 @@ document.addEventListener('keydown',function(e){
     var inner = document.querySelector('.gv2a-comments-inner[data-gid="' + cssEscape(gid) + '"]');
     if (!inner) return;
     var expanded = !!STATE.commentsExpanded[gid];
-    inner.innerHTML = expanded ? renderCommentsBody(gid) : '';
 
-    // Также обновить счётчик в кнопке
+    // Определяем своя ли это цель — для read-only режима
+    var goal = _findGoalById(gid);
+    var myId = uid();
+    var isOwnGoal = !!(goal && myId && goal.user_id === myId);
+
+    inner.innerHTML = expanded ? renderCommentsBody(gid, isOwnGoal) : '';
+
+    // Также обновить счётчик в кнопке (если это не своя цель)
     var btn = document.querySelector('.gv2a-comment-btn[data-gid="' + cssEscape(gid) + '"]');
     if (btn) {
       var cnt = btn.querySelector('.count');
       if (cnt) cnt.textContent = (STATE.comments[gid] && STATE.comments[gid].count) || 0;
       btn.classList.toggle('expanded', expanded);
+    }
+
+    // Если это своя цель — тоггнуть expanded на плашке-сводке
+    var plate = document.querySelector('.gv2a-own-summary[data-gid="' + cssEscape(gid) + '"]');
+    if (plate) {
+      plate.classList.toggle('expanded', expanded);
     }
 
     // Раскрыть/свернуть секцию
