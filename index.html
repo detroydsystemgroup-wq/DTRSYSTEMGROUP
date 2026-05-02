@@ -44958,6 +44958,8 @@ document.addEventListener('keydown',function(e){
       if (goalsRes.error) throw goalsRes.error;
       var goals = goalsRes.data || [];
 
+      console.log('[GV2A] load step 1 (goals):', { catId: catId, count: goals.length, sample: goals[0] });
+
       if (!goals.length) {
         STATE.rows = [];
         return;
@@ -44971,6 +44973,8 @@ document.addEventListener('keydown',function(e){
       if (tasksRes.error) throw tasksRes.error;
       var tasks = tasksRes.data || [];
 
+      console.log('[GV2A] load step 2 (tasks):', { count: tasks.length });
+
       // Step 3: Профили пользователей
       var userIds = Array.from(new Set(goals.map(function(g){ return g.user_id; })));
       var usersRes = await sbc.from('users')
@@ -44978,6 +44982,8 @@ document.addEventListener('keydown',function(e){
         .in('id', userIds);
       if (usersRes.error) throw usersRes.error;
       var users = usersRes.data || [];
+
+      console.log('[GV2A] load step 3 (users):', { wantedIds: userIds, gotCount: users.length, sample: users[0] });
       var userMap = {};
       users.forEach(function(u){ userMap[u.id] = u; });
 
@@ -45018,7 +45024,19 @@ document.addEventListener('keydown',function(e){
       Object.keys(byUser).forEach(function(userId){
         var userGoals = byUser[userId];
         var user = userMap[userId];
-        if (!user) return;  // юзер мог быть удалён
+        // Если профиль не загружен (RLS, удалён и т.п.) — используем fallback,
+        // чтобы юзер всё равно попал в рейтинг
+        if (!user) {
+          user = {
+            id: userId,
+            username: 'Пользователь',
+            avatar: '👤',
+            avatar_url: null,
+            streak: 0,
+            _fallback: true
+          };
+          console.warn('[GV2A] user profile not loaded, using fallback:', userId);
+        }
 
         var totalActual = 0, totalPlanned = 0, totalTasksDone = 0, totalTasksAll = 0, totalHabits = 0;
         var pctSum = 0;
@@ -45065,41 +45083,69 @@ document.addEventListener('keydown',function(e){
     var subEl  = document.getElementById('gv2aHdrSub');
     if (!listEl) return;
 
-    // На первый рендер выбираем первую категорию
-    if (!STATE.selectedCatId) {
-      var cats = getCats();
-      if (cats.length) STATE.selectedCatId = cats[0].id;
+    try {
+      // На первый рендер выбираем первую категорию
+      if (!STATE.selectedCatId) {
+        var cats = getCats();
+        if (cats.length) STATE.selectedCatId = cats[0].id;
+      }
+
+      if (!STATE.selectedCatId) {
+        listEl.innerHTML = renderEmpty('Нет категорий');
+        return;
+      }
+
+      updateCatBtnLabel();
+
+      if (STATE.loading) return; // уже идёт загрузка
+
+      // Skeleton
+      listEl.innerHTML = '<div class="gv2a-skel"></div><div class="gv2a-skel"></div><div class="gv2a-skel"></div>';
+      if (subEl) subEl.textContent = 'Загрузка…';
+
+      await load(STATE.selectedCatId);
+
+      console.log('[GV2A] render: loaded', {
+        category: STATE.selectedCatId,
+        rows: STATE.rows.length,
+        firstRow: STATE.rows[0] ? {
+          userId: STATE.rows[0].user && STATE.rows[0].user.id,
+          username: STATE.rows[0].user && STATE.rows[0].user.username,
+          avgPct: STATE.rows[0].avgPct,
+          goalsCount: STATE.rows[0].goals && STATE.rows[0].goals.length
+        } : null
+      });
+
+      // Sub
+      var n = STATE.rows.length;
+      if (subEl) {
+        subEl.textContent = n === 0
+          ? 'В этой категории пока никого нет'
+          : (n + ' ' + plural(n, ['участник','участника','участников']) + ' в категории');
+      }
+
+      if (n === 0) {
+        listEl.innerHTML = renderEmpty('Никто ещё не поставил цель в этой категории');
+        return;
+      }
+
+      // Атомарный рендер: каждая строка обработана в своём try/catch (внутри renderRow)
+      // Если хотя бы одна сломается — она покажется красной плашкой, остальные нормально
+      var html = '';
+      for (var i = 0; i < STATE.rows.length; i++) {
+        html += renderRow(STATE.rows[i], i);
+      }
+      listEl.innerHTML = html;
+    } catch(err) {
+      console.error('[GV2A] render fatal error:', err);
+      listEl.innerHTML = '<div class="gv2a-empty">' +
+        '<div class="gv2a-empty-icon" style="background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3);color:#FF6B6B">' +
+          '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+        '</div>' +
+        '<div class="gv2a-empty-t" style="color:#FF6B6B">Ошибка загрузки</div>' +
+        '<div class="gv2a-empty-s">' + esc(err && err.message || String(err)) + '<br><span style="font-size:11px;opacity:.6">Откройте консоль браузера (F12 → Console) и пришлите скриншот ошибки.</span></div>' +
+      '</div>';
     }
-
-    if (!STATE.selectedCatId) {
-      listEl.innerHTML = renderEmpty('Нет категорий');
-      return;
-    }
-
-    updateCatBtnLabel();
-
-    if (STATE.loading) return; // уже идёт загрузка
-
-    // Skeleton
-    listEl.innerHTML = '<div class="gv2a-skel"></div><div class="gv2a-skel"></div><div class="gv2a-skel"></div>';
-    if (subEl) subEl.textContent = 'Загрузка…';
-
-    await load(STATE.selectedCatId);
-
-    // Sub
-    var n = STATE.rows.length;
-    if (subEl) {
-      subEl.textContent = n === 0
-        ? 'В этой категории пока никого нет'
-        : (n + ' ' + plural(n, ['участник','участника','участников']) + ' в категории');
-    }
-
-    if (n === 0) {
-      listEl.innerHTML = renderEmpty('Никто ещё не поставил цель в этой категории');
-      return;
-    }
-
-    listEl.innerHTML = STATE.rows.map(renderRow).join('');
   }
 
   function renderEmpty(msg) {
@@ -45139,47 +45185,94 @@ document.addEventListener('keydown',function(e){
   }
 
   function renderRow(row, idx) {
-    var u = row.user;
-    var isYou = u.id === uid();
-    var expanded = !!STATE.expanded[u.id];
-    var goalsCount = row.goals.length;
+    try {
+      // Defensive: row или row.user могут быть пустыми
+      if (!row || !row.user) {
+        console.warn('[GV2A] renderRow: row or row.user is empty', { row: row, idx: idx });
+        return _renderRowError(idx, 'Нет данных профиля', '?');
+      }
+      var u = row.user;
+      if (!u.id) {
+        console.warn('[GV2A] renderRow: user has no id', { user: u, idx: idx });
+        return _renderRowError(idx, 'Профиль без id', '?');
+      }
+      var isYou = u.id === uid();
+      var expanded = !!STATE.expanded[u.id];
+      var goalsCount = Array.isArray(row.goals) ? row.goals.length : 0;
+      var displayName = (u.username && String(u.username).trim()) || 'Без имени';
+      var avgPct = (typeof row.avgPct === 'number' && !isNaN(row.avgPct)) ? row.avgPct : 0;
+      var totalTasksDone = row.totalTasksDone || 0;
+      var totalTasksAll  = row.totalTasksAll  || 0;
+      var totalActual    = row.totalActual    || 0;
+      var totalPlanned   = row.totalPlanned   || 0;
 
-    var statsHtml = '<span class="gv2a-stats-item">' +
-        '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/></svg>' +
-        goalsCount + ' ' + plural(goalsCount, ['цель','цели','целей']) +
-      '</span>' +
-      '<span class="gv2a-stats-item">' +
-        '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>' +
-        row.totalTasksDone + ' / ' + row.totalTasksAll + ' задач' +
-      '</span>' +
-      (row.totalPlanned > 0
-        ? '<span class="gv2a-stats-item">' +
-            '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
-            fmtHrsPair(row.totalActual, row.totalPlanned) +
-          '</span>'
-        : '');
+      var statsHtml = '<span class="gv2a-stats-item">' +
+          '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/></svg>' +
+          goalsCount + ' ' + plural(goalsCount, ['цель','цели','целей']) +
+        '</span>' +
+        '<span class="gv2a-stats-item">' +
+          '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>' +
+          totalTasksDone + ' / ' + totalTasksAll + ' задач' +
+        '</span>' +
+        (totalPlanned > 0
+          ? '<span class="gv2a-stats-item">' +
+              '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+              fmtHrsPair(totalActual, totalPlanned) +
+            '</span>'
+          : '');
 
-    return '<div class="gv2a-user' + (expanded ? ' expanded' : '') + (isYou ? ' you' : '') + '" data-uid="' + esc(u.id) + '">' +
-      '<div class="gv2a-row" onclick="GV2A.toggleUser(\'' + esc(u.id) + '\')">' +
-        rankHtml(idx) +
-        '<div class="gv2a-avatar">' + avatarHtml(u) + '</div>' +
-        '<div class="gv2a-info">' +
-          '<div class="gv2a-name">' + esc(u.username || 'Без имени') +
-            (isYou ? '<span class="you-tag">ВЫ</span>' : '') +
+      var goalsHtml = '';
+      if (Array.isArray(row.goals)) {
+        try {
+          goalsHtml = row.goals.map(renderGoal).join('');
+        } catch(e) {
+          console.error('[GV2A] renderGoal failed for user', u.id, e);
+          goalsHtml = '<div class="gv2a-empty-s" style="padding:14px">Не удалось показать цели: ' + esc(e && e.message || 'ошибка') + '</div>';
+        }
+      }
+
+      return '<div class="gv2a-user' + (expanded ? ' expanded' : '') + (isYou ? ' you' : '') + '" data-uid="' + esc(u.id) + '">' +
+        '<div class="gv2a-row" onclick="GV2A.toggleUser(\'' + esc(u.id) + '\')">' +
+          rankHtml(idx) +
+          '<div class="gv2a-avatar">' + avatarHtml(u) + '</div>' +
+          '<div class="gv2a-info">' +
+            '<div class="gv2a-name">' + esc(displayName) +
+              (isYou ? '<span class="you-tag">ВЫ</span>' : '') +
+            '</div>' +
+            '<div class="gv2a-stats">' + statsHtml + '</div>' +
           '</div>' +
-          '<div class="gv2a-stats">' + statsHtml + '</div>' +
+          '<div class="gv2a-pct-block">' +
+            '<div class="gv2a-pct">' + avgPct + '<span class="sym">%</span></div>' +
+            '<div class="gv2a-pct-lbl">средн.</div>' +
+          '</div>' +
+          '<div class="gv2a-chev">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>' +
+          '</div>' +
         '</div>' +
-        '<div class="gv2a-pct-block">' +
-          '<div class="gv2a-pct">' + row.avgPct + '<span class="sym">%</span></div>' +
-          '<div class="gv2a-pct-lbl">средн.</div>' +
+        '<div class="gv2a-goals">' +
+          '<div class="gv2a-goals-inner">' +
+            goalsHtml +
+          '</div>' +
         '</div>' +
-        '<div class="gv2a-chev">' +
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>' +
+      '</div>';
+    } catch(err) {
+      console.error('[GV2A] renderRow caught exception:', err, { row: row, idx: idx });
+      return _renderRowError(idx, 'Ошибка рендера: ' + (err && err.message || 'unknown'), '!');
+    }
+  }
+
+  /* Видимый fallback вместо пустой строки — чтобы пользователь видел что что-то не так,
+     а не пустую полосу. */
+  function _renderRowError(idx, msg, sym) {
+    return '<div class="gv2a-user" style="border-color:rgba(239,68,68,.3)">' +
+      '<div class="gv2a-row" style="cursor:default">' +
+        rankHtml(idx) +
+        '<div class="gv2a-avatar" style="background:rgba(239,68,68,.15);color:#FF6B6B">' +
+          '<span style="font-weight:800">' + (sym || '!') + '</span>' +
         '</div>' +
-      '</div>' +
-      '<div class="gv2a-goals">' +
-        '<div class="gv2a-goals-inner">' +
-          row.goals.map(renderGoal).join('') +
+        '<div class="gv2a-info">' +
+          '<div class="gv2a-name" style="color:#FF6B6B">Проблема со строкой</div>' +
+          '<div class="gv2a-stats" style="color:rgba(255,107,107,.7)">' + esc(msg) + '</div>' +
         '</div>' +
       '</div>' +
     '</div>';
