@@ -16026,6 +16026,46 @@ html[data-theme="light"] .dtr-philo-text strong { color: #2a2a2a; }
   opacity: .7;
 }
 
+/* ── Own goal summary plate ──────────────────────────────────── */
+.gv2a-own-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 7px 14px;
+  background: rgba(245,200,66,.06);
+  border: 0.5px solid rgba(245,200,66,.16);
+  border-radius: 9px;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--t2);
+  cursor: default;
+  user-select: none;
+}
+.gv2a-own-summary-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.gv2a-own-summary-item svg {
+  width: 13px; height: 13px;
+  flex-shrink: 0;
+  opacity: .85;
+}
+.gv2a-own-summary-item .num {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--t1);
+}
+.gv2a-own-summary-item.likes svg { color: #FF6B6B; }
+.gv2a-own-summary-item.comments svg { color: #93C5FD; }
+.gv2a-own-summary-divider {
+  width: 1px;
+  height: 14px;
+  background: rgba(255,255,255,.08);
+}
+
 /* Mobile tweaks */
 @media (max-width: 600px) {
   .gv2-wrap { padding: 20px 14px 80px; }
@@ -45636,6 +45676,36 @@ document.addEventListener('keydown',function(e){
         '<span class="count">' + commentData.count + '</span>' +
       '</button>';
 
+    // Для СВОЕЙ цели — вместо кнопок плашка-сводка с счётчиками
+    var actionsHtml;
+    var commentsSectionHtml;
+    if (isOwn) {
+      actionsHtml =
+        '<div class="gv2a-own-summary" data-gid="' + esc(g.id) + '">' +
+          '<span class="gv2a-own-summary-item likes">' +
+            '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>' +
+            '<span class="num">' + likeData.count + '</span>' +
+            plural(likeData.count, ['лайк','лайка','лайков']) +
+          '</span>' +
+          '<span class="gv2a-own-summary-divider"></span>' +
+          '<span class="gv2a-own-summary-item comments">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>' +
+            '<span class="num">' + commentData.count + '</span>' +
+            plural(commentData.count, ['комментарий','комментария','комментариев']) +
+          '</span>' +
+        '</div>';
+      // Секцию комментариев на своей цели не рендерим — она не открывается
+      commentsSectionHtml = '';
+    } else {
+      actionsHtml = likeBtnHtml + commentBtnHtml;
+      commentsSectionHtml =
+        '<div class="gv2a-comments-section' + (commentsExpanded ? ' expanded' : '') + '" data-gid="' + esc(g.id) + '">' +
+          '<div class="gv2a-comments-inner" data-gid="' + esc(g.id) + '">' +
+            (commentsExpanded ? renderCommentsBody(g.id) : '') +
+          '</div>' +
+        '</div>';
+    }
+
     return '<div class="gv2a-goal" style="' + styleVar + '">' +
       '<div class="gv2a-goal-top">' +
         '<div style="min-width:0;flex:1">' +
@@ -45647,14 +45717,9 @@ document.addEventListener('keydown',function(e){
       '<div class="gv2a-goal-bar"><div class="gv2a-goal-bar-fill" style="width:' + pct + '%"></div></div>' +
       '<div class="gv2a-goal-meta">' + meta + '</div>' +
       '<div class="gv2a-goal-actions">' +
-        likeBtnHtml +
-        commentBtnHtml +
+        actionsHtml +
       '</div>' +
-      '<div class="gv2a-comments-section' + (commentsExpanded ? ' expanded' : '') + '" data-gid="' + esc(g.id) + '">' +
-        '<div class="gv2a-comments-inner" data-gid="' + esc(g.id) + '">' +
-          (commentsExpanded ? renderCommentsBody(g.id) : '') +
-        '</div>' +
-      '</div>' +
+      commentsSectionHtml +
     '</div>';
   }
 
@@ -45806,6 +45871,45 @@ document.addEventListener('keydown',function(e){
       }
     }
     return null;
+  }
+
+  /* Перерисовка плашки-сводки на своей цели (если она открыта в DOM) */
+  function _rerenderOwnSummary(gid) {
+    var plate = document.querySelector('.gv2a-own-summary[data-gid="' + cssEscape(gid) + '"]');
+    if (!plate) return;
+    var like = STATE.likes[gid] || { count: 0, mine: false };
+    var comm = STATE.comments[gid] || { count: 0 };
+    var likeNum = plate.querySelector('.gv2a-own-summary-item.likes .num');
+    var commNum = plate.querySelector('.gv2a-own-summary-item.comments .num');
+    var likeWord = plate.querySelector('.gv2a-own-summary-item.likes');
+    var commWord = plate.querySelector('.gv2a-own-summary-item.comments');
+    if (likeNum) likeNum.textContent = like.count;
+    if (commNum) commNum.textContent = comm.count;
+    // Обновить склонение слов (лайк/лайка/лайков)
+    if (likeWord) {
+      var nodes = likeWord.childNodes;
+      // Последний text node — это слово после <span class="num">
+      for (var i = nodes.length - 1; i >= 0; i--) {
+        if (nodes[i].nodeType === 3) {
+          nodes[i].nodeValue = plural(like.count, ['лайк','лайка','лайков']);
+          break;
+        }
+      }
+    }
+    if (commWord) {
+      var nodes2 = commWord.childNodes;
+      for (var j = nodes2.length - 1; j >= 0; j--) {
+        if (nodes2[j].nodeType === 3) {
+          nodes2[j].nodeValue = plural(comm.count, ['комментарий','комментария','комментариев']);
+          break;
+        }
+      }
+    }
+    // Обновить кеш HTML для self-heal
+    var listEl = document.getElementById('gv2aList');
+    if (listEl && _selfHealEnabled) {
+      _lastRenderedHtml = listEl.innerHTML;
+    }
   }
 
   /* Точечная перерисовка кнопки лайка одной цели — без перерисовки списка */
@@ -46320,8 +46424,9 @@ document.addEventListener('keydown',function(e){
     STATE.likes[gid].count += 1;
     if (isMyLike) STATE.likes[gid].mine = true;
 
-    // Перерисовать кнопку лайка (если она в DOM)
+    // Перерисовать кнопку лайка (если она в DOM) или плашку (на своей цели)
     if (typeof rerenderLikeBtn === 'function') rerenderLikeBtn(gid);
+    _rerenderOwnSummary(gid);
   }
 
   function _handleLikeDelete(payload, goalIds) {
@@ -46340,6 +46445,7 @@ document.addEventListener('keydown',function(e){
     if (isMyLike) STATE.likes[gid].mine = false;
 
     if (typeof rerenderLikeBtn === 'function') rerenderLikeBtn(gid);
+    _rerenderOwnSummary(gid);
   }
 
   /* ── Comment INSERT/DELETE handlers ──────────────────────────── */
@@ -46433,6 +46539,8 @@ document.addEventListener('keydown',function(e){
       var cnt = btn.querySelector('.count');
       if (cnt) cnt.textContent = (STATE.comments[gid] && STATE.comments[gid].count) || 0;
     }
+    // На своей цели — обновим плашку-сводку (там нет кнопки)
+    _rerenderOwnSummary(gid);
     // Sync кеша HTML для self-heal
     var listEl = document.getElementById('gv2aList');
     if (listEl && _selfHealEnabled) {
