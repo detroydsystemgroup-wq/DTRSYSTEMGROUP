@@ -15301,6 +15301,426 @@ html[data-theme="light"] .dtr-philo-text strong { color: #2a2a2a; }
   color: var(--t1);
 }
 
+/* ════════════════════════════════════════════════════════════════
+   GV2A — АРЕНА ЦЕЛЕЙ (Сессия A1)
+   ════════════════════════════════════════════════════════════════ */
+
+#tab-goalsArena { padding: 0 !important; }
+.gv2a-wrap {
+  padding: 32px 32px 80px;
+  max-width: 1500px;
+  margin: 0;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--font-display);
+  animation: gv2FadeUp .35s cubic-bezier(.22,1,.36,1) both;
+}
+
+/* ── Header ── */
+.gv2a-hdr {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+.gv2a-hdr-left { min-width: 0; flex: 1; }
+.gv2a-title {
+  font-size: 38px;
+  font-weight: 800;
+  color: var(--t1);
+  letter-spacing: -.035em;
+  margin: 0 0 6px;
+  line-height: 1.05;
+}
+.gv2a-sub {
+  font-size: 14px;
+  color: var(--t3);
+  font-weight: 500;
+}
+
+/* ── Category dropdown ── */
+.gv2a-cat-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.gv2a-cat-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 16px;
+  background: rgba(255,255,255,.04);
+  border: 0.5px solid rgba(255,255,255,.1);
+  border-radius: 11px;
+  color: var(--t1);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+  min-width: 180px;
+  justify-content: space-between;
+}
+.gv2a-cat-btn:hover { background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.18); }
+.gv2a-cat-btn.open { border-color: rgba(245,200,66,.4); }
+.gv2a-cat-btn.open #gv2aCatChev { transform: rotate(180deg); }
+.gv2a-cat-ico {
+  width: 22px; height: 22px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--gv2a-cat-bg, rgba(255,255,255,.06));
+  color: var(--gv2a-cat-color, var(--gold));
+}
+.gv2a-cat-ico svg { width: 13px; height: 13px; }
+
+.gv2a-cat-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 220px;
+  background: var(--panel);
+  border: 0.5px solid rgba(255,255,255,.1);
+  border-radius: 12px;
+  padding: 4px;
+  z-index: 100;
+  box-shadow: 0 16px 48px rgba(0,0,0,.65), 0 0 0 0.5px rgba(255,255,255,.04);
+  animation: arenaDropIn .16s cubic-bezier(.34,1.2,.64,1);
+}
+.gv2a-cat-opt {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--t2);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+  transition: background .14s, color .14s;
+}
+.gv2a-cat-opt:hover { background: rgba(255,255,255,.05); color: var(--t1); }
+.gv2a-cat-opt.on { background: var(--gv2a-opt-bg, rgba(245,200,66,.1)); color: var(--gv2a-opt-color, var(--gold)); }
+.gv2a-cat-opt .ico {
+  width: 22px; height: 22px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(255,255,255,.06);
+  border: 0.5px solid rgba(255,255,255,.08);
+}
+.gv2a-cat-opt .ico svg { width: 13px; height: 13px; }
+.gv2a-cat-opt .name { flex: 1; }
+
+/* ── List ── */
+.gv2a-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── User row ── */
+.gv2a-user {
+  background: linear-gradient(180deg, var(--card) 0%, var(--panel) 100%);
+  border: 0.5px solid rgba(255,255,255,.06);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: border-color .18s, box-shadow .22s;
+  animation: gv2FadeUp .35s cubic-bezier(.22,1,.36,1) both;
+}
+.gv2a-user:hover { border-color: rgba(255,255,255,.12); }
+.gv2a-user.expanded {
+  border-color: rgba(245,200,66,.18);
+  box-shadow: 0 8px 28px rgba(0,0,0,.35);
+}
+.gv2a-user.you {
+  background: linear-gradient(180deg, rgba(245,200,66,.06) 0%, var(--panel) 100%);
+  border-color: rgba(245,200,66,.22);
+}
+
+/* User row header (clickable) */
+.gv2a-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 22px;
+  cursor: pointer;
+  user-select: none;
+  transition: background .15s;
+}
+.gv2a-row:hover { background: rgba(255,255,255,.02); }
+
+.gv2a-rank {
+  flex-shrink: 0;
+  width: 38px;
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--t3);
+  letter-spacing: -.04em;
+  text-align: center;
+}
+.gv2a-rank.gold   { color: #FFD700; }
+.gv2a-rank.silver { color: #C0C0C0; }
+.gv2a-rank.bronze { color: #CD7F32; }
+
+.gv2a-rank-medal {
+  display: inline-block;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.gv2a-avatar {
+  flex-shrink: 0;
+  width: 46px; height: 46px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.06);
+  border: 0.5px solid rgba(255,255,255,.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  overflow: hidden;
+  position: relative;
+}
+.gv2a-avatar img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.gv2a-info {
+  flex: 1;
+  min-width: 0;
+}
+.gv2a-name {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--t1);
+  letter-spacing: -.022em;
+  margin: 0 0 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gv2a-name .you-tag {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--gold);
+  background: rgba(245,200,66,.12);
+  padding: 2px 7px;
+  border-radius: 5px;
+  margin-left: 7px;
+  vertical-align: middle;
+}
+.gv2a-stats {
+  font-size: 11.5px;
+  color: var(--t3);
+  font-weight: 600;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.gv2a-stats-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.gv2a-pct-block {
+  flex-shrink: 0;
+  text-align: right;
+  margin-right: 6px;
+}
+.gv2a-pct {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 500;
+  color: var(--t1);
+  letter-spacing: -.04em;
+  line-height: 1;
+}
+.gv2a-pct .sym {
+  font-size: 14px;
+  color: var(--t3);
+  font-weight: 400;
+}
+.gv2a-pct-lbl {
+  font-size: 9.5px;
+  color: var(--t3);
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.gv2a-chev {
+  flex-shrink: 0;
+  color: var(--t3);
+  transition: transform .25s cubic-bezier(.4,0,.2,1);
+}
+.gv2a-user.expanded .gv2a-chev { transform: rotate(180deg); color: var(--gold); }
+.gv2a-chev svg { width: 16px; height: 16px; }
+
+/* Goals list (expanded section) */
+.gv2a-goals {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .35s cubic-bezier(.4,0,.2,1);
+  border-top: 0.5px solid rgba(255,255,255,.05);
+}
+.gv2a-user.expanded .gv2a-goals { max-height: 4000px; }
+.gv2a-goals-inner {
+  padding: 16px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gv2a-goal {
+  position: relative;
+  background: rgba(255,255,255,.025);
+  border: 0.5px solid rgba(255,255,255,.06);
+  border-radius: 12px;
+  padding: 14px 16px 14px 18px;
+  overflow: hidden;
+}
+.gv2a-goal::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--gv2a-goal-color, var(--gold));
+}
+
+.gv2a-goal-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.gv2a-goal-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--t1);
+  letter-spacing: -.018em;
+  line-height: 1.3;
+  margin: 0;
+  word-break: break-word;
+}
+.gv2a-goal-cat {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--gv2a-goal-color, var(--gold));
+  margin-bottom: 2px;
+}
+.gv2a-goal-pct {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--t1);
+  letter-spacing: -.04em;
+  line-height: 1;
+}
+.gv2a-goal-pct .sym {
+  font-size: 11px;
+  color: var(--t3);
+  font-weight: 400;
+}
+
+.gv2a-goal-bar {
+  height: 3px;
+  background: rgba(255,255,255,.05);
+  border-radius: 2px;
+  overflow: hidden;
+  margin: 8px 0 10px;
+}
+.gv2a-goal-bar-fill {
+  height: 100%;
+  background: var(--gv2a-goal-color, var(--gold));
+  border-radius: 2px;
+  transition: width .9s cubic-bezier(.4,0,.2,1);
+}
+
+.gv2a-goal-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--t3);
+  font-weight: 600;
+}
+.gv2a-goal-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.gv2a-goal-meta-item svg { width: 11px; height: 11px; opacity: .65; flex-shrink: 0; }
+
+/* States */
+.gv2a-empty {
+  text-align: center;
+  padding: 60px 20px;
+  background: rgba(255,255,255,.015);
+  border: 1px dashed rgba(255,255,255,.08);
+  border-radius: 16px;
+}
+.gv2a-empty-icon {
+  width: 56px; height: 56px;
+  border-radius: 16px;
+  background: rgba(245,200,66,.07);
+  border: 0.5px solid rgba(245,200,66,.18);
+  color: var(--gold);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+.gv2a-empty-t {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--t1);
+  margin-bottom: 6px;
+}
+.gv2a-empty-s {
+  font-size: 12.5px;
+  color: var(--t3);
+  max-width: 340px;
+  margin: 0 auto;
+  line-height: 1.55;
+}
+
+.gv2a-skel {
+  background: linear-gradient(90deg, rgba(255,255,255,.025) 0%, rgba(255,255,255,.05) 50%, rgba(255,255,255,.025) 100%);
+  background-size: 200% 100%;
+  border-radius: 16px;
+  height: 84px;
+  animation: gv2Shimmer 1.4s linear infinite;
+  margin-bottom: 12px;
+}
+
 /* Mobile tweaks */
 @media (max-width: 600px) {
   .gv2-wrap { padding: 20px 14px 80px; }
@@ -15322,6 +15742,21 @@ html[data-theme="light"] .dtr-philo-text strong { color: #2a2a2a; }
   .gv2-d-hero { padding: 18px 18px; }
   .gv2-d-hero-name { font-size: 19px; }
   .gv2-d-hero-pct { font-size: 28px; }
+  /* Goals Arena */
+  .gv2a-wrap { padding: 20px 14px 80px; }
+  .gv2a-title { font-size: 26px; }
+  .gv2a-sub { font-size: 12px; }
+  .gv2a-cat-btn { min-width: 0; padding: 10px 12px; font-size: 12px; width: 100%; }
+  .gv2a-cat-wrap { width: 100%; }
+  .gv2a-cat-menu { left: 0; right: 0; }
+  .gv2a-row { padding: 14px 14px; gap: 12px; }
+  .gv2a-rank { width: 28px; font-size: 18px; }
+  .gv2a-avatar { width: 38px; height: 38px; font-size: 18px; }
+  .gv2a-name { font-size: 14px; }
+  .gv2a-pct { font-size: 22px; }
+  .gv2a-stats { font-size: 11px; }
+  .gv2a-goals-inner { padding: 12px 14px 16px; }
+  .gv2a-goal { padding: 12px 14px 12px 16px; }
 }
 </style>
 </head>
@@ -15846,6 +16281,12 @@ html[data-theme="light"] .dtr-philo-text strong { color: #2a2a2a; }
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
         </div>
         <span>Цели</span>
+      </div>
+      <div class="stab" onclick="showTab('goalsArena',this)" data-tab="goalsArena" role="tab" aria-label="Арена целей">
+        <div class="tab-icon-wrap">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+        </div>
+        <span>Арена целей</span>
       </div>
   </div>
 
@@ -16433,6 +16874,31 @@ window.toggleLikeUser = async function(){
 
       <!-- Detail screen — пустой контейнер для Сессии 3 -->
       <div class="gv2-detail" id="gv2Detail" style="display:none"></div>
+    </div>
+
+    <div id="tab-goalsArena" class="tc">
+      <!-- ══ GV2A: Арена целей ════════════════════════════════════ -->
+      <div class="gv2a-wrap">
+        <!-- Header -->
+        <div class="gv2a-hdr">
+          <div class="gv2a-hdr-left">
+            <h2 class="gv2a-title">Арена целей</h2>
+            <div class="gv2a-sub" id="gv2aHdrSub">Кто впереди в достижении целей</div>
+          </div>
+          <!-- Category dropdown -->
+          <div class="gv2a-cat-wrap" id="gv2aCatWrap">
+            <button class="gv2a-cat-btn" id="gv2aCatBtn" onclick="GV2A.toggleCatMenu()" aria-haspopup="listbox">
+              <span class="gv2a-cat-ico" id="gv2aCatIco"></span>
+              <span id="gv2aCatLabel">Категория</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" id="gv2aCatChev" style="opacity:.5;transition:transform .18s"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="gv2a-cat-menu" id="gv2aCatMenu" style="display:none" role="listbox"></div>
+          </div>
+        </div>
+
+        <!-- List of users with rating -->
+        <div class="gv2a-list" id="gv2aList"></div>
+      </div>
     </div>
 
 
@@ -25124,6 +25590,9 @@ function showTab(name,el,skipHistory){
 
   if(name==='goals'){
     if(window.GV2 && typeof window.GV2.render === 'function') setTimeout(function(){ window.GV2.render(); }, 60);
+  }
+  if(name==='goalsArena'){
+    if(window.GV2A && typeof window.GV2A.render === 'function') setTimeout(function(){ window.GV2A.render(); }, 60);
   }
   // Push to browser history so back button works
   if(!skipHistory && P){
@@ -44281,6 +44750,488 @@ document.addEventListener('keydown',function(e){
     if (ov && ov.classList.contains('show')) { closeCreate(); return; }
     // Если модалок нет, и мы на детальном экране — не закрываем (Esc должен оставаться для модалок только)
   });
+
+})();
+</script>
+
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   DTR GOALS v2 ARENA (GV2A) — Сессия A1
+   Рейтинг пользователей по среднему % достижения целей в категории
+   ════════════════════════════════════════════════════════════════ */
+(function(){
+  'use strict';
+
+  /* ── State ── */
+  var STATE = {
+    selectedCatId: null,    // выбранная категория
+    rows: [],               // [{user, goals:[], avgPct, totalActual, totalPlanned, totalTasksDone, totalTasksAll, totalHabits}]
+    loading: false,
+    expanded: {},           // userId → bool
+    catMenuOpen: false
+  };
+
+  /* ── Helpers ── */
+  function sb() { return (typeof window.sb !== 'undefined') ? window.sb : null; }
+  function uid() { return (typeof SB_USER !== 'undefined' && SB_USER && !SB_USER.isDemoUser) ? SB_USER.id : null; }
+  function esc(s) {
+    var d = document.createElement('div');
+    d.textContent = (s == null) ? '' : String(s);
+    return d.innerHTML;
+  }
+
+  /* Доступные категории — берём из GV2.CATS (но без "custom" для арены) */
+  function getCats() {
+    if (!window.GV2 || !window.GV2.CATS) return [];
+    return window.GV2.CATS.filter(function(c){ return c.id !== 'custom'; });
+  }
+  function findCat(id) {
+    var cats = getCats();
+    for (var i=0; i<cats.length; i++) if (cats[i].id === id) return cats[i];
+    return cats[0] || null;
+  }
+
+  /* Hex → rgba */
+  function hexA(hex, a) {
+    var h = (hex || '#F5C842').replace('#','');
+    if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    var r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+    return 'rgba('+r+','+g+','+b+','+a+')';
+  }
+
+  /* Прогресс цели — используем формулу из GV2 если доступна, иначе fallback */
+  function goalProgress(g) {
+    if (window.GV2 && typeof window.GV2.goalProgress === 'function') {
+      return window.GV2.goalProgress(g);
+    }
+    var tasks = g.tasks || [];
+    if (!tasks.length) return 0;
+    var totalWeight = 0, weightedSum = 0;
+    tasks.forEach(function(t){
+      var w = parseFloat(t.planned_hours) || 1;
+      totalWeight += w;
+      var pct = t.is_done ? 100 :
+                (t.planned_hours > 0
+                 ? Math.min(100, Math.round((parseFloat(t.actual_hours) || 0) / t.planned_hours * 100))
+                 : 0);
+      weightedSum += pct * w;
+    });
+    return totalWeight === 0 ? 0 : Math.round(weightedSum / totalWeight);
+  }
+  function goalActualHours(g) {
+    if (window.GV2 && typeof window.GV2.goalActualHours === 'function') {
+      return window.GV2.goalActualHours(g);
+    }
+    var sum = 0;
+    (g.tasks || []).forEach(function(t){
+      sum += parseFloat(t.actual_hours) || 0;
+      var hh = t.habit_hours_accumulated || {};
+      if (typeof hh === 'string') { try { hh = JSON.parse(hh); } catch(e) { hh = {}; } }
+      Object.keys(hh).forEach(function(k){ sum += parseFloat(hh[k]) || 0; });
+    });
+    return sum;
+  }
+  function goalPlannedHours(g) {
+    if (window.GV2 && typeof window.GV2.goalPlannedHours === 'function') {
+      return window.GV2.goalPlannedHours(g);
+    }
+    var sum = 0;
+    (g.tasks || []).forEach(function(t){ sum += parseFloat(t.planned_hours) || 0; });
+    return sum;
+  }
+  function fmtHrs(h) {
+    if (window.GV2 && typeof window.GV2.fmtHrs === 'function') return window.GV2.fmtHrs(h);
+    var hrs = parseFloat(h) || 0;
+    if (hrs <= 0) return '0 мин';
+    var mins = Math.round(hrs * 60);
+    if (mins < 60) return mins + ' мин';
+    if (mins % 60 === 0) return (mins / 60) + ' ч';
+    return (Math.round(hrs * 10) / 10) + ' ч';
+  }
+  function fmtHrsPair(actual, planned) {
+    if (window.GV2 && typeof window.GV2.fmtHrsPair === 'function') return window.GV2.fmtHrsPair(actual, planned);
+    return fmtHrs(actual) + ' / ' + fmtHrs(planned);
+  }
+
+  /* ════════════════════════════════════════════════
+     LOAD — загрузка всех публичных целей выбранной категории
+  ═══════════════════════════════════════════════ */
+  async function load(catId) {
+    if (STATE.loading) return;
+    STATE.loading = true;
+    try {
+      var sbc = sb();
+      if (!sbc) { STATE.rows = []; return; }
+
+      // Step 1: Все публичные АКТИВНЫЕ цели в категории
+      var goalsRes = await sbc.from('goals')
+        .select('*')
+        .eq('category', catId)
+        .eq('is_public', true)
+        .eq('is_archived', false);
+      if (goalsRes.error) throw goalsRes.error;
+      var goals = goalsRes.data || [];
+
+      if (!goals.length) {
+        STATE.rows = [];
+        return;
+      }
+
+      // Step 2: Задачи всех найденных целей
+      var goalIds = goals.map(function(g){ return g.id; });
+      var tasksRes = await sbc.from('goal_tasks')
+        .select('*')
+        .in('goal_id', goalIds);
+      if (tasksRes.error) throw tasksRes.error;
+      var tasks = tasksRes.data || [];
+
+      // Step 3: Профили пользователей
+      var userIds = Array.from(new Set(goals.map(function(g){ return g.user_id; })));
+      var usersRes = await sbc.from('users')
+        .select('id,username,avatar,avatar_url,streak')
+        .in('id', userIds);
+      if (usersRes.error) throw usersRes.error;
+      var users = usersRes.data || [];
+      var userMap = {};
+      users.forEach(function(u){ userMap[u.id] = u; });
+
+      // Step 4: Группировка целей по user_id, прицепить tasks
+      goals.forEach(function(g){
+        g.tasks = tasks.filter(function(t){ return t.goal_id === g.id; });
+      });
+
+      // Step 5: Построить rows
+      var byUser = {};
+      goals.forEach(function(g){
+        if (!byUser[g.user_id]) byUser[g.user_id] = [];
+        byUser[g.user_id].push(g);
+      });
+
+      var rows = [];
+      Object.keys(byUser).forEach(function(userId){
+        var userGoals = byUser[userId];
+        var user = userMap[userId];
+        if (!user) return;  // юзер мог быть удалён
+
+        var totalActual = 0, totalPlanned = 0, totalTasksDone = 0, totalTasksAll = 0, totalHabits = 0;
+        var pctSum = 0;
+        userGoals.forEach(function(g){
+          pctSum += goalProgress(g);
+          totalActual += goalActualHours(g);
+          totalPlanned += goalPlannedHours(g);
+          (g.tasks || []).forEach(function(t){
+            totalTasksAll++;
+            if (t.is_done) totalTasksDone++;
+            totalHabits += (t.linked_habit_ids || []).length;
+          });
+        });
+        var avgPct = userGoals.length > 0 ? Math.round(pctSum / userGoals.length) : 0;
+
+        rows.push({
+          user: user,
+          goals: userGoals,
+          avgPct: avgPct,
+          totalActual: totalActual,
+          totalPlanned: totalPlanned,
+          totalTasksDone: totalTasksDone,
+          totalTasksAll: totalTasksAll,
+          totalHabits: totalHabits
+        });
+      });
+
+      // Сортировка по убыванию % (Sessions A2/A3 могут добавить вторичные сортировки)
+      rows.sort(function(a, b){ return b.avgPct - a.avgPct; });
+      STATE.rows = rows;
+    } catch(e) {
+      console.error('[GV2A] load error:', e);
+      STATE.rows = [];
+    } finally {
+      STATE.loading = false;
+    }
+  }
+
+  /* ════════════════════════════════════════════════
+     RENDER
+  ═══════════════════════════════════════════════ */
+  async function render() {
+    var listEl = document.getElementById('gv2aList');
+    var subEl  = document.getElementById('gv2aHdrSub');
+    if (!listEl) return;
+
+    // На первый рендер выбираем первую категорию
+    if (!STATE.selectedCatId) {
+      var cats = getCats();
+      if (cats.length) STATE.selectedCatId = cats[0].id;
+    }
+
+    if (!STATE.selectedCatId) {
+      listEl.innerHTML = renderEmpty('Нет категорий');
+      return;
+    }
+
+    updateCatBtnLabel();
+
+    if (STATE.loading) return; // уже идёт загрузка
+
+    // Skeleton
+    listEl.innerHTML = '<div class="gv2a-skel"></div><div class="gv2a-skel"></div><div class="gv2a-skel"></div>';
+    if (subEl) subEl.textContent = 'Загрузка…';
+
+    await load(STATE.selectedCatId);
+
+    // Sub
+    var n = STATE.rows.length;
+    if (subEl) {
+      subEl.textContent = n === 0
+        ? 'В этой категории пока никого нет'
+        : (n + ' ' + plural(n, ['участник','участника','участников']) + ' в категории');
+    }
+
+    if (n === 0) {
+      listEl.innerHTML = renderEmpty('Никто ещё не поставил цель в этой категории');
+      return;
+    }
+
+    listEl.innerHTML = STATE.rows.map(renderRow).join('');
+  }
+
+  function renderEmpty(msg) {
+    return '<div class="gv2a-empty">' +
+      '<div class="gv2a-empty-icon">' +
+        '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>' +
+      '</div>' +
+      '<div class="gv2a-empty-t">' + esc(msg) + '</div>' +
+      '<div class="gv2a-empty-s">Создай свою цель — и появишься здесь первым. Соревнование начинается с первого шага.</div>' +
+    '</div>';
+  }
+
+  function plural(n, forms) {
+    n = Math.abs(n) % 100;
+    var n1 = n % 10;
+    if (n > 10 && n < 20) return forms[2];
+    if (n1 > 1 && n1 < 5)  return forms[1];
+    if (n1 === 1)          return forms[0];
+    return forms[2];
+  }
+
+  function avatarHtml(user) {
+    if (user.avatar_url) {
+      return '<img src="' + esc(user.avatar_url) + '" alt="">';
+    }
+    if (user.avatar) {
+      return '<span>' + esc(user.avatar) + '</span>';
+    }
+    return '<span>👤</span>';
+  }
+
+  function rankHtml(idx) {
+    if (idx === 0) return '<div class="gv2a-rank gold"><span class="gv2a-rank-medal">🥇</span></div>';
+    if (idx === 1) return '<div class="gv2a-rank silver"><span class="gv2a-rank-medal">🥈</span></div>';
+    if (idx === 2) return '<div class="gv2a-rank bronze"><span class="gv2a-rank-medal">🥉</span></div>';
+    return '<div class="gv2a-rank">#' + (idx + 1) + '</div>';
+  }
+
+  function renderRow(row, idx) {
+    var u = row.user;
+    var isYou = u.id === uid();
+    var expanded = !!STATE.expanded[u.id];
+    var goalsCount = row.goals.length;
+
+    var statsHtml = '<span class="gv2a-stats-item">' +
+        '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/></svg>' +
+        goalsCount + ' ' + plural(goalsCount, ['цель','цели','целей']) +
+      '</span>' +
+      '<span class="gv2a-stats-item">' +
+        '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>' +
+        row.totalTasksDone + ' / ' + row.totalTasksAll + ' задач' +
+      '</span>' +
+      (row.totalPlanned > 0
+        ? '<span class="gv2a-stats-item">' +
+            '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+            fmtHrsPair(row.totalActual, row.totalPlanned) +
+          '</span>'
+        : '');
+
+    return '<div class="gv2a-user' + (expanded ? ' expanded' : '') + (isYou ? ' you' : '') + '" data-uid="' + esc(u.id) + '">' +
+      '<div class="gv2a-row" onclick="GV2A.toggleUser(\'' + esc(u.id) + '\')">' +
+        rankHtml(idx) +
+        '<div class="gv2a-avatar">' + avatarHtml(u) + '</div>' +
+        '<div class="gv2a-info">' +
+          '<div class="gv2a-name">' + esc(u.username || 'Без имени') +
+            (isYou ? '<span class="you-tag">ВЫ</span>' : '') +
+          '</div>' +
+          '<div class="gv2a-stats">' + statsHtml + '</div>' +
+        '</div>' +
+        '<div class="gv2a-pct-block">' +
+          '<div class="gv2a-pct">' + row.avgPct + '<span class="sym">%</span></div>' +
+          '<div class="gv2a-pct-lbl">средн.</div>' +
+        '</div>' +
+        '<div class="gv2a-chev">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>' +
+        '</div>' +
+      '</div>' +
+      '<div class="gv2a-goals">' +
+        '<div class="gv2a-goals-inner">' +
+          row.goals.map(renderGoal).join('') +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function renderGoal(g) {
+    var color = (window.GV2 && typeof window.GV2.catColor === 'function') ? window.GV2.catColor(g.category) : '#F5C842';
+    var pct = goalProgress(g);
+    var actualH = goalActualHours(g);
+    var plannedH = goalPlannedHours(g);
+    var taskCount = (g.tasks || []).length;
+    var taskDone = (g.tasks || []).filter(function(t){ return t.is_done; }).length;
+    var habCount = 0;
+    (g.tasks || []).forEach(function(t){
+      habCount += (t.linked_habit_ids || []).length;
+    });
+
+    var styleVar = '--gv2a-goal-color:' + color + ';';
+
+    var meta = '';
+    meta += '<span class="gv2a-goal-meta-item">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>' +
+      taskDone + '/' + taskCount + ' задач' +
+    '</span>';
+
+    if (habCount > 0) {
+      meta += '<span class="gv2a-goal-meta-item">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>' +
+        habCount + ' ' + plural(habCount, ['привычка','привычки','привычек']) +
+      '</span>';
+    }
+
+    if (plannedH > 0) {
+      meta += '<span class="gv2a-goal-meta-item">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+        fmtHrsPair(actualH, plannedH) +
+      '</span>';
+    } else if (actualH > 0) {
+      meta += '<span class="gv2a-goal-meta-item">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+        fmtHrs(actualH) +
+      '</span>';
+    }
+
+    var catName = g.category === 'custom'
+      ? (g.category_custom || 'Своя категория')
+      : (window.GV2 && typeof window.GV2.catLabel === 'function' ? window.GV2.catLabel(g.category) : g.category);
+
+    return '<div class="gv2a-goal" style="' + styleVar + '">' +
+      '<div class="gv2a-goal-top">' +
+        '<div style="min-width:0;flex:1">' +
+          '<div class="gv2a-goal-cat">' + esc(catName) + '</div>' +
+          '<h4 class="gv2a-goal-name">' + esc(g.title) + '</h4>' +
+        '</div>' +
+        '<div class="gv2a-goal-pct">' + pct + '<span class="sym">%</span></div>' +
+      '</div>' +
+      '<div class="gv2a-goal-bar"><div class="gv2a-goal-bar-fill" style="width:' + pct + '%"></div></div>' +
+      '<div class="gv2a-goal-meta">' + meta + '</div>' +
+    '</div>';
+  }
+
+  /* ════════════════════════════════════════════════
+     INTERACTION — toggle user, category select
+  ═══════════════════════════════════════════════ */
+  function toggleUser(userId) {
+    STATE.expanded[userId] = !STATE.expanded[userId];
+    // Не перерисовываем весь список — точечно
+    var el = document.querySelector('.gv2a-user[data-uid="' + cssEscape(userId) + '"]');
+    if (el) el.classList.toggle('expanded', !!STATE.expanded[userId]);
+  }
+  function cssEscape(s) {
+    return String(s).replace(/[^a-zA-Z0-9_-]/g, function(ch){
+      return '\\' + ch.charCodeAt(0).toString(16) + ' ';
+    });
+  }
+
+  function updateCatBtnLabel() {
+    var labelEl = document.getElementById('gv2aCatLabel');
+    var icoEl   = document.getElementById('gv2aCatIco');
+    var btn     = document.getElementById('gv2aCatBtn');
+    if (!labelEl || !icoEl) return;
+    var cat = findCat(STATE.selectedCatId);
+    if (!cat) return;
+    labelEl.textContent = cat.label;
+    if (window.GV2 && window.GV2.CAT_ICONS && window.GV2.CAT_ICONS[cat.id]) {
+      icoEl.innerHTML = window.GV2.CAT_ICONS[cat.id];
+    }
+    if (btn) {
+      btn.style.setProperty('--gv2a-cat-color', cat.color);
+      btn.style.setProperty('--gv2a-cat-bg', hexA(cat.color, 0.1));
+    }
+  }
+
+  function toggleCatMenu() {
+    var menu = document.getElementById('gv2aCatMenu');
+    var btn  = document.getElementById('gv2aCatBtn');
+    if (!menu || !btn) return;
+    STATE.catMenuOpen = !STATE.catMenuOpen;
+    if (STATE.catMenuOpen) {
+      menu.innerHTML = renderCatMenu();
+      menu.style.display = 'block';
+      btn.classList.add('open');
+      // Закрытие по клику вне
+      setTimeout(function(){
+        var close = function(e){
+          var wrap = document.getElementById('gv2aCatWrap');
+          if (wrap && !wrap.contains(e.target)) {
+            menu.style.display = 'none';
+            btn.classList.remove('open');
+            STATE.catMenuOpen = false;
+            document.removeEventListener('click', close);
+          }
+        };
+        document.addEventListener('click', close);
+      }, 50);
+    } else {
+      menu.style.display = 'none';
+      btn.classList.remove('open');
+    }
+  }
+
+  function renderCatMenu() {
+    var cats = getCats();
+    return cats.map(function(c){
+      var isActive = c.id === STATE.selectedCatId;
+      var styleVars = '--gv2a-opt-bg:' + hexA(c.color, 0.1) + ';' +
+                      '--gv2a-opt-color:' + c.color + ';';
+      var icon = (window.GV2 && window.GV2.CAT_ICONS && window.GV2.CAT_ICONS[c.id]) ? window.GV2.CAT_ICONS[c.id] : '';
+      return '<button class="gv2a-cat-opt' + (isActive ? ' on' : '') + '" style="' + styleVars + '" onclick="GV2A.selectCat(\'' + esc(c.id) + '\')">' +
+        '<span class="ico" style="color:' + c.color + '">' + icon + '</span>' +
+        '<span class="name">' + esc(c.label) + '</span>' +
+        (isActive ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="' + c.color + '" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>' : '') +
+      '</button>';
+    }).join('');
+  }
+
+  function selectCat(catId) {
+    if (STATE.selectedCatId === catId) {
+      // Закрыть меню и не делать перезагрузку если та же категория
+      toggleCatMenu();
+      return;
+    }
+    STATE.selectedCatId = catId;
+    STATE.expanded = {}; // сбросить раскрытия
+    toggleCatMenu();
+    render();
+  }
+
+  /* ════════════════════════════════════════════════
+     PUBLIC API
+  ═══════════════════════════════════════════════ */
+  window.GV2A = {
+    render: render,
+    toggleUser: toggleUser,
+    toggleCatMenu: toggleCatMenu,
+    selectCat: selectCat,
+    getState: function(){ return STATE; }
+  };
 
 })();
 </script>
