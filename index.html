@@ -45094,6 +45094,13 @@ document.addEventListener('keydown',function(e){
       return;
     }
     _renderInFlight = true;
+    // Watchdog: если render висит больше 10 секунд — принудительно сбрасываем флаг
+    var watchdog = setTimeout(function(){
+      if (_renderInFlight) {
+        console.warn('[GV2A] render WATCHDOG: forcibly clearing _renderInFlight after 10s');
+        _renderInFlight = false;
+      }
+    }, 10000);
 
     // Установить наблюдатель за DOM (один раз)
     _gv2aInstallObserver();
@@ -45138,7 +45145,9 @@ document.addEventListener('keydown',function(e){
       for (var i = 0; i < STATE.rows.length; i++) {
         html += renderRow(STATE.rows[i], i);
       }
+      console.log('[GV2A] writing innerHTML:', html.length, 'chars,', STATE.rows.length, 'rows');
       listEl.innerHTML = html;
+      console.log('[GV2A] after write — DOM length:', listEl.innerHTML.length, 'children:', listEl.children.length);
     } catch(err) {
       console.error('[GV2A] render fatal error:', err);
       listEl.innerHTML = '<div class="gv2a-empty">' +
@@ -45149,6 +45158,7 @@ document.addEventListener('keydown',function(e){
         '<div class="gv2a-empty-s">' + esc(err && err.message || String(err)) + '<br><span style="font-size:11px;opacity:.6">Откройте консоль браузера (F12 → Console) и пришлите скриншот ошибки.</span></div>' +
       '</div>';
     } finally {
+      clearTimeout(watchdog);
       _renderInFlight = false;
       // Если пока шёл render, был запрошен ещё один — выполним его сейчас
       if (_renderQueued) {
