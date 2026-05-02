@@ -15721,6 +15721,88 @@ html[data-theme="light"] .dtr-philo-text strong { color: #2a2a2a; }
   margin-bottom: 12px;
 }
 
+/* ── Like button (Сессия A2) ────────────────────────────────── */
+.gv2a-goal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 0.5px dashed rgba(255,255,255,.06);
+}
+.gv2a-like-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(255,255,255,.03);
+  border: 0.5px solid rgba(255,255,255,.08);
+  border-radius: 8px;
+  color: var(--t3);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s, transform .12s;
+  user-select: none;
+}
+.gv2a-like-btn:hover {
+  background: rgba(255,255,255,.06);
+  border-color: rgba(255,255,255,.14);
+  color: var(--t2);
+}
+.gv2a-like-btn:active { transform: scale(.95); }
+.gv2a-like-btn .heart {
+  width: 14px; height: 14px;
+  flex-shrink: 0;
+  transition: transform .25s cubic-bezier(.34,1.56,.64,1);
+}
+.gv2a-like-btn .count {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+}
+.gv2a-like-btn.mine {
+  background: rgba(239,68,68,.1);
+  border-color: rgba(239,68,68,.28);
+  color: #FF6B6B;
+}
+.gv2a-like-btn.mine:hover {
+  background: rgba(239,68,68,.16);
+  border-color: rgba(239,68,68,.4);
+}
+.gv2a-like-btn.mine .heart {
+  fill: #FF6B6B;
+  stroke: #FF6B6B;
+}
+.gv2a-like-btn.disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+.gv2a-like-btn.disabled:hover {
+  background: rgba(255,255,255,.03);
+  border-color: rgba(255,255,255,.08);
+  color: var(--t3);
+}
+.gv2a-like-btn.pulse .heart {
+  animation: gv2aLikePulse .45s cubic-bezier(.34,1.56,.64,1);
+}
+
+@keyframes gv2aLikePulse {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.4); }
+  60%  { transform: scale(.9); }
+  100% { transform: scale(1); }
+}
+
+.gv2a-goal-stub-meta {
+  font-size: 10.5px;
+  color: var(--t3);
+  font-weight: 600;
+  opacity: .55;
+}
+
 /* Mobile tweaks */
 @media (max-width: 600px) {
   .gv2-wrap { padding: 20px 14px 80px; }
@@ -44766,10 +44848,13 @@ document.addEventListener('keydown',function(e){
   /* ── State ── */
   var STATE = {
     selectedCatId: null,    // выбранная категория
-    rows: [],               // [{user, goals:[], avgPct, totalActual, totalPlanned, totalTasksDone, totalTasksAll, totalHabits}]
+    rows: [],               // [{user, goals:[], avgPct, ...}]
     loading: false,
     expanded: {},           // userId → bool
-    catMenuOpen: false
+    catMenuOpen: false,
+    // Сессия A2: лайки
+    likes: {},              // goalId → { count: int, mine: bool }
+    likeBusy: {}            // goalId → bool (чтобы не спамить кликами)
   };
 
   /* ── Helpers ── */
@@ -44900,6 +44985,27 @@ document.addEventListener('keydown',function(e){
       goals.forEach(function(g){
         g.tasks = tasks.filter(function(t){ return t.goal_id === g.id; });
       });
+
+      // Step 4.5: Загрузить лайки всех найденных целей (Сессия A2)
+      var likesMap = {};
+      goalIds.forEach(function(id){ likesMap[id] = { count: 0, mine: false }; });
+      try {
+        var likesRes = await sbc.from('goal_likes')
+          .select('goal_id,user_id')
+          .in('goal_id', goalIds);
+        if (!likesRes.error && likesRes.data) {
+          var myId = uid();
+          likesRes.data.forEach(function(L){
+            if (!likesMap[L.goal_id]) likesMap[L.goal_id] = { count: 0, mine: false };
+            likesMap[L.goal_id].count += 1;
+            if (myId && L.user_id === myId) likesMap[L.goal_id].mine = true;
+          });
+        }
+      } catch(e) {
+        // Если таблица ещё не создана — просто без лайков, не ломаем рендер
+        console.warn('[GV2A] likes load skipped:', e && e.message);
+      }
+      STATE.likes = likesMap;
 
       // Step 5: Построить rows
       var byUser = {};
@@ -45122,6 +45228,24 @@ document.addEventListener('keydown',function(e){
       ? (g.category_custom || 'Своя категория')
       : (window.GV2 && typeof window.GV2.catLabel === 'function' ? window.GV2.catLabel(g.category) : g.category);
 
+    // Like button (Сессия A2)
+    var likeData = STATE.likes[g.id] || { count: 0, mine: false };
+    var myId = uid();
+    var isOwn = myId && g.user_id === myId;
+    var disabled = !myId || isOwn; // нельзя лайкать свою цель и неавторизованным
+    var likeTitle = isOwn ? 'Свою цель нельзя лайкнуть' : (myId ? (likeData.mine ? 'Убрать лайк' : 'Поставить лайк') : 'Войдите, чтобы лайкнуть');
+    var likeBtnHtml =
+      '<button class="gv2a-like-btn' + (likeData.mine ? ' mine' : '') + (disabled ? ' disabled' : '') + '" ' +
+        'data-gid="' + esc(g.id) + '" ' +
+        'onclick="event.stopPropagation();GV2A.toggleLike(\'' + esc(g.id) + '\', this)" ' +
+        'title="' + esc(likeTitle) + '" ' +
+        'aria-label="' + esc(likeTitle) + '"' +
+        (disabled ? ' disabled' : '') +
+      '>' +
+        '<svg class="heart" viewBox="0 0 24 24" fill="' + (likeData.mine ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>' +
+        '<span class="count">' + likeData.count + '</span>' +
+      '</button>';
+
     return '<div class="gv2a-goal" style="' + styleVar + '">' +
       '<div class="gv2a-goal-top">' +
         '<div style="min-width:0;flex:1">' +
@@ -45132,6 +45256,10 @@ document.addEventListener('keydown',function(e){
       '</div>' +
       '<div class="gv2a-goal-bar"><div class="gv2a-goal-bar-fill" style="width:' + pct + '%"></div></div>' +
       '<div class="gv2a-goal-meta">' + meta + '</div>' +
+      '<div class="gv2a-goal-actions">' +
+        likeBtnHtml +
+        '<span class="gv2a-goal-stub-meta">Комментарии скоро</span>' +
+      '</div>' +
     '</div>';
   }
 
@@ -45223,6 +45351,130 @@ document.addEventListener('keydown',function(e){
   }
 
   /* ════════════════════════════════════════════════
+     LIKES (Сессия A2)
+  ═══════════════════════════════════════════════ */
+  /* Локальный поиск цели по id во всех rows — для проверки isOwn */
+  function findGoalById(gid) {
+    for (var i=0; i<STATE.rows.length; i++) {
+      var goals = STATE.rows[i].goals;
+      for (var j=0; j<goals.length; j++) {
+        if (goals[j].id === gid) return goals[j];
+      }
+    }
+    return null;
+  }
+
+  /* Точечная перерисовка кнопки лайка одной цели — без перерисовки списка */
+  function rerenderLikeBtn(gid) {
+    var btn = document.querySelector('.gv2a-like-btn[data-gid="' + cssEscape(gid) + '"]');
+    if (!btn) return;
+    var like = STATE.likes[gid] || { count: 0, mine: false };
+    var myId = uid();
+    var goal = findGoalById(gid);
+    var isOwn = goal && myId && goal.user_id === myId;
+    var disabled = !myId || isOwn;
+
+    btn.classList.toggle('mine', !!like.mine);
+    btn.classList.toggle('disabled', disabled);
+    if (disabled) btn.setAttribute('disabled', ''); else btn.removeAttribute('disabled');
+
+    var heart = btn.querySelector('.heart');
+    if (heart) {
+      heart.setAttribute('fill', like.mine ? 'currentColor' : 'none');
+    }
+    var cnt = btn.querySelector('.count');
+    if (cnt) cnt.textContent = like.count;
+
+    var title = isOwn ? 'Свою цель нельзя лайкнуть' :
+                (myId ? (like.mine ? 'Убрать лайк' : 'Поставить лайк') : 'Войдите, чтобы лайкнуть');
+    btn.setAttribute('title', title);
+    btn.setAttribute('aria-label', title);
+  }
+
+  /* Анимация-пульс при клике */
+  function animateLikePulse(btn) {
+    if (!btn) return;
+    btn.classList.remove('pulse');
+    void btn.offsetWidth;  // reflow trigger
+    btn.classList.add('pulse');
+    setTimeout(function(){ btn.classList.remove('pulse'); }, 500);
+  }
+
+  async function toggleLike(gid, btnEl) {
+    if (!gid) return;
+    if (STATE.likeBusy[gid]) return;
+    var myId = uid();
+    if (!myId) {
+      _toastA('Войдите, чтобы лайкнуть', '🔒');
+      return;
+    }
+    var goal = findGoalById(gid);
+    if (goal && goal.user_id === myId) {
+      _toastA('Нельзя лайкнуть свою цель', '⚠️');
+      return;
+    }
+
+    var sbc = sb();
+    if (!sbc) { _toastA('Нет подключения', '❌'); return; }
+
+    if (!STATE.likes[gid]) STATE.likes[gid] = { count: 0, mine: false };
+    var prev = { count: STATE.likes[gid].count, mine: STATE.likes[gid].mine };
+    var willLike = !prev.mine;
+
+    // Оптимистичный апдейт
+    STATE.likes[gid].mine = willLike;
+    STATE.likes[gid].count = Math.max(0, prev.count + (willLike ? 1 : -1));
+    rerenderLikeBtn(gid);
+    if (willLike) animateLikePulse(btnEl);
+
+    STATE.likeBusy[gid] = true;
+    try {
+      if (willLike) {
+        var res = await sbc.from('goal_likes').insert({ goal_id: gid, user_id: myId });
+        if (res.error) {
+          // Если конфликт PK (двойной клик где-то залип) — это OK, лайк уже есть
+          if (res.error.code === '23505') {
+            // Не считаем ошибкой
+          } else {
+            throw res.error;
+          }
+        }
+      } else {
+        var res2 = await sbc.from('goal_likes')
+          .delete()
+          .eq('goal_id', gid)
+          .eq('user_id', myId);
+        if (res2.error) throw res2.error;
+      }
+    } catch(e) {
+      // Откат оптимистичного апдейта
+      console.error('[GV2A] toggleLike error:', e);
+      STATE.likes[gid].mine = prev.mine;
+      STATE.likes[gid].count = prev.count;
+      rerenderLikeBtn(gid);
+      var msg = (e && e.message) ? e.message : 'ошибка';
+      // Частые подсказки
+      if (/relation .* does not exist/i.test(msg)) {
+        _toastA('Запусти migration_goals_arena.sql в Supabase', '⚠️');
+      } else if (/permission denied|policy/i.test(msg)) {
+        _toastA('Нет прав на лайк', '🔒');
+      } else {
+        _toastA('Не удалось: ' + msg, '❌');
+      }
+    } finally {
+      STATE.likeBusy[gid] = false;
+    }
+  }
+
+  /* Локальный toast обёртка */
+  function _toastA(msg, icon) {
+    if (typeof window.showToast === 'function') {
+      try { window.showToast(msg, icon || '✅'); return; } catch(e) {}
+    }
+    console.log('[GV2A toast] ' + (icon || '') + ' ' + msg);
+  }
+
+  /* ════════════════════════════════════════════════
      PUBLIC API
   ═══════════════════════════════════════════════ */
   window.GV2A = {
@@ -45230,6 +45482,7 @@ document.addEventListener('keydown',function(e){
     toggleUser: toggleUser,
     toggleCatMenu: toggleCatMenu,
     selectCat: selectCat,
+    toggleLike: toggleLike,
     getState: function(){ return STATE; }
   };
 
