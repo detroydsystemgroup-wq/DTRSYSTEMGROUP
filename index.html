@@ -25674,7 +25674,13 @@ function showTab(name,el,skipHistory){
     if(window.GV2 && typeof window.GV2.render === 'function') setTimeout(function(){ window.GV2.render(); }, 60);
   }
   if(name==='goalsArena'){
-    if(window.GV2A && typeof window.GV2A.render === 'function') setTimeout(function(){ window.GV2A.render(); }, 60);
+    // Дебаунс: showTab может вызываться много раз подряд (было замечено 12+ вызовов за клик).
+    // Запоминаем последний таймер и сбрасываем его, чтобы render запустился ровно ОДИН раз.
+    if(window.__gv2aShowTabTimer) { clearTimeout(window.__gv2aShowTabTimer); }
+    window.__gv2aShowTabTimer = setTimeout(function(){
+      window.__gv2aShowTabTimer = null;
+      if(window.GV2A && typeof window.GV2A.render === 'function') window.GV2A.render();
+    }, 80);
   }
   // Push to browser history so back button works
   if(!skipHistory && P){
@@ -44958,8 +44964,6 @@ document.addEventListener('keydown',function(e){
       if (goalsRes.error) throw goalsRes.error;
       var goals = goalsRes.data || [];
 
-      console.log('[GV2A] load step 1 (goals):', { catId: catId, count: goals.length, sample: goals[0] });
-
       if (!goals.length) {
         STATE.rows = [];
         return;
@@ -44973,8 +44977,6 @@ document.addEventListener('keydown',function(e){
       if (tasksRes.error) throw tasksRes.error;
       var tasks = tasksRes.data || [];
 
-      console.log('[GV2A] load step 2 (tasks):', { count: tasks.length });
-
       // Step 3: Профили пользователей
       var userIds = Array.from(new Set(goals.map(function(g){ return g.user_id; })));
       var usersRes = await sbc.from('users')
@@ -44982,8 +44984,6 @@ document.addEventListener('keydown',function(e){
         .in('id', userIds);
       if (usersRes.error) throw usersRes.error;
       var users = usersRes.data || [];
-
-      console.log('[GV2A] load step 3 (users):', { wantedIds: userIds, gotCount: users.length, sample: users[0] });
       var userMap = {};
       users.forEach(function(u){ userMap[u.id] = u; });
 
@@ -45078,10 +45078,22 @@ document.addEventListener('keydown',function(e){
   /* ════════════════════════════════════════════════
      RENDER
   ═══════════════════════════════════════════════ */
+  /* Гард против рекурсивных/параллельных вызовов render */
+  var _renderInFlight = false;
+  var _renderQueued = false;
+
   async function render() {
     var listEl = document.getElementById('gv2aList');
     var subEl  = document.getElementById('gv2aHdrSub');
     if (!listEl) return;
+
+    // Если уже идёт render — поставим в очередь и выйдем
+    if (_renderInFlight) {
+      _renderQueued = true;
+      console.log('[GV2A] render: SKIPPED (already in flight)');
+      return;
+    }
+    _renderInFlight = true;
 
     // Установить наблюдатель за DOM (один раз)
     _gv2aInstallObserver();
@@ -45108,17 +45120,6 @@ document.addEventListener('keydown',function(e){
 
       await load(STATE.selectedCatId);
 
-      console.log('[GV2A] render: loaded', {
-        category: STATE.selectedCatId,
-        rows: STATE.rows.length,
-        firstRow: STATE.rows[0] ? {
-          userId: STATE.rows[0].user && STATE.rows[0].user.id,
-          username: STATE.rows[0].user && STATE.rows[0].user.username,
-          avgPct: STATE.rows[0].avgPct,
-          goalsCount: STATE.rows[0].goals && STATE.rows[0].goals.length
-        } : null
-      });
-
       // Sub
       var n = STATE.rows.length;
       if (subEl) {
@@ -45133,16 +45134,11 @@ document.addEventListener('keydown',function(e){
       }
 
       // Атомарный рендер: каждая строка обработана в своём try/catch (внутри renderRow)
-      // Если хотя бы одна сломается — она покажется красной плашкой, остальные нормально
       var html = '';
       for (var i = 0; i < STATE.rows.length; i++) {
-        var rowHtml = renderRow(STATE.rows[i], i);
-        console.log('[GV2A] renderRow #' + i + ' produced HTML length:', rowHtml.length, 'preview:', rowHtml.substring(0, 200));
-        html += rowHtml;
+        html += renderRow(STATE.rows[i], i);
       }
-      console.log('[GV2A] total HTML to inject:', html.length, 'chars; sample:', html.substring(0, 300));
       listEl.innerHTML = html;
-      console.log('[GV2A] AFTER innerHTML write — actual DOM length:', listEl.innerHTML.length, 'children:', listEl.children.length);
     } catch(err) {
       console.error('[GV2A] render fatal error:', err);
       listEl.innerHTML = '<div class="gv2a-empty">' +
@@ -45152,6 +45148,13 @@ document.addEventListener('keydown',function(e){
         '<div class="gv2a-empty-t" style="color:#FF6B6B">Ошибка загрузки</div>' +
         '<div class="gv2a-empty-s">' + esc(err && err.message || String(err)) + '<br><span style="font-size:11px;opacity:.6">Откройте консоль браузера (F12 → Console) и пришлите скриншот ошибки.</span></div>' +
       '</div>';
+    } finally {
+      _renderInFlight = false;
+      // Если пока шёл render, был запрошен ещё один — выполним его сейчас
+      if (_renderQueued) {
+        _renderQueued = false;
+        setTimeout(function(){ render(); }, 0);
+      }
     }
   }
 
@@ -45367,20 +45370,9 @@ document.addEventListener('keydown',function(e){
      INTERACTION — toggle user, category select
   ═══════════════════════════════════════════════ */
   function toggleUser(userId) {
-    console.log('[GV2A] toggleUser called for:', userId);
-    var listEl = document.getElementById('gv2aList');
-    if (listEl) {
-      console.log('[GV2A] toggleUser BEFORE: DOM length:', listEl.innerHTML.length, 'children:', listEl.children.length);
-    }
     STATE.expanded[userId] = !STATE.expanded[userId];
-    // Не перерисовываем весь список — точечно
     var el = document.querySelector('.gv2a-user[data-uid="' + cssEscape(userId) + '"]');
     if (el) el.classList.toggle('expanded', !!STATE.expanded[userId]);
-    if (listEl) {
-      setTimeout(function(){
-        console.log('[GV2A] toggleUser AFTER (50ms): DOM length:', listEl.innerHTML.length, 'children:', listEl.children.length);
-      }, 50);
-    }
   }
   function cssEscape(s) {
     return String(s).replace(/[^a-zA-Z0-9_-]/g, function(ch){
@@ -45388,22 +45380,8 @@ document.addEventListener('keydown',function(e){
     });
   }
 
-  /* Mutation observer для отлова кто стирает DOM в gv2aList */
-  function _gv2aInstallObserver() {
-    var listEl = document.getElementById('gv2aList');
-    if (!listEl || listEl._gv2aObserved) return;
-    listEl._gv2aObserved = true;
-    var obs = new MutationObserver(function(mutations) {
-      mutations.forEach(function(m){
-        if (m.type === 'childList' && m.removedNodes.length > 0) {
-          console.warn('[GV2A] DOM mutation: removed', m.removedNodes.length, 'nodes from gv2aList. Stack:');
-          console.trace();
-        }
-      });
-    });
-    obs.observe(listEl, { childList: true, subtree: false });
-    console.log('[GV2A] MutationObserver installed on gv2aList');
-  }
+  /* Stub — диагностика больше не нужна, но функция остаётся вызываемой из render */
+  function _gv2aInstallObserver() {}
 
   function updateCatBtnLabel() {
     var labelEl = document.getElementById('gv2aCatLabel');
