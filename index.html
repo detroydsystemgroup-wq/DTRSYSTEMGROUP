@@ -45083,6 +45083,9 @@ document.addEventListener('keydown',function(e){
     var subEl  = document.getElementById('gv2aHdrSub');
     if (!listEl) return;
 
+    // Установить наблюдатель за DOM (один раз)
+    _gv2aInstallObserver();
+
     try {
       // На первый рендер выбираем первую категорию
       if (!STATE.selectedCatId) {
@@ -45364,15 +45367,42 @@ document.addEventListener('keydown',function(e){
      INTERACTION — toggle user, category select
   ═══════════════════════════════════════════════ */
   function toggleUser(userId) {
+    console.log('[GV2A] toggleUser called for:', userId);
+    var listEl = document.getElementById('gv2aList');
+    if (listEl) {
+      console.log('[GV2A] toggleUser BEFORE: DOM length:', listEl.innerHTML.length, 'children:', listEl.children.length);
+    }
     STATE.expanded[userId] = !STATE.expanded[userId];
     // Не перерисовываем весь список — точечно
     var el = document.querySelector('.gv2a-user[data-uid="' + cssEscape(userId) + '"]');
     if (el) el.classList.toggle('expanded', !!STATE.expanded[userId]);
+    if (listEl) {
+      setTimeout(function(){
+        console.log('[GV2A] toggleUser AFTER (50ms): DOM length:', listEl.innerHTML.length, 'children:', listEl.children.length);
+      }, 50);
+    }
   }
   function cssEscape(s) {
     return String(s).replace(/[^a-zA-Z0-9_-]/g, function(ch){
       return '\\' + ch.charCodeAt(0).toString(16) + ' ';
     });
+  }
+
+  /* Mutation observer для отлова кто стирает DOM в gv2aList */
+  function _gv2aInstallObserver() {
+    var listEl = document.getElementById('gv2aList');
+    if (!listEl || listEl._gv2aObserved) return;
+    listEl._gv2aObserved = true;
+    var obs = new MutationObserver(function(mutations) {
+      mutations.forEach(function(m){
+        if (m.type === 'childList' && m.removedNodes.length > 0) {
+          console.warn('[GV2A] DOM mutation: removed', m.removedNodes.length, 'nodes from gv2aList. Stack:');
+          console.trace();
+        }
+      });
+    });
+    obs.observe(listEl, { childList: true, subtree: false });
+    console.log('[GV2A] MutationObserver installed on gv2aList');
   }
 
   function updateCatBtnLabel() {
