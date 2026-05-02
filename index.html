@@ -25904,6 +25904,11 @@ function showTab(name,el,skipHistory){
       window.__gv2aShowTabTimer = null;
       if(window.GV2A && typeof window.GV2A.render === 'function') window.GV2A.render();
     }, 80);
+  } else {
+    // Покидаем Арену → отписываемся от realtime, чтобы не есть трафик/память впустую
+    if(window.GV2A && typeof window.GV2A._unsubscribe === 'function') {
+      try { window.GV2A._unsubscribe(); } catch(e) {}
+    }
   }
   // Push to browser history so back button works
   if(!skipHistory && P){
@@ -45403,6 +45408,10 @@ document.addEventListener('keydown',function(e){
       _lastRenderedHtml = html;
       _selfHealEnabled = true;
       _selfHealCount = 0;
+      // Подписываемся на realtime для текущей категории
+      // (отписка от предыдущей подписки если категория сменилась)
+      _unsubscribe();
+      _subscribe();
     } catch(err) {
       console.error('[GV2A] render fatal error:', err);
       listEl.innerHTML = '<div class="gv2a-empty">' +
@@ -46234,6 +46243,203 @@ document.addEventListener('keydown',function(e){
     inp.style.height = Math.min(120, inp.scrollHeight) + 'px';
   }
 
+  /* ════════════════════════════════════════════════
+     REALTIME — подписка на goal_likes и goal_comments
+     ═══════════════════════════════════════════════ */
+
+  var _realtimeChannel = null;
+  var _realtimeStatus = 'idle'; // idle | subscribing | subscribed | error
+
+  function _subscribe() {
+    var sbc = sb();
+    if (!sbc) return;
+    if (_realtimeChannel) return; // уже подписаны
+    if (!STATE.rows || STATE.rows.length === 0) return; // не на что подписываться
+
+    _realtimeStatus = 'subscribing';
+
+    // Список goalIds для текущей категории — фильтруем события только по ним
+    var goalIds = {};
+    STATE.rows.forEach(function(row){
+      (row.goals || []).forEach(function(g){ goalIds[g.id] = true; });
+    });
+
+    // Имя канала с тайм-стампом — чтобы избежать конфликта с предыдущим инстансом
+    var channelName = 'gv2a-arena-' + (STATE.selectedCatId || 'all') + '-' + Date.now();
+
+    _realtimeChannel = sbc.channel(channelName)
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'goal_likes' },
+        function(payload){ _handleLikeInsert(payload, goalIds); })
+      .on('postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'goal_likes' },
+        function(payload){ _handleLikeDelete(payload, goalIds); })
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'goal_comments' },
+        function(payload){ _handleCommentInsert(payload, goalIds); })
+      .on('postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'goal_comments' },
+        function(payload){ _handleCommentDelete(payload, goalIds); })
+      .subscribe(function(status){
+        _realtimeStatus = status === 'SUBSCRIBED' ? 'subscribed' : (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' ? 'error' : 'subscribing');
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('[GV2A] realtime status:', status, '— will retry next render');
+        }
+      });
+  }
+
+  function _unsubscribe() {
+    if (!_realtimeChannel) return;
+    var sbc = sb();
+    try {
+      if (sbc && typeof sbc.removeChannel === 'function') {
+        sbc.removeChannel(_realtimeChannel);
+      }
+    } catch(e) { /* silent */ }
+    _realtimeChannel = null;
+    _realtimeStatus = 'idle';
+  }
+
+  /* ── Like INSERT/DELETE handlers ─────────────────────────────── */
+
+  function _handleLikeInsert(payload, goalIds) {
+    var row = payload && payload.new;
+    if (!row || !goalIds[row.goal_id]) return;
+    var gid = row.goal_id;
+    var myId = uid();
+
+    if (!STATE.likes[gid]) STATE.likes[gid] = { count: 0, mine: false };
+
+    // Защита от эха: если это мой лайк и mine уже true (оптимистично применили) — не дублируем счётчик
+    var isMyLike = myId && row.user_id === myId;
+    if (isMyLike && STATE.likes[gid].mine) {
+      // Уже учли через optimistic update — пропускаем
+      return;
+    }
+
+    STATE.likes[gid].count += 1;
+    if (isMyLike) STATE.likes[gid].mine = true;
+
+    // Перерисовать кнопку лайка (если она в DOM)
+    if (typeof rerenderLikeBtn === 'function') rerenderLikeBtn(gid);
+  }
+
+  function _handleLikeDelete(payload, goalIds) {
+    var row = payload && payload.old;
+    if (!row || !goalIds[row.goal_id]) return;
+    var gid = row.goal_id;
+    var myId = uid();
+
+    if (!STATE.likes[gid]) return;
+
+    var isMyLike = myId && row.user_id === myId;
+    // Защита от эха: если это мой un-like и mine уже false — пропускаем
+    if (isMyLike && !STATE.likes[gid].mine) return;
+
+    STATE.likes[gid].count = Math.max(0, STATE.likes[gid].count - 1);
+    if (isMyLike) STATE.likes[gid].mine = false;
+
+    if (typeof rerenderLikeBtn === 'function') rerenderLikeBtn(gid);
+  }
+
+  /* ── Comment INSERT/DELETE handlers ──────────────────────────── */
+
+  function _handleCommentInsert(payload, goalIds) {
+    var row = payload && payload.new;
+    if (!row || !goalIds[row.goal_id]) return;
+    var gid = row.goal_id;
+    var myId = uid();
+
+    if (!STATE.comments[gid]) {
+      STATE.comments[gid] = { count: 0, items: [], loaded: false };
+    }
+    var data = STATE.comments[gid];
+
+    // Защита от эха: если этот комментарий уже есть в items (оптимистично добавили), пропускаем
+    var alreadyExists = data.items.some(function(c){ return c.id === row.id; });
+    if (alreadyExists) return;
+
+    // Если есть optimistic placeholder с тем же текстом и автором — заменим его на реальный (вместо дубля)
+    if (myId && row.user_id === myId) {
+      var placeholderIdx = data.items.findIndex(function(c){
+        return c.id && c.id.indexOf('temp-') === 0 && c.user_id === myId && c.text === row.text;
+      });
+      if (placeholderIdx >= 0) {
+        // Подменяем placeholder на реальный
+        var existingProfile = data.items[placeholderIdx].user || _userCache[myId] || null;
+        row.user = existingProfile;
+        data.items[placeholderIdx] = row;
+        data.count = data.items.length;
+        if (STATE.commentsExpanded[gid]) _rerenderCommentsSection(gid);
+        return;
+      }
+    }
+
+    // Иначе — это новый комментарий от другого пользователя.
+    // Подгрузим его профиль если ещё не в кеше
+    if (!_userCache[row.user_id]) {
+      var sbc = sb();
+      if (sbc) {
+        sbc.from('users').select('id,username,avatar,avatar_url').eq('id', row.user_id).single()
+          .then(function(res){
+            if (!res.error && res.data) _userCache[row.user_id] = res.data;
+            row.user = _userCache[row.user_id] || null;
+            data.items.push(row);
+            data.count = data.items.length;
+            if (STATE.commentsExpanded[gid]) _rerenderCommentsSection(gid);
+            else _bumpCommentBtnCount(gid);
+          })
+          .catch(function(){
+            // Профиль не загрузился — добавим без него
+            row.user = null;
+            data.items.push(row);
+            data.count = data.items.length;
+            if (STATE.commentsExpanded[gid]) _rerenderCommentsSection(gid);
+            else _bumpCommentBtnCount(gid);
+          });
+        return;
+      }
+    }
+
+    row.user = _userCache[row.user_id] || null;
+    data.items.push(row);
+    data.count = data.items.length;
+    if (STATE.commentsExpanded[gid]) _rerenderCommentsSection(gid);
+    else _bumpCommentBtnCount(gid);
+  }
+
+  function _handleCommentDelete(payload, goalIds) {
+    var row = payload && payload.old;
+    if (!row || !goalIds[row.goal_id]) return;
+    var gid = row.goal_id;
+
+    if (!STATE.comments[gid]) return;
+    var data = STATE.comments[gid];
+
+    var existed = data.items.some(function(c){ return c.id === row.id; });
+    if (!existed) return; // не было — нечего удалять (возможно, уже удалили оптимистично)
+
+    data.items = data.items.filter(function(c){ return c.id !== row.id; });
+    data.count = data.items.length;
+
+    if (STATE.commentsExpanded[gid]) _rerenderCommentsSection(gid);
+    else _bumpCommentBtnCount(gid);
+  }
+
+  /* Обновить только счётчик в кнопке "💬 N" (если секция свёрнута) */
+  function _bumpCommentBtnCount(gid) {
+    var btn = document.querySelector('.gv2a-comment-btn[data-gid="' + cssEscape(gid) + '"]');
+    if (btn) {
+      var cnt = btn.querySelector('.count');
+      if (cnt) cnt.textContent = (STATE.comments[gid] && STATE.comments[gid].count) || 0;
+    }
+    // Sync кеша HTML для self-heal
+    var listEl = document.getElementById('gv2aList');
+    if (listEl && _selfHealEnabled) {
+      _lastRenderedHtml = listEl.innerHTML;
+    }
+  }
+
   /* Локальный toast обёртка */
   function _toastA(msg, icon) {
     if (typeof window.showToast === 'function') {
@@ -46256,6 +46462,9 @@ document.addEventListener('keydown',function(e){
     postComment: postComment,
     deleteComment: deleteComment,
     updateCommentCounter: updateCommentCounter,
+    // Realtime
+    _subscribe: _subscribe,
+    _unsubscribe: _unsubscribe,
     getState: function(){ return STATE; }
   };
 
