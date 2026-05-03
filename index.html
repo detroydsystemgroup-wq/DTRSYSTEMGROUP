@@ -43900,8 +43900,31 @@ document.addEventListener('keydown',function(e){
     return Math.min(Math.max(pct, 0), 100);
   }
 
-  // Прогресс цели — взвешенное среднее по planned_hours
+  // Прогресс цели — по накопленным часам привязанных привычек / целевые часы
+  // Фолбэк: если нет linked_habit_ids или target_hours — старая логика по задачам
   function goalProgress(goal) {
+    var linkedIds = goal.linked_habit_ids || [];
+    var targetHours = parseFloat(goal.target_hours) || 0;
+
+    /* Новая логика: цель привязана к привычкам */
+    if (linkedIds.length > 0 && targetHours > 0) {
+      var logs = {};
+      try { logs = JSON.parse(localStorage.getItem('dtr_l3') || '{}'); } catch(e) {}
+      var totalSecs = 0;
+      linkedIds.forEach(function(hid) {
+        if (!logs[hid]) return;
+        Object.keys(logs[hid]).forEach(function(key) {
+          /* Ключи вида "2025-05-01_secs" — секунды сессий */
+          if (key.indexOf('_secs') >= 0) {
+            totalSecs += parseFloat(logs[hid][key]) || 0;
+          }
+        });
+      });
+      var accumulatedHours = totalSecs / 3600;
+      return Math.min(100, Math.round(accumulatedHours / targetHours * 100));
+    }
+
+    /* Фолбэк: старая логика по задачам */
     var tasks = goal.tasks || [];
     if (!tasks.length) return 0;
     var totalWeight = 0, weightedSum = 0;
@@ -44124,6 +44147,16 @@ document.addEventListener('keydown',function(e){
           '</div>' +
         '</div>' +
 
+        '<div class="gv2-fld">' +
+          '<label class="gv2-lbl" for="gv2cTargetHours">Целевые часы <span style="color:var(--t3);font-weight:400">(сколько часов нужно накопить)</span></label>' +
+          '<input class="gv2-inp" type="number" id="gv2cTargetHours" placeholder="например: 20" min="1" max="9999" style="max-width:160px">' +
+        '</div>' +
+
+        '<div class="gv2-fld" id="gv2cHabitsWrap">' +
+          '<label class="gv2-lbl">Привязать привычки <span style="color:var(--t3);font-weight:400">(только часовые)</span></label>' +
+          '<div id="gv2cHabitsList" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px"></div>' +
+        '</div>' +
+
         '<div class="gv2-modal-acts">' +
           '<button class="gv2-btn gv2-btn-ghost" onclick="GV2.closeCreate()">Отмена</button>' +
           '<button class="gv2-btn gv2-btn-gold" id="gv2cSave" onclick="GV2.saveGoal()">Создать цель</button>' +
@@ -44170,7 +44203,51 @@ document.addEventListener('keydown',function(e){
     setTimeout(function(){
       var inp = document.getElementById('gv2cName');
       if (inp) inp.focus();
+      /* Рендер часовых привычек для выбора */
+      renderGoalHabitPicker();
     }, 50);
+  }
+
+  function renderGoalHabitPicker() {
+    var el = document.getElementById('gv2cHabitsList');
+    var wrap = document.getElementById('gv2cHabitsWrap');
+    if (!el) return;
+    /* Берём только часовые привычки из localStorage */
+    var habs = [];
+    try { habs = JSON.parse(localStorage.getItem('dtr_h3') || '[]'); } catch(e) {}
+    var timeHabs = habs.filter(function(h){ return h.habType === 'time' && h.dailyLimitHrs > 0; });
+    if (wrap) wrap.style.display = timeHabs.length ? 'block' : 'none';
+    if (!timeHabs.length) return;
+    el.innerHTML = timeHabs.map(function(h) {
+      return '<button type="button" class="gv2-hab-chip" data-hid="' + h.id + '" onclick="GV2.toggleGoalHabit(this)" style="display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s">' +
+        '<span>' + (h.icon || '⏱') + '</span>' +
+        '<span>' + esc(h.name) + '</span>' +
+        '<span style="opacity:.5;font-size:10px">' + Math.round(h.dailyLimitHrs * 60) + ' мин/день</span>' +
+      '</button>';
+    }).join('');
+  }
+
+  function toggleGoalHabit(btn) {
+    var on = btn.getAttribute('data-on') === '1';
+    if (on) {
+      btn.removeAttribute('data-on');
+      btn.style.background = 'rgba(255,255,255,.04)';
+      btn.style.borderColor = 'rgba(255,255,255,.1)';
+      btn.style.color = 'var(--t2)';
+    } else {
+      btn.setAttribute('data-on', '1');
+      btn.style.background = 'rgba(245,200,66,.12)';
+      btn.style.borderColor = 'rgba(245,200,66,.45)';
+      btn.style.color = 'var(--gold)';
+    }
+  }
+
+  function getPickedHabitIds() {
+    var ids = [];
+    document.querySelectorAll('#gv2cHabitsList .gv2-hab-chip[data-on="1"]').forEach(function(b){
+      ids.push(b.getAttribute('data-hid'));
+    });
+    return ids;
   }
 
   function closeCreate() {
@@ -44196,6 +44273,11 @@ document.addEventListener('keydown',function(e){
     document.getElementById('gv2cDeadline').value = '';
   }
 
+  /*
+   * SQL MIGRATION — выполни в Supabase SQL Editor:
+   * ALTER TABLE goals ADD COLUMN IF NOT EXISTS target_hours numeric DEFAULT NULL;
+   * ALTER TABLE goals ADD COLUMN IF NOT EXISTS linked_habit_ids jsonb DEFAULT '[]';
+   */
   async function saveGoal() {
     var name = document.getElementById('gv2cName').value.trim();
     var cat = STATE._pickedCat;
@@ -44222,7 +44304,9 @@ document.addEventListener('keydown',function(e){
         deadline_date: deadline,
         is_public: true,
         is_archived: false,
-        total_planned_hours: 0
+        total_planned_hours: 0,
+        target_hours: parseFloat(document.getElementById('gv2cTargetHours').value) || null,
+        linked_habit_ids: getPickedHabitIds()
       };
 
       var res = await sbc.from('goals').insert(record).select().single();
@@ -45354,7 +45438,7 @@ document.addEventListener('keydown',function(e){
     saveTask: saveTask,
     deleteTask: deleteTask,
     toggleTaskDone: toggleTaskDone,
-    // Habit linking
+    // Habit linking (goal form)
     openLinkHabit: openLinkHabit,
     closeLinkHabit: closeLinkHabit,
     pickHabit: pickHabit,
@@ -45362,6 +45446,9 @@ document.addEventListener('keydown',function(e){
     linkHabitConfirm: linkHabitConfirm,
     createAndLinkHabit: createAndLinkHabit,
     unlinkHabit: unlinkHabit,
+    // Привязка привычек к цели (новая система)
+    toggleGoalHabit: toggleGoalHabit,
+    renderGoalHabitPicker: renderGoalHabitPicker,
     // Helpers (для Сессии 4)
     getGoals: function(){ return STATE.goals; },
     getState: function(){ return STATE; },
