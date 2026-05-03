@@ -17107,7 +17107,18 @@ window.toggleLikeUser = async function(){
         </button>
       </div>
 
-
+      <!-- Habit picker for timer -->
+      <div style="padding:8px 20px 0;position:relative" id="timerHabWrap">
+        <button id="timerHabBtn" onclick="dtrToggleHabPicker(event)"
+          style="width:100%;padding:10px 14px;border-radius:10px;border:0.5px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;outline:none;font-family:var(--font-display);transition:all .2s;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left">
+          <span id="timerHabIcon" style="display:flex;align-items:center;justify-content:center;width:20px;height:20px;font-size:15px;flex-shrink:0">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </span>
+          <span id="timerHabLabel" style="flex:1">Выбрать привычку (необязательно)</span>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;opacity:.35"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div id="timerHabPicker" style="display:none;position:absolute;top:calc(100% + 4px);left:20px;right:20px;background:var(--card);border:0.5px solid rgba(255,255,255,.12);border-radius:14px;padding:6px;box-shadow:0 16px 48px rgba(0,0,0,.7);z-index:500;max-height:260px;overflow-y:auto"></div>
+      </div>
 
       <!-- Mode: Free / Timer -->
       <div id="pomBtns" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px 20px 0">
@@ -43612,8 +43623,6 @@ document.addEventListener('keydown',function(e){
     var dl = deadlineLabel(g.deadline_date);
     var overdue = goalIsOverdue(g);
     var done = g.is_archived && g.archive_reason === 'completed';
-    var taskCount = (g.tasks || []).length;
-    var taskDone = (g.tasks || []).filter(function(t){ return t.is_done; }).length;
 
     var cls = 'gv2-card';
     if (done) cls += ' done';
@@ -43621,6 +43630,7 @@ document.addEventListener('keydown',function(e){
 
     var styleVar = '--gv2-cat-color:' + color + ';';
 
+    /* Часы */
     var hoursMeta = '';
     if (plannedH > 0) {
       hoursMeta = '<span class="gv2-card-meta-item">' +
@@ -43634,6 +43644,7 @@ document.addEventListener('keydown',function(e){
       '</span>';
     }
 
+    /* Дедлайн */
     var dlMeta = '';
     if (g.deadline_date || dl.text === 'Без дедлайна') {
       dlMeta = '<span class="gv2-card-meta-item ' + dl.cls + '">' +
@@ -43642,14 +43653,26 @@ document.addEventListener('keydown',function(e){
       '</span>';
     }
 
-    var tasksMeta;
-    if (taskCount > 0) {
-      tasksMeta = '<span class="gv2-card-meta-item">' +
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>' +
-        taskDone + ' / ' + taskCount + ' задач' +
-      '</span>';
-    } else {
-      tasksMeta = '<span class="gv2-card-meta-item" style="color:rgba(245,200,66,.55);font-weight:700">Задач нет — добавь</span>';
+    /* Привязанные привычки */
+    var linkedIds = g.linked_habit_ids || [];
+    var habsMeta = '';
+    var habs = [];
+    try { habs = JSON.parse(localStorage.getItem('dtr_h3') || '[]'); } catch(e) {}
+
+    if (linkedIds.length > 0) {
+      var linkedHabs = linkedIds.map(function(hid){
+        return habs.find(function(h){ return h.id === hid; });
+      }).filter(Boolean);
+      habsMeta = linkedHabs.map(function(h){
+        return '<span class="gv2-card-meta-item" style="color:var(--gold)">' +
+          (h.icon || '⏱') + ' ' + esc(h.name) +
+          '<span style="opacity:.5;font-size:10px;margin-left:4px">' + Math.round(h.dailyLimitHrs * 60) + 'мин</span>' +
+        '</span>';
+      }).join('');
+    } else if (!g.is_archived) {
+      habsMeta = '<button onclick="GV2.openBindHabit(\'' + esc(g.id) + '\')" style="background:rgba(245,200,66,.08);border:0.5px dashed rgba(245,200,66,.35);border-radius:20px;padding:4px 12px;color:rgba(245,200,66,.7);font-family:var(--font-display);font-size:11px;font-weight:700;cursor:pointer;transition:all .15s" onmouseover="this.style.background=\'rgba(245,200,66,.15)\'" onmouseout="this.style.background=\'rgba(245,200,66,.08)\'">' +
+        '+ Привязать привычку' +
+      '</button>';
     }
 
     return '<div class="' + cls + '" style="' + styleVar + '" data-gid="' + esc(g.id) + '">' +
@@ -43673,7 +43696,7 @@ document.addEventListener('keydown',function(e){
       '<div class="gv2-bar"><div class="gv2-bar-inner-wrap"><div class="gv2-bar-fill" style="width:' + pct + '%"></div></div></div>' +
       '<div class="gv2-card-meta">' +
         hoursMeta +
-        tasksMeta +
+        habsMeta +
         dlMeta +
       '</div>' +
     '</div>';
@@ -43795,20 +43818,23 @@ document.addEventListener('keydown',function(e){
   function renderGoalHabitPicker() {
     var el = document.getElementById('gv2cHabitsList');
     var wrap = document.getElementById('gv2cHabitsWrap');
-    if (!el) return;
+    if (!el || !wrap) return;
+    wrap.style.display = 'block';
     /* Берём только часовые привычки из localStorage */
     var habs = [];
     try { habs = JSON.parse(localStorage.getItem('dtr_h3') || '[]'); } catch(e) {}
     var timeHabs = habs.filter(function(h){ return h.habType === 'time' && h.dailyLimitHrs > 0; });
-    if (wrap) wrap.style.display = timeHabs.length ? 'block' : 'none';
-    if (!timeHabs.length) return;
-    el.innerHTML = timeHabs.map(function(h) {
+    var chipsHtml = timeHabs.map(function(h) {
       return '<button type="button" class="gv2-hab-chip" data-hid="' + h.id + '" onclick="GV2.toggleGoalHabit(this)" style="display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s">' +
         '<span>' + (h.icon || '⏱') + '</span>' +
         '<span>' + esc(h.name) + '</span>' +
         '<span style="opacity:.5;font-size:10px">' + Math.round(h.dailyLimitHrs * 60) + ' мин/день</span>' +
       '</button>';
     }).join('');
+    if (!timeHabs.length) {
+      chipsHtml = '<span style="font-size:12px;color:var(--t3)">Нет часовых привычек — создай привычку с типом «Часовая»</span>';
+    }
+    el.innerHTML = chipsHtml;
   }
 
   function toggleGoalHabit(btn) {
@@ -43833,6 +43859,111 @@ document.addEventListener('keydown',function(e){
     });
     return ids;
   }
+
+
+  /* Глобальный toggle для чипов в bind-модалке */
+  window._gv2ToggleBindChip = function(btn) {
+    var on = btn.getAttribute('data-on') === '1';
+    btn.setAttribute('data-on', on ? '0' : '1');
+    btn.style.background  = on ? 'rgba(255,255,255,.04)' : 'rgba(245,200,66,.15)';
+    btn.style.borderColor = on ? 'rgba(255,255,255,.1)'  : 'rgba(245,200,66,.5)';
+    btn.style.color       = on ? 'var(--t2)'             : 'var(--gold)';
+  };
+
+  function openBindHabit(gid) {
+    var g = STATE.goals.find(function(x){ return x.id === gid; });
+    if (!g) return;
+    var habs = [];
+    try { habs = JSON.parse(localStorage.getItem('dtr_h3') || '[]'); } catch(e) {}
+    var timeHabs = habs.filter(function(h){ return h.habType === 'time' && h.dailyLimitHrs > 0; });
+    var linkedIds = g.linked_habit_ids || [];
+    var existing = document.getElementById('gv2BindHabOv');
+    if (existing) existing.remove();
+    var ov = document.createElement('div');
+    ov.id = 'gv2BindHabOv';
+    ov.className = 'gv2-modal-ov show';
+    ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+    var modal = document.createElement('div');
+    modal.className = 'gv2-modal';
+    modal.style.maxWidth = '420px';
+    var hdr = document.createElement('div');
+    hdr.className = 'gv2-modal-hdr';
+    var ttl = document.createElement('h2');
+    ttl.className = 'gv2-modal-title';
+    ttl.textContent = '\u041F\u0440\u0438\u0432\u044F\u0437\u0430\u0442\u044C \u043F\u0440\u0438\u0432\u044B\u0447\u043A\u0438';
+    var xBtn = document.createElement('button');
+    xBtn.className = 'gv2-modal-close';
+    xBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+    xBtn.onclick = function(){ ov.remove(); };
+    hdr.appendChild(ttl); hdr.appendChild(xBtn);
+    var body = document.createElement('div');
+    body.className = 'gv2-modal-body';
+    var hint = document.createElement('p');
+    hint.style.cssText = 'font-size:12px;color:var(--t3);margin-bottom:14px';
+    hint.textContent = '\u0412\u044B\u0431\u0435\u0440\u0438 \u0447\u0430\u0441\u043E\u0432\u044B\u0435 \u043F\u0440\u0438\u0432\u044B\u0447\u043A\u0438 \u2014 \u0438\u0445 \u043F\u0440\u043E\u0433\u0440\u0435\u0441\u0441 \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438 \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u0432 \u0446\u0435\u043B\u044C';
+    body.appendChild(hint);
+    var list = document.createElement('div');
+    list.id = 'gv2BindHabList';
+    list.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px';
+    if (timeHabs.length === 0) {
+      var empty = document.createElement('p');
+      empty.style.cssText = 'color:var(--t3);font-size:13px';
+      empty.textContent = '\u041D\u0435\u0442 \u0447\u0430\u0441\u043E\u0432\u044B\u0445 \u043F\u0440\u0438\u0432\u044B\u0447\u0435\u043A. \u0421\u043E\u0437\u0434\u0430\u0439 \u043F\u0440\u0438\u0432\u044B\u0447\u043A\u0443 \u0441 \u0442\u0438\u043F\u043E\u043C \u00AB\u0427\u0430\u0441\u043E\u0432\u0430\u044F\u00BB \u0432 \u0440\u0430\u0437\u0434\u0435\u043B\u0435 \u041F\u0440\u0438\u0432\u044B\u0447\u043A\u0438.';
+      list.appendChild(empty);
+    } else {
+      timeHabs.forEach(function(h) {
+        var on = linkedIds.indexOf(h.id) >= 0;
+        var chip = document.createElement('button');
+        chip.type = 'button';
+        chip.setAttribute('data-hid', h.id);
+        chip.setAttribute('data-on', on ? '1' : '0');
+        chip.style.cssText = 'display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:20px;cursor:pointer;font-family:var(--font-display);font-size:12px;font-weight:600;transition:all .15s;border:1px solid ' +
+          (on ? 'rgba(245,200,66,.5)' : 'rgba(255,255,255,.1)') +
+          ';background:' + (on ? 'rgba(245,200,66,.15)' : 'rgba(255,255,255,.04)') +
+          ';color:' + (on ? 'var(--gold)' : 'var(--t2)');
+        chip.onclick = function(){ window._gv2ToggleBindChip(this); };
+        chip.innerHTML = '<span>' + (h.icon || '\u23F1') + '</span><span>' + h.name.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</span><span style="opacity:.5;font-size:10px">' + Math.round(h.dailyLimitHrs * 60) + '\u00A0\u043C\u0438\u043D/\u0434\u0435\u043D\u044C</span>';
+        list.appendChild(chip);
+      });
+    }
+    body.appendChild(list);
+    var acts = document.createElement('div');
+    acts.className = 'gv2-modal-acts';
+    var cancelBtn = document.createElement('button');
+    cancelBtn.className = 'gv2-btn gv2-btn-ghost';
+    cancelBtn.textContent = '\u041E\u0442\u043C\u0435\u043D\u0430';
+    cancelBtn.onclick = function(){ ov.remove(); };
+    var saveBtn = document.createElement('button');
+    saveBtn.className = 'gv2-btn gv2-btn-gold';
+    saveBtn.textContent = '\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C';
+    saveBtn.onclick = function(){ GV2.saveBindHabit(gid); };
+    acts.appendChild(cancelBtn); acts.appendChild(saveBtn);
+    body.appendChild(acts);
+    modal.appendChild(hdr); modal.appendChild(body);
+    ov.appendChild(modal);
+    document.body.appendChild(ov);
+  }
+
+  async function saveBindHabit(gid) {
+    var g = STATE.goals.find(function(x){ return x.id === gid; });
+    if (!g) return;
+    var ids = [];
+    document.querySelectorAll('#gv2BindHabList button[data-on="1"]').forEach(function(b){
+      ids.push(b.getAttribute('data-hid'));
+    });
+    try {
+      var sbc = sb();
+      if (sbc) await sbc.from('goals').update({ linked_habit_ids: ids }).eq('id', gid);
+      g.linked_habit_ids = ids;
+      var ov = document.getElementById('gv2BindHabOv');
+      if (ov) ov.remove();
+      _toast('\u041F\u0440\u0438\u0432\u044B\u0447\u043A\u0438 \u043F\u0440\u0438\u0432\u044F\u0437\u0430\u043D\u044B', '\U0001F517');
+      render();
+    } catch(e) {
+      _toast('\u041E\u0448\u0438\u0431\u043A\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F', '\u274C');
+    }
+  }
+
 
   function closeCreate() {
     var ov = document.getElementById('gv2CreateOv');
@@ -44412,6 +44543,8 @@ document.addEventListener('keydown',function(e){
     // Привязка привычек к цели (новая система)
     toggleGoalHabit: toggleGoalHabit,
     renderGoalHabitPicker: renderGoalHabitPicker,
+    openBindHabit: openBindHabit,
+    saveBindHabit: saveBindHabit,
     // Helpers (для Сессии 4)
     getGoals: function(){ return STATE.goals; },
     getState: function(){ return STATE; },
@@ -45983,29 +46116,103 @@ function ttkTodayLoggedSecs(habId) {
   return logs[today + '_secs'] || 0;
 }
 
+/* ── Render habit picker dropdown ── */
+function dtrRenderHabPicker(picker) {
+  var habs = ttkHabs().filter(function(h){ return h.habType === 'time' && h.dailyLimitHrs > 0; });
+  var html = '';
+
+  if (habs.length === 0) {
+    html = '<div style="padding:14px 10px;text-align:center;font-size:12px;color:var(--t3)">Нет часовых привычек — создай в разделе Привычки</div>';
+  } else {
+    html += '<div style="font-size:9px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--t3);padding:6px 10px 4px">Часовые привычки</div>';
+    habs.forEach(function(h) {
+      var sel = TTK.selectedHabitId === h.id;
+      var doneSecs = ttkTodayLoggedSecs(h.id);
+      var limitSecs = h.dailyLimitHrs * 3600;
+      var pct = limitSecs > 0 ? Math.min(100, Math.round(doneSecs / limitSecs * 100)) : 0;
+      html += '<div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;cursor:pointer;transition:background .15s;background:' + (sel ? 'rgba(245,200,66,.08)' : 'transparent') + '" onclick="ttkSelectHabit(\'' + h.id + '\');dtrCloseHabPicker()">' +
+        '<span style="font-size:15px;flex-shrink:0;width:22px;text-align:center">' + (h.icon || '⏱') + '</span>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:12.5px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + h.name.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</div>' +
+          '<div style="font-size:10px;color:var(--t3);margin-top:1px">' + Math.round(h.dailyLimitHrs * 60) + ' мин/день</div>' +
+        '</div>' +
+        '<span style="font-family:var(--font-mono);font-size:11px;font-weight:500;color:' + (pct >= 100 ? 'var(--gold)' : 'var(--t3)') + ';flex-shrink:0">' + pct + '%</span>' +
+      '</div>';
+    });
+  }
+
+  /* Кнопка «Без привычки» если что-то выбрано */
+  if (TTK.selectedHabitId) {
+    html += '<div style="padding:6px 10px;border-top:0.5px solid rgba(255,255,255,.05);margin-top:4px">' +
+      '<div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;cursor:pointer;color:var(--t3);transition:background .15s" onclick="dtrClearHabSelection()" onmouseover="this.style.background=\'rgba(255,255,255,.05)\'" onmouseout="this.style.background=\'transparent\'">' +
+        '<span style="width:22px;text-align:center;font-size:13px">✕</span>' +
+        '<span style="font-size:12px;font-weight:600">Без привычки</span>' +
+      '</div>' +
+    '</div>';
+  }
+
+  picker.innerHTML = html;
+}
+
+window.dtrToggleHabPicker = function(e) {
+  if (e) e.stopPropagation();
+  var picker = document.getElementById('timerHabPicker');
+  if (!picker) return;
+  if (picker.style.display !== 'none') {
+    picker.style.display = 'none';
+    return;
+  }
+  dtrRenderHabPicker(picker);
+  picker.style.display = 'block';
+  setTimeout(function() {
+    document.addEventListener('click', function _close(ev) {
+      var btn = document.getElementById('timerHabBtn');
+      if (picker && !picker.contains(ev.target) && btn && !btn.contains(ev.target)) {
+        picker.style.display = 'none';
+      }
+      document.removeEventListener('click', _close);
+    });
+  }, 80);
+};
+
+window.dtrCloseHabPicker = function() {
+  var picker = document.getElementById('timerHabPicker');
+  if (picker) picker.style.display = 'none';
+};
+
+window.dtrClearHabSelection = function() {
+  TTK.selectedHabitId = null;
+  TTK.selectedType = null;
+  var lbl  = document.getElementById('timerHabLabel');
+  var icon = document.getElementById('timerHabIcon');
+  var btn  = document.getElementById('timerHabBtn');
+  if (lbl)  lbl.textContent = 'Выбрать привычку (необязательно)';
+  if (icon) icon.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+  if (btn)  btn.style.borderColor = '';
+  var picker = document.getElementById('timerHabPicker');
+  if (picker) picker.style.display = 'none';
+  var note = document.getElementById('qNote');
+  if (note) note.textContent = 'Выбери привычку и нажми Старт';
+};
+
 /* ── Select habit ── */
 window.ttkSelectHabit = function(hid) {
   TTK.selectedHabitId = hid;
   TTK.selectedType    = 'habit';
-  // Если привычка привязана к задаче активной цели — запомним связь, чтобы при сохранении часы пошли в задачу
-  var goals = ttkGoals();
-  for (var i = 0; i < goals.length; i++) {
-    var g = goals[i];
-    if (g.is_archived) continue;
-    var tasks = g.tasks || [];
-    for (var j = 0; j < tasks.length; j++) {
-      var t = tasks[j];
-      if (t.is_done) continue;
-      if ((t.linked_habit_ids || []).indexOf(hid) >= 0) {
-        break;
-      }
-    }
-}
   var h = ttkHabs().find(function(x) { return x.id === hid; });
   if (h) {
-        var doneSecs  = ttkTodayLoggedSecs(hid);
+    var lbl  = document.getElementById('timerHabLabel');
+    var icon = document.getElementById('timerHabIcon');
+    var btn  = document.getElementById('timerHabBtn');
+    if (lbl)  lbl.textContent = h.name;
+    if (icon) icon.innerHTML  = '<span style="font-size:14px">' + (h.icon || '⏱') + '</span>';
+    if (btn)  { btn.style.borderColor = 'rgba(245,200,66,.4)'; btn.style.background = 'rgba(245,200,66,.06)'; btn.style.color = 'var(--gold)'; }
+    var doneSecs  = ttkTodayLoggedSecs(hid);
     var limitSecs = (h.dailyLimitHrs || 0) * 3600;
-    ttkUpdateBar(limitSecs > 0 ? Math.min(100, Math.round(doneSecs / limitSecs * 100)) : 0);
+    var pct = limitSecs > 0 ? Math.min(100, Math.round(doneSecs / limitSecs * 100)) : 0;
+    var note = document.getElementById('qNote');
+    if (note) note.textContent = h.name + ' — ' + Math.round(doneSecs/60) + '/' + Math.round(limitSecs/60) + ' мин (' + pct + '%)';
+    ttkUpdateBar(pct);
   }
 };
 
