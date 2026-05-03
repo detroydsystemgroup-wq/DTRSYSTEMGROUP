@@ -20643,46 +20643,51 @@ function renderAchFull(){
   el.innerHTML=`
   <div class="apc">
 
-    <!-- Stats row -->
+    <!-- Горизонтальная строка: % | бар+категории | KPI -->
     <div class="apc-grid">
-      <div class="apc-stat">
-        <div class="apc-val apc-val--gold"><span class="apc-n-unl">0</span><span class="apc-of"> / ${total}</span></div>
-        <div class="apc-lbl">Открыто</div>
+
+      <!-- % слева -->
+      <div class="apc-pct-block">
+        <div class="apc-pct-wrap">
+          <div class="apc-pct-num"><span class="apc-n-pct">0</span></div>
+          <div class="apc-pct-sym">%</div>
+        </div>
+        <div class="apc-pct-lbl">открыто</div>
       </div>
-      <div class="apc-divider"></div>
-      <div class="apc-stat">
-        <div class="apc-val"><span class="apc-n-rem">0</span></div>
-        <div class="apc-lbl">Осталось</div>
+
+      <!-- Центр: заголовок + бар + категории -->
+      <div class="apc-center">
+        <div>
+          <div class="apc-title-row">
+            <div class="apc-title">Награды</div>
+            <div class="apc-status">${statusMsg}</div>
+          </div>
+          <div class="apc-sub"><span class="apc-n-unl">0</span> из ${total} наград открыто</div>
+        </div>
+        <div class="apc-bar-wrap">
+          <div class="apc-track"><div class="apc-track-inner"><div class="apc-fill" data-w="${pct}" style="width:0%"></div></div></div>
+          <div class="apc-bar-ends"><span>0</span><span>${total}</span></div>
+        </div>
+        <div class="apc-pills">${rarPills}</div>
       </div>
-      <div class="apc-divider"></div>
-      <div class="apc-stat">
-        <div class="apc-val apc-val--green"><span class="apc-n-xp">0</span></div>
-        <div class="apc-lbl">XP заработано</div>
+
+      <!-- KPI справа -->
+      <div class="apc-kpis">
+        <div class="apc-stat">
+          <div class="apc-lbl">Осталось</div>
+          <div class="apc-val"><span class="apc-n-rem">0</span></div>
+        </div>
+        <div class="apc-stat">
+          <div class="apc-lbl">XP заработано</div>
+          <div class="apc-val apc-val--green"><span class="apc-n-xp">0</span></div>
+        </div>
+        <div class="apc-stat">
+          <div class="apc-lbl">Уровень</div>
+          <div class="apc-val"><span class="apc-n-lvl">0</span></div>
+        </div>
       </div>
-      <div class="apc-divider"></div>
-      <div class="apc-stat">
-        <div class="apc-val"><span class="apc-n-lvl">0</span></div>
-        <div class="apc-lbl">Уровень</div>
-      </div>
-      <div class="apc-divider"></div>
-      <div class="apc-stat">
-        <div class="apc-val apc-val--gold"><span class="apc-n-pct">0</span><span class="apc-sym">%</span></div>
-        <div class="apc-lbl">Прогресс</div>
-      </div>
-      <div class="apc-status">${statusMsg}</div>
+
     </div>
-
-    <!-- Progress bar -->
-    <div class="apc-bar-wrap">
-      <div class="apc-track">
-        <div class="apc-fill" data-w="${pct}" style="width:0%"></div>
-      </div>
-      <div class="apc-bar-ends"><span>0</span><span>${total}</span></div>
-    </div>
-
-    <!-- Rarity pills -->
-    <div class="apc-pills">${rarPills}</div>
-
   </div>`;
 
   /* ── Count-up animations ── */
@@ -42706,17 +42711,15 @@ window._dtrShowForwardPickerMulti = async function(ids, texts) {
 /* ══════════════════════════════════════════════════════
    ACHIEVEMENT PROGRESS CARD v2 — Clean Dashboard
 ══════════════════════════════════════════════════════ */
+/* ── Rewards block — горизонтальный дизайн ── */
 .apc {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 22px 26px 20px;
   border-radius: 18px;
-  background: rgba(255,255,255,.02);
-  border: 1px solid rgba(255,255,255,.07);
-  border-top: 1.5px solid rgba(245,200,66,.35);
+  background: rgba(255,255,255,.025);
+  border: 0.5px solid rgba(255,255,255,.07);
+  border-top: 1px solid rgba(245,200,66,.4);
   margin-bottom: 28px;
-  position: relative;
   overflow: hidden;
   animation: apcIn .4s cubic-bezier(.25,.46,.45,.94) both;
 }
@@ -42724,110 +42727,127 @@ window._dtrShowForwardPickerMulti = async function(ids, texts) {
   from { opacity:0; transform:translateY(8px); }
   to   { opacity:1; transform:translateY(0); }
 }
-/* Diagonal texture */
-.apc::before {
-  content:'';
-  position:absolute;inset:0;
-  background:repeating-linear-gradient(
-    135deg,transparent,transparent 36px,
-    rgba(255,255,255,.008) 36px,rgba(255,255,255,.008) 37px
-  );
-  pointer-events:none;
-}
-
-/* ── Stats grid ── */
+/* Горизонтальная строка */
 .apc-grid {
   display: flex;
-  align-items: center;
-  gap: 0;
+  align-items: stretch;
+  min-height: 80px;
 }
-.apc-stat {
+
+/* % блок слева */
+.apc-pct-block {
+  padding: 18px 22px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 0 24px;
-}
-.apc-stat:first-child { padding-left: 0; }
-.apc-val {
-  font-family: var(--font-mono);
-  font-size: 26px;
-  font-weight: 400;
-  line-height: 1;
-  letter-spacing: -.04em;
-  color: var(--t1);
-}
-.apc-val--gold  { color: var(--gold); }
-.apc-val--green { color: #4ADE80; }
-.apc-of  { font-size: 14px; color: rgba(168,168,176,.35); margin-left: 3px; }
-.apc-sym { font-size: 13px; opacity: .45; margin-left: 1px; }
-.apc-lbl {
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: rgba(168,168,176,.3);
-}
-.apc-divider {
-  width: 1px;
-  height: 30px;
-  background: rgba(255,255,255,.06);
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  border-right: 0.5px solid rgba(255,255,255,.06);
+  min-width: 100px;
+}
+.apc-pct-wrap { display: flex; align-items: flex-start; line-height: 1; }
+.apc-pct-num {
+  font-family: 'Bebas Neue', var(--font-mono), monospace;
+  font-size: 58px; line-height: .85;
+  background: linear-gradient(135deg,#D97706,#F5C842,#FDE68A);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.apc-pct-sym {
+  font-family: 'Bebas Neue', var(--font-mono), monospace;
+  font-size: 24px; line-height: 1;
+  background: linear-gradient(135deg,#F5C842,#FDE68A);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  margin-top: 5px; margin-left: 2px;
+}
+.apc-pct-lbl {
+  font-size: 9px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: rgba(245,200,66,.4); margin-top: 5px;
+}
+
+/* Центр — бар + категории */
+.apc-center {
+  flex: 1;
+  padding: 16px 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  border-right: 0.5px solid rgba(255,255,255,.06);
+}
+.apc-title-row {
+  display: flex; align-items: center; gap: 10px;
+}
+.apc-title {
+  font-size: 14px; font-weight: 900; color: var(--t1); letter-spacing: -.02em;
 }
 .apc-status {
-  margin-left: auto;
-  font-size: 12px;
-  font-weight: 600;
-  color: rgba(242,240,232,.35);
-  letter-spacing: -.01em;
-  white-space: nowrap;
-  padding-left: 20px;
+  display: inline-flex; align-items: center;
+  background: rgba(245,200,66,.1); border: 0.5px solid rgba(245,200,66,.25);
+  border-radius: 7px; padding: 3px 9px;
+  font-size: 10px; font-weight: 700; color: #F5C842; white-space: nowrap;
 }
+.apc-sub { font-size: 11px; color: rgba(255,255,255,.25); margin-top: -4px; }
 
-/* ── Progress bar ── */
-.apc-bar-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
+/* Прогресс бар */
+.apc-bar-wrap { display: flex; flex-direction: column; gap: 4px; }
 .apc-track {
-  height: 2px;
-  background: rgba(255,255,255,.07);
-  border-radius: 2px;
-  overflow: hidden;
+  height: 10px; background: rgba(255,255,255,.04);
+  border-radius: 5px; border: 0.5px solid rgba(255,255,255,.06); padding: 1.5px; overflow: hidden;
 }
+.apc-track-inner { height: 100%; background: rgba(0,0,0,.3); border-radius: 4px; overflow: hidden; position: relative; }
 .apc-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #C89F28, #F5C842 60%, #FDE68A);
-  border-radius: 2px;
+  height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg,#92400E,#D97706,#F5C842,#FDE68A);
+  position: relative; overflow: hidden;
+  transition: width 1s cubic-bezier(.25,.8,.25,1);
+}
+.apc-fill::before {
+  content:''; position: absolute; top:0; left:0; right:0; height:50%;
+  background: rgba(255,255,255,.2); border-radius: 4px 4px 0 0;
+}
+.apc-fill::after {
+  content:''; position: absolute; right:0; top:0; bottom:0;
+  width:3px; background:#FDE68A; box-shadow: 0 0 6px #F5C842;
 }
 .apc-bar-ends {
-  display: flex;
-  justify-content: space-between;
-  font-family: var(--font-mono);
-  font-size: 8.5px;
-  color: rgba(255,255,255,.16);
-  letter-spacing: .02em;
+  display: flex; justify-content: space-between;
+  font-size: 9px; color: rgba(255,255,255,.18); font-family: var(--font-mono);
 }
 
-/* ── Rarity pills ── */
+/* Категории */
 .apc-pills {
-  display: flex;
-  gap: 5px;
-  flex-wrap: wrap;
+  display: flex; gap: 6px; flex-wrap: wrap;
 }
 .ach-rarity-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 9px;
-  border-radius: 6px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .04em;
-  border: 0.5px solid;
-  font-family: var(--font-mono);
-  transition: opacity .15s;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 9px; border-radius: 8px;
+  font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  border: 0.5px solid; font-family: var(--font-mono); transition: opacity .15s;
 }
+
+/* KPI колонка справа */
+.apc-kpis {
+  display: flex; flex-direction: column; justify-content: center; flex-shrink: 0;
+}
+.apc-stat {
+  padding: 12px 20px;
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  border-bottom: 0.5px solid rgba(255,255,255,.05);
+}
+.apc-stat:last-child { border-bottom: none; }
+.apc-lbl {
+  font-size: 9px; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: rgba(255,255,255,.2); margin-bottom: 5px;
+}
+.apc-val {
+  font-family: 'Bebas Neue', var(--font-mono), monospace;
+  font-size: 24px; line-height: 1; color: var(--t1);
+}
+.apc-val--gold  { background: linear-gradient(135deg,#F5C842,#FDE68A); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.apc-val--green { color: #4ADE80; }
+.apc-divider { display: none; }
+.apc-of  { font-size: 12px; color: rgba(255,255,255,.3); margin-left: 2px; }
+.apc-sym { font-size: 11px; opacity: .5; margin-left: 1px; }
 .ach-rarity-pill:hover { opacity: .8; }
 
 /* ── Achievement Summary Button — span 2, same height as badges ─ */
