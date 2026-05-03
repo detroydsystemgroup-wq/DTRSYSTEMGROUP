@@ -47667,88 +47667,56 @@ window._hSetUnit = function(unit, btn) {
 .dch-empty-ttl { font-size: 15px; font-weight: 800; color: var(--t2); margin-bottom: 5px; }
 .dch-empty-sub { font-size: 12px; color: var(--t3); line-height: 1.6; }
 
-/* ── Cards list ── */
-/* ── Cards deck — колода карт ── */
-.dch-cards {
-  position: relative;
-  padding: 12px 16px 20px;
+/* ── Challenge block wrapper ── */
+.dch-block {
+  background: rgba(255,255,255,.02);
+  border: 0.5px solid rgba(255,255,255,.07);
+  border-radius: 18px;
+  overflow: hidden;
+  margin-bottom: 20px;
 }
 
-/* Псевдо-карточки снизу — эффект стопки */
-.dch-cards::before {
-  content: '';
-  position: absolute;
-  bottom: 10px; left: 24px; right: 24px;
-  height: 12px;
-  background: rgba(255,255,255,.025);
-  border: 0.5px solid rgba(255,255,255,.06);
-  border-radius: 14px;
-  z-index: 0;
-  transform: scaleX(.94);
-}
-.dch-cards::after {
-  content: '';
-  position: absolute;
-  bottom: 5px; left: 32px; right: 32px;
-  height: 10px;
-  background: rgba(255,255,255,.015);
-  border: 0.5px solid rgba(255,255,255,.04);
-  border-radius: 14px;
-  z-index: 0;
-  transform: scaleX(.88);
+/* Flip 3D контейнер */
+.dch-cards {
+  padding: 16px 20px 4px;
+  position: relative;
+  perspective: 900px;
 }
 .dch-cards .dch-card {
-  position: relative;
-  z-index: 1;
-  transition: opacity .28s, transform .38s cubic-bezier(.34,1.2,.64,1);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
 }
 
-/* Навигация колоды */
+/* Навигация */
 .dch-deck-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px 8px;
-  border-bottom: 0.5px solid rgba(255,255,255,.05);
+  display: flex; align-items: center; justify-content: center;
+  gap: 14px; padding: 12px 20px 16px;
+  border-top: 0.5px solid rgba(255,255,255,.05);
 }
-.dch-deck-dots {
-  display: flex;
-  gap: 5px;
-  align-items: center;
-}
+.dch-deck-dots { display: flex; gap: 6px; align-items: center; }
 .dch-deck-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: rgba(255,255,255,.15);
-  cursor: pointer;
-  transition: all .2s;
+  height: 7px; border-radius: 4px; cursor: pointer; width: 7px;
+  background: rgba(255,255,255,.18);
+  transition: all .35s cubic-bezier(.34,1.4,.64,1);
 }
 .dch-deck-dot.a {
-  width: 18px;
-  border-radius: 3px;
-  background: #A78BFA;
-}
-.dch-deck-arrows {
-  display: flex;
-  gap: 6px;
+  width: 24px; background: #A78BFA;
+  box-shadow: 0 0 10px rgba(167,139,250,.5);
 }
 .dch-deck-arr {
-  width: 28px; height: 28px;
-  border-radius: 8px;
-  background: rgba(255,255,255,.04);
-  border: 0.5px solid rgba(255,255,255,.08);
+  width: 34px; height: 34px; border-radius: 10px;
+  background: rgba(255,255,255,.05);
+  border: 0.5px solid rgba(255,255,255,.1);
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer;
-  color: rgba(255,255,255,.4);
-  transition: background .15s, color .15s;
+  cursor: pointer; color: rgba(255,255,255,.4); transition: all .18s;
 }
-.dch-deck-arr:hover { background: rgba(255,255,255,.1); color: #fff; }
+.dch-deck-arr:hover { background: rgba(139,92,246,.15); border-color: rgba(139,92,246,.4); color: #A78BFA; transform: scale(1.08); }
+.dch-deck-arr:active { transform: scale(.92); }
 .dch-deck-arr.disabled { opacity: .25; pointer-events: none; }
 .dch-deck-counter {
-  font-size: 11px;
-  font-weight: 700;
-  color: rgba(255,255,255,.3);
-  font-family: monospace;
+  font-size: 12px; font-weight: 700; font-family: monospace;
+  color: rgba(255,255,255,.25); min-width: 32px; text-align: center; transition: all .2s;
 }
 
 /* ── Card — glassmorphism ── */
@@ -47763,6 +47731,8 @@ window._hSetUnit = function(unit, btn) {
 .dch-card.fin { opacity: .55; }
 @keyframes dchCardIn { from{opacity:0;transform:translateY(12px) scale(.98)} to{opacity:1;transform:none} }
 @keyframes dchDot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.7)} }
+@keyframes dchBarFill { from{width:0%} to{width:var(--bar-to)} }
+@keyframes dchNumUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
 
 /* Радужная линия сверху */
 .dch-card::before {
@@ -48567,21 +48537,7 @@ function injectChallenges(){
       <div class="dch-empty-sub">Запусти вызов — следи за выполнением<br>своих привычек за выбранный период</div>
     </div>`;
   } else {
-    inner += `<div class="dch-deck-nav">
-      <div class="dch-deck-dots" id="dchDots"></div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <span class="dch-deck-counter" id="dchCounter">1 / ${list.length}</span>
-        <div class="dch-deck-arrows">
-          <div class="dch-deck-arr${list.length<=1?' disabled':''}" id="dchPrev" onclick="_dchPrev()">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-          </div>
-          <div class="dch-deck-arr${list.length<=1?' disabled':''}" id="dchNext" onclick="_dchNext()">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </div>
-        </div>
-      </div>
-    </div>`;
-    inner += '<div class="dch-cards" id="dchDeck">';
+    let inner_cards = '';
     list.forEach((ch, idx) => {
       const prog     = calcProgress(ch);
       const td       = calcToday(ch);
@@ -48613,7 +48569,7 @@ function injectChallenges(){
         if(_allDone) _streak++; else break;
       }
 
-      inner += `<div class="dch-card${fin?' fin':''}">
+      inner_cards += `<div class="dch-card${fin?' fin':''}">
         <div class="dch-card-bg"></div>
         <div class="dch-card-inner">
 
@@ -48653,7 +48609,7 @@ function injectChallenges(){
               <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.22);margin-bottom:8px;display:flex;align-items:center;gap:4px">
                 <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>День
               </div>
-              <div style="font-size:28px;font-weight:900;font-family:monospace;line-height:1;margin-bottom:6px;background:linear-gradient(90deg,#A78BFA,#F472B6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">${elapsed}/${totalDays}</div>
+              <div style="font-size:28px;font-weight:900;font-family:monospace;line-height:1;margin-bottom:6px;background:linear-gradient(90deg,#A78BFA,#F472B6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text" data-count-to="${elapsed}" data-count-suffix="/${totalDays}" data-anim-num>${elapsed}/${totalDays}</div>
               <div style="display:inline-flex;align-items:center;gap:4px;border-radius:10px;padding:3px 9px;border:0.5px solid rgba(167,139,250,.3);background:rgba(167,139,250,.1)">
                 <span style="font-size:10px;font-weight:700;color:#A78BFA;white-space:nowrap">${prog.done} отметок</span>
               </div>
@@ -48663,7 +48619,7 @@ function injectChallenges(){
               <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.22);margin-bottom:8px;display:flex;align-items:center;gap:4px">
                 <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Сегодня
               </div>
-              <div style="font-size:28px;font-weight:900;font-family:monospace;line-height:1;margin-bottom:6px;color:#fff">${todayVal}</div>
+              <div style="font-size:28px;font-weight:900;font-family:monospace;line-height:1;margin-bottom:6px;color:#fff" data-anim-num>${todayVal}</div>
               ${todayPct===100&&!fin
                 ?`<div style="display:inline-flex;align-items:center;gap:4px;border-radius:10px;padding:3px 9px;border:0.5px solid rgba(74,222,128,.3);background:rgba(74,222,128,.1)">
                     <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
@@ -48676,7 +48632,7 @@ function injectChallenges(){
               <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.22);margin-bottom:8px;display:flex;align-items:center;gap:4px">
                 <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(251,146,60,.5)" stroke-width="2.5"><path d="M12 2c0 6-6 8-6 14a6 6 0 0 0 12 0c0-6-6-8-6-14z"/></svg>Серия
               </div>
-              <div style="font-size:28px;font-weight:900;font-family:monospace;line-height:1;margin-bottom:6px;color:#FB923C">${_streak}</div>
+              <div style="font-size:28px;font-weight:900;font-family:monospace;line-height:1;margin-bottom:6px;color:#FB923C" data-count-to="${_streak}" data-anim-num>${_streak}</div>
               <div style="display:inline-flex;align-items:center;gap:4px;border-radius:10px;padding:3px 9px;border:0.5px solid rgba(251,146,60,.3);background:rgba(251,146,60,.1)">
                 <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#FB923C" stroke-width="2.5"><path d="M12 2c0 6-6 8-6 14a6 6 0 0 0 12 0c0-6-6-8-6-14z"/></svg>
                 <span style="font-size:10px;font-weight:700;color:#FB923C;white-space:nowrap">дней подряд</span>
@@ -48688,14 +48644,14 @@ function injectChallenges(){
           <div style="padding:16px 0 14px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
               <div>
-                <span style="font-size:13px;font-weight:900;font-family:monospace;background:linear-gradient(90deg,#A78BFA,#F472B6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">${prog.pct}%</span>
+                <span data-count-to="${prog.pct}" data-count-suffix="%" data-anim-num style="font-size:13px;font-weight:900;font-family:monospace;background:linear-gradient(90deg,#A78BFA,#F472B6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">${prog.pct}%</span>
                 <span style="font-size:10px;color:rgba(255,255,255,.22);font-weight:600;text-transform:uppercase;letter-spacing:.07em;margin-left:6px">выполнено</span>
               </div>
               <span style="font-size:10px;color:rgba(255,255,255,.18)">${totalDays} дней</span>
             </div>
             <div style="height:22px;background:rgba(255,255,255,.025);border-radius:11px;border:0.5px solid rgba(255,255,255,.07);padding:3px;overflow:hidden">
               <div style="height:100%;background:rgba(0,0,0,.25);border-radius:9px;overflow:hidden;position:relative">
-                <div style="height:100%;width:${prog.pct}%;border-radius:9px;background:linear-gradient(90deg,#5B21B6,#7C3AED,#8B5CF6,#A78BFA,#C084FC,#F472B6);position:relative;overflow:hidden;transition:width 1s ease">
+                <div data-bar-pct="${prog.pct}" style="height:100%;width:0%;border-radius:9px;background:linear-gradient(90deg,#5B21B6,#7C3AED,#8B5CF6,#A78BFA,#C084FC,#F472B6);position:relative;overflow:hidden;transition:width .9s cubic-bezier(.25,.8,.25,1)">
                   <div style="position:absolute;top:0;left:0;right:0;height:45%;background:linear-gradient(180deg,rgba(255,255,255,.28),transparent);border-radius:9px 9px 0 0"></div>
                   <div style="position:absolute;right:0;top:0;bottom:0;width:40px;background:linear-gradient(90deg,transparent,rgba(244,114,182,.55));border-radius:0 9px 9px 0"></div>
                 </div>
@@ -48725,7 +48681,22 @@ function injectChallenges(){
         </div>
       </div>`;
     });
-    inner += '</div>';
+    /* Оборачиваем в deck-scene с ghost-карточками как в макете */
+    if(list.length > 1){
+      inner += `<div class="dch-cards" id="dchDeck">${inner_cards}</div>
+      <div class="dch-deck-nav">
+        <div class="dch-deck-arr" id="dchPrev" onclick="_dchPrev()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </div>
+        <div class="dch-deck-dots" id="dchDots"></div>
+        <span class="dch-deck-counter" id="dchCounter">1 / ${list.length}</span>
+        <div class="dch-deck-arr" id="dchNext" onclick="_dchNext()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </div>`;
+    } else {
+      inner += `<div class="dch-cards" id="dchDeck">${inner_cards}</div>`;
+    }
   }
 
   if(existing){
@@ -48737,124 +48708,187 @@ function injectChallenges(){
     modeBar.insertAdjacentElement('afterend', div);
   }
 
-  /* Инициализируем колоду */
+  /* Инициализируем колоду — точно как в макете */
   const _cards = document.querySelectorAll('#dchDeck .dch-card');
   const _total = _cards.length;
+  window._dchCur = window._dchCur || 0;
+  if(window._dchCur >= _total) window._dchCur = 0;
+
   if(_total > 1){
-    window._dchIdx = window._dchIdx || 0;
-    if(window._dchIdx >= _total) window._dchIdx = 0;
-    _dchShowCard(window._dchIdx);
-    /* Свайп жест */
-    const _deck = document.getElementById('dchDeck');
-    if(_deck){
-      let _sx = 0;
-      _deck.addEventListener('touchstart', e=>{ _sx = e.touches[0].clientX; },{passive:true});
-      _deck.addEventListener('touchend', e=>{
-        const dx = e.changedTouches[0].clientX - _sx;
-        if(Math.abs(dx) > 40){ dx < 0 ? _dchNext() : _dchPrev(); }
-      },{passive:true});
-    }
+    /* Скрываем все кроме текущей */
+    _cards.forEach((c,i)=>{ c.style.display = i===window._dchCur ? '' : 'none'; });
+    /* Анимируем первую карточку при загрузке */
+    setTimeout(()=>{ _dchAnimateCard(_cards[window._dchCur]); }, 400);
     /* Точки */
     const dots = document.getElementById('dchDots');
-    if(dots){
-      dots.innerHTML = Array.from({length:_total},(_,i)=>
-        `<div class="dch-deck-dot${i===window._dchIdx?' a':''}" onclick="_dchShowCard(${i})"></div>`
-      ).join('');
-    }
+    if(dots) dots.innerHTML = Array.from({length:_total},(_,i)=>
+      `<div class="ddot-inner dch-deck-dot${i===window._dchCur?' a':''}" onclick="_dchGoTo(${i})"></div>`
+    ).join('');
+    /* Счётчик и стрелки */
+    _dchUpdateUI(_total);
+    /* Drag/swipe */
+    _dchInitDrag2();
   } else {
-    window._dchIdx = 0;
+    /* Одна карточка — тоже анимируем */
+    setTimeout(()=>{
+      const first = document.querySelector('#dchDeck .dch-card');
+      if(first) _dchAnimateCard(first);
+    }, 350);
   }
 }
 
-/* ── Deck navigation ── */
-window._dchShowCard = function(idx, dir){
-  const cards = document.querySelectorAll('#dchDeck .dch-card');
-  const total = cards.length;
-  if(!total) return;
-  const prev = window._dchIdx || 0;
-  window._dchIdx = idx;
+window._dchAnimating2 = false;
 
-  cards.forEach((c,i)=>{
-    c.style.transition = '';
-    if(i === idx){
-      /* Влетающая карточка */
-      const fromRight = dir === 'next';
-      const fromLeft  = dir === 'prev';
-      c.style.display = '';
-      c.style.opacity = '0';
-      c.style.transform = fromRight ? 'translateX(60px) scale(.95)' :
-                          fromLeft  ? 'translateX(-60px) scale(.95)' :
-                          'scale(.97)';
-      requestAnimationFrame(()=>{
-        requestAnimationFrame(()=>{
-          c.style.transition = 'all .38s cubic-bezier(.34,1.2,.64,1)';
-          c.style.opacity = '1';
-          c.style.transform = 'translateX(0) scale(1)';
-        });
-      });
-    } else if(i === prev && i !== idx){
-      /* Уходящая карточка */
-      const toLeft  = dir === 'next';
-      const toRight = dir === 'prev';
-      c.style.opacity = '1';
-      c.style.transform = 'translateX(0) scale(1)';
-      requestAnimationFrame(()=>{
-        c.style.transition = 'all .28s cubic-bezier(.4,0,.6,1)';
-        c.style.opacity = '0';
-        c.style.transform = toLeft  ? 'translateX(-40px) scale(.96)' :
-                            toRight ? 'translateX(40px) scale(.96)' :
-                            'scale(.96)';
-        setTimeout(()=>{ c.style.display = 'none'; }, 300);
-      });
-    } else {
-      c.style.display = 'none';
-      c.style.opacity = '0';
-    }
-  });
+function _dchUpdateUI(total){
+  const cnt=document.getElementById('dchCounter');
+  if(cnt){ cnt.style.transform='scale(.75)';cnt.style.opacity='.3';setTimeout(()=>{cnt.style.transition='all .3s cubic-bezier(.34,1.5,.64,1)';cnt.style.transform='';cnt.style.opacity='1';},50); cnt.textContent=(window._dchCur+1)+' / '+total; }
+  const pr=document.getElementById('dchPrev'), nx=document.getElementById('dchNext');
+  if(pr) pr.style.opacity = window._dchCur===0?'.3':'1';
+  if(nx) nx.style.opacity = window._dchCur===total-1?'.3':'1';
+  document.querySelectorAll('.dch-deck-dot').forEach((d,i)=>{ d.className='dch-deck-dot'+(i===window._dchCur?' a':''); });
+}
 
-  /* Точки с анимацией */
-  document.querySelectorAll('.dch-deck-dot').forEach((d,i)=>{
-    d.className = 'dch-deck-dot' + (i===idx?' a':'');
-  });
-  const counter = document.getElementById('dchCounter');
-  if(counter){
-    counter.style.transform = 'scale(.8)';
-    counter.style.opacity = '.3';
+window._dchGoTo = function(next, dir){
+  const cards=document.querySelectorAll('#dchDeck .dch-card');
+  const total=cards.length;
+  if(window._dchAnimating2||next===window._dchCur) return;
+  dir = dir||(next>window._dchCur?'next':'prev');
+  window._dchAnimating2=true;
+  const leaving=cards[window._dchCur];
+  const entering=cards[next];
+  const ry = dir==='next' ? -90 : 90;
+
+  /* Фаза 1 — уходящая уходит назад (0 → -90deg) */
+  leaving.style.transition='transform .28s cubic-bezier(.4,0,1,1), opacity .28s ease';
+  leaving.style.transform=`rotateY(${ry}deg) scale(.95)`;
+  leaving.style.opacity='0.3';
+
+  setTimeout(()=>{
+    leaving.style.display='none';
+    leaving.style.transform='';
+    leaving.style.opacity='';
+    window._dchCur=next;
+
+    /* Фаза 2 — входящая стартует с противоположного угла */
+    entering.style.display='';
+    entering.style.transition='none';
+    entering.style.transform=`rotateY(${-ry}deg) scale(.95)`;
+    entering.style.opacity='0.3';
+
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      entering.style.transition='transform .34s cubic-bezier(0,.9,.3,1), opacity .28s ease';
+      entering.style.transform='rotateY(0deg) scale(1)';
+      entering.style.opacity='1';
+
+      setTimeout(()=>{
+        entering.style.transform='';
+        entering.style.opacity='';
+        _dchAnimateCard(entering);
+        window._dchAnimating2=false;
+      },360);
+    }));
+    _dchUpdateUI(total);
+  },260);
+};
+
+/* Анимирует цифры и бары внутри карточки */
+function _dchAnimateCard(card){
+  /* 1. Прогресс-бар — плавно наполняется */
+  card.querySelectorAll('[data-bar-pct]').forEach(bar=>{
+    const pct = parseFloat(bar.dataset.barPct)||0;
+    bar.style.width='0%';
+    bar.style.transition='none';
     requestAnimationFrame(()=>{
-      counter.style.transition = 'all .3s cubic-bezier(.34,1.4,.64,1)';
-      counter.style.transform = 'scale(1)';
-      counter.style.opacity = '1';
+      bar.style.transition='width .9s cubic-bezier(.25,.8,.25,1)';
+      bar.style.width=pct+'%';
     });
-    counter.textContent = (idx+1) + ' / ' + total;
-  }
-  const prevBtn = document.getElementById('dchPrev');
-  const nextBtn = document.getElementById('dchNext');
-  if(prevBtn) prevBtn.className = 'dch-deck-arr' + (idx===0?' disabled':'');
-  if(nextBtn) nextBtn.className = 'dch-deck-arr' + (idx===total-1?' disabled':'');
-};
+  });
+
+  /* 2. Большие цифры — накручиваются */
+  card.querySelectorAll('[data-count-to]').forEach(el=>{
+    const target = parseFloat(el.dataset.countTo)||0;
+    const suffix = el.dataset.countSuffix||'';
+    const prefix = el.dataset.countPrefix||'';
+    const dur = 800;
+    const start = performance.now();
+    const isFloat = String(target).includes('.');
+    (function tick(now){
+      const p = Math.min((now-start)/dur, 1);
+      const ease = 1-Math.pow(1-p,3); // ease-out cubic
+      const val = target*ease;
+      el.textContent = prefix+(isFloat?val.toFixed(1):Math.round(val))+suffix;
+      if(p<1) requestAnimationFrame(tick);
+    })(start);
+  });
+
+  /* 3. Числа fade+slide вверх */
+  card.querySelectorAll('[data-anim-num]').forEach((el,i)=>{
+    el.style.opacity='0';
+    el.style.transform='translateY(8px)';
+    el.style.transition='none';
+    setTimeout(()=>{
+      el.style.transition=`opacity .35s ease ${i*60}ms, transform .35s cubic-bezier(.25,.8,.25,1) ${i*60}ms`;
+      el.style.opacity='1';
+      el.style.transform='none';
+    },50);
+  });
+}
+
 window._dchNext = function(){
-  const total = document.querySelectorAll('#dchDeck .dch-card').length;
-  if(window._dchIdx < total-1){
-    /* Тряска кнопки */
-    const btn = document.getElementById('dchNext');
-    if(btn){ btn.style.transform='scale(.88)'; setTimeout(()=>btn.style.transform='',150); }
-    _dchShowCard(window._dchIdx+1,'next');
-  } else {
-    /* Упругий отказ */
-    const deck = document.getElementById('dchDeck');
-    if(deck){ deck.style.transform='translateX(8px)'; setTimeout(()=>{ deck.style.transition='transform .3s cubic-bezier(.34,1.4,.64,1)'; deck.style.transform=''; },100); }
+  const total=document.querySelectorAll('#dchDeck .dch-card').length;
+  const next=window._dchCur+1;
+  if(next>=total){
+    const sc=document.getElementById('dchDeck');
+    if(sc){sc.style.transition='transform .15s';sc.style.transform='translateX(10px)';setTimeout(()=>{sc.style.transition='transform .4s cubic-bezier(.34,1.4,.64,1)';sc.style.transform='';},120);}
+    return;
   }
+  _dchGoTo(next,'next');
 };
+
 window._dchPrev = function(){
-  if(window._dchIdx > 0){
-    const btn = document.getElementById('dchPrev');
-    if(btn){ btn.style.transform='scale(.88)'; setTimeout(()=>btn.style.transform='',150); }
-    _dchShowCard(window._dchIdx-1,'prev');
-  } else {
-    const deck = document.getElementById('dchDeck');
-    if(deck){ deck.style.transform='translateX(-8px)'; setTimeout(()=>{ deck.style.transition='transform .3s cubic-bezier(.34,1.4,.64,1)'; deck.style.transform=''; },100); }
+  const prev=window._dchCur-1;
+  if(prev<0){
+    const sc=document.getElementById('dchDeck');
+    if(sc){sc.style.transition='transform .15s';sc.style.transform='translateX(-10px)';setTimeout(()=>{sc.style.transition='transform .4s cubic-bezier(.34,1.4,.64,1)';sc.style.transform='';},120);}
+    return;
   }
+  _dchGoTo(prev,'prev');
 };
+
+function _dchInitDrag2(){
+  const cards=document.querySelectorAll('#dchDeck .dch-card');
+  cards.forEach(card=>{
+    if(card._d2) return; card._d2=true;
+    let sx=0,sy=0,dragging=false;
+    card.addEventListener('mousedown',e=>{sx=e.clientX;sy=e.clientY;dragging=true;card.style.transition='none';});
+    document.addEventListener('mousemove',e=>{
+      if(!dragging||card.style.display==='none')return;
+      const dx=e.clientX-sx,dy=e.clientY-sy;
+      card.style.transform=`translateX(${dx}px) translateY(${dy*.15}px) rotate(${dx*.06}deg) scale(${1-Math.abs(dx)*.0008})`;
+      card.style.opacity=String(1-Math.abs(dx)*.006);
+    });
+    document.addEventListener('mouseup',e=>{
+      if(!dragging)return;dragging=false;
+      const dx=e.clientX-sx;
+      if(Math.abs(dx)>60){_dchNext&&(dx<0?_dchNext():_dchPrev());}
+      else{card.style.transition='transform .4s cubic-bezier(.34,1.3,.64,1),opacity .3s';card.style.transform='';card.style.opacity='';}
+    });
+    card.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;},{passive:true});
+    card.addEventListener('touchmove',e=>{
+      if(card.style.display==='none')return;
+      const dx=e.touches[0].clientX-sx;
+      card.style.transition='none';
+      card.style.transform=`translateX(${dx}px) rotate(${dx*.05}deg) scale(${1-Math.abs(dx)*.0006})`;
+      card.style.opacity=String(1-Math.abs(dx)*.005);
+    },{passive:true});
+    card.addEventListener('touchend',e=>{
+      const dx=e.changedTouches[0].clientX-sx;
+      if(Math.abs(dx)>55){dx<0?_dchNext():_dchPrev();}
+      else{card.style.transition='transform .4s cubic-bezier(.34,1.3,.64,1),opacity .3s';card.style.transform='';card.style.opacity='';}
+    },{passive:true});
+  });
+}
+
 
 /* ── Удалить ─────────────────────────────────────────────── */
 window._dchDel = function(idx){
