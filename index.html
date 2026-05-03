@@ -14354,16 +14354,15 @@ html[data-theme="light"] .dtr-philo-text strong { color: #2a2a2a; }
   border: 0.5px solid rgba(139,92,246,.35);
   border-radius: 18px;
   padding: 0;
-  cursor: pointer;
+  cursor: default;
   overflow: hidden;
-  transition: transform .22s cubic-bezier(.34,1.56,.64,1), border-color .18s, box-shadow .22s;
+  transition: border-color .18s, box-shadow .22s;
   animation: gv2FadeUp .35s cubic-bezier(.22,1,.36,1) both;
   box-shadow: 0 0 0 1px rgba(139,92,246,.08), 0 8px 32px rgba(0,0,0,.4);
 }
 .gv2-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(139,92,246,.55);
-  box-shadow: 0 0 0 1px rgba(139,92,246,.15), 0 12px 40px rgba(0,0,0,.5);
+  border-color: rgba(139,92,246,.35);
+  box-shadow: 0 0 0 1px rgba(139,92,246,.08), 0 8px 32px rgba(0,0,0,.4);
 }
 /* Верхняя радужная линия */
 .gv2-card::before {
@@ -17108,21 +17107,7 @@ window.toggleLikeUser = async function(){
         </button>
       </div>
 
-      <!-- Task / Habit selector -->
-      <div style="padding:8px 20px 0;position:relative" id="timerTaskWrap">
-        <button class="t-task-btn" id="timerTaskBtn" onclick="dtrToggleTaskPicker(event)">
-          <span class="t-task-btn-icon" id="timerTaskIcon">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><polyline points="9 12 11 14 15 10"/></svg>
-          </span>
-          <span class="t-task-btn-lbl" id="timerTaskLabel">Задача / Привычка (необязательно)</span>
-          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;opacity:.35"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        <div class="t-task-picker" id="timerTaskPicker" style="display:none"></div>
-      </div>
-      <!-- Progress bar for selected task -->
-      <div class="t-task-progress" id="timerTaskProgress" style="display:none">
-        <div class="t-task-progress-fill" id="timerTaskProgressFill" style="width:0%"></div>
-      </div>
+
 
       <!-- Mode: Free / Timer -->
       <div id="pomBtns" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px 20px 0">
@@ -17179,7 +17164,7 @@ window.toggleLikeUser = async function(){
 
       <!-- Note -->
       <div class="t-note" id="qNote" style="margin:10px 20px 16px;text-align:center;font-size:11px;color:var(--t3)">
-        Выбери активность и нажми Старт
+        Выбери привычку и нажми Старт
       </div>
     </div>
 
@@ -43667,7 +43652,7 @@ document.addEventListener('keydown',function(e){
       tasksMeta = '<span class="gv2-card-meta-item" style="color:rgba(245,200,66,.55);font-weight:700">Задач нет — добавь</span>';
     }
 
-    return '<div class="' + cls + '" style="' + styleVar + '" data-gid="' + esc(g.id) + '" onclick="GV2.openDetail(this.dataset.gid)">' +
+    return '<div class="' + cls + '" style="' + styleVar + '" data-gid="' + esc(g.id) + '">' +
       '<div class="gv2-card-top">' +
         '<div class="gv2-card-pct">' +
           '<div class="gv2-card-pct-inner">' +
@@ -43927,14 +43912,6 @@ document.addEventListener('keydown',function(e){
   /* ════════════════════════════════════════════════
      DETAIL — заглушка для Сессии 3
   ═══════════════════════════════════════════════ */
-  function openDetail(gid) {
-    var g = STATE.goals.find(function(x){ return x.id === gid; });
-    if (!g) return;
-    if (confirm('Цель: «' + g.title + '»\n\nДетальный экран будет в Сессии 3.\n\nУдалить эту цель?')) {
-      deleteGoal(gid);
-    }
-  }
-
   async function deleteGoal(gid) {
     var g = STATE.goals.find(function(x){ return x.id === gid; });
     if (!g) return;
@@ -44311,8 +44288,7 @@ document.addEventListener('keydown',function(e){
     }
   }
 
-  // Перехватываем openDetail из Сессии 2 (которая через confirm()) — теперь используем showDetail
-  openDetail = function(gid) { showDetail(gid); };
+  // openDetail удалён — переход в детальный экран отключён
 
   // Также перехватываем deleteGoal: с детального экрана идёт через rich-confirm
   deleteGoal = function(gid) {
@@ -44429,7 +44405,7 @@ document.addEventListener('keydown',function(e){
     toggleDelHabits: toggleDelHabits,
     deleteGoal: deleteGoal,
     // Detail screen
-    openDetail: openDetail,
+    // openDetail удалён
     closeDetail: closeDetail,
     // Task CRUD
     // Habit linking (goal form)
@@ -45989,12 +45965,7 @@ function ttkGoals() {
     // Фоновая загрузка, чтобы при следующем открытии picker'а данные уже были
     if (typeof window.GV2.load === 'function') {
       try {
-        window.GV2.load().then(function(){
-          var picker = document.getElementById('timerTaskPicker');
-          if (picker && picker.style.display !== 'none') {
-            try { ttkRenderPicker(picker); } catch(e) {}
-          }
-        });
+        window.GV2.load();
       } catch(e) {}
     }
     return gs || [];
@@ -46010,118 +45981,6 @@ function ttkTodayLoggedSecs(habId) {
   var logs = ttkLogs()[habId] || {};
   var today = ttkToday();
   return logs[today + '_secs'] || 0;
-}
-
-/* ── Toggle picker ── */
-window.dtrToggleTaskPicker = function(e) {
-  if (e) e.stopPropagation();
-  var picker = document.getElementById('timerTaskPicker');
-  if (!picker) return;
-  if (picker.style.display !== 'none') {
-    picker.style.display = 'none';
-    return;
-  }
-  ttkRenderPicker(picker);
-  picker.style.display = 'block';
-  /* Close on outside click */
-  setTimeout(function() {
-    document.addEventListener('click', function _close(ev) {
-      var btn = document.getElementById('timerTaskBtn');
-      if (picker && !picker.contains(ev.target) && btn && !btn.contains(ev.target)) {
-        picker.style.display = 'none';
-      }
-      document.removeEventListener('click', _close);
-    });
-  }, 80);
-};
-
-function ttkRenderPicker(picker) {
-  var html = '';
-  var goals = ttkGoals();
-  var habs  = ttkHabs();
-  var today = ttkToday();
-
-  /* Карта: habId → { goal, task } для активных привязок */
-  var habToTask = {};
-  goals.forEach(function(g) {
-    if (g.is_archived) return;
-    (g.tasks || []).forEach(function(t) {
-      if (t.is_done) return;
-      (t.linked_habit_ids || []).forEach(function(hid) {
-        habToTask[hid] = { goal: g, task: t };
-      });
-    });
-  });
-
-  /* Section 1: часовые привычки, ПРИВЯЗАННЫЕ к задачам */
-  var linkedTimeHabs = habs.filter(function(h) {
-    var isTime = (h.habType === 'time' || (h.dailyLimitHrs && h.dailyLimitHrs > 0));
-    return isTime && habToTask[h.id];
-  });
-  if (linkedTimeHabs.length) {
-    html += '<div class="t-task-sect">\u041f\u0440\u0438\u0432\u044f\u0437\u0430\u043d\u044b \u043a \u0446\u0435\u043b\u044f\u043c</div>';
-    html += linkedTimeHabs.map(function(h) {
-      var sel = TTK.selectedHabitId === h.id;
-      var doneSecs = ttkTodayLoggedSecs(h.id);
-      var limitSecs = (h.dailyLimitHrs || 0) * 3600;
-      var pct = limitSecs > 0 ? Math.min(100, Math.round(doneSecs / limitSecs * 100)) : 0;
-      var doneMins = Math.round(doneSecs / 60);
-      var limMins  = Math.round(limitSecs / 60);
-      var isDone   = (ttkLogs()[h.id] || {})[today];
-      var link     = habToTask[h.id];
-      var sub      = link.goal.title + ' \u2192 ' + link.task.title;
-      return '<div class="t-task-item' + (sel ? ' selected' : '') + '" onclick="ttkSelectHabit(\'' + h.id + '\')">' +
-        '<div class="t-task-item-icon" style="font-size:16px;line-height:1">' + ttkEsc(h.icon || '\u2b50') + '</div>' +
-        '<div class="t-task-item-info">' +
-          '<div class="t-task-item-name">' + ttkEsc(h.name) + '</div>' +
-          '<div class="t-task-item-sub" style="color:rgba(245,200,66,.7)">' +
-            ttkEsc(sub) +
-            (isDone ? ' \u00b7 \u2713' : ' \u00b7 ' + doneMins + '/' + limMins + ' \u043c\u0438\u043d') +
-          '</div>' +
-        '</div>' +
-        '<div class="t-task-item-pct' + (pct >= 100 ? ' gold' : '') + '">' + pct + '%</div>' +
-      '</div>';
-    }).join('');
-  }
-
-  /* Section 2: часовые привычки БЕЗ привязки */
-  var freeTimeHabs = habs.filter(function(h) {
-    var isTime = (h.habType === 'time' || (h.dailyLimitHrs && h.dailyLimitHrs > 0));
-    return isTime && !habToTask[h.id];
-  });
-  if (freeTimeHabs.length) {
-    html += '<div class="t-task-sect">\u041f\u0440\u0438\u0432\u044b\u0447\u043a\u0438 \u0447\u0430\u0441\u043e\u0432\u044b\u0435</div>';
-    html += freeTimeHabs.map(function(h) {
-      var sel = TTK.selectedHabitId === h.id;
-      var doneSecs = ttkTodayLoggedSecs(h.id);
-      var limitSecs = (h.dailyLimitHrs || 0) * 3600;
-      var pct = limitSecs > 0 ? Math.min(100, Math.round(doneSecs / limitSecs * 100)) : 0;
-      var doneMins = Math.round(doneSecs / 60);
-      var limMins  = Math.round(limitSecs / 60);
-      var isDone   = (ttkLogs()[h.id] || {})[today];
-      return '<div class="t-task-item' + (sel ? ' selected' : '') + '" onclick="ttkSelectHabit(\'' + h.id + '\')">' +
-        '<div class="t-task-item-icon" style="font-size:16px;line-height:1">' + ttkEsc(h.icon || '\u2b50') + '</div>' +
-        '<div class="t-task-item-info">' +
-          '<div class="t-task-item-name">' + ttkEsc(h.name) + '</div>' +
-          '<div class="t-task-item-sub">' +
-            (isDone ? '\u2713 \u0432\u044b\u043f\u043e\u043b\u043d\u0435\u043d\u043e' : '\u041b\u0438\u043c\u0438\u0442: ' + limMins + ' \u043c\u0438\u043d/\u0434\u0435\u043d\u044c' + (doneSecs > 0 ? ' \u00b7 ' + doneMins + ' \u043c\u0438\u043d' : '')) +
-          '</div>' +
-        '</div>' +
-        '<div class="t-task-item-pct' + (pct >= 100 ? ' gold' : '') + '">' + pct + '%</div>' +
-      '</div>';
-    }).join('');
-  }
-
-  if (TTK.selectedHabitId) {
-    html += '<div style="padding:6px 10px;border-top:0.5px solid rgba(255,255,255,.05);margin-top:4px">' +
-      '<div class="t-task-item" onclick="ttkClearSelection()" style="color:var(--t3)">' +
-        '<div class="t-task-item-icon"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>' +
-        '<div class="t-task-item-info"><div class="t-task-item-name">\u0411\u0435\u0437 \u043f\u0440\u0438\u0432\u044f\u0437\u043a\u0438</div></div>' +
-      '</div>' +
-    '</div>';
-  }
-
-  picker.innerHTML = html;
 }
 
 /* ── Select habit ── */
@@ -46144,44 +46003,18 @@ window.ttkSelectHabit = function(hid) {
 }
   var h = ttkHabs().find(function(x) { return x.id === hid; });
   if (h) {
-    var lbl  = document.getElementById('timerTaskLabel');
-    var icon = document.getElementById('timerTaskIcon');
-    var btn  = document.getElementById('timerTaskBtn');
-    if (lbl)  lbl.textContent = h.name;
-    if (icon) icon.innerHTML  = '<span style="font-size:14px">' + ttkEsc(h.icon || '\u2b50') + '</span>';
-    if (btn)  btn.classList.add('active');
-    var doneSecs  = ttkTodayLoggedSecs(hid);
+        var doneSecs  = ttkTodayLoggedSecs(hid);
     var limitSecs = (h.dailyLimitHrs || 0) * 3600;
     ttkUpdateBar(limitSecs > 0 ? Math.min(100, Math.round(doneSecs / limitSecs * 100)) : 0);
   }
-  var picker = document.getElementById('timerTaskPicker');
-  if (picker) picker.style.display = 'none';
 };
 
 /* ── Clear ── */
 window.ttkClearSelection = function() {
   TTK.selectedHabitId = null;
   TTK.selectedType = null;
-  var lbl  = document.getElementById('timerTaskLabel');
-  var icon = document.getElementById('timerTaskIcon');
-  var btn  = document.getElementById('timerTaskBtn');
-  var prog = document.getElementById('timerTaskProgress');
-  if (lbl)  lbl.textContent = '\u0417\u0430\u0434\u0430\u0447\u0430 / \u041f\u0440\u0438\u0432\u044b\u0447\u043a\u0430 (\u043d\u0435\u043e\u0431\u044f\u0437\u0430\u0442\u0435\u043b\u044c\u043d\u043e)';
-  if (icon) icon.innerHTML  = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><polyline points="9 12 11 14 15 10"/></svg>';
-  if (btn)  btn.classList.remove('active');
-  if (prog) prog.style.display = 'none';
-  var picker = document.getElementById('timerTaskPicker');
-  if (picker) picker.style.display = 'none';
 };
-
-/* ── Progress bar ── */
-function ttkUpdateBar(pct) {
-  var wrap = document.getElementById('timerTaskProgress');
-  var fill = document.getElementById('timerTaskProgressFill');
-  if (wrap) wrap.style.display = 'block';
-  if (fill) fill.style.width   = pct + '%';
-}
-
+function ttkUpdateBar(pct) { /* progress bar removed */ }
 /* ── Hook into stopTimer: save hours to task/habit ── */
 (function() {
   var _orig = window.stopTimer;
