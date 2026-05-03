@@ -29373,8 +29373,40 @@ function buildPickers(){
 }
 window._hOpenModal=function(id){
   _editId=id||null;_emoji=EMOJIS[0];_color=COLORS[0];_freq='daily';_tod='any';
-  if(id){const h=hLoad().find(x=>x.id===id);if(h){_emoji=h.icon;_color=h.color;_freq=h.freq;_tod=h.tod||'any';document.getElementById('habNameIn').value=h.name;}document.getElementById('habMTitle').textContent='Редактировать';}
-  else{document.getElementById('habNameIn').value='';document.getElementById('habMTitle').textContent='Новая привычка';}
+  if(id){
+    const h=hLoad().find(x=>x.id===id);
+    if(h){
+      _emoji=h.icon;_color=h.color;_freq=h.freq;_tod=h.tod||'any';
+      document.getElementById('habNameIn').value=h.name;
+      /* Восстанавливаем тип и лимит */
+      var habType = h.habType || 'count';
+      var dailyLimitHrs = h.dailyLimitHrs || 0;
+      _habType = habType;
+      _habUnit = 'min';
+      var limitMinutes = Math.round(dailyLimitHrs * 60);
+      /* Обновляем UI типа */
+      document.querySelectorAll('.hab-type-btn').forEach(function(b, i){
+        b.classList.toggle('active', (i === 0 && habType === 'count') || (i === 1 && habType === 'time'));
+      });
+      var wrap = document.getElementById('habLimitWrap');
+      if (wrap) wrap.classList.toggle('open', habType === 'time');
+      var limitInp = document.getElementById('habLimitVal');
+      if (limitInp && habType === 'time') limitInp.value = limitMinutes || 30;
+      /* Единица — мин по умолчанию */
+      document.querySelectorAll('.hab-limit-unit-btn').forEach(function(b, i){
+        b.classList.toggle('on', i === 0);
+      });
+    }
+    document.getElementById('habMTitle').textContent='Редактировать';
+  } else {
+    document.getElementById('habNameIn').value='';
+    document.getElementById('habMTitle').textContent='Новая привычка';
+    /* Сбрасываем тип для новой */
+    _habType = 'count'; _habUnit = 'min';
+    document.querySelectorAll('.hab-type-btn').forEach(function(b, i){ b.classList.toggle('active', i === 0); });
+    var wrap = document.getElementById('habLimitWrap');
+    if (wrap) wrap.classList.remove('open');
+  }
   buildPickers();
   const ov=document.getElementById('habAddOv');ov.classList.add('open');ov.style.display='flex';
   setTimeout(()=>document.getElementById('habNameIn').focus(),100);
@@ -46337,25 +46369,46 @@ window._hSetUnit = function(unit, btn) {
   if (btn) btn.classList.add('on');
 };
 
-/* After _hSave runs, patch the last saved habit with type+limit */
+/* Миграция: проставить habType='count' привычкам у которых его нет */
+(function(){
+  try {
+    var data = JSON.parse(localStorage.getItem('dtr_h3') || '[]');
+    var changed = false;
+    data.forEach(function(h){
+      if (!h.habType) { h.habType = 'count'; h.dailyLimitHrs = 0; changed = true; }
+    });
+    if (changed) localStorage.setItem('dtr_h3', JSON.stringify(data));
+  } catch(e) {}
+})();
+
+/* After _hSave runs, patch the saved habit with type+limit */
 (function(){
   var _orig = window._hSave;
   if (typeof _orig !== 'function') return;
   window._hSave = function() {
     _orig.apply(this, arguments);
-    /* Now patch the last habit in dtr_h3 */
+    /* Now patch the correct habit in dtr_h3 */
     try {
       var data = JSON.parse(localStorage.getItem('dtr_h3') || '[]');
-      if (Array.isArray(data) && data.length) {
-        var last = data[data.length - 1];
-        if (last) {
-          var limitVal = parseFloat((document.getElementById('habLimitVal') || {}).value || 30) || 30;
-          last.habType = _habType;
-          last.dailyLimitHrs = _habType === 'time'
-            ? (_habUnit === 'min' ? limitVal / 60 : limitVal)
-            : 0;
-          localStorage.setItem('dtr_h3', JSON.stringify(data));
-        }
+      if (!Array.isArray(data) || !data.length) return;
+
+      var limitVal = parseFloat((document.getElementById('habLimitVal') || {}).value || 30) || 30;
+      var habType = _habType;
+      var dailyLimitHrs = habType === 'time'
+        ? (_habUnit === 'min' ? limitVal / 60 : limitVal)
+        : 0;
+
+      /* Если редактирование — найти по _editId, иначе взять последний */
+      var target = null;
+      if (typeof _editId !== 'undefined' && _editId) {
+        target = data.find(function(h){ return h.id === _editId; });
+      }
+      if (!target) target = data[data.length - 1];
+
+      if (target) {
+        target.habType = habType;
+        target.dailyLimitHrs = dailyLimitHrs;
+        localStorage.setItem('dtr_h3', JSON.stringify(data));
       }
       /* Reset type UI */
       _habType = 'count'; _habUnit = 'min';
