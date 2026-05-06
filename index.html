@@ -2,6 +2,26 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
+<!-- ══ Content Security Policy ══════════════════════════════════
+     Защита от XSS и инъекции внешних скриптов.
+     'unsafe-inline' для script/style оставлено намеренно — в файле много
+     inline-кода и стилей. Полное удаление 'unsafe-inline' планируется
+     при разделении на отдельные js/css файлы.
+     При добавлении новых внешних сервисов — обнови этот тег.
+═════════════════════════════════════════════════════════════════ -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://www.googletagmanager.com https://mc.yandex.ru;
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  font-src 'self' https://fonts.gstatic.com data:;
+  img-src 'self' data: blob: https:;
+  media-src 'self' blob: data:;
+  connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.google-analytics.com https://analytics.google.com https://mc.yandex.ru https://openrelay.metered.ca https://*.metered.ca;
+  frame-src 'none';
+  object-src 'none';
+  base-uri 'self';
+  form-action 'self';
+">
 <script>/* DTR Theme: apply before paint */
 (function(){var t=localStorage.getItem('dtr_theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();
 /* Suppress Yandex Metrika CORS/404 console noise */
@@ -13470,6 +13490,29 @@ html[data-theme="light"] .nav-icon-btn:hover {
 
 .tot-stat, .tot-stat-sep, .tot-stats-grid { display:none !important; }
 
+/* ── Skip-link: видимая только при фокусе с клавиатуры ── */
+/* WCAG 2.4.1 Bypass Blocks. Работает без JS, через :focus / :focus-visible */
+.skip-nav {
+  position: absolute;
+  top: 4px;
+  left: -9999px;
+  z-index: 9999;
+  padding: 8px 16px;
+  background: var(--gold);
+  color: #09090B;
+  font-weight: 700;
+  font-size: 13px;
+  font-family: var(--font-display);
+  border-radius: 8px;
+  text-decoration: none;
+  transition: left .15s;
+}
+.skip-nav:focus,
+.skip-nav:focus-visible {
+  left: 8px;
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
 
 </style>
   <link rel="manifest" id="pwaManifest">
@@ -14255,7 +14298,9 @@ html[data-theme="light"] .dtr-philo-text strong { color: #2a2a2a; }
 
 </head>
 <body>
-<a href="#app" class="skip-nav" style="position:absolute;left:-9999px;top:4px;z-index:9999;padding:8px 16px;background:var(--gold);color:#09090B;font-weight:700;font-size:13px;border-radius:8px;text-decoration:none;font-family:var(--font-display);transition:left .15s;" onfocus="this.style.left='8px'" onblur="this.style.left='-9999px'">Перейти к содержимому</a>
+<a href="#main-content" class="skip-nav">Перейти к содержимому</a>
+<!-- Якорь skip-link: всегда в DOM, фокусируется через tabindex=-1 без попадания в обычный tab-цикл -->
+<div id="main-content" tabindex="-1" style="outline:none"></div>
 
 <div id="onboard" role="main">
 
@@ -14343,11 +14388,11 @@ html[data-theme="light"] .dtr-philo-text strong { color: #2a2a2a; }
         </div>
         <div class="dtr-errbox" id="dtrLErr"></div>
         <div class="dtr-field">
-          <label class="dtr-flabel">Никнейм</label>
+          <label class="dtr-flabel" for="dtrLNick">Никнейм</label>
           <input type="text" id="dtrLNick" placeholder="твой_никнейм" autocomplete="username" spellcheck="false" oninput="document.getElementById('lN').value=this.value">
         </div>
         <div class="dtr-field">
-          <label class="dtr-flabel">Пароль</label>
+          <label class="dtr-flabel" for="dtrLPass">Пароль</label>
           <div class="dtr-fi">
             <input type="password" id="dtrLPass" placeholder="········" autocomplete="current-password" style="padding-right:40px" oninput="document.getElementById('lP').value=this.value">
             <button class="dtr-eye-btn" onclick="dtrEye('dtrLPass',this)" type="button">
@@ -14383,6 +14428,7 @@ html[data-theme="light"] .dtr-philo-text strong { color: #2a2a2a; }
           <div class="dtr-step-q">Придумай никнейм</div>
           <div class="dtr-step-hint">Латиница, цифры, _ · будет виден всем</div>
           <div class="dtr-field">
+            <label class="dtr-flabel" for="dtrRNick">Никнейм</label>
             <input type="text" id="dtrRNick" placeholder="cool_nickname" spellcheck="false" autocomplete="off" oninput="this.value=this.value.replace(/[^a-zA-Z0-9_]/g,'').toLowerCase();">
           </div>
           <div class="dtr-step-nav">
@@ -14395,6 +14441,7 @@ html[data-theme="light"] .dtr-philo-text strong { color: #2a2a2a; }
           <div class="dtr-step-q">Придумай пароль</div>
           <div class="dtr-step-hint">Минимум 6 символов — защити прогресс</div>
           <div class="dtr-field">
+            <label class="dtr-flabel" for="dtrRPass">Пароль</label>
             <div class="dtr-fi">
               <input type="password" id="dtrRPass" placeholder="минимум 6 символов" autocomplete="new-password" oninput="dtrStrM(this.value)" style="padding-right:40px">
               <button class="dtr-eye-btn" onclick="dtrEye('dtrRPass',this)" type="button">
@@ -14432,7 +14479,7 @@ html[data-theme="light"] .dtr-philo-text strong { color: #2a2a2a; }
         </div>
         <div class="dtr-errbox" id="dtrFErr"></div>
         <div class="dtr-field">
-          <label class="dtr-flabel">Никнейм</label>
+          <label class="dtr-flabel" for="dtrFNick">Никнейм</label>
           <input type="text" id="dtrFNick" placeholder="твой_никнейм" spellcheck="false">
         </div>
         <button class="dtr-btn-go" id="dtrBtnF" onclick="dtrDoForgot()" type="button" style="margin-top:4px">Восстановить</button>
@@ -16338,14 +16385,24 @@ async function doLogin(){
   });
   btn.textContent='Войти';btn.disabled=false;
   if(error){
-    console.error('Login error:', error);
-    if(error.message?.includes('fetch')||error.message?.includes('network')||error.message?.includes('Failed')){
-      err.textContent='Ошибка соединения с сервером. Проверь интернет.';
-    } else if(error.message?.includes('Invalid')||error.message?.includes('credentials')){
-      err.textContent='Неверный никнейм или пароль';
+    // Определяем тип ошибки сначала по структурным полям (status/code),
+    // и только в крайнем случае — по текстовому паттерну (для совместимости со старыми SDK).
+    const msg = (error.message||'').toLowerCase();
+    let userMsg;
+    if(error.status===429 || error.code==='over_request_rate_limit' || /rate limit|too many/i.test(msg)){
+      userMsg = 'Слишком много попыток. Подожди минуту и попробуй снова.';
+    } else if(error.status===400 || error.code==='invalid_credentials' || /invalid|credentials/i.test(msg)){
+      userMsg = 'Неверный никнейм или пароль';
+    } else if(error.code==='email_not_confirmed' || /not confirmed|confirm/i.test(msg)){
+      userMsg = 'Аккаунт не подтверждён. Проверь почту или напиши в поддержку.';
+    } else if(/network|fetch|failed/i.test(msg) || error.name==='AuthRetryableFetchError'){
+      userMsg = 'Ошибка соединения с сервером. Проверь интернет.';
     } else {
-      err.textContent='Ошибка: '+error.message;
+      userMsg = 'Не удалось войти. Попробуй ещё раз.';
     }
+    err.textContent = userMsg;
+    // Технические детали — в консоль для разработчика
+    console.error('[DTR login] Supabase Auth error:', error);
     return;
   }
   SB_USER=data.user;
@@ -16361,7 +16418,7 @@ async function goToCatSel(){
   err.textContent='';
   if(!n||n.length<3){err.textContent='Никнейм минимум 3 символа';return;}
   if(n.length>20){err.textContent='Никнейм не длиннее 20 символов';return;}
-  if(!/^[a-zA-Zа-яА-Я0-9_]+$/.test(n)){err.textContent='Только буквы, цифры и _';return;}
+  if(!/^[a-zA-Z0-9_]+$/.test(n)){err.textContent='Только латинские буквы (a-z), цифры и _ (без пробелов)';return;}
   if(!p||p.length<6){err.textContent='Пароль минимум 6 символов';return;}
   err.textContent='Проверяем никнейм...';
   const {data:ex}=await sb.from('users').select('id').eq('username',n).maybeSingle();
@@ -16407,7 +16464,29 @@ async function finishReg(){
 
   if(authErr){
     btn.textContent='Начать';btn.disabled=false;
-    alert('Ошибка регистрации: '+authErr.message);return;
+    // Локализация типичных ошибок Supabase Auth по коду/статусу/тексту.
+    // Опираемся в первую очередь на authErr.code/status (структурно), и только
+    // потом на authErr.message (текстовый паттерн — на случай старых SDK).
+    const msg = (authErr.message||'').toLowerCase();
+    let userMsg;
+    if(authErr.status===429 || /rate limit|too many/i.test(msg)){
+      userMsg = 'Слишком много попыток. Подожди минуту и попробуй снова.';
+    } else if(authErr.code==='user_already_exists' || /already registered|already exists/i.test(msg)){
+      userMsg = 'Этот никнейм уже занят. Попробуй войти или выбери другой.';
+    } else if(authErr.code==='weak_password' || /password.*(short|weak|6)/i.test(msg)){
+      userMsg = 'Пароль слишком простой. Минимум 6 символов.';
+    } else if(/network|fetch|failed/i.test(msg)){
+      userMsg = 'Ошибка соединения. Проверь интернет и попробуй снова.';
+    } else {
+      userMsg = 'Не получилось создать аккаунт. Попробуй ещё раз.';
+    }
+    // Показываем пользователю в красном поле, как делают остальные шаги регистрации
+    const rErr = document.getElementById('rErr');
+    if(rErr) rErr.textContent = userMsg;
+    if(typeof showToast==='function') showToast(userMsg,'⚠️');
+    // Техническую информацию — в консоль для разработчика
+    console.error('[DTR signup] Supabase Auth error:', authErr);
+    return;
   }
 
   // Email confirmation required — попытаемся войти немедленно через signInWithPassword
@@ -16428,24 +16507,20 @@ async function finishReg(){
       applyTheme(); applyLang();
       return;
     } else {
-      // Email confirmation всё ещё требуется — показываем инструкцию
+      // Email confirmation требуется (включена опция Confirm email в Supabase Auth).
+      // Это конфигурационная проблема — показываем пользователю мягкое сообщение,
+      // а в консоль — конкретную инструкцию для разработчика.
       btn.textContent='Начать';btn.disabled=false;
-      document.getElementById('catSel').innerHTML=`
-        <div style="text-align:center;padding:40px 24px;max-width:460px;color:var(--t1)">
-          <div style="font-size:56px;margin-bottom:16px">⚙️</div>
-          <div style="font-family:var(--font-display);font-size:22px;font-weight:700;margin-bottom:12px">Нужна настройка</div>
-          <div style="font-size:14px;color:var(--t2);line-height:1.8;text-align:left;background:var(--card);border-radius:12px;padding:16px 20px;border:0.5px solid var(--border)">
-            Для работы регистрации нужно отключить email-подтверждение в Supabase:<br><br>
-            <b style="color:var(--t1)">1.</b> Открой <b style="color:var(--gold)">Supabase Dashboard</b><br>
-            <b style="color:var(--t1)">2.</b> Authentication → Providers → Email<br>
-            <b style="color:var(--t1)">3.</b> Выключи <b style="color:var(--gold)">"Confirm email"</b><br>
-            <b style="color:var(--t1)">4.</b> Нажми Save → вернись и попробуй снова
-          </div>
-          <div style="display:flex;gap:10px;margin-top:20px;justify-content:center">
-            <button onclick="document.getElementById('catSel').style.display='none';document.getElementById('onboard').style.display='flex';initBanner();" style="padding:12px 24px;border-radius:10px;border:0.5px solid var(--border);background:var(--card);color:var(--t2);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font-display)">← Назад</button>
-            <button onclick="location.reload()" style="padding:12px 24px;border-radius:10px;border:none;background:var(--gold);color:#0A0A0B;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font-display)">Попробовать снова</button>
-          </div>
-        </div>`;
+      console.warn(
+        '[DTR signup] Регистрация не завершилась: для нового пользователя не выдана сессия. ' +
+        'Скорее всего, в Supabase включена опция "Confirm email". ' +
+        'Чтобы исправить: Supabase Dashboard → Authentication → Sign In / Providers → ' +
+        'выключить тумблер "Confirm email" и сохранить.'
+      );
+      const rErr = document.getElementById('rErr');
+      const msg = 'Регистрация временно недоступна. Попробуй позже или напиши в поддержку.';
+      if(rErr) rErr.textContent = msg;
+      if(typeof showToast==='function') showToast(msg,'⚠️');
       return;
     }
   }
@@ -43015,7 +43090,7 @@ async function deleteFromSupabase(id){
 const pad2  = n  => String(n).padStart(2,'0');
 const dk    = d  => d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
 const today = () => dk(new Date());
-const esc   = s  => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+// esc() — используется глобальная функция из строки 17233 (экранирует & < > " ')
 
 function daysInRange(s, e){
   const arr=[], sd=new Date(s+'T00:00:00'), ed=new Date(e+'T00:00:00');
@@ -43997,7 +44072,7 @@ function getUser2(){ try{ return typeof SB_USER!=='undefined'?SB_USER:null; }cat
 const pad2 = n => String(n).padStart(2,'0');
 const dk   = d => d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
 const today = () => dk(new Date());
-const esc   = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+// esc() — используется глобальная функция из строки 17233 (экранирует & < > " ')
 
 function daysInRange(s, e){
   const arr=[], sd=new Date(s+'T00:00:00'), ed=new Date(e+'T00:00:00');
