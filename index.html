@@ -15890,6 +15890,82 @@ window.toggleLikeUser = async function(){
 <div id="chabModalOv" style="display:none;position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.72);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);align-items:center;justify-content:center;padding:20px">
   <div class="chab-modal" id="chabModal"></div>
 </div>
+<!-- ════════════════════════════════════════════════════════════════
+     DTR HABIT ICONS — 40 SVG в стиле Lucide outline.
+     Должен загружаться ДО HabTracker IIFE, чтобы HAB_ICON_IDS
+     был определён к моменту инициализации привычек.
+     ════════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  'use strict';
+  function _svg(paths, size) {
+    var s = size || 20;
+    return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:block">' + paths + '</svg>';
+  }
+  var HAB_ICONS = [
+    { id:'book',        name:'Чтение',           emojiAlias:'📚', svg:function(s){return _svg('<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',s);} },
+    { id:'run',         name:'Бег',              emojiAlias:'🏃', svg:function(s){return _svg('<circle cx="13" cy="4" r="2"/><path d="M4 22l5-7 4 2-2 5"/><path d="M9 15l-3-5 4-3 4 4 4-1"/>',s);} },
+    { id:'meditation',  name:'Медитация',        emojiAlias:'🧘', svg:function(s){return _svg('<circle cx="12" cy="6" r="2.5"/><path d="M12 8.5v6"/><path d="M6 14.5c2-1 4-1 6-1s4 0 6 1"/><path d="M6 19c1.5-2 4-3 6-3s4.5 1 6 3"/>',s);} },
+    { id:'muscle',      name:'Сила',             emojiAlias:'💪', svg:function(s){return _svg('<path d="M14 7s2-1 4 0 3 4 3 6-1 4-3 5"/><path d="M14 7c-1-2-3-3-5-3s-4 1-5 3"/><path d="M4 7v6c0 3 2 5 5 5h2c3 0 5-2 5-5v-1"/><path d="M9 11s1 1 3 1"/>',s);} },
+    { id:'apple',       name:'Здоровое питание', emojiAlias:'🍎', svg:function(s){return _svg('<path d="M12 7c-2-3-5-3-7-1s-2 7 1 11c2 3 4 4 6 4s4-1 6-4c3-4 3-9 1-11s-5-2-7 1z"/><path d="M12 7v-2c0-1 1-2 2-2"/>',s);} },
+    { id:'water',       name:'Вода',             emojiAlias:'💧', svg:function(s){return _svg('<path d="M12 2.5C8 7 5 11 5 14.5a7 7 0 0 0 14 0C19 11 16 7 12 2.5z"/><path d="M9 14.5a3 3 0 0 0 3 3"/>',s);} },
+    { id:'target',      name:'Цель',             emojiAlias:'🎯', svg:function(s){return _svg('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',s);} },
+    { id:'pen',         name:'Письмо',           emojiAlias:'✍️', svg:function(s){return _svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>',s);} },
+    { id:'palette',     name:'Творчество',       emojiAlias:'🎨', svg:function(s){return _svg('<path d="M12 22a10 10 0 1 1 0-20 9 9 0 0 1 9 9c0 2-1 3-3 3h-2c-1 0-2 1-2 2v1c0 2-1 3-2 3z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="12" cy="7" r="1"/><circle cx="16.5" cy="10.5" r="1"/>',s);} },
+    { id:'guitar',      name:'Музыка-инструмент',emojiAlias:'🎸', svg:function(s){return _svg('<path d="M9 18a4 4 0 1 0-4-4"/><path d="M9 18l9-9-2-2-9 9"/><path d="M14 7l3-3 3 3-3 3"/>',s);} },
+    { id:'brain',       name:'Мозг',             emojiAlias:'🧠', svg:function(s){return _svg('<path d="M12 5a3 3 0 0 0-3 3v1a3 3 0 0 0-2 5 3 3 0 0 0 2 4 3 3 0 0 0 6 0 3 3 0 0 0 2-4 3 3 0 0 0-2-5V8a3 3 0 0 0-3-3z"/><path d="M12 8v10"/><path d="M9 11h2"/><path d="M13 14h2"/>',s);} },
+    { id:'sleep',       name:'Сон',              emojiAlias:'😴', svg:function(s){return _svg('<path d="M21 13a9 9 0 1 1-9-9c0 5 4 9 9 9z"/><path d="M14 6h4l-4 4h4"/>',s);} },
+    { id:'leaf',        name:'Природа',          emojiAlias:'🌿', svg:function(s){return _svg('<path d="M11 20A7 7 0 0 1 4 13c0-5 3-9 9-10 0 8-2 13-7 17z"/><path d="M11 20c5-1 9-4 10-10"/>',s);} },
+    { id:'cycle',       name:'Велосипед',        emojiAlias:'🚴', svg:function(s){return _svg('<circle cx="6" cy="17" r="4"/><circle cx="18" cy="17" r="4"/><path d="M6 17l5-7h4l3 7"/><circle cx="15" cy="5" r="1.5"/><path d="M15 7v3"/>',s);} },
+    { id:'swim',        name:'Плавание',         emojiAlias:'🏊', svg:function(s){return _svg('<path d="M2 18c2 1 3 1 5 0s3-1 5 0 3 1 5 0 3-1 5 0"/><path d="M2 14c2 1 3 1 5 0s3-1 5 0 3 1 5 0 3-1 5 0"/><circle cx="17" cy="7" r="2"/><path d="M5 13l4-4 4 1"/>',s);} },
+    { id:'stretch',     name:'Гибкость',         emojiAlias:'🤸', svg:function(s){return _svg('<circle cx="12" cy="4" r="2"/><path d="M12 6v5"/><path d="M9 9l-5 3 3 4"/><path d="M15 9l5 3-3 4"/><path d="M12 11l-2 6 2 4 2-4-2-6"/>',s);} },
+    { id:'broom',       name:'Уборка',           emojiAlias:'🧹', svg:function(s){return _svg('<path d="M14 4l6 6"/><path d="M9 9l5-5"/><path d="M5 21l4-12 8 8-12 4z"/><path d="M9 17l-3 3"/><path d="M11 19l-2 2"/>',s);} },
+    { id:'pill',        name:'Лекарство',        emojiAlias:'💊', svg:function(s){return _svg('<rect x="2" y="9" width="20" height="6" rx="3"/><path d="M12 9v6"/>',s);} },
+    { id:'sun',         name:'Утро',             emojiAlias:'☀️', svg:function(s){return _svg('<circle cx="12" cy="12" r="4"/><path d="M12 3v2"/><path d="M12 19v2"/><path d="M3 12h2"/><path d="M19 12h2"/><path d="M5.6 5.6l1.4 1.4"/><path d="M17 17l1.4 1.4"/><path d="M5.6 18.4L7 17"/><path d="M17 7l1.4-1.4"/>',s);} },
+    { id:'moon',        name:'Вечер',            emojiAlias:'🌙', svg:function(s){return _svg('<path d="M21 13a9 9 0 1 1-9-9 7 7 0 0 0 9 9z"/>',s);} },
+    { id:'note',        name:'Заметки',          emojiAlias:'📝', svg:function(s){return _svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h6"/>',s);} },
+    { id:'graduation', name:'Учёба',             emojiAlias:'🎓', svg:function(s){return _svg('<path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c2 1.5 4 2 6 2s4-.5 6-2v-5"/>',s);} },
+    { id:'fire',        name:'Дисциплина',       emojiAlias:'🔥', svg:function(s){return _svg('<path d="M12 22a7 7 0 0 1-7-7c0-2 1-4 2-5 .5 1 1 1.5 2 1.5C8 8 10 5 11 2c1 1 5 4 5 9 1 0 1.5-.5 2-1.5 1 1 2 3 2 5a7 7 0 0 1-8 7.5z"/>',s);} },
+    { id:'bolt',        name:'Энергия',          emojiAlias:'⚡',  svg:function(s){return _svg('<path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/>',s);} },
+    { id:'flower',      name:'Уход',             emojiAlias:'🌸', svg:function(s){return _svg('<circle cx="12" cy="12" r="2.5"/><path d="M12 2c-2 2-2 5 0 7"/><path d="M12 22c2-2 2-5 0-7"/><path d="M2 12c2-2 5-2 7 0"/><path d="M22 12c-2-2-5-2-7 0"/><path d="M5 5c2 0 5 2 5 5"/><path d="M19 19c-2 0-5-2-5-5"/><path d="M19 5c-2 0-5 2-5 5"/><path d="M5 19c2 0 5-2 5-5"/>',s);} },
+    { id:'game',        name:'Игры',             emojiAlias:'🎮', svg:function(s){return _svg('<rect x="2" y="7" width="20" height="11" rx="3"/><path d="M7 11v3"/><path d="M5.5 12.5h3"/><circle cx="16" cy="11" r="0.8"/><circle cx="18" cy="14" r="0.8"/>',s);} },
+    { id:'tea',         name:'Чай/кофе',         emojiAlias:'🍵', svg:function(s){return _svg('<path d="M5 8h13v6a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4V8z"/><path d="M18 10h2a2 2 0 1 1 0 4h-2"/><path d="M9 4c-1 1-1 2 0 3"/><path d="M13 4c-1 1-1 2 0 3"/>',s);} },
+    { id:'wave',        name:'Океан',            emojiAlias:'🌊', svg:function(s){return _svg('<path d="M2 9c3-3 5-3 8 0s5 3 8 0c1-1 2-1.5 4-1.5"/><path d="M2 14c3-3 5-3 8 0s5 3 8 0c1-1 2-1.5 4-1.5"/><path d="M2 19c3-3 5-3 8 0s5 3 8 0c1-1 2-1.5 4-1.5"/>',s);} },
+    { id:'gym',         name:'Зал',              emojiAlias:'🏋️', svg:function(s){return _svg('<path d="M2 8v8"/><path d="M22 8v8"/><path d="M5 6v12"/><path d="M19 6v12"/><path d="M5 12h14"/>',s);} },
+    { id:'walk',        name:'Прогулка',         emojiAlias:'🚶', svg:function(s){return _svg('<circle cx="13" cy="4" r="2"/><path d="M11 7l-3 8 3 2 1 5"/><path d="M14 12l3 1 1 5"/><path d="M9 9L7 7"/>',s);} },
+    { id:'puzzle',      name:'Логика',           emojiAlias:'🧩', svg:function(s){return _svg('<path d="M9 3h6v3a2 2 0 1 0 4 0V3h0v6h3a2 2 0 1 1 0 4h-3v6h-6v-3a2 2 0 1 0-4 0v3H3v-6h0a2 2 0 1 1 0-4h0V3h6z"/>',s);} },
+    { id:'idea',        name:'Идея',             emojiAlias:'💡', svg:function(s){return _svg('<path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10c1 1 1.5 2 1.5 3h5c0-1 .5-2 1.5-3a6 6 0 0 0-4-10z"/>',s);} },
+    { id:'music',       name:'Музыка',           emojiAlias:'🎵', svg:function(s){return _svg('<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',s);} },
+    { id:'salad',       name:'Овощи',            emojiAlias:'🥗', svg:function(s){return _svg('<path d="M3 12c0 5 4 9 9 9s9-4 9-9z"/><path d="M7 9c1-2 3-3 5-3s4 1 5 3"/><circle cx="9" cy="14" r="1"/><circle cx="14" cy="16" r="1"/><circle cx="16" cy="13" r="1"/>',s);} },
+    { id:'heart',       name:'Сердце',           emojiAlias:'🫀', svg:function(s){return _svg('<path d="M19 14c-2 3-7 7-7 7s-5-4-7-7c-3-4-1-9 3-9 2 0 3 1 4 2 1-1 2-2 4-2 4 0 6 5 3 9z"/>',s);} },
+    { id:'beads',       name:'Духовность',       emojiAlias:'📿', svg:function(s){return _svg('<circle cx="12" cy="5" r="1.5"/><circle cx="6" cy="9" r="1.5"/><circle cx="18" cy="9" r="1.5"/><circle cx="4" cy="15" r="1.5"/><circle cx="20" cy="15" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/><path d="M12 6.5c-3 0-6 1-6 4M12 6.5c3 0 6 1 6 4M6 10.5c-1 1-2 2-2 4M18 10.5c1 1 2 2 2 4M4 16.5c1 1 2 2 5 3M20 16.5c-1 1-2 2-5 3"/>',s);} },
+    { id:'tooth',       name:'Зубы',             emojiAlias:'🦷', svg:function(s){return _svg('<path d="M12 5c-2-2-7-2-7 3 0 2 1 4 2 6 1 1 1 3 1 5 0 1 1 2 2 1 1-1 1-3 1-5 0-1 1-2 2-2s2 1 2 2c0 2 0 4 1 5 1 1 2 0 2-1 0-2 0-4 1-5 1-2 2-4 2-6 0-5-5-5-7-3-1 1-2 1-2 0z"/>',s);} },
+    { id:'laptop',      name:'Работа',           emojiAlias:'💻', svg:function(s){return _svg('<rect x="3" y="5" width="18" height="11" rx="2"/><path d="M2 19h20"/><path d="M9 19v-3"/><path d="M15 19v-3"/>',s);} },
+    { id:'lab',         name:'Эксперимент',      emojiAlias:'🧪', svg:function(s){return _svg('<path d="M9 3h6"/><path d="M10 3v9l-5 8c-1 2 0 3 2 3h10c2 0 3-1 2-3l-5-8V3"/><path d="M7 16h10"/>',s);} },
+    { id:'plant',       name:'Растение',         emojiAlias:'🪴', svg:function(s){return _svg('<path d="M5 14h14l-2 7H7l-2-7z"/><path d="M12 14V8"/><path d="M12 8c-1-2-3-3-5-3 0 2 1 4 3 5"/><path d="M12 8c1-2 3-3 5-3 0 2-1 4-3 5"/>',s);} }
+  ];
+  var EMOJI_TO_ID = {};
+  HAB_ICONS.forEach(function(it){ if (it.emojiAlias) EMOJI_TO_ID[it.emojiAlias] = it.id; });
+  var ID_TO_ICON = {};
+  HAB_ICONS.forEach(function(it){ ID_TO_ICON[it.id] = it; });
+  function habIconHTML(iconValue, size, color) {
+    var s = size || 20;
+    var c = color || 'currentColor';
+    if (!iconValue) iconValue = 'target';
+    if (ID_TO_ICON[iconValue]) {
+      return '<span style="display:inline-flex;align-items:center;justify-content:center;color:' + c + '">' + ID_TO_ICON[iconValue].svg(s) + '</span>';
+    }
+    if (EMOJI_TO_ID[iconValue]) {
+      return '<span style="display:inline-flex;align-items:center;justify-content:center;color:' + c + '">' + ID_TO_ICON[EMOJI_TO_ID[iconValue]].svg(s) + '</span>';
+    }
+    return '<span style="font-size:' + Math.round(s * 0.85) + 'px;line-height:1;display:inline-block">' + iconValue + '</span>';
+  }
+  window.HAB_ICONS = HAB_ICONS;
+  window.HAB_ICON_IDS = HAB_ICONS.map(function(i){ return i.id; });
+  window.habIconHTML = habIconHTML;
+  window.habEmojiToId = function(emoji){ return EMOJI_TO_ID[emoji] || null; };
+})();
+</script>
 <script>
 // ══ SUPABASE ═════════════════════════════════════════════════
 // ── Config читается из <meta> — не менять здесь, менять в <head> ──
@@ -26975,15 +27051,15 @@ const DLBL=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 const MLBL=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const QUOTES=['Маленькие привычки — большие результаты.','Дисциплина — это свобода.','Побеждает тот, кто не останавливается.','Каждый день — это новый шанс.','Прогресс важнее совершенства.'];
 const TEMPLATES=[
-  {name:'Читать 30 мин',icon:'📚',color:'#3B82F6',freq:'daily',tod:'evening'},
-  {name:'Спорт',icon:'🏃',color:'#22C55E',freq:'daily',tod:'morning'},
-  {name:'Медитация',icon:'🧘',color:'#A855F7',freq:'daily',tod:'morning'},
-  {name:'Пить воду',icon:'💧',color:'#06B6D4',freq:'daily',tod:'any'},
-  {name:'Без соцсетей',icon:'🎯',color:'#F97316',freq:'weekdays',tod:'any'},
-  {name:'Ранний подъём',icon:'☀️',color:'#F5C842',freq:'daily',tod:'morning'},
+  {name:'Читать 30 мин',icon:'book',     color:'#3B82F6',freq:'daily',tod:'evening'},
+  {name:'Спорт',        icon:'run',      color:'#22C55E',freq:'daily',tod:'morning'},
+  {name:'Медитация',    icon:'meditation',color:'#A855F7',freq:'daily',tod:'morning'},
+  {name:'Пить воду',    icon:'water',    color:'#06B6D4',freq:'daily',tod:'any'},
+  {name:'Без соцсетей', icon:'target',   color:'#F97316',freq:'weekdays',tod:'any'},
+  {name:'Ранний подъём',icon:'sun',      color:'#F5C842',freq:'daily',tod:'morning'},
 ];
 
-let _emoji=EMOJIS[0],_color=COLORS[0],_freq='daily',_tod='any',_sort='order',_mOff=0,_editId=null;
+let _emoji=(typeof window!=='undefined' && window.HAB_ICON_IDS && window.HAB_ICON_IDS[0]) || EMOJIS[0],_color=COLORS[0],_freq='daily',_tod='any',_sort='order',_mOff=0,_editId=null;
 
 // ── Storage ──────────────────────────────────────────────────
 const hLoad=()=>{try{return JSON.parse(localStorage.getItem(HK)||'[]');}catch{return[];}};
@@ -27204,12 +27280,9 @@ function render(){
     const todLabel={any:'',morning:'🌅',evening:'🌙'}[h.tod||'any']||'';
     return `<div class="hab-row${atRiskRow?' at-risk':''}${perfectRow?' perfect':''}" style="grid-template-columns:${colsDesktop}">
       <div class="hab-row-name">
-        <div class="hab-row-icon" style="background:${color}18;border:0.5px solid ${color}35;position:relative;overflow:hidden">
+        <div class="hab-row-icon" style="background:${color}18;border:0.5px solid ${color}35;position:relative;overflow:hidden;color:${color}">
           <div style="position:absolute;inset:0;background:radial-gradient(circle at 35% 35%,${color}40,transparent 65%);pointer-events:none"></div>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <defs><linearGradient id="hig_${h.id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity=".7"/><stop offset="100%" stop-color="${color}"/></linearGradient></defs>
-            <path stroke="url(#hig_${h.id})" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-          </svg>
+          ${typeof habIconHTML === 'function' ? habIconHTML(h.icon, 20, color) : ''}
         </div>
         <div class="hab-row-label" style="min-width:0">
           <div class="hab-row-title" style="font-size:14px">${esc(h.name)}</div>
@@ -27397,7 +27470,7 @@ function render(){
       <div class="hab-es-icon">✅</div>
       <div class="hab-es-title">Начни прямо сейчас</div>
       <div class="hab-es-sub">Выбери из шаблонов или создай свою привычку</div>
-      <div class="hab-template-row">${TEMPLATES.map(t=>`<div class="hab-tpl" onclick="_hFromTpl(${JSON.stringify(t).replace(/"/g,'&quot;')})">${t.icon} ${t.name}</div>`).join('')}</div>
+      <div class="hab-template-row">${TEMPLATES.map(t=>`<div class="hab-tpl" onclick="_hFromTpl(${JSON.stringify(t).replace(/"/g,'&quot;')})"><span style="display:inline-flex;align-items:center;gap:6px"><span style="color:${t.color}">${typeof habIconHTML==='function'?habIconHTML(t.icon,16,t.color):''}</span>${t.name}</span></div>`).join('')}</div>
       <button onclick="_hOpenModal()" style="margin-top:12px;padding:12px 28px;background:linear-gradient(135deg,var(--gold-d),var(--gold));color:#0A0A0B;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font-display);transition:transform .18s,box-shadow .18s" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 24px rgba(245,200,66,.4)'" onmouseout="this.style.transform='';this.style.boxShadow=''">+ Создать привычку</button>
     </div>
   </div>`}
@@ -27597,17 +27670,32 @@ window._hSort=function(s,btn){
 function buildPickers(){
   const ep=document.getElementById('habEmojiPicker');
   const cp=document.getElementById('habColorPicker');
-  if(ep)ep.innerHTML=EMOJIS.map(e=>`<button class="hab-ep${e===_emoji?' s':''}" onclick="_hEmoji('${e}',this)">${e}</button>`).join('');
+  if(ep){
+    if(typeof window.HAB_ICON_IDS !== 'undefined' && typeof window.habIconHTML === 'function'){
+      ep.innerHTML = window.HAB_ICON_IDS.map(function(id){
+        return '<button class="hab-ep' + (id===_emoji ? ' s' : '') + '" onclick="_hEmoji(\'' + id + '\',this)" title="' + id + '" style="color:' + (id===_emoji ? _color : 'var(--t2)') + '">' + window.habIconHTML(id, 20, 'currentColor') + '</button>';
+      }).join('');
+    } else {
+      ep.innerHTML=EMOJIS.map(e=>`<button class="hab-ep${e===_emoji?' s':''}" onclick="_hEmoji('${e}',this)">${e}</button>`).join('');
+    }
+  }
   if(cp)cp.innerHTML=COLORS.map(c=>`<div class="hab-cp${c===_color?' s':''}" style="background:${c}" onclick="_hColor('${c}',this)"></div>`).join('');
   document.querySelectorAll('.hab-seg-btn').forEach(b=>b.classList.toggle('s',b.dataset.v===_freq));
   document.querySelectorAll('.hab-tod-btn').forEach(b=>b.classList.toggle('s',b.dataset.v===_tod));
 }
 window._hOpenModal=function(id){
-  _editId=id||null;_emoji=EMOJIS[0];_color=COLORS[0];_freq='daily';_tod='any';
+  var _defaultIcon = (window.HAB_ICON_IDS && window.HAB_ICON_IDS[0]) || EMOJIS[0];
+  _editId=id||null;_emoji=_defaultIcon;_color=COLORS[0];_freq='daily';_tod='any';
   if(id){
     const h=hLoad().find(x=>x.id===id);
     if(h){
-      _emoji=h.icon;_color=h.color;_freq=h.freq;_tod=h.tod||'any';
+      // Нормализация: старая привычка с emoji ('📚') → id из реестра ('book')
+      var iconVal = h.icon;
+      if (typeof window.habEmojiToId === 'function') {
+        var mappedId = window.habEmojiToId(iconVal);
+        if (mappedId) iconVal = mappedId;
+      }
+      _emoji=iconVal;_color=h.color;_freq=h.freq;_tod=h.tod||'any';
       document.getElementById('habNameIn').value=h.name;
       /* Восстанавливаем тип и лимит */
       var habType = h.habType || 'count';
@@ -27708,7 +27796,7 @@ function renderWeekRep(){
     const c=consist30(h.id,h.freq);const s=calcStreak(h.id,h.freq);const bs=bestStreak(h.id,h.freq);
     const color=h.color||'var(--gold)';
     return `<div class="hab-consist-row">
-      <div class="hab-consist-icon">${esc(h.icon)}</div>
+      <div class="hab-consist-icon" style="color:${color}">${typeof habIconHTML==='function'?habIconHTML(h.icon,18,color):esc(h.icon)}</div>
       <div class="hab-consist-info">
         <div class="hab-consist-name">${esc(h.name)}</div>
         <div class="hab-consist-bar-wr" style="max-width:180px"><div class="hab-consist-bar" style="width:${c}%;background:${color}"></div></div>
@@ -27844,7 +27932,7 @@ function renderMonthRep(){
     const trendCls=diff>0?'up':diff<0?'dn':'eq';
     const trendLbl=diff>0?`+${diff}%`:diff<0?`${diff}%`:'=';
     return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:0.5px solid rgba(255,255,255,.04)">
-      <div style="font-size:18px;flex-shrink:0">${h.icon}</div>
+      <div style="flex-shrink:0;color:${color}">${typeof habIconHTML==='function'?habIconHTML(h.icon,20,color):`<span style="font-size:18px">${h.icon||''}</span>`}</div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;gap:6px">
           <span style="font-size:13px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(h.name)}</span>
@@ -41663,8 +41751,12 @@ function dtrRenderHabPicker(picker) {
       var doneSecs = ttkTodayLoggedSecs(h.id);
       var limitSecs = h.dailyLimitHrs * 3600;
       var pct = limitSecs > 0 ? Math.min(100, Math.round(doneSecs / limitSecs * 100)) : 0;
+      var habColor = h.color || '#F5C842';
+      var iconHTML = (typeof window.habIconHTML === 'function')
+        ? window.habIconHTML(h.icon, 18, habColor)
+        : '<span style="font-size:15px">' + (h.icon || '⏱') + '</span>';
       html += '<div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;cursor:pointer;transition:background .15s;background:' + (sel ? 'rgba(245,200,66,.08)' : 'transparent') + '" onclick="ttkSelectHabit(\'' + h.id + '\');dtrCloseHabPicker()">' +
-        '<span style="font-size:15px;flex-shrink:0;width:22px;text-align:center">' + (h.icon || '⏱') + '</span>' +
+        '<span style="flex-shrink:0;width:22px;display:flex;align-items:center;justify-content:center;color:' + habColor + '">' + iconHTML + '</span>' +
         '<div style="flex:1;min-width:0">' +
           '<div style="font-size:12.5px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + h.name.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</div>' +
           '<div style="font-size:10px;color:var(--t3);margin-top:1px">' + Math.round(h.dailyLimitHrs * 60) + ' мин/день</div>' +
@@ -41738,7 +41830,12 @@ window.ttkSelectHabit = function(hid) {
     var icon = document.getElementById('timerHabIcon');
     var btn  = document.getElementById('timerHabBtn');
     if (lbl)  lbl.textContent = h.name;
-    if (icon) icon.innerHTML  = '<span style="font-size:14px">' + (h.icon || '⏱') + '</span>';
+    if (icon) {
+      var habColor = h.color || 'var(--gold)';
+      icon.innerHTML = (typeof window.habIconHTML === 'function')
+        ? '<span style="display:inline-flex;color:' + habColor + '">' + window.habIconHTML(h.icon, 16, habColor) + '</span>'
+        : '<span style="font-size:14px">' + (h.icon || '⏱') + '</span>';
+    }
     if (btn)  { btn.style.borderColor = 'rgba(245,200,66,.4)'; btn.style.background = 'rgba(245,200,66,.06)'; btn.style.color = 'var(--gold)'; }
     var doneSecs  = ttkTodayLoggedSecs(hid);
     var limitSecs = (h.dailyLimitHrs || 0) * 3600;
