@@ -49003,5 +49003,1068 @@ async function _migrateLocalToSupabase(){
 })();
 </script>
 
+<!--
+================================================================================
+DTR Habits & Goals — ШАГИ 3-10: Cloud sync, авто-стоп таймера, прогресс цели
+================================================================================
+
+Куда вставить:
+  В файле index.html — ПЕРЕД закрывающим тегом </body>.
+  ДО или ВМЕСТО блока миграции из ШАГА 2 (этот блок включает миграцию).
+  То есть просто заменить блок ШАГ 2 на этот, или вставить после него.
+
+Что делает (по разделам):
+  A. Migration — переносит привычки из localStorage в Supabase (ШАГ 2)
+  B. Cache & Sync — при старте подгружает из Supabase, кладёт в localStorage
+  C. Habits write-through — при создании/редактировании/удалении привычки
+     и при отметке дневной галочки — пишет в Supabase, обновляет localStorage
+  D. Sessions extended — saveSession пишет habit_id, client_session_id, timings
+  E. Auto-stop — при достижении дневного лимита таймер останавливается,
+     отметка проставляется через RPC fn_log_habit_session
+  F. Sound + Notification + Vibration — двойной beep, browser notification,
+     виброотклик на мобильных
+  G. Goal progress — переписан на часы привязанных привычек с момента привязки
+  H. Goal completion — автоархив при достижении target_hours
+  I. goal_habits write-through — saveBindHabit пишет и в массив, и в таблицу
+  J. Cross-tab refresh — при возврате фокуса синхронизируется с облаком
+
+Зависимости:
+  - Применённая SQL миграция (ШАГ 1)
+  - Глобалы: sb, SB_USER, GV2, habToggle, habDel, _hSave, _hFromTpl,
+    startTimer, stopTimer, timerTick, saveSession, showToast
+================================================================================
+-->
+
+<script>
+(function _dtrCloudV2(){
+  'use strict';
+
+  // ── Константы ────────────────────────────────────────────────────────────
+  var FLAG_KEY = 'dtr_migrated_v2';
+  var HK = 'dtr_h3';
+  var LK = 'dtr_l3';
+
+  var LOG = function(){
+    if (window.console) console.log.apply(console, ['[DTR_CLOUD]'].concat([].slice.call(arguments)));
+  };
+  var ERR = function(){
+    if (window.console) console.error.apply(console, ['[DTR_CLOUD]'].concat([].slice.call(arguments)));
+  };
+
+  // ── Утилиты ──────────────────────────────────────────────────────────────
+  function safeParse(s, fallback) {
+    try { return JSON.parse(s); } catch (e) { return fallback; }
+  }
+  function isISODate(s) { return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s); }
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function localDate(d) {
+    d = d || new Date();
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  }
+  function uuid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    // Fallback: RFC4122-ish v4
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c){
+      var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  function authedUser() {
+    var u = window.SB_USER;
+    if (!window.sb || !u || !u.id || u.isDemoUser) return null;
+    return u;
+  }
+  function waitForAuth(maxMs) {
+    return new Promise(function(resolve){
+      var start = Date.now();
+      (function tick(){
+        var u = authedUser();
+        if (u) return resolve(u);
+        if (Date.now() - start > maxMs) return resolve(null);
+        setTimeout(tick, 500);
+      })();
+    });
+  }
+  function showToast(msg, icon) {
+    try {
+      if (typeof window.showToast === 'function') window.showToast(msg, icon || '');
+    } catch (e) {}
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // A. MIGRATION: localStorage → Supabase (ШАГ 2)
+  // ──────────────────────────────────────────────────────────────────────────
+  async function migrateOnce() {
+    if (localStorage.getItem(FLAG_KEY) === '1') return true;
+
+    var user = await waitForAuth(30000);
+    if (!user) { LOG('migrate: no auth — skip'); return false; }
+
+    var sb = window.sb;
+    var userId = user.id;
+
+    var legacyHabits = safeParse(localStorage.getItem(HK) || '[]', []);
+    var legacyLogs   = safeParse(localStorage.getItem(LK) || '{}', {});
+
+    if (!Array.isArray(legacyHabits) || legacyHabits.length === 0) {
+      localStorage.setItem(FLAG_KEY, '1');
+      return true;
+    }
+
+    LOG('migrate start, legacy:', legacyHabits.length);
+
+    // Precheck — есть ли уже habits в облаке
+    try {
+      var pre = await sb.from('habits').select('id').eq('user_id', userId).limit(1);
+      if (pre.error) { ERR('precheck:', pre.error); return false; }
+      if (pre.data && pre.data.length) {
+        localStorage.setItem(FLAG_KEY, '1');
+        LOG('migrate: cloud already populated — flag set');
+        return true;
+      }
+    } catch (e) { ERR('precheck exc:', e); return false; }
+
+    // Подготовка habits
+    var habitsToInsert = [];
+    for (var i = 0; i < legacyHabits.length; i++) {
+      var h = legacyHabits[i] || {};
+      if (!h.id) continue;
+      var habType = (h.habType === 'time') ? 'time' : 'count';
+      var dailyLimitHrs = parseFloat(h.dailyLimitHrs);
+      if (!isFinite(dailyLimitHrs) || dailyLimitHrs < 0) dailyLimitHrs = 0;
+      var freq = ['daily', 'weekdays', 'weekend'].indexOf(h.freq) >= 0 ? h.freq : 'daily';
+      var createdISO;
+      try { createdISO = h.created ? new Date(h.created).toISOString() : new Date().toISOString(); }
+      catch (e) { createdISO = new Date().toISOString(); }
+      habitsToInsert.push({
+        user_id: userId,
+        name: String(h.name || 'Без названия').slice(0, 200),
+        icon: h.icon ? String(h.icon).slice(0, 32) : null,
+        color: h.color ? String(h.color).slice(0, 32) : null,
+        freq: freq,
+        tod: h.tod ? String(h.tod).slice(0, 32) : 'any',
+        hab_type: habType,
+        daily_limit_secs: habType === 'time' ? Math.max(0, Math.round(dailyLimitHrs * 3600)) : 0,
+        sort_order: i,
+        created_at: createdISO
+      });
+    }
+
+    if (!habitsToInsert.length) { localStorage.setItem(FLAG_KEY, '1'); return true; }
+
+    // Insert habits
+    var insertedHabits;
+    try {
+      var r1 = await sb.from('habits').insert(habitsToInsert).select('id, sort_order');
+      if (r1.error) throw r1.error;
+      insertedHabits = r1.data || [];
+      if (insertedHabits.length !== habitsToInsert.length) {
+        throw new Error('insert returned ' + insertedHabits.length + ' rows');
+      }
+    } catch (e) { ERR('habits insert:', e); return false; }
+
+    // Маппинг
+    var idMap = {};
+    insertedHabits.forEach(function(row){
+      var leg = legacyHabits[row.sort_order];
+      if (leg && leg.id) idMap[leg.id] = row.id;
+    });
+
+    // habit_logs
+    var logsToInsert = [];
+    Object.keys(legacyLogs || {}).forEach(function(legId){
+      var newId = idMap[legId];
+      if (!newId) return;
+      var dayLogs = legacyLogs[legId] || {};
+      var dateMap = {};
+      Object.keys(dayLogs).forEach(function(key){
+        if (key.indexOf('_secs') >= 0) {
+          var d1 = key.replace('_secs', '');
+          if (!isISODate(d1)) return;
+          if (!dateMap[d1]) dateMap[d1] = { is_done: false, accumulated_secs: 0 };
+          var s = parseInt(dayLogs[key], 10);
+          if (isFinite(s) && s > 0) dateMap[d1].accumulated_secs = Math.min(s, 86400 * 7);
+        } else if (isISODate(key)) {
+          if (!dateMap[key]) dateMap[key] = { is_done: false, accumulated_secs: 0 };
+          dateMap[key].is_done = !!dayLogs[key];
+        }
+      });
+      Object.keys(dateMap).forEach(function(d){
+        var e = dateMap[d];
+        if (!e.is_done && e.accumulated_secs === 0) return;
+        logsToInsert.push({
+          user_id: userId,
+          habit_id: newId,
+          log_date: d,
+          accumulated_secs: e.accumulated_secs,
+          is_done: e.is_done,
+          done_at: e.is_done ? new Date(d + 'T12:00:00Z').toISOString() : null
+        });
+      });
+    });
+
+    if (logsToInsert.length) {
+      var failed = false;
+      for (var k = 0; k < logsToInsert.length; k += 500) {
+        try {
+          var r2 = await sb.from('habit_logs').insert(logsToInsert.slice(k, k + 500));
+          if (r2.error) throw r2.error;
+        } catch (e) { ERR('logs insert:', e); failed = true; break; }
+      }
+      if (failed) {
+        try {
+          var ids = insertedHabits.map(function(r){ return r.id; });
+          await sb.from('habit_logs').delete().eq('user_id', userId).in('habit_id', ids);
+          await sb.from('habits').delete().eq('user_id', userId).in('id', ids);
+        } catch (e) {}
+        return false;
+      }
+    }
+
+    // goal_habits из linked_habit_ids
+    try {
+      var gRes = await sb.from('goals').select('id, linked_habit_ids, created_at').eq('user_id', userId);
+      if (!gRes.error && gRes.data) {
+        var ghToInsert = [];
+        gRes.data.forEach(function(g){
+          var linked = g.linked_habit_ids;
+          if (!Array.isArray(linked)) return;
+          linked.forEach(function(legId){
+            var newId = idMap[legId];
+            if (newId) ghToInsert.push({
+              goal_id: g.id,
+              habit_id: newId,
+              attached_at: g.created_at || new Date().toISOString()
+            });
+          });
+        });
+        if (ghToInsert.length) {
+          var r3 = await sb.from('goal_habits').upsert(ghToInsert, { onConflict: 'goal_id,habit_id' });
+          if (r3.error) ERR('goal_habits:', r3.error);
+        }
+      }
+    } catch (e) { ERR('goal_habits step:', e); }
+
+    try {
+      localStorage.setItem('dtr_h3_backup_v1', localStorage.getItem(HK) || '[]');
+      localStorage.setItem('dtr_l3_backup_v1', localStorage.getItem(LK) || '{}');
+    } catch (e) {}
+
+    localStorage.setItem(FLAG_KEY, '1');
+    LOG('✅ migration complete:', insertedHabits.length, 'habits,', logsToInsert.length, 'logs');
+    showToast('Привычки синхронизированы с облаком', '☁️');
+    return true;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // B. CACHE & SYNC: при старте загружаем из облака в localStorage
+  // ──────────────────────────────────────────────────────────────────────────
+  // Стратегия: localStorage остаётся локальным mirror (источник синхронного
+  // чтения для существующего кода в IIFE), Supabase — источник истины.
+  // При старте: cloud → localStorage → forceRender.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  async function pullCloudToLocal() {
+    var user = authedUser();
+    if (!user) return;
+    var sb = window.sb;
+
+    // habits
+    try {
+      var hRes = await sb.from('habits')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_archived', false)
+        .order('sort_order', { ascending: true });
+      if (hRes.error) { ERR('pull habits:', hRes.error); return; }
+
+      var habits = (hRes.data || []).map(function(row){
+        return {
+          id: row.id, // UUID — теперь это первичный id привычки в приложении
+          name: row.name,
+          icon: row.icon,
+          color: row.color,
+          freq: row.freq,
+          tod: row.tod,
+          habType: row.hab_type,
+          dailyLimitHrs: row.hab_type === 'time' && row.daily_limit_secs > 0
+            ? row.daily_limit_secs / 3600 : 0,
+          created: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+          _cloudId: row.id
+        };
+      });
+
+      // logs
+      var lRes = await sb.from('habit_logs')
+        .select('habit_id, log_date, accumulated_secs, is_done')
+        .eq('user_id', user.id);
+      if (lRes.error) { ERR('pull logs:', lRes.error); return; }
+
+      var logs = {};
+      (lRes.data || []).forEach(function(row){
+        if (!logs[row.habit_id]) logs[row.habit_id] = {};
+        if (row.is_done) logs[row.habit_id][row.log_date] = 1;
+        if (row.accumulated_secs && row.accumulated_secs > 0) {
+          logs[row.habit_id][row.log_date + '_secs'] = row.accumulated_secs;
+        }
+      });
+
+      localStorage.setItem(HK, JSON.stringify(habits));
+      localStorage.setItem(LK, JSON.stringify(logs));
+
+      LOG('pulled:', habits.length, 'habits,', (lRes.data || []).length, 'log rows');
+
+      // Перерисовать UI, если функция есть
+      try { if (typeof window.render === 'function') window.render(); } catch (e) {}
+      try { if (window.GV2 && typeof window.GV2.render === 'function') window.GV2.render(); } catch (e) {}
+    } catch (e) { ERR('pull cloud:', e); }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // C. HABITS WRITE-THROUGH
+  // ──────────────────────────────────────────────────────────────────────────
+
+  // Найти legacy_id → если это UUID (≥ 32 символов с дефисами) — облачный id;
+  // если короткая 'h1733...' — старый локальный, не существует в облаке.
+  function isCloudId(id) {
+    return typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+  }
+
+  // Перехват создания/редактирования привычки.
+  // _hSave определена в HabTracker IIFE и обёрнута патчем habType (строка ~46388).
+  // Та обёртка пишет в localStorage. Мы добавляем ещё одну обёртку поверх,
+  // которая после неё синхронизирует последнюю/изменённую привычку в облако.
+  function wrapHSave() {
+    if (typeof window._hSave !== 'function') return;
+    if (window._hSave.__dtrCloudWrapped) return;
+    var prev = window._hSave;
+
+    // Захватываем _editId через геттер. _editId — переменная IIFE, не доступна
+    // снаружи. Поэтому мы определяем "что изменилось" по diff localStorage до/после.
+    window._hSave = function() {
+      var beforeArr = safeParse(localStorage.getItem(HK) || '[]', []);
+      var beforeIds = {};
+      beforeArr.forEach(function(h){ beforeIds[h.id] = h; });
+
+      prev.apply(this, arguments);
+
+      // Сразу после prev — IIFE и patch на habType уже отработали
+      // (последняя задача в очереди микротасков может не успеть, но обычно успевает)
+      setTimeout(function(){
+        syncHabitsDiffToCloud(beforeArr);
+      }, 30);
+    };
+    window._hSave.__dtrCloudWrapped = true;
+  }
+
+  // Аналогично — _hFromTpl создаёт привычку из шаблона
+  function wrapHFromTpl() {
+    if (typeof window._hFromTpl !== 'function') return;
+    if (window._hFromTpl.__dtrCloudWrapped) return;
+    var prev = window._hFromTpl;
+    window._hFromTpl = function() {
+      var beforeArr = safeParse(localStorage.getItem(HK) || '[]', []);
+      prev.apply(this, arguments);
+      setTimeout(function(){ syncHabitsDiffToCloud(beforeArr); }, 30);
+    };
+    window._hFromTpl.__dtrCloudWrapped = true;
+  }
+
+  // Сравнивает старый и новый массивы habits в localStorage, отправляет diff в Supabase.
+  // Если у локально созданной привычки нет cloud-id — INSERT, и подменяет id в localStorage
+  // на полученный UUID (важно — иначе все следующие операции не найдут привычку в облаке).
+  async function syncHabitsDiffToCloud(beforeArr) {
+    var user = authedUser();
+    if (!user) return;
+    var sb = window.sb;
+
+    var afterArr = safeParse(localStorage.getItem(HK) || '[]', []);
+    var beforeMap = {}; beforeArr.forEach(function(h){ beforeMap[h.id] = h; });
+    var afterMap  = {}; afterArr.forEach(function(h){ afterMap[h.id] = h; });
+
+    var toInsert = [];     // локальные id, которые надо создать в облаке
+    var toUpdate = [];     // cloud ids с изменёнными полями
+    // Удаление здесь не обрабатываем — это делает habDel-обёртка ниже
+
+    afterArr.forEach(function(h, idx){
+      if (!isCloudId(h.id)) {
+        toInsert.push({ localItem: h, idx: idx });
+      } else {
+        var b = beforeMap[h.id];
+        if (b && habitFieldsChanged(b, h)) toUpdate.push(h);
+        else if (!b) toInsert.push({ localItem: h, idx: idx }); // странный случай
+      }
+    });
+
+    // Inserts — каждый отдельно (чтобы получить новый id и подменить локально)
+    if (toInsert.length) {
+      var newArr = afterArr.slice(); // мутируем копию
+      var changed = false;
+      for (var i = 0; i < toInsert.length; i++) {
+        var item = toInsert[i].localItem;
+        var idx  = toInsert[i].idx;
+        var habType = (item.habType === 'time') ? 'time' : 'count';
+        var limitHrs = parseFloat(item.dailyLimitHrs) || 0;
+        try {
+          var r = await sb.from('habits').insert({
+            user_id: user.id,
+            name: String(item.name || '').slice(0, 200),
+            icon: item.icon || null,
+            color: item.color || null,
+            freq: item.freq || 'daily',
+            tod: item.tod || 'any',
+            hab_type: habType,
+            daily_limit_secs: habType === 'time' ? Math.max(0, Math.round(limitHrs * 3600)) : 0,
+            sort_order: idx
+          }).select('id').single();
+          if (r.error) throw r.error;
+          // Подмена id в локальном массиве
+          var pos = newArr.findIndex(function(x){ return x.id === item.id; });
+          if (pos >= 0) {
+            // Перенос logs со старого id на новый, если есть
+            var allLogs = safeParse(localStorage.getItem(LK) || '{}', {});
+            if (allLogs[item.id]) {
+              allLogs[r.data.id] = allLogs[item.id];
+              delete allLogs[item.id];
+              localStorage.setItem(LK, JSON.stringify(allLogs));
+            }
+            newArr[pos] = Object.assign({}, item, { id: r.data.id, _cloudId: r.data.id });
+            changed = true;
+          }
+        } catch (e) { ERR('insert habit:', e); }
+      }
+      if (changed) {
+        localStorage.setItem(HK, JSON.stringify(newArr));
+        try { if (typeof window.render === 'function') window.render(); } catch (e) {}
+      }
+    }
+
+    // Updates
+    for (var j = 0; j < toUpdate.length; j++) {
+      var h = toUpdate[j];
+      var habType2 = (h.habType === 'time') ? 'time' : 'count';
+      var limitHrs2 = parseFloat(h.dailyLimitHrs) || 0;
+      try {
+        var ru = await sb.from('habits').update({
+          name: String(h.name || '').slice(0, 200),
+          icon: h.icon || null,
+          color: h.color || null,
+          freq: h.freq || 'daily',
+          tod: h.tod || 'any',
+          hab_type: habType2,
+          daily_limit_secs: habType2 === 'time' ? Math.max(0, Math.round(limitHrs2 * 3600)) : 0
+        }).eq('id', h.id).eq('user_id', user.id);
+        if (ru.error) throw ru.error;
+      } catch (e) { ERR('update habit:', e); }
+    }
+  }
+
+  function habitFieldsChanged(a, b) {
+    return a.name !== b.name || a.icon !== b.icon || a.color !== b.color
+        || a.freq !== b.freq || a.tod !== b.tod
+        || a.habType !== b.habType
+        || (a.dailyLimitHrs || 0) !== (b.dailyLimitHrs || 0);
+  }
+
+  // Удаление привычки
+  function wrapHDel() {
+    if (typeof window.habDel !== 'function') return;
+    if (window.habDel.__dtrCloudWrapped) return;
+    var prev = window.habDel;
+    window.habDel = function(hid) {
+      // prev делает confirm() и удаляет из localStorage. Сделать prev сначала.
+      // Если пользователь отменил confirm — массив не изменится, мы это поймём.
+      var beforeArr = safeParse(localStorage.getItem(HK) || '[]', []);
+      var existed = beforeArr.some(function(h){ return h.id === hid; });
+      prev.apply(this, arguments);
+      var afterArr = safeParse(localStorage.getItem(HK) || '[]', []);
+      var stillExists = afterArr.some(function(h){ return h.id === hid; });
+      if (existed && !stillExists && isCloudId(hid)) {
+        // Реально удалено локально, hid облачный — удаляем в облаке
+        var user = authedUser();
+        if (!user) return;
+        // CASCADE удалит habit_logs и goal_habits автоматически
+        window.sb.from('habits').delete().eq('id', hid).eq('user_id', user.id)
+          .then(function(r){ if (r.error) ERR('delete habit:', r.error); });
+      }
+    };
+    window.habDel.__dtrCloudWrapped = true;
+  }
+
+  // Отметка дневной галочки (ручной toggle)
+  function wrapHabToggle() {
+    if (typeof window.habToggle !== 'function') return;
+    if (window.habToggle.__dtrCloudWrapped) return;
+    var prev = window.habToggle;
+    window.habToggle = function(hid, key) {
+      prev.apply(this, arguments);
+      // После prev — в localStorage[hid][key] либо стоит 1, либо удалено
+      if (!isCloudId(hid)) return;
+      var user = authedUser();
+      if (!user) return;
+      var logs = safeParse(localStorage.getItem(LK) || '{}', {});
+      var nowDone = !!(logs[hid] && logs[hid][key]);
+      var sb = window.sb;
+
+      if (nowDone) {
+        // UPSERT с is_done=true (не трогаем accumulated_secs если уже есть)
+        sb.from('habit_logs').select('id, accumulated_secs')
+          .eq('habit_id', hid).eq('log_date', key).eq('user_id', user.id).limit(1)
+          .then(function(r){
+            if (r.error) { ERR('toggle select:', r.error); return; }
+            if (r.data && r.data.length) {
+              return sb.from('habit_logs').update({
+                is_done: true,
+                done_at: new Date().toISOString()
+              }).eq('id', r.data[0].id);
+            } else {
+              return sb.from('habit_logs').insert({
+                user_id: user.id, habit_id: hid, log_date: key,
+                accumulated_secs: 0, is_done: true,
+                done_at: new Date().toISOString()
+              });
+            }
+          })
+          .then(function(r){ if (r && r.error) ERR('toggle done:', r.error); });
+      } else {
+        // Снимаем флаг
+        sb.from('habit_logs').update({ is_done: false, done_at: null })
+          .eq('habit_id', hid).eq('log_date', key).eq('user_id', user.id)
+          .then(function(r){ if (r.error) ERR('toggle undone:', r.error); });
+      }
+    };
+    window.habToggle.__dtrCloudWrapped = true;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // D. SOUND + NOTIFICATION + VIBRATION (ШАГ 7)
+  // ──────────────────────────────────────────────────────────────────────────
+  var _audioCtx = null;
+  function getAudioCtx() {
+    if (_audioCtx) return _audioCtx;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      _audioCtx = new AC();
+    } catch (e) { return null; }
+    return _audioCtx;
+  }
+
+  function playAutoStopSound() {
+    var ctx = getAudioCtx();
+    if (!ctx) return;
+    try {
+      // Восстанавливаем контекст если suspended (бывает после взаимодействия)
+      if (ctx.state === 'suspended' && ctx.resume) ctx.resume();
+
+      var now = ctx.currentTime;
+      // Двойной тон: 800Hz → 1000Hz
+      [
+        { freq: 800,  start: 0,    dur: 0.18 },
+        { freq: 1000, start: 0.22, dur: 0.28 }
+      ].forEach(function(t){
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = t.freq;
+        gain.gain.setValueAtTime(0, now + t.start);
+        gain.gain.linearRampToValueAtTime(0.25, now + t.start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + t.start + t.dur);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now + t.start);
+        osc.stop(now + t.start + t.dur + 0.05);
+      });
+    } catch (e) { ERR('sound:', e); }
+  }
+
+  function vibrateOnAutoStop() {
+    try {
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    } catch (e) {}
+  }
+
+  function notifyAutoStop(habitName, minutes) {
+    try {
+      if (!('Notification' in window)) return;
+      var send = function(){
+        try {
+          var n = new Notification('🔔 DTR — Таймер остановлен', {
+            body: '«' + habitName + '» выполнена за сегодня (' + minutes + ' мин)',
+            icon: '/favicon.ico',
+            tag: 'dtr-habit-auto-stop',
+            renotify: true
+          });
+          n.onclick = function(){ window.focus(); n.close(); };
+        } catch (e) {}
+      };
+      if (Notification.permission === 'granted') send();
+      else if (Notification.permission === 'default') {
+        Notification.requestPermission().then(function(p){ if (p === 'granted') send(); });
+      }
+    } catch (e) {}
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // E. SESSIONS EXTENDED + AUTO-STOP (ШАГИ 5, 6)
+  // ──────────────────────────────────────────────────────────────────────────
+
+  // State авто-стопа: чтобы один тик в timerTick не триггерил его дважды
+  var _autoStopFiring = false;
+  // Кэш состояния таймера для auto-stop проверки
+  var _timerSessionId = null;
+  var _timerStartedAt = null;
+  var _timerHabitIdAtStart = null;
+
+  // При старте таймера запоминаем context: client_session_id, started_at,
+  // и habit_id (если выбрана привычка)
+  function wrapTimerStart() {
+    // У вас в коде нет общей функции "startTimer" — старт идёт через UI кнопку,
+    // которая вызывает setTimerState() и устанавливает timerRunning=true.
+    // Поэтому ловим момент через polling timerRunning. Альтернатива — обернуть
+    // setTimerState. Делаем второе — проще и точнее.
+    if (typeof window.setTimerState !== 'function') return;
+    if (window.setTimerState.__dtrWrapped) return;
+    var prev = window.setTimerState;
+    window.setTimerState = function(state) {
+      // Если стартует новая сессия — генерируем client_session_id
+      if (state && state.startTime && !state.clientSessionId) {
+        state.clientSessionId = uuid();
+        state.habitIdAtStart = (window.TTK && window.TTK.selectedHabitId) || null;
+        _timerSessionId = state.clientSessionId;
+        _timerStartedAt = new Date(state.startTime).toISOString();
+        _timerHabitIdAtStart = state.habitIdAtStart;
+      } else if (!state) {
+        // Очистка — сбрасываем context
+        _timerSessionId = null;
+        _timerStartedAt = null;
+        _timerHabitIdAtStart = null;
+        _autoStopFiring = false;
+      }
+      return prev.apply(this, arguments);
+    };
+    window.setTimerState.__dtrWrapped = true;
+  }
+
+  // Авто-стоп: проверка в каждом тике
+  function wrapTimerTick() {
+    if (typeof window.timerTick !== 'function') return;
+    if (window.timerTick.__dtrAutoStop) return;
+    var prev = window.timerTick;
+    window.timerTick = function() {
+      prev.apply(this, arguments);
+      if (_autoStopFiring) return;
+
+      try {
+        var ttk = window.TTK;
+        if (!ttk || !ttk.selectedHabitId) return;
+
+        var habs = safeParse(localStorage.getItem(HK) || '[]', []);
+        var h = habs.find(function(x){ return x.id === ttk.selectedHabitId; });
+        if (!h || !h.dailyLimitHrs || h.dailyLimitHrs <= 0) return;
+
+        var elapsed = (typeof window.getElapsed === 'function') ? window.getElapsed() : 0;
+        // Уже накопленные сегодня (до старта этого таймера)
+        var logs = safeParse(localStorage.getItem(LK) || '{}', {});
+        var today = localDate();
+        var alreadyToday = (logs[h.id] && logs[h.id][today + '_secs']) || 0;
+        var totalToday = alreadyToday + elapsed;
+        var limitSecs = Math.round(h.dailyLimitHrs * 3600);
+
+        if (totalToday >= limitSecs) {
+          _autoStopFiring = true;
+          triggerAutoStop(h, elapsed, limitSecs);
+        }
+      } catch (e) { ERR('autostop check:', e); }
+    };
+    window.timerTick.__dtrAutoStop = true;
+  }
+
+  async function triggerAutoStop(habit, elapsedAtStop, limitSecs) {
+    LOG('AUTO-STOP triggered for', habit.name, '— elapsed', elapsedAtStop, 'limit', limitSecs);
+
+    // 1. Стоп таймера UI
+    try {
+      if (typeof window.stopTimer === 'function') {
+        // stopTimer сам вызовет saveSession и ttkSaveElapsed (через обёртки)
+        window.stopTimer();
+      }
+    } catch (e) { ERR('stopTimer fail:', e); }
+
+    // 2. Звук + вибрация + notification
+    var minutes = Math.round(limitSecs / 60);
+    playAutoStopSound();
+    vibrateOnAutoStop();
+    notifyAutoStop(habit.name || 'Привычка', minutes);
+
+    // 3. Тост на длинный показ
+    showToast('🔔 Таймер остановлен. «' + habit.name + '» выполнена (' + minutes + ' мин)', '🎯');
+
+    // 4. Через 600мс — pull из облака (на всякий случай — если saveSession
+    //    обновил данные, синхронизируемся)
+    setTimeout(function(){ pullCloudToLocal(); }, 600);
+  }
+
+  // Расширение saveSession: добавить habit_id, client_session_id, timings
+  // и вызывать RPC fn_log_habit_session для атомарного логирования секунд привычки.
+  function wrapSaveSession() {
+    if (typeof window.saveSession !== 'function') return;
+    if (window.saveSession.__dtrCloudWrapped) return;
+    var prev = window.saveSession;
+    window.saveSession = async function(catId, secs) {
+      // Захват context до того, как prev очистит timer state
+      var sessionId = _timerSessionId;
+      var startedAt = _timerStartedAt;
+      var habitId   = _timerHabitIdAtStart;
+      // Запускаем оригинал — он напишет sessions без новых полей и обновит часы категории
+      var result;
+      try { result = await prev.apply(this, [catId, secs]); }
+      catch (e) { ERR('saveSession orig:', e); }
+
+      // После prev — обновим только что созданную сессию новыми полями
+      // и запишем habit_logs через RPC, если habit был выбран
+      var user = authedUser();
+      if (!user) return result;
+      var sb = window.sb;
+      var endedAt = new Date().toISOString();
+
+      // Обновление sessions новыми полями (находим по user_id+catId+~ts)
+      try {
+        if (sessionId) {
+          // Обновим самую свежую сессию этого юзера с этой категорией без client_session_id
+          // (idempotent — если перезапуск, старая уже имеет id)
+          await sb.from('sessions')
+            .update({
+              client_session_id: sessionId,
+              habit_id: isCloudId(habitId) ? habitId : null,
+              started_at: startedAt,
+              ended_at: endedAt
+            })
+            .eq('user_id', user.id)
+            .eq('category_id', catId)
+            .is('client_session_id', null)
+            .order('created_at', { ascending: false })
+            .limit(1);
+        }
+      } catch (e) { ERR('sessions update:', e); }
+
+      // Запись в habit_logs через RPC — атомарно, с возможным разбиением по полуночи
+      if (isCloudId(habitId) && secs > 0) {
+        try {
+          var startD = startedAt ? new Date(startedAt) : new Date(Date.now() - secs * 1000);
+          var endD = new Date();
+          var startKey = localDate(startD);
+          var endKey = localDate(endD);
+
+          if (startKey === endKey) {
+            await sb.rpc('fn_log_habit_session', {
+              p_habit_id: habitId,
+              p_log_date: startKey,
+              p_secs: secs
+            });
+          } else {
+            // Разбить по дням
+            // Секунды в первом дне = до полуночи
+            var midnight = new Date(startD);
+            midnight.setHours(24, 0, 0, 0);
+            var firstDaySecs = Math.max(0, Math.round((midnight - startD) / 1000));
+            var remainingSecs = Math.max(0, secs - firstDaySecs);
+
+            if (firstDaySecs > 0) {
+              await sb.rpc('fn_log_habit_session', {
+                p_habit_id: habitId, p_log_date: startKey, p_secs: firstDaySecs
+              });
+            }
+            // Дни между (если сессия > 24ч — маловероятно, но обработаем)
+            var cursor = new Date(midnight);
+            while (remainingSecs > 0) {
+              var next = new Date(cursor); next.setHours(24, 0, 0, 0);
+              var dayKey = localDate(cursor);
+              var daySecs = Math.min(remainingSecs, 86400);
+              await sb.rpc('fn_log_habit_session', {
+                p_habit_id: habitId, p_log_date: dayKey, p_secs: daySecs
+              });
+              remainingSecs -= daySecs;
+              cursor = next;
+            }
+          }
+          // Локально тоже обновим (для мгновенного UI)
+          var logs = safeParse(localStorage.getItem(LK) || '{}', {});
+          if (!logs[habitId]) logs[habitId] = {};
+          var prevSecs = logs[habitId][startKey + '_secs'] || 0;
+          logs[habitId][startKey + '_secs'] = prevSecs + secs;
+          localStorage.setItem(LK, JSON.stringify(logs));
+        } catch (e) { ERR('rpc log session:', e); }
+      }
+
+      return result;
+    };
+    window.saveSession.__dtrCloudWrapped = true;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // F. GOAL PROGRESS — переписан на часы привязанных привычек
+  //    с момента привязки (attached_at)  (ШАГ 8)
+  // ──────────────────────────────────────────────────────────────────────────
+
+  // Кэш goal_habits: { goalId → [{habit_id, attached_at}, ...] }
+  var _ghCache = {};
+  var _ghCacheLoadedAt = 0;
+  var _ghCacheTTL = 60 * 1000; // 1 минута
+
+  async function loadGoalHabitsCache() {
+    var user = authedUser();
+    if (!user) return;
+    var sb = window.sb;
+    try {
+      var r = await sb.from('goal_habits')
+        .select('goal_id, habit_id, attached_at, goals!inner(user_id)')
+        .eq('goals.user_id', user.id);
+      if (r.error) {
+        // Если join не работает — попробуем без него (RLS всё равно отфильтрует)
+        var r2 = await sb.from('goal_habits').select('goal_id, habit_id, attached_at');
+        if (r2.error) { ERR('gh cache:', r2.error); return; }
+        _ghCache = {};
+        (r2.data || []).forEach(function(row){
+          if (!_ghCache[row.goal_id]) _ghCache[row.goal_id] = [];
+          _ghCache[row.goal_id].push({ habit_id: row.habit_id, attached_at: row.attached_at });
+        });
+      } else {
+        _ghCache = {};
+        (r.data || []).forEach(function(row){
+          if (!_ghCache[row.goal_id]) _ghCache[row.goal_id] = [];
+          _ghCache[row.goal_id].push({ habit_id: row.habit_id, attached_at: row.attached_at });
+        });
+      }
+      _ghCacheLoadedAt = Date.now();
+    } catch (e) { ERR('gh cache exc:', e); }
+  }
+
+  function getGoalHabits(goalId) {
+    return _ghCache[goalId] || [];
+  }
+
+  function newGoalProgress(goal) {
+    if (!goal) return 0;
+    var targetHours = parseFloat(goal.target_hours) || 0;
+    var bindings = getGoalHabits(goal.id);
+
+    // Фолбэк на legacy linked_habit_ids, если goal_habits ещё не загружен
+    if (bindings.length === 0 && Array.isArray(goal.linked_habit_ids) && goal.linked_habit_ids.length) {
+      bindings = goal.linked_habit_ids.map(function(hid){
+        return { habit_id: hid, attached_at: goal.created_at || '1970-01-01' };
+      });
+    }
+
+    if (bindings.length > 0 && targetHours > 0) {
+      var logs = safeParse(localStorage.getItem(LK) || '{}', {});
+      var totalSecs = 0;
+      bindings.forEach(function(b){
+        var attachedDate = (b.attached_at || '').slice(0, 10);
+        if (!isISODate(attachedDate)) attachedDate = '1970-01-01';
+        var habLogs = logs[b.habit_id] || {};
+        Object.keys(habLogs).forEach(function(key){
+          if (key.indexOf('_secs') < 0) return;
+          var d = key.replace('_secs', '');
+          if (!isISODate(d)) return;
+          if (d >= attachedDate) totalSecs += parseFloat(habLogs[key]) || 0;
+        });
+      });
+      var hrs = totalSecs / 3600;
+      return Math.min(100, Math.round(hrs / targetHours * 100));
+    }
+
+    // Фолбэк: старая логика по задачам
+    var tasks = goal.tasks || [];
+    if (!tasks.length) return 0;
+    var totalWeight = 0, weightedSum = 0;
+    tasks.forEach(function(t){
+      var w = parseFloat(t.planned_hours) || 1;
+      totalWeight += w;
+      var tp = t.is_done ? 100
+        : (t.planned_hours > 0 ? Math.min(100, Math.round((parseFloat(t.actual_hours) || 0) / t.planned_hours * 100)) : 0);
+      weightedSum += tp * w;
+    });
+    if (totalWeight === 0) return 0;
+    return Math.min(Math.round(weightedSum / totalWeight), 100);
+  }
+
+  function patchGoalProgress() {
+    if (!window.GV2 || typeof window.GV2.goalProgress !== 'function') return;
+    if (window.GV2.goalProgress.__dtrCloudWrapped) return;
+    window.GV2.goalProgress = newGoalProgress;
+    window.GV2.goalProgress.__dtrCloudWrapped = true;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // G. GOAL COMPLETION — автоархив по часам (ШАГ 8)
+  // ──────────────────────────────────────────────────────────────────────────
+  function patchCheckGoalCompletion() {
+    if (!window.GV2 || typeof window.GV2.checkGoalCompletion !== 'function') return;
+    if (window.GV2.checkGoalCompletion.__dtrCloudWrapped) return;
+
+    window.GV2.checkGoalCompletion = async function(goalId) {
+      if (!goalId) return;
+      var state = (typeof window.GV2.getState === 'function') ? window.GV2.getState() : null;
+      var goals = state ? (state.goals || []) : [];
+      var goal = goals.find(function(g){ return g.id === goalId; });
+      if (!goal || goal.is_archived) return;
+
+      var pct = newGoalProgress(goal);
+      if (pct < 100) return;
+
+      // 100% часов — архивируем
+      var user = authedUser();
+      if (!user) return;
+      var sb = window.sb;
+      try {
+        var r = await sb.from('goals').update({
+          is_archived: true,
+          archive_reason: 'completed',
+          archived_at: new Date().toISOString()
+        }).eq('id', goalId).eq('user_id', user.id).select().single();
+        if (r.error) throw r.error;
+        goal.is_archived = true;
+        goal.archive_reason = 'completed';
+        goal.archived_at = r.data.archived_at;
+        showToast('🎯 Цель «' + goal.title + '» достигнута!', '🏆');
+        if (typeof window.GV2.render === 'function') window.GV2.render();
+      } catch (e) { ERR('checkGoalCompletion:', e); }
+    };
+    window.GV2.checkGoalCompletion.__dtrCloudWrapped = true;
+  }
+
+  // Хук: после каждой записи в habit_logs — проверять связанные цели
+  async function checkGoalsAfterLog(habitId) {
+    var user = authedUser();
+    if (!user || !window.GV2) return;
+    // Найти все цели, к которым привязана эта привычка
+    var goalIds = [];
+    Object.keys(_ghCache).forEach(function(gid){
+      if (_ghCache[gid].some(function(b){ return b.habit_id === habitId; })) goalIds.push(gid);
+    });
+    for (var i = 0; i < goalIds.length; i++) {
+      try { await window.GV2.checkGoalCompletion(goalIds[i]); }
+      catch (e) {}
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // H. saveBindHabit — пишет и в массив (legacy) и в goal_habits (новое)
+  // ──────────────────────────────────────────────────────────────────────────
+  function patchSaveBindHabit() {
+    if (!window.GV2 || typeof window.GV2.saveBindHabit !== 'function') return;
+    if (window.GV2.saveBindHabit.__dtrCloudWrapped) return;
+    var prev = window.GV2.saveBindHabit;
+    window.GV2.saveBindHabit = async function(gid) {
+      var user = authedUser();
+      // Сначала старая логика: пишет в goals.linked_habit_ids
+      await prev.apply(this, arguments);
+      if (!user) return;
+      // Дополнительно: синхронизируем goal_habits с массивом
+      var state = (typeof window.GV2.getState === 'function') ? window.GV2.getState() : null;
+      var goal = state && state.goals.find(function(g){ return g.id === gid; });
+      if (!goal) return;
+      var ids = Array.isArray(goal.linked_habit_ids) ? goal.linked_habit_ids : [];
+      var sb = window.sb;
+      try {
+        // Получить текущие goal_habits для этой цели
+        var cur = await sb.from('goal_habits').select('habit_id').eq('goal_id', gid);
+        if (cur.error) throw cur.error;
+        var curIds = (cur.data || []).map(function(r){ return r.habit_id; });
+
+        // toAdd
+        var toAdd = ids.filter(function(id){ return isCloudId(id) && curIds.indexOf(id) < 0; });
+        // toRemove
+        var toRemove = curIds.filter(function(id){ return ids.indexOf(id) < 0; });
+
+        if (toAdd.length) {
+          var rows = toAdd.map(function(hid){
+            return { goal_id: gid, habit_id: hid, attached_at: new Date().toISOString() };
+          });
+          var rA = await sb.from('goal_habits').upsert(rows, { onConflict: 'goal_id,habit_id' });
+          if (rA.error) ERR('gh add:', rA.error);
+        }
+        if (toRemove.length) {
+          var rR = await sb.from('goal_habits').delete().eq('goal_id', gid).in('habit_id', toRemove);
+          if (rR.error) ERR('gh remove:', rR.error);
+        }
+        // Обновить cache
+        await loadGoalHabitsCache();
+        if (typeof window.GV2.render === 'function') window.GV2.render();
+      } catch (e) { ERR('saveBindHabit cloud:', e); }
+    };
+    window.GV2.saveBindHabit.__dtrCloudWrapped = true;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // I. CROSS-TAB / VISIBILITY: при возврате фокуса — pull from cloud
+  // ──────────────────────────────────────────────────────────────────────────
+  var _lastPullAt = 0;
+  function maybePull() {
+    var now = Date.now();
+    if (now - _lastPullAt < 30000) return; // не чаще раз в 30 сек
+    _lastPullAt = now;
+    pullCloudToLocal();
+    loadGoalHabitsCache();
+  }
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'visible') maybePull();
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // J. INIT
+  // ──────────────────────────────────────────────────────────────────────────
+  function applyAllPatches() {
+    wrapHSave();
+    wrapHFromTpl();
+    wrapHDel();
+    wrapHabToggle();
+    wrapTimerStart();
+    wrapTimerTick();
+    wrapSaveSession();
+    patchGoalProgress();
+    patchCheckGoalCompletion();
+    patchSaveBindHabit();
+  }
+
+  // Polling: применяем патчи когда соответствующие функции стали доступны.
+  // Часть из них определяется глубоко в коде, некоторые после авторизации.
+  var _patchAttempts = 0;
+  function tryPatching() {
+    applyAllPatches();
+    if (_patchAttempts++ < 20) setTimeout(tryPatching, 750);
+  }
+
+  async function init() {
+    LOG('init');
+    tryPatching();
+    var ok = await migrateOnce();
+    if (ok) {
+      await pullCloudToLocal();
+      await loadGoalHabitsCache();
+      // Применить патчи ещё раз (на случай если GV2 загрузился асинхронно)
+      applyAllPatches();
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(init, 3500); });
+  } else {
+    setTimeout(init, 3500);
+  }
+
+  // Дебаг-доступ для разработчика
+  window._dtrCloudV2 = {
+    pull: pullCloudToLocal,
+    loadGH: loadGoalHabitsCache,
+    syncDiff: syncHabitsDiffToCloud,
+    patches: applyAllPatches,
+    state: function(){ return { _ghCache: _ghCache, _timerSessionId: _timerSessionId }; }
+  };
+
+  LOG('module loaded');
+})();
+</script>
+
 </body>
 </html>
