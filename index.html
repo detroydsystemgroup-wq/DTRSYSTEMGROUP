@@ -50066,5 +50066,172 @@ DTR Habits & Goals — ШАГИ 3-10: Cloud sync, авто-стоп таймер
 })();
 </script>
 
+<!--
+================================================================================
+DTR — UX patch: кнопка «+ Создать часовую привычку» в форме создания цели
+================================================================================
+
+Проблема:
+  В форме создания/редактирования цели секция «Привязать привычки (только часовые)»
+  показывает чипы существующих часовых привычек или текст «Нет часовых привычек —
+  создай привычку с типом Часовая». В обоих случаях пользователю некуда нажать,
+  чтобы сразу создать новую часовую привычку — приходится закрывать модалку цели,
+  идти в раздел «Привычки», создавать там, возвращаться обратно.
+
+Что делает этот патч:
+  1. После рендера picker'а часовых привычек в форме цели добавляет кнопку
+     «+ Создать часовую привычку» в стиле остальных чипов.
+  2. Клик по кнопке:
+     - Открывает существующую модалку создания привычки.
+     - Автоматически устанавливает тип 'time' (часовая).
+     - Поверх модалки цели — модалка привычки оказывается выше по z-index.
+     - После сохранения новой привычки picker автоматически перерисовывается,
+       и созданная привычка сразу появляется в списке для привязки к цели.
+
+Куда вставить:
+  Перед закрывающим </body>, ПОСЛЕ блока dtr_cloud_block_only (если он есть).
+  Безопасно вставлять отдельно — патч не зависит от облачной логики.
+
+Что НЕ делает:
+  - Не сохраняет/не теряет уже введённые данные цели (название, категория, и т.д.) —
+    модалка цели остаётся открытой под модалкой привычки.
+================================================================================
+-->
+
+<script>
+(function _dtrGoalPickerUx(){
+  'use strict';
+
+  var ATTACH_ID = '__dtrUxGoalPicker';
+
+  // Кнопка-«добавить» в picker'е
+  function buildAddBtn() {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'gv2-hab-add-btn';
+    btn.setAttribute('data-dtr-add-btn', '1');
+    btn.innerHTML =
+      '<span style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:rgba(245,200,66,.18);font-size:13px;line-height:1;font-weight:700">+</span>' +
+      '<span>Создать часовую привычку</span>';
+    btn.style.cssText =
+      'display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:20px;' +
+      'border:1px dashed rgba(245,200,66,.42);background:rgba(245,200,66,.06);' +
+      'color:var(--gold);font-size:12px;font-weight:600;cursor:pointer;' +
+      'transition:background .15s,border-color .15s,transform .1s;' +
+      'font-family:inherit;outline:none;';
+    btn.addEventListener('mouseenter', function(){
+      btn.style.background = 'rgba(245,200,66,.14)';
+      btn.style.borderColor = 'rgba(245,200,66,.7)';
+    });
+    btn.addEventListener('mouseleave', function(){
+      btn.style.background = 'rgba(245,200,66,.06)';
+      btn.style.borderColor = 'rgba(245,200,66,.42)';
+    });
+    btn.addEventListener('mousedown', function(){ btn.style.transform = 'scale(.97)'; });
+    btn.addEventListener('mouseup',   function(){ btn.style.transform = ''; });
+    btn.addEventListener('click', onAddClick);
+    return btn;
+  }
+
+  function onAddClick() {
+    if (typeof window._hOpenModal !== 'function') {
+      try { window.showToast && window.showToast('Модалка привычки не загружена', '⚠️'); } catch (e) {}
+      return;
+    }
+    // Флаг — после _hSave вернуться и обновить picker цели
+    window[ATTACH_ID + '_returnAfterSave'] = true;
+
+    // Открываем модалку привычки (без id = создание)
+    window._hOpenModal();
+
+    // Поднимаем z-index модалки привычки выше модалки цели
+    setTimeout(function(){
+      var hov = document.getElementById('habAddOv');
+      if (hov) hov.style.zIndex = '10100'; // над gv2 модалкой
+      // Принудительно ставим тип "Часовая"
+      var typeBtn = document.getElementById('habTypeTime');
+      if (typeBtn && typeof window._hSetType === 'function') {
+        try { window._hSetType('time', typeBtn); } catch (e) {}
+      }
+    }, 50);
+  }
+
+  // Патч на renderGoalHabitPicker — добавляет кнопку
+  function patchRenderPicker() {
+    if (!window.GV2 || typeof window.GV2.renderGoalHabitPicker !== 'function') return false;
+    if (window.GV2.renderGoalHabitPicker.__dtrUxPatched) return true;
+    var prev = window.GV2.renderGoalHabitPicker;
+    window.GV2.renderGoalHabitPicker = function() {
+      prev.apply(this, arguments);
+      var el = document.getElementById('gv2cHabitsList');
+      if (!el) return;
+      // Если кнопка уже есть — не дублируем
+      if (el.querySelector('[data-dtr-add-btn="1"]')) return;
+
+      var hadOnlyText = (el.children.length === 1 && el.children[0].tagName === 'SPAN');
+      el.style.display = 'flex';
+      el.style.flexWrap = 'wrap';
+      el.style.gap = hadOnlyText ? '10px' : '6px';
+      el.style.alignItems = 'center';
+
+      // Если был только текст "Нет часовых привычек" — оставляем его, добавляем кнопку справа
+      el.appendChild(buildAddBtn());
+    };
+    window.GV2.renderGoalHabitPicker.__dtrUxPatched = true;
+    return true;
+  }
+
+  // Патч на _hSave — если флаг возврата установлен, обновить picker цели после сохранения
+  function patchHSaveForReturn() {
+    if (typeof window._hSave !== 'function') return false;
+    if (window._hSave.__dtrUxReturnPatched) return true;
+    var prev = window._hSave;
+    window._hSave = function() {
+      var shouldReturn = !!window[ATTACH_ID + '_returnAfterSave'];
+      prev.apply(this, arguments);
+      if (shouldReturn) {
+        window[ATTACH_ID + '_returnAfterSave'] = false;
+        setTimeout(function(){
+          if (window.GV2 && typeof window.GV2.renderGoalHabitPicker === 'function') {
+            try { window.GV2.renderGoalHabitPicker(); } catch (e) {}
+          }
+        }, 250);
+      }
+    };
+    window._hSave.__dtrUxReturnPatched = true;
+    return true;
+  }
+
+  // Также если пользователь закрыл модалку привычки без сохранения — сбросим флаг
+  function patchHCloseForReturn() {
+    if (typeof window._hClose !== 'function') return false;
+    if (window._hClose.__dtrUxReturnPatched) return true;
+    var prev = window._hClose;
+    window._hClose = function() {
+      window[ATTACH_ID + '_returnAfterSave'] = false;
+      return prev.apply(this, arguments);
+    };
+    window._hClose.__dtrUxReturnPatched = true;
+    return true;
+  }
+
+  // Polling: применяем патчи когда функции стали доступны
+  var attempts = 0;
+  function tryPatch() {
+    var r1 = patchRenderPicker();
+    var r2 = patchHSaveForReturn();
+    var r3 = patchHCloseForReturn();
+    if (r1 && r2 && r3) return;
+    if (++attempts < 30) setTimeout(tryPatch, 500);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(tryPatch, 1000); });
+  } else {
+    setTimeout(tryPatch, 1000);
+  }
+})();
+</script>
+
 </body>
 </html>
