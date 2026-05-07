@@ -6511,6 +6511,59 @@ body {
 @keyframes rippleNew{0%{transform:scale(0);opacity:.7}100%{transform:scale(4.5);opacity:0}}
 @keyframes floatNewStar{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,calc(-50% - 20px)) scale(.2)}}
 @keyframes cellBounceNew{0%{transform:scale(1)}30%{transform:scale(1.22)}65%{transform:scale(.93)}100%{transform:scale(1)}}
+/* ── Animation Variant A (Fireworks) ── */
+@keyframes confettiBurst{
+  0%  { transform:translate(-50%,-50%) rotate(0deg) scale(.4); opacity:1 }
+  60% { opacity:1 }
+  100%{ transform:translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) rotate(var(--rot)) scale(.3); opacity:0 }
+}
+@keyframes ringPulseA{
+  0%  { transform:scale(0); opacity:.85; border-width:3px }
+  60% { opacity:.4 }
+  100%{ transform:scale(5); opacity:0; border-width:1px }
+}
+/* ── Animation Variant B (Magic) ── */
+@keyframes magicGlow{
+  0%  { transform:scale(0); opacity:0; filter:blur(0px) }
+  30% { opacity:1; filter:blur(2px) }
+  100%{ transform:scale(3.6); opacity:0; filter:blur(6px) }
+}
+@keyframes magicOrbit{
+  0%  { transform:rotate(0deg) translateX(0) scale(.6); opacity:0 }
+  20% { opacity:1 }
+  100%{ transform:rotate(var(--orbitDeg)) translateX(var(--orbitR)) scale(.2); opacity:0 }
+}
+@keyframes magicTwinkle{
+  0%,100% { opacity:0; transform:translate(-50%,-50%) scale(.4) rotate(0deg) }
+  50%     { opacity:1; transform:translate(-50%,-50%) scale(1.2) rotate(180deg) }
+}
+@keyframes cellSoftLift{
+  0%  { transform:scale(1) translateY(0) }
+  40% { transform:scale(1.08) translateY(-2px) }
+  100%{ transform:scale(1) translateY(0) }
+}
+/* ── Animation Variant C (Power Strike) ── */
+@keyframes shockwave{
+  0%  { transform:scale(0); opacity:1; border-width:4px }
+  100%{ transform:scale(6); opacity:0; border-width:0 }
+}
+@keyframes flashStrike{
+  0%  { opacity:0 }
+  20% { opacity:1 }
+  100%{ opacity:0 }
+}
+@keyframes cellPunch{
+  0%   { transform:scale(1) }
+  15%  { transform:scale(.78) }
+  35%  { transform:scale(1.18) translateX(-2px) }
+  50%  { transform:scale(1.08) translateX(2px) }
+  70%  { transform:scale(1.04) translateX(-1px) }
+  100% { transform:scale(1) translateX(0) }
+}
+@keyframes shardFly{
+  0%  { transform:translate(-50%,-50%) scale(1); opacity:1 }
+  100%{ transform:translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0); opacity:0 }
+}
 @keyframes cellPop{
   0%  { transform:scale(0) rotate(-20deg);opacity:0 }
   55% { transform:scale(1.3) rotate(5deg) }
@@ -27638,28 +27691,196 @@ window.habToggle=function(hid,key){
     const wrap=cell.parentElement;
 
     if(done){
-      // Всплеск — круговой ряб
-      const rip=document.createElement('div');
-      rip.style.cssText=`position:absolute;width:40px;height:40px;border-radius:50%;background:${color}55;pointer-events:none;z-index:5;top:0;left:0;animation:rippleNew .55s ease-out forwards`;
-      if(wrap) wrap.appendChild(rip);
-      setTimeout(()=>rip&&rip.remove(),650);
+      // ─────────────────────────────────────────────────────────────
+      // Стиль анимации: меняй букву и пробуй варианты.
+      //   'A' = Фейерверк (взрыв конфетти, аккорд)
+      //   'B' = Магия     (мягкое свечение, орбита, нежный звон)
+      //   'C' = Удар      (ударная волна, осколки, низкий удар)
+      // Когда выбран финальный — оставим только нужный.
+      const ANIM_STYLE = 'A';
+      // ─────────────────────────────────────────────────────────────
 
-      // Частицы разлетаются
-      ['✦','·','★','✦','·'].forEach((p,i)=>{
-        const angle=(i/5)*Math.PI*2;
-        const d=18+Math.random()*10;
-        const s=document.createElement('div');
-        s.textContent=p;
-        s.style.cssText=`position:absolute;color:${color};font-size:${7+Math.random()*5}px;`+
-          `left:${19+Math.cos(angle)*d}px;top:${19+Math.sin(angle)*d}px;`+
-          `transform:translate(-50%,-50%);pointer-events:none;z-index:10;`+
-          `animation:floatNewStar .6s ease-out ${i*45}ms forwards`;
-        if(wrap) wrap.appendChild(s);
-        setTimeout(()=>s&&s.remove(),900);
-      });
+      // Звук — Web Audio API. Браузер блокирует звук до первого взаимодействия,
+      // но клик на ячейку и есть это взаимодействие, так что AudioContext откроется.
+      // Кешируем контекст в window, чтобы не создавать заново на каждый клик.
+      function getAC(){
+        if(!window._dtrAC){
+          try { window._dtrAC = new (window.AudioContext||window.webkitAudioContext)(); }
+          catch(e){ window._dtrAC = null; }
+        }
+        return window._dtrAC;
+      }
+      function playTone(freq, duration, type='sine', gain=0.08, delay=0){
+        const ac = getAC(); if(!ac) return;
+        try{
+          const t0 = ac.currentTime + delay;
+          const osc = ac.createOscillator();
+          const g = ac.createGain();
+          osc.type = type;
+          osc.frequency.value = freq;
+          g.gain.setValueAtTime(0, t0);
+          g.gain.linearRampToValueAtTime(gain, t0 + 0.01);
+          g.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+          osc.connect(g).connect(ac.destination);
+          osc.start(t0);
+          osc.stop(t0 + duration);
+        }catch(e){}
+      }
+      function playNoise(duration, gain=0.04, delay=0){
+        const ac = getAC(); if(!ac) return;
+        try{
+          const t0 = ac.currentTime + delay;
+          const buf = ac.createBuffer(1, ac.sampleRate * duration, ac.sampleRate);
+          const data = buf.getChannelData(0);
+          for(let i=0;i<data.length;i++) data[i] = (Math.random()*2-1) * (1 - i/data.length);
+          const src = ac.createBufferSource();
+          const g = ac.createGain();
+          const filter = ac.createBiquadFilter();
+          filter.type = 'highpass'; filter.frequency.value = 2000;
+          src.buffer = buf;
+          g.gain.value = gain;
+          src.connect(filter).connect(g).connect(ac.destination);
+          src.start(t0);
+        }catch(e){}
+      }
 
-      // Ячейка прыгает → выполнена
-      cell.style.animation='cellBounceNew .38s cubic-bezier(.34,1.4,.64,1)';
+      // Сразу включаем overflow:visible через cell-done, чтобы частицы могли вылетать за края
+      cell.classList.add('cell-done');
+
+      if(ANIM_STYLE === 'A'){
+        // ═══ ВАРИАНТ A: ФЕЙЕРВЕРК ═══
+        // Звук: мажорный аккорд (C-E-G) + искрящийся шум
+        playTone(523.25, 0.4, 'triangle', 0.06);          // C5
+        playTone(659.25, 0.4, 'triangle', 0.05, 0.03);    // E5
+        playTone(783.99, 0.5, 'triangle', 0.05, 0.06);    // G5
+        playNoise(0.18, 0.03);
+
+        // Двойная волна — внутреннее заполнение + внешнее кольцо
+        const fill = document.createElement('div');
+        fill.style.cssText = `position:absolute;width:40px;height:40px;border-radius:50%;background:radial-gradient(circle,${color}88,${color}22);pointer-events:none;z-index:5;top:0;left:0;animation:rippleNew .55s ease-out forwards`;
+        cell.appendChild(fill);
+        setTimeout(()=>fill.remove(), 600);
+
+        const ring = document.createElement('div');
+        ring.style.cssText = `position:absolute;width:40px;height:40px;border-radius:50%;border:3px solid ${color};pointer-events:none;z-index:6;top:0;left:0;box-sizing:border-box;animation:ringPulseA .65s ease-out forwards`;
+        cell.appendChild(ring);
+        setTimeout(()=>ring.remove(), 700);
+
+        // 16 частиц-конфетти — разных форм, цветов, размеров
+        const shapes = ['●','★','✦','◆','▲','✧'];
+        for(let i=0;i<16;i++){
+          const angle = (i/16)*Math.PI*2 + (Math.random()-0.5)*0.3;
+          const dist  = 28 + Math.random()*22;
+          const tx = Math.cos(angle)*dist;
+          const ty = Math.sin(angle)*dist;
+          const rot = (Math.random()-0.5)*720;
+          const size = 6 + Math.random()*7;
+          const p = document.createElement('div');
+          p.textContent = shapes[i%shapes.length];
+          p.style.cssText =
+            `position:absolute;left:50%;top:50%;`+
+            `color:${color};font-size:${size}px;`+
+            `text-shadow:0 0 6px ${color};`+
+            `pointer-events:none;z-index:10;`+
+            `--tx:${tx}px;--ty:${ty}px;--rot:${rot}deg;`+
+            `animation:confettiBurst .7s cubic-bezier(.2,.6,.3,1) ${i*8}ms forwards`;
+          cell.appendChild(p);
+          setTimeout(()=>p.remove(), 900);
+        }
+
+        cell.style.animation = 'cellBounceNew .42s cubic-bezier(.34,1.5,.64,1)';
+
+      } else if(ANIM_STYLE === 'B'){
+        // ═══ ВАРИАНТ B: МАГИЯ ═══
+        // Звук: высокий мягкий звон + эхо
+        playTone(880, 0.3, 'triangle', 0.05);          // A5
+        playTone(1318.5, 0.5, 'sine', 0.04, 0.08);     // E6
+        playTone(1760, 0.6, 'sine', 0.03, 0.18);       // A6 (эхо)
+
+        // Мягкое свечение — растущее размытое пятно
+        const glow = document.createElement('div');
+        glow.style.cssText = `position:absolute;width:40px;height:40px;border-radius:50%;background:radial-gradient(circle,${color}aa,${color}00 70%);pointer-events:none;z-index:5;top:0;left:0;animation:magicGlow .9s ease-out forwards`;
+        cell.appendChild(glow);
+        setTimeout(()=>glow.remove(), 950);
+
+        // Двойной слой свечения для глубины
+        const glow2 = document.createElement('div');
+        glow2.style.cssText = `position:absolute;width:40px;height:40px;border-radius:50%;background:radial-gradient(circle,#ffffff66,#ffffff00 60%);pointer-events:none;z-index:6;top:0;left:0;animation:magicGlow .7s ease-out .1s forwards`;
+        cell.appendChild(glow2);
+        setTimeout(()=>glow2.remove(), 850);
+
+        // 8 искр летят по орбитам
+        for(let i=0;i<8;i++){
+          const orbitDeg = (i/8)*360 + (Math.random()-0.5)*20;
+          const orbitR = 24 + Math.random()*18;
+          const sp = document.createElement('div');
+          sp.textContent = i%2 ? '·' : '✦';
+          sp.style.cssText =
+            `position:absolute;left:50%;top:50%;`+
+            `color:${color};font-size:${i%2?14:9}px;`+
+            `text-shadow:0 0 8px ${color},0 0 4px #fff;`+
+            `pointer-events:none;z-index:10;`+
+            `--orbitDeg:${orbitDeg}deg;--orbitR:${orbitR}px;`+
+            `animation:magicOrbit .85s cubic-bezier(.4,.1,.6,1) ${i*30}ms forwards`;
+          cell.appendChild(sp);
+          setTimeout(()=>sp.remove(), 1100);
+        }
+
+        // Центральная вспышка-звёздочка
+        const tw = document.createElement('div');
+        tw.textContent = '✦';
+        tw.style.cssText = `position:absolute;left:50%;top:50%;color:#fff;font-size:18px;text-shadow:0 0 12px ${color};pointer-events:none;z-index:11;animation:magicTwinkle .6s ease-in-out forwards`;
+        cell.appendChild(tw);
+        setTimeout(()=>tw.remove(), 700);
+
+        cell.style.animation = 'cellSoftLift .55s ease-out';
+
+      } else if(ANIM_STYLE === 'C'){
+        // ═══ ВАРИАНТ C: УДАР ═══
+        // Звук: низкий удар + щелчок
+        playTone(60, 0.2, 'sine', 0.18);                // bass thump
+        playTone(1200, 0.05, 'square', 0.1, 0.01);      // click
+        playNoise(0.08, 0.06);                          // impact noise
+
+        // Вспышка — заполняет всю ячейку
+        const flash = document.createElement('div');
+        flash.style.cssText = `position:absolute;inset:0;border-radius:10px;background:${color};pointer-events:none;z-index:6;animation:flashStrike .25s ease-out forwards`;
+        cell.appendChild(flash);
+        setTimeout(()=>flash.remove(), 280);
+
+        // Двойная ударная волна
+        const wave1 = document.createElement('div');
+        wave1.style.cssText = `position:absolute;width:40px;height:40px;border-radius:50%;border:4px solid ${color};pointer-events:none;z-index:5;top:0;left:0;box-sizing:border-box;animation:shockwave .45s cubic-bezier(.2,.7,.3,1) forwards`;
+        cell.appendChild(wave1);
+        setTimeout(()=>wave1.remove(), 500);
+
+        const wave2 = document.createElement('div');
+        wave2.style.cssText = `position:absolute;width:40px;height:40px;border-radius:50%;border:2px solid #fff;pointer-events:none;z-index:5;top:0;left:0;box-sizing:border-box;animation:shockwave .55s cubic-bezier(.2,.7,.3,1) .08s forwards`;
+        cell.appendChild(wave2);
+        setTimeout(()=>wave2.remove(), 650);
+
+        // 6 быстрых осколков — острые штрихи в стороны
+        for(let i=0;i<6;i++){
+          const angle = (i/6)*Math.PI*2;
+          const dist = 32 + Math.random()*8;
+          const tx = Math.cos(angle)*dist;
+          const ty = Math.sin(angle)*dist;
+          const sh = document.createElement('div');
+          sh.style.cssText =
+            `position:absolute;left:50%;top:50%;`+
+            `width:3px;height:${10+Math.random()*4}px;border-radius:2px;`+
+            `background:linear-gradient(180deg,#fff,${color});`+
+            `pointer-events:none;z-index:10;`+
+            `--tx:${tx}px;--ty:${ty}px;`+
+            `transform-origin:center;`+
+            `animation:shardFly .35s cubic-bezier(.1,.7,.3,1) forwards`;
+          cell.appendChild(sh);
+          setTimeout(()=>sh.remove(), 400);
+        }
+
+        cell.style.animation = 'cellPunch .42s cubic-bezier(.3,1.4,.5,1)';
+      }
+
       setTimeout(()=>{
         cell.style.animation='';
         cell.className='hab-cell cell-done'+(key===td?' cell-today':'');
