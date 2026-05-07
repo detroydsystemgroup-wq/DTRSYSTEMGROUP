@@ -24,15 +24,6 @@
 ">
 <script>/* DTR Theme: apply before paint */
 (function(){var t=localStorage.getItem('dtr_theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();
-/* Suppress Yandex Metrika CORS/404 console noise */
-(function(){
-  var _ce=console.error.bind(console);
-  console.error=function(){
-    var s=Array.prototype.join.call(arguments,' ');
-    if(s.indexOf('mc.yandex.ru')!==-1) return;
-    _ce.apply(console,arguments);
-  };
-})();
 </script>
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -63,6 +54,8 @@
 <meta name="description" content="DTR Progress Club — геймифицированный трекер саморазвития. Соревнуйся с людьми с теми же целями, прокачивай уровень, побеждай в лигах.">
 <meta name="keywords" content="саморазвитие, трекер, привычки, продуктивность, лиги, соревнование">
 <meta name="robots" content="index, follow">
+<!-- Canonical URL — единый правильный адрес страницы для поисковиков (SEO) -->
+<link rel="canonical" href="https://dtrsystemgroup.vercel.app/">
 <!-- Open Graph -->
 <meta property="og:type" content="website">
 <meta property="og:title" content="DTR Progress Club — Трекер саморазвития">
@@ -14302,18 +14295,42 @@ html[data-theme="light"] .dtr-philo-text strong { color: #2a2a2a; }
 <!-- Якорь skip-link: всегда в DOM, фокусируется через tabindex=-1 без попадания в обычный tab-цикл -->
 <div id="main-content" tabindex="-1" style="outline:none"></div>
 
+<!-- ══ NOSCRIPT FALLBACK ══════════════════════════════════════════
+     Виден только когда JavaScript отключён или не загрузился.
+     Inline-стили использованы намеренно: внешние CSS могут не загрузиться
+     по той же причине, что и JS (агрессивный сетевой фильтр / NoScript).
+═══════════════════════════════════════════════════════════════════ -->
+<noscript>
+  <div style="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:#0A0A0B;color:#F5F5F7;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;padding:20px;">
+    <div style="max-width:440px;text-align:center;background:#141416;border:1px solid #2A2A2D;border-radius:16px;padding:32px 28px;">
+      <div style="font-size:48px;margin-bottom:16px;line-height:1;">⚙️</div>
+      <h1 style="font-size:22px;font-weight:700;margin:0 0 12px;color:#F5C842;">Нужен JavaScript</h1>
+      <p style="font-size:14px;line-height:1.6;color:#A1A1A6;margin:0 0 16px;">
+        Для работы <strong style="color:#F5F5F7;">DTR Progress Club</strong> нужно включить JavaScript в браузере.
+      </p>
+      <p style="font-size:13px;line-height:1.6;color:#6E6E73;margin:0 0 8px;">
+        Если JavaScript уже включён — возможно, он заблокирован сетевым фильтром или расширением (NoScript, uBlock, корпоративный прокси). Попробуй другой браузер или сеть.
+      </p>
+      <p style="font-size:12px;color:#6E6E73;margin-top:20px;">
+        DTR Progress Club · трекер привычек и личного прогресса
+      </p>
+    </div>
+  </div>
+</noscript>
+
 <div id="onboard" role="main">
 
-<!-- ══ HIDDEN LEGACY INPUTS — required by auth JS ══ -->
+<!-- ══ HIDDEN LEGACY ELEMENTS — used by old auth JS for state/UI ══
+     После рефакторинга legacy-инпутов lN/lP/rN/rP здесь остались только
+     элементы, на которые JS опирается как на DOM-узлы (для tab-логики,
+     рендера аватара, отображения ошибок). Сами инпуты удалены — функции
+     doLogin/goToCatSel читают данные напрямую из видимых полей dtr*.
+═════════════════════════════════════════════════════════════════ -->
 <div style="display:none" aria-hidden="true">
-  <input id="lN" type="text" autocomplete="username">
-  <input id="lP" type="password" autocomplete="current-password">
   <div id="lErr"></div>
   <div id="lForm">
     <button class="btn-auth" onclick="doLogin()"></button>
   </div>
-  <input id="rN" type="text" autocomplete="off">
-  <input id="rP" type="password" autocomplete="new-password">
   <div id="avPicker"></div>
   <div id="rErr"></div>
   <div id="rForm"></div>
@@ -14389,12 +14406,12 @@ html[data-theme="light"] .dtr-philo-text strong { color: #2a2a2a; }
         <div class="dtr-errbox" id="dtrLErr"></div>
         <div class="dtr-field">
           <label class="dtr-flabel" for="dtrLNick">Никнейм</label>
-          <input type="text" id="dtrLNick" placeholder="твой_никнейм" autocomplete="username" spellcheck="false" oninput="document.getElementById('lN').value=this.value">
+          <input type="text" id="dtrLNick" placeholder="твой_никнейм" autocomplete="username" spellcheck="false">
         </div>
         <div class="dtr-field">
           <label class="dtr-flabel" for="dtrLPass">Пароль</label>
           <div class="dtr-fi">
-            <input type="password" id="dtrLPass" placeholder="········" autocomplete="current-password" style="padding-right:40px" oninput="document.getElementById('lP').value=this.value">
+            <input type="password" id="dtrLPass" placeholder="········" autocomplete="current-password" style="padding-right:40px">
             <button class="dtr-eye-btn" onclick="dtrEye('dtrLPass',this)" type="button">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
@@ -16372,8 +16389,9 @@ function switchATab(t){
 
 // ══ LOGIN ════════════════════════════════════════════════════
 async function doLogin(){
-  const n=document.getElementById('lN').value.trim();
-  const p=document.getElementById('lP').value;
+  // Читаем напрямую из видимых полей формы логина
+  const n=document.getElementById('dtrLNick').value.trim();
+  const p=document.getElementById('dtrLPass').value;
   const err=document.getElementById('lErr');
   err.textContent='';
   if(!n){err.textContent='Введи никнейм';return;}
@@ -16412,8 +16430,9 @@ async function doLogin(){
 
 // ══ REGISTER — STEP 1 ════════════════════════════════════════
 async function goToCatSel(){
-  const n=document.getElementById('rN').value.trim();
-  const p=document.getElementById('rP').value;
+  // Читаем напрямую из видимых полей формы регистрации
+  const n=document.getElementById('dtrRNick').value.trim();
+  const p=document.getElementById('dtrRPass').value;
   const err=document.getElementById('rErr');
   err.textContent='';
   if(!n||n.length<3){err.textContent='Никнейм минимум 3 символа';return;}
@@ -31598,7 +31617,7 @@ window.cmatShowMembers=async function(roomId){
           <div style="font-size:13px;font-weight:600;color:var(--t1)">${esc(u.username||'?')}${isMe?' <span style="font-size:10px;color:var(--t3)">(вы)</span>':''}</div>
           <div style="font-size:11px;color:var(--t3)">${isMemOwner?'Владелец':'Участник'}</div>
         </div>
-        ${canKick?`<button class="cmat-mem-kick" onclick="window.cmatKickMember('${roomId}','${m.user_id}','${(u.username||'?').replace(/'/g,"\\'")}')">${svgX}</button>`:''}
+        ${canKick?`<button class="cmat-mem-kick" onclick="window.cmatKickMember('${roomId}','${m.user_id}','${escAttr(u.username||'?')}')">${svgX}</button>`:''}
       </div>`;
     }).join('');
     if(actsEl) modal.insertBefore(panel,actsEl);
@@ -33553,7 +33572,7 @@ async function buildRoomCard(room, myRole, user, members, habits, logs){
     const weekTxt = `${s.perfectDays} из ${possibleDays} идеальных дней`;
     // Kick button: shown only to owner, only for non-owner non-me members
     const kickBtn = (isOwner && !isMe && !isMemberOwner)
-      ? `<button class="chab-kick-btn" onclick="chabKickMember('${room.id}','${s.user_id}','${(u.username||'участника').replace(/'/g,"\\'")}');event.stopPropagation()" title="Исключить из трекера">
+      ? `<button class="chab-kick-btn" onclick="chabKickMember('${room.id}','${s.user_id}','${escAttr(u.username||'участника')}');event.stopPropagation()" title="Исключить из трекера">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>
         </button>`
       : '';
@@ -41657,7 +41676,6 @@ function dtrNx(f){
     var nick=document.getElementById('dtrRNick').value.trim();
     if(nick.length<3){dtrShRE('Никнейм — минимум 3 символа');dtrHaptic('dtrS0');return;}
     if(nick.length>20){dtrShRE('Никнейм не длиннее 20 символов');dtrHaptic('dtrS0');return;}
-    document.getElementById('rN').value=nick;
     dtrGoS(1);
     setTimeout(dtrRenderAvPicker,50);
     return;
@@ -41703,8 +41721,6 @@ function dtrDoLogin(){
   var pass=document.getElementById('dtrLPass').value;
   dtrClrLE();
   if(!nick||!pass){dtrShLE('Введи никнейм и пароль');return;}
-  document.getElementById('lN').value=nick;
-  document.getElementById('lP').value=pass;
   var btn=document.getElementById('dtrBtnL');
   if(btn){btn.disabled=true;btn.textContent='Входим...';}
   // Watch for error response from original doLogin
@@ -41726,8 +41742,6 @@ function dtrDoReg(){
   var pass=document.getElementById('dtrRPass').value;
   dtrClrRE();
   if(pass.length<6){dtrShRE('Пароль — минимум 6 символов');dtrHaptic('dtrS1');return;}
-  document.getElementById('rN').value=document.getElementById('dtrRNick').value.trim();
-  document.getElementById('rP').value=pass;
   if(typeof selAv!=='undefined')selAv=_dtrSelAv;
   var btn=document.getElementById('dtrBtnR');
   if(btn){btn.disabled=true;btn.textContent='Проверяем...';}
@@ -44336,7 +44350,7 @@ window._cchOpen = function(roomId){
         const name = esc(u.username||'?');
         const av = u.avatar_url
           ? `<img alt="" src="${esc(u.avatar_url)}" onerror="this.style.display='none'">`
-          : `<span>${(u.avatar||u.username||'?')[0]}</span>`;
+          : `<span>${esc((u.avatar||u.username||'?')[0])}</span>`;
         return `<div class="cch-mem-pick on" data-uid="${m.user_id}" onclick="this.classList.toggle('on')">
           <div class="cch-mem-av">${av}</div>
           <span>${name}</span>
