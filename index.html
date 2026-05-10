@@ -16680,6 +16680,7 @@ async function doLogout(){
   }
   P=null;SB_USER=null;lgCache={};lgCacheTime={};activeConvUserId=null;
   try{ window.SB_USER = null; }catch{}
+  try{ window._habTeardownRealtime && window._habTeardownRealtime(); }catch{}
   if(window._arenaBgInterval){ clearInterval(window._arenaBgInterval); window._arenaBgInterval=null; }
   // Sign out LAST — after all channel/resource cleanup to avoid auth errors on removeChannel
   await sb.auth.signOut();
@@ -27651,6 +27652,73 @@ window._habSyncLogsToDB = async function(targetLogs){
   }
 };
 
+// ══ Realtime subscription для личных привычек ══════════════════
+// После initial sync подписываемся на изменения таблиц
+// personal_habits и personal_habit_logs — когда что-то меняется на
+// другом устройстве, обновляем localStorage и перерисовываем UI.
+let _habRealtimeChannel = null;
+let _habRealtimeDebounce = null;
+
+function _habSetupRealtime(){
+  const sbc = _habGetSB(), user = _habGetUser();
+  if(!sbc || !user || user.isDemoUser) return;
+  // Если канал уже есть — не дублируем
+  if(_habRealtimeChannel) return;
+
+  try {
+    _habRealtimeChannel = sbc.channel('personal-habits-' + user.id)
+      // Изменения в самих привычках
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'personal_habits',
+        filter: 'user_id=eq.' + user.id,
+      }, () => _habRealtimeRefresh())
+      // Изменения в отметках
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'personal_habit_logs',
+        filter: 'user_id=eq.' + user.id,
+      }, () => _habRealtimeRefresh())
+      .subscribe((status) => {
+        if(status === 'SUBSCRIBED'){
+          console.log('[habits] Realtime SUBSCRIBED');
+        }
+      });
+  } catch(e){
+    console.warn('[habits] Realtime setup failed:', e?.message||e);
+  }
+}
+
+// Дебаунс: если несколько изменений прилетели быстро (например, batch update),
+// делаем только один пересинк через 400мс
+function _habRealtimeRefresh(){
+  if(_habRealtimeDebounce) clearTimeout(_habRealtimeDebounce);
+  _habRealtimeDebounce = setTimeout(() => {
+    _habRealtimeDebounce = null;
+    // Игнорируем эхо собственных изменений: если последняя локальная запись
+    // была меньше 2с назад — пропускаем (это наш же UPSERT долетел)
+    const lastWrite = window._habLastLocalWriteAt || 0;
+    if(Date.now() - lastWrite < 2000) return;
+    _habSyncFromDB();
+  }, 400);
+}
+
+// Отписка при выходе пользователя
+window._habTeardownRealtime = function(){
+  if(_habRealtimeChannel){
+    try{ _habGetSB()?.removeChannel(_habRealtimeChannel); }catch{}
+    _habRealtimeChannel = null;
+  }
+};
+
+// Помечаем момент последней локальной записи (для подавления эха)
+const _oldHSave = hSave;
+const _oldLSave = lSave;
+hSave = function(d){ window._habLastLocalWriteAt = Date.now(); _oldHSave(d); };
+lSave = function(d){ window._habLastLocalWriteAt = Date.now(); _oldLSave(d); };
+
 // Запускаем sync с БД при загрузке (когда юзер уже залогинен)
 // Пробуем несколько раз — на случай если SB_USER ещё не появился
 (function initHabitSync(){
@@ -27660,6 +27728,8 @@ window._habSyncLogsToDB = async function(targetLogs){
     const user = _habGetUser();
     if(user && !user.isDemoUser){
       _habSyncFromDB();
+      // После initial sync — поднимаем Realtime
+      setTimeout(_habSetupRealtime, 1000);
     } else if(attempts < 10){
       setTimeout(tryStart, 800);
     }
