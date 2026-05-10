@@ -27402,11 +27402,270 @@ const TEMPLATES=[
 
 let _emoji=(typeof window!=='undefined' && window.HAB_ICON_IDS && window.HAB_ICON_IDS[0]) || EMOJIS[0],_color=COLORS[0],_freq='daily',_tod='any',_sort='order',_mOff=0,_editId=null;
 
-// ── Storage ──────────────────────────────────────────────────
+// ── Storage (Hybrid: localStorage cache + Supabase DB as source of truth) ──
+//
+// СТРАТЕГИЯ:
+//   - hLoad/lLoad СИНХРОННЫЕ — читают из localStorage (мгновенно)
+//   - hSave/lSave СИНХРОННЫЕ — пишут в localStorage сразу + асинхронно в БД
+//   - При загрузке страницы _habSyncFromDB() подтягивает свежие данные
+//     и обновляет localStorage кеш
+//   - При офлайне всё работает через localStorage, ошибки БД молчаливо
+//     логируются — синхронизация догонится при следующей записи
+//
 const hLoad=()=>{try{return JSON.parse(localStorage.getItem(HK)||'[]');}catch{return[];}};
 const lLoad=()=>{try{return JSON.parse(localStorage.getItem(LK)||'{}');}catch{return{};}};
-const hSave=d=>localStorage.setItem(HK,JSON.stringify(d));
-const lSave=d=>localStorage.setItem(LK,JSON.stringify(d));
+
+// Внутренние writers — пишут только в localStorage, без сетевых вызовов
+const _hWriteLocal = d => localStorage.setItem(HK, JSON.stringify(d));
+const _lWriteLocal = d => localStorage.setItem(LK, JSON.stringify(d));
+
+// hSave/lSave — синхронно пишут в localStorage, асинхронно в БД (fire-and-forget)
+function hSave(d){
+  _hWriteLocal(d);
+  // Запускаем фоновую полную пересинхронизацию привычек
+  if(typeof window._habSyncHabitsToDB === 'function'){
+    Promise.resolve().then(()=>window._habSyncHabitsToDB(d)).catch(e=>console.warn('habSyncDB:', e?.message||e));
+  }
+}
+function lSave(d){
+  _lWriteLocal(d);
+  // Запускаем фоновую полную пересинхронизацию логов
+  if(typeof window._habSyncLogsToDB === 'function'){
+    Promise.resolve().then(()=>window._habSyncLogsToDB(d)).catch(e=>console.warn('habSyncDB:', e?.message||e));
+  }
+}
+
+// ── Sync helpers (DB ↔ localStorage) ──
+// Получаем sb/user через window — этот код выполняется в IIFE и не имеет прямого доступа
+function _habGetSB(){ try{ return typeof sb !== 'undefined' ? sb : (window.sb || null); }catch{ return null; } }
+function _habGetUser(){
+  try{
+    if(typeof SB_USER !== 'undefined' && SB_USER) return SB_USER;
+  }catch{}
+  try{ return window.SB_USER || null; }catch{ return null; }
+}
+
+/**
+ * Подтягивает привычки и логи из Supabase, обновляет localStorage.
+ * Вызывается при загрузке страницы и при возврате с фона.
+ * Если БД недоступна — возвращается без изменений (работаем на localStorage).
+ */
+async function _habSyncFromDB(){
+  const sbc = _habGetSB(), user = _habGetUser();
+  if(!sbc || !user || user.isDemoUser) return;
+  try {
+    // Параллельно тянем привычки и логи за последние 365 дней (на год истории)
+    const d365 = new Date(); d365.setDate(d365.getDate()-365);
+    const dStr = d365.toISOString().slice(0,10);
+    const [habsRes, logsRes] = await Promise.all([
+      sbc.from('personal_habits').select('*').eq('user_id', user.id),
+      sbc.from('personal_habit_logs').select('habit_id,date').eq('user_id', user.id).gte('date', dStr),
+    ]);
+    if(habsRes.error){ console.warn('habSyncFromDB habits:', habsRes.error.message); return; }
+
+    const habs = habsRes.data || [];
+    const localHabs = hLoad();
+    const localLogs = lLoad();
+
+    // Если в БД нет привычек, а в localStorage есть — это первый запуск, мигрируем туда
+    if(habs.length === 0 && localHabs.length > 0){
+      await _habMigrateLocalToDB(localHabs, localLogs);
+      return;
+    }
+
+    // Превращаем БД → формат localStorage
+    const dbHabs = habs.map(h => ({
+      id: h.id,
+      name: h.name,
+      icon: h.icon,
+      color: h.color,
+      freq: h.freq,
+      tod: h.tod,
+      created: new Date(h.created_at).getTime(),
+      archived: h.archived || undefined,
+    }));
+    _hWriteLocal(dbHabs);
+
+    // Логи: формируем структуру {habitId: {date: 1}}
+    const dbLogs = {};
+    (logsRes.data || []).forEach(e => {
+      if(!dbLogs[e.habit_id]) dbLogs[e.habit_id] = {};
+      dbLogs[e.habit_id][e.date] = 1;
+    });
+    _lWriteLocal(dbLogs);
+
+    // Перерисовываем UI если он уже отрендерен
+    if(typeof window.render === 'function'){
+      try{ window.render(); }catch(e){ console.warn('render after sync:', e?.message); }
+    }
+  } catch(e){
+    console.warn('_habSyncFromDB:', e?.message||e);
+  }
+}
+
+/**
+ * Одноразовая миграция: данные из localStorage переносятся в БД.
+ * Вызывается только если БД пустая.
+ */
+async function _habMigrateLocalToDB(habs, logs){
+  const sbc = _habGetSB(), user = _habGetUser();
+  if(!sbc || !user || user.isDemoUser) return;
+  if(!habs || habs.length === 0) return;
+  console.log('[habits] Migrating', habs.length, 'habits from localStorage to DB...');
+  try {
+    // 1. Привычки — INSERT по одной (можно UPSERT)
+    const habRows = habs.map(h => ({
+      id:         h.id,
+      user_id:    user.id,
+      name:       h.name || 'Без названия',
+      icon:       h.icon || '🎯',
+      color:      h.color || '#F5C842',
+      freq:       h.freq || 'daily',
+      tod:        h.tod || 'any',
+      archived:   !!h.archived,
+      created_at: h.created ? new Date(h.created).toISOString() : new Date().toISOString(),
+    }));
+    const { error: hErr } = await sbc.from('personal_habits').upsert(habRows);
+    if(hErr){ console.warn('migrate habits:', hErr.message); return; }
+
+    // 2. Логи — собираем плоский массив всех отметок
+    const logRows = [];
+    Object.keys(logs || {}).forEach(habitId => {
+      Object.keys(logs[habitId] || {}).forEach(date => {
+        if(logs[habitId][date]){
+          logRows.push({ habit_id: habitId, user_id: user.id, date });
+        }
+      });
+    });
+    if(logRows.length > 0){
+      // Заливаем чанками по 500 (Supabase REST limit)
+      for(let i=0; i<logRows.length; i+=500){
+        const chunk = logRows.slice(i, i+500);
+        const { error: lErr } = await sbc.from('personal_habit_logs').upsert(chunk);
+        if(lErr){ console.warn('migrate logs chunk:', lErr.message); }
+      }
+    }
+    console.log('[habits] Migration OK:', habs.length, 'habits,', logRows.length, 'logs');
+  } catch(e){
+    console.warn('_habMigrateLocalToDB:', e?.message||e);
+  }
+}
+
+/**
+ * Синхронизация: целевое состояние массива привычек = текущий localStorage.
+ * Считаем разницу с тем что в БД, делаем INSERT/UPDATE/DELETE.
+ * Вызывается из hSave через Promise — не блокирует UI.
+ */
+window._habSyncHabitsToDB = async function(targetHabs){
+  const sbc = _habGetSB(), user = _habGetUser();
+  if(!sbc || !user || user.isDemoUser) return;
+  try {
+    const { data: dbData, error } = await sbc.from('personal_habits').select('id').eq('user_id', user.id);
+    if(error){ console.warn('syncHabits get:', error.message); return; }
+    const dbIds = new Set((dbData||[]).map(x => x.id));
+    const localIds = new Set(targetHabs.map(h => h.id));
+
+    // 1. Привычки которые есть в БД но НЕТ локально → удаляем из БД
+    const toDelete = [...dbIds].filter(id => !localIds.has(id));
+    if(toDelete.length > 0){
+      await sbc.from('personal_habits').delete().in('id', toDelete).eq('user_id', user.id);
+    }
+
+    // 2. Все локальные → upsert (INSERT новых, UPDATE существующих)
+    const upRows = targetHabs.map(h => ({
+      id:         h.id,
+      user_id:    user.id,
+      name:       h.name || 'Без названия',
+      icon:       h.icon || '🎯',
+      color:      h.color || '#F5C842',
+      freq:       h.freq || 'daily',
+      tod:        h.tod || 'any',
+      archived:   !!h.archived,
+      created_at: h.created ? new Date(h.created).toISOString() : new Date().toISOString(),
+    }));
+    if(upRows.length > 0){
+      const { error: upErr } = await sbc.from('personal_habits').upsert(upRows);
+      if(upErr) console.warn('syncHabits upsert:', upErr.message);
+    }
+  } catch(e){
+    console.warn('_habSyncHabitsToDB:', e?.message||e);
+  }
+};
+
+/**
+ * Синхронизация логов: вычисляем диф между БД и localStorage, применяем.
+ * Это более «тяжёлая» операция, но запускается фоном.
+ */
+window._habSyncLogsToDB = async function(targetLogs){
+  const sbc = _habGetSB(), user = _habGetUser();
+  if(!sbc || !user || user.isDemoUser) return;
+  try {
+    // Тянем все логи пользователя за последние 365 дней
+    const d365 = new Date(); d365.setDate(d365.getDate()-365);
+    const dStr = d365.toISOString().slice(0,10);
+    const { data, error } = await sbc.from('personal_habit_logs')
+      .select('habit_id,date').eq('user_id', user.id).gte('date', dStr);
+    if(error){ console.warn('syncLogs get:', error.message); return; }
+
+    // Строим Set ключей "habitId|date" для быстрого сравнения
+    const dbSet = new Set((data||[]).map(e => e.habit_id + '|' + e.date));
+    const localSet = new Set();
+    Object.keys(targetLogs || {}).forEach(hid => {
+      Object.keys(targetLogs[hid] || {}).forEach(d => {
+        if(targetLogs[hid][d]) localSet.add(hid + '|' + d);
+      });
+    });
+
+    // 1. Новые в localStorage, нет в БД → INSERT
+    const toInsert = [...localSet].filter(k => !dbSet.has(k));
+    if(toInsert.length > 0){
+      const rows = toInsert.map(k => {
+        const [habit_id, date] = k.split('|');
+        return { habit_id, user_id: user.id, date };
+      });
+      for(let i=0; i<rows.length; i+=500){
+        const chunk = rows.slice(i, i+500);
+        const { error: insErr } = await sbc.from('personal_habit_logs').upsert(chunk);
+        if(insErr) console.warn('syncLogs upsert:', insErr.message);
+      }
+    }
+
+    // 2. Есть в БД, нет в localStorage → DELETE
+    const toDelete = [...dbSet].filter(k => !localSet.has(k));
+    if(toDelete.length > 0){
+      // Удаляем по одному (или группами) — фильтр delete с OR сложный, проще пакетом
+      for(const k of toDelete){
+        const [habit_id, date] = k.split('|');
+        await sbc.from('personal_habit_logs').delete()
+          .eq('habit_id', habit_id).eq('user_id', user.id).eq('date', date);
+      }
+    }
+  } catch(e){
+    console.warn('_habSyncLogsToDB:', e?.message||e);
+  }
+};
+
+// Запускаем sync с БД при загрузке (когда юзер уже залогинен)
+// Пробуем несколько раз — на случай если SB_USER ещё не появился
+(function initHabitSync(){
+  let attempts = 0;
+  const tryStart = () => {
+    attempts++;
+    const user = _habGetUser();
+    if(user && !user.isDemoUser){
+      _habSyncFromDB();
+    } else if(attempts < 10){
+      setTimeout(tryStart, 800);
+    }
+  };
+  if(typeof document !== 'undefined'){
+    if(document.readyState === 'complete' || document.readyState === 'interactive'){
+      setTimeout(tryStart, 600);
+    } else {
+      document.addEventListener('DOMContentLoaded', () => setTimeout(tryStart, 600));
+    }
+  }
+})();
 
 // ── Date utils ───────────────────────────────────────────────
 const pad=n=>String(n).padStart(2,'0');
