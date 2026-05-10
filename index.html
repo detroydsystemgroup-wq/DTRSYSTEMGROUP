@@ -44507,12 +44507,12 @@ function renderCollabChallenges(roomId, members, logs, habits){
       const isActive = t2c >= ch.start_date && t2c <= ch.end_date;
       const notStarted = t2c < ch.start_date;
 
+      // Кнопка удаления доступна в любое время для создателя челленджа.
+      // Для активного челленджа _cchDel запросит подтверждение.
+      const delTitle = isActive ? 'Удалить активный челлендж' :
+                       notStarted ? 'Удалить (не начат)' : 'Удалить (завершён)';
       const delBtn = !canDel ? '' :
-        isActive
-          ? `<button class="dch-del" title="Нельзя удалить активный челлендж" disabled style="position:absolute;top:4px;right:4px;opacity:.4;cursor:not-allowed">
-               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-             </button>`
-          : `<button class="dch-del" onclick="_cchDel('${roomId}','${ch.id}')" title="${notStarted?'Удалить (не начат)':'Удалить (завершён)'}" style="position:absolute;top:4px;right:4px">${SVG_DEL}</button>`;
+        `<button class="dch-del" onclick="_cchDel('${roomId}','${ch.id}')" title="${delTitle}" style="position:absolute;top:4px;right:4px">${SVG_DEL}</button>`;
 
       // Иконка квеста — берём из первой привычки или target по умолчанию
       const firstHab = habMap[ch.habit_ids[0]] || {};
@@ -44647,14 +44647,19 @@ function renderCollabChallenges(roomId, members, logs, habits){
 
 /* ── Удалить из Supabase ─────────────────────────────────── */
 window._cchDel = async function(roomId, challId){
-  /* Двойная проверка: не удаляем активный челлендж */
+  // Для активного челленджа просим подтверждение — это деструктивное действие,
+  // удалит весь прогресс участников.
   const allChalls = [...getChallenges(roomId), ...lsLoad(roomId)];
   const ch = allChalls.find(c => c.id === challId);
   if(ch){
     const t2 = today();
-    if(t2 >= ch.start_date && t2 <= ch.end_date){
-      try{ showToast('Нельзя удалить активный челлендж 🔒'); }catch{}
-      return;
+    const isActive = t2 >= ch.start_date && t2 <= ch.end_date;
+    if(isActive){
+      const ok = confirm(
+        `Удалить активный челлендж "${ch.name}"?\n\n` +
+        `Прогресс всех участников будет потерян. Это действие нельзя отменить.`
+      );
+      if(!ok) return;
     }
   }
   /* Убираем из кеша */
