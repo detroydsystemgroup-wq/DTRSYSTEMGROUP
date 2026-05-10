@@ -6504,6 +6504,15 @@ body {
 }
 .hab-cell.cell-future{ opacity:.2;pointer-events:none; }
 .hab-cell.cell-off{ opacity:.1;pointer-events:none; }
+/* Пропущенные прошедшие дни — нельзя кликнуть, красный крестик */
+.hab-cell.cell-missed{
+  pointer-events:none;
+  cursor:not-allowed !important;
+  background:rgba(239,68,68,.06) !important;
+  border-color:rgba(239,68,68,.2) !important;
+  box-shadow:none !important;
+}
+.hab-cell.cell-missed::after{ display:none !important; }
 .hab-cell.cell-today{
   border:1.5px solid rgba(255,255,255,.18);
   background:rgba(255,255,255,.05);
@@ -7549,6 +7558,14 @@ body {
   box-shadow: 0 0 0 2.5px rgba(168,85,247,.5), 0 3px 12px rgba(168,85,247,.15);
 }
 .chab-cell.future { opacity: .18; pointer-events: none; }
+/* Пропущенные прошедшие дни в совместных — нельзя кликнуть, красный крестик */
+.chab-cell.missed {
+  pointer-events: none !important;
+  cursor: not-allowed !important;
+  background: rgba(239,68,68,.06) !important;
+  border-color: rgba(239,68,68,.2) !important;
+  box-shadow: none !important;
+}
 
 @keyframes chabCellPop {
   0%  { transform: scale(.4) rotate(-20deg); opacity: 0; }
@@ -27579,6 +27596,8 @@ function render(){
     const cells=days.map((d,i)=>{
       const key=dk(d);const isToday=key===td;const active=isActive(h.freq,d);
       const done=isDone(h.id,key);const future=d>now&&!isToday;
+      // Пропущенный день — активный, прошедший, не отмеченный, не сегодня
+      const missed = active && !future && !isToday && !done;
       // Считаем только прошедшие дни (не будущие) в статистику
       if(active&&!future){ wActive++; if(done) wDone++; }
       let cls='hab-cell';
@@ -27586,13 +27605,20 @@ function render(){
       if(isToday)cls+=' cell-today';
       if(future)cls+=' cell-future';
       if(!active)cls+=' cell-off';
+      if(missed)cls+=' cell-missed';
+      // onclick активен только для сегодня и будущих активных дней (но будущие сами заблокированы pointer-events)
+      const clickAttr = (missed || future || !active)
+        ? '' // missed/future/off — некликабельны
+        : `onclick="habToggle('${h.id}','${key}')"`;
       return `<div class="${cls}" style="${done?`background:linear-gradient(135deg,${color}40,${color}20);border:0.5px solid ${color}70;box-shadow:0 2px 10px ${color}35`:''}"
-        onclick="habToggle('${h.id}','${key}')" title="${d.toLocaleDateString('ru',{day:'numeric',month:'short'})}">
+        ${clickAttr} title="${d.toLocaleDateString('ru',{day:'numeric',month:'short'})}${missed?' · пропущен':''}">
         ${done
           ?`<div class="cell-check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.8" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>`
-          :active&&!future
-            ?`<div style="width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.1)"></div>`
-            :`<div style="width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.04)"></div>`
+          :missed
+            ?`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(239,68,68,.7)" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`
+            :active&&!future
+              ?`<div style="width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.1)"></div>`
+              :`<div style="width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.04)"></div>`
         }
       </div>`;
     }).join('');
@@ -27854,6 +27880,16 @@ window._dismissAtRisk = function(hid){
 };
 
 window.habToggle=function(hid,key){
+  // ── Заморозка: отмечать можно только сегодняшний день ──
+  const _td = today();
+  if(key !== _td){
+    try{
+      if(key < _td){ showToast('Этот день уже прошёл — нельзя изменить'); }
+      else        { showToast('Это день в будущем'); }
+    }catch{}
+    return;
+  }
+
   // ── 1. Обновляем localStorage ──
   const l=lLoad();
   if(!l[hid])l[hid]={};
@@ -33353,29 +33389,85 @@ async function _chabRefreshLogs(){
     const d30ago = new Date(); d30ago.setDate(d30ago.getDate()-30);
     const d30str = d30ago.toISOString().slice(0,10);
     const rooms = _chabCache.rooms || [];
+
+    // Список комнат, в которых что-то поменялось — их нужно перерисовать целиком
+    const dirtyRooms = [];
+
     await Promise.all(rooms.map(async room => {
       try {
         const rc = _chabCache.perRoom[room.id];
         if(!rc) return;
-        const {data} = await sb.from('collab_habit_logs').select('habit_id,user_id,date').eq('room_id',room.id).gte('date',d30str);
+
+        // Запускаем ВСЕ запросы параллельно: members, habits, logs, challenges
+        const [memsRes, habsRes, logsRes] = await Promise.all([
+          sb.from('collab_habit_members')
+            .select('user_id,role,users:user_id(username,avatar,avatar_url)')
+            .eq('room_id', room.id),
+          sb.from('collab_habits')
+            .select('*')
+            .eq('room_id', room.id)
+            .neq('active', false),
+          sb.from('collab_habit_logs')
+            .select('habit_id,user_id,date')
+            .eq('room_id', room.id)
+            .gte('date', d30str),
+        ]);
+
+        // Логи (как было)
         const logs = {};
-        (data||[]).forEach(e=>{
+        (logsRes.data || []).forEach(e=>{
           if(!logs[e.user_id]) logs[e.user_id]={};
           if(!logs[e.user_id][e.habit_id]) logs[e.user_id][e.habit_id]={};
           logs[e.user_id][e.habit_id][e.date]=true;
         });
         rc.logs = logs;
-        /* Обновляем челленджи в кеше — не фатально если таблица не создана */
+
+        // Members — преобразуем в плоскую структуру как ожидает остальной код
+        const freshMembers = (memsRes.data || []).map(m => ({
+          user_id:    m.user_id,
+          role:       m.role,
+          username:   m.users?.username || '?',
+          avatar:     m.users?.avatar || null,
+          avatar_url: m.users?.avatar_url || null,
+        }));
+
+        // Сравниваем количество и состав. Если изменилось — пометка к перерисовке.
+        const oldIds = (rc.members || []).map(m => m.user_id).sort().join('|');
+        const newIds = freshMembers.map(m => m.user_id).sort().join('|');
+        const membersChanged = oldIds !== newIds;
+        if(membersChanged){ dirtyRooms.push(room.id); }
+        rc.members = freshMembers;
+
+        // Habits — сравниваем по id+name+color+active. Изменилось — перерисовываем.
+        const freshHabits = habsRes.data || [];
+        const oldHabSig = (rc.habits || []).map(h => `${h.id}:${h.name||h.title}:${h.color}:${h.active}`).sort().join('|');
+        const newHabSig = freshHabits.map(h => `${h.id}:${h.name||h.title}:${h.color}:${h.active}`).sort().join('|');
+        if(oldHabSig !== newHabSig && !membersChanged){ dirtyRooms.push(room.id); }
+        rc.habits = freshHabits;
+
+        // Челленджи (как было)
         try {
-          const challRes = await sb.from('collab_challenges').select('*').eq('room_id',room.id).order('created_at',{ascending:false});
-          if(!challRes.error) rc.challenges = challRes.data||[];
+          const challRes = await sb.from('collab_challenges').select('*').eq('room_id', room.id).order('created_at',{ascending:false});
+          if(!challRes.error) rc.challenges = challRes.data || [];
         } catch(e){}
+
         // Патчим только ячейки в DOM — без перерисовки карточки
         _patchRoomCells(room.id, logs, user.id);
       } catch(e){}
     }));
+
     _chabCacheTs = Date.now();
     _chabSaveCache();
+
+    // Если в каких-то комнатах состав участников или привычек изменился —
+    // перерисовываем UI целиком (через _renderFromCache).
+    if(dirtyRooms.length > 0){
+      try {
+        if(typeof _renderFromCache === 'function'){
+          await _renderFromCache();
+        }
+      } catch(e){ console.warn('_chabRefreshLogs re-render:', e.message); }
+    }
   } finally { _chabRefreshing = false; }
 }
 
@@ -33704,6 +33796,8 @@ async function buildRoomCard(room, myRole, user, members, habits, logs){
       const isToday = key===today;
       const future = d>now && !isToday;
       const done = !!(myHabLog[key]);
+      // Пропущенный — прошедший, не сегодня, не отмеченный
+      const missed = !future && !isToday && !done;
       // Считаем только прошедшие дни (не будущие)
       if(!future){ wPassed++; if(done) wDone++; }
 
@@ -33716,10 +33810,12 @@ async function buildRoomCard(room, myRole, user, members, habits, logs){
           style="background:${memberDone?color+'99':'rgba(255,255,255,.1)'}"></div>`;
       }).join('');
 
-      const clickFn = future ? '' : `chabToggleCell('${room.id}','${h.id}','${key}',this)`;
+      // Кликать можно только по сегодняшней ячейке
+      const clickFn = isToday ? `chabToggleCell('${room.id}','${h.id}','${key}',this)` : '';
       let cls = 'chab-cell mine';
       if(done) cls+=' done';
       if(future) cls+=' future';
+      if(missed) cls+=' missed';
       // today box-shadow uses habit color (inline, not CSS class)
       const todayStyle = isToday ? `box-shadow:0 0 0 2.5px ${color}88,0 3px 12px ${color}22;` : '';
       const hoverStyle = !done && !future ? `--chab-hover-bg:${color}1a;--chab-hover-border:${color}55;` : '';
@@ -33728,12 +33824,14 @@ async function buildRoomCard(room, myRole, user, members, habits, logs){
         data-chab-cell="${room.id}|${h.id}|${key}"
         style="${done?`background:linear-gradient(135deg,${color}40,${color}20);border-color:${color}70;box-shadow:0 0 0 2px ${color}20, 0 3px 14px ${color}35`:todayStyle}"
         ${clickFn ? `onclick="${clickFn}"` : ''}
-        ${!done&&!future?`onmouseover="this.style.background='${color}18';this.style.borderColor='${color}55'" onmouseout="this.style.background='';this.style.borderColor=''"`:''}>
+        ${isToday && !done?`onmouseover="this.style.background='${color}18';this.style.borderColor='${color}55'" onmouseout="this.style.background='';this.style.borderColor=''"`:''}>
         ${done
           ?`<span class="chab-check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.8" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></span>`
-          :future
-            ?`<div style="width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.05)"></div>`
-            :`<div style="width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.08);box-shadow:0 0 0 2px rgba(255,255,255,.05)"></div>`
+          :missed
+            ?`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(239,68,68,.7)" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`
+            :future
+              ?`<div style="width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.05)"></div>`
+              :`<div style="width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.08);box-shadow:0 0 0 2px rgba(255,255,255,.05)"></div>`
         }
         ${pips&&!future?`<div style="position:absolute;bottom:3px;left:0;right:0;display:flex;justify-content:center;gap:2px">${pips}</div>`:''}
       </div>`;
@@ -33941,6 +34039,16 @@ async function buildRoomCard(room, myRole, user, members, habits, logs){
 
 window.chabToggleCell = async function(roomId, habitId, date, cellEl){
   const sb=getSB(), user=getUser(); if(!sb||!user) return;
+
+  // ── Заморозка: отмечать можно только сегодняшний день ──
+  const _td = (function(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })();
+  if(date !== _td){
+    try{
+      if(date < _td){ showToast('Этот день уже прошёл — нельзя изменить'); }
+      else          { showToast('Это день в будущем'); }
+    }catch{}
+    return;
+  }
 
   const isDone = cellEl.classList.contains('done');
   const rc = _chabCache && _chabCache.perRoom[roomId];
