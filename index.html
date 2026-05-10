@@ -44716,11 +44716,11 @@ window._cchEditMembers = function(roomId, challId){
 
   const memItems = members.length
     ? members.map(m => {
-        const u = m.users || {};
-        const name = esc(u.username || '?');
-        const av = u.avatar_url
-          ? `<img alt="" src="${esc(u.avatar_url)}" onerror="this.style.display='none'">`
-          : `<span>${esc((u.avatar||u.username||'?')[0])}</span>`;
+        // Структура member плоская: username/avatar/avatar_url на верхнем уровне
+        const name = esc(m.username || '?');
+        const av = m.avatar_url
+          ? `<img alt="" src="${esc(m.avatar_url)}" onerror="this.style.display='none';this.parentElement.innerHTML='<span>'+${JSON.stringify(esc((m.avatar||m.username||'?')[0]))}+'</span>'">`
+          : `<span>${esc(m.avatar||(m.username||'?')[0])}</span>`;
         const isOn = currentIds.includes(m.user_id);
         return `<div class="cch-mem-pick${isOn?' on':''}" data-uid="${m.user_id}" onclick="this.classList.toggle('on')">
           <div class="cch-mem-av">${av}</div>
@@ -44860,11 +44860,11 @@ window._cchOpen = function(roomId){
   /* ── Выбор участников ── */
   const memItems = members.length
     ? members.map(m => {
-        const u = m.users||{};
-        const name = esc(u.username||'?');
-        const av = u.avatar_url
-          ? `<img alt="" src="${esc(u.avatar_url)}" onerror="this.style.display='none'">`
-          : `<span>${esc((u.avatar||u.username||'?')[0])}</span>`;
+        // Структура member плоская: username/avatar/avatar_url на верхнем уровне
+        const name = esc(m.username || '?');
+        const av = m.avatar_url
+          ? `<img alt="" src="${esc(m.avatar_url)}" onerror="this.style.display='none';this.parentElement.innerHTML='<span>'+${JSON.stringify(esc((m.avatar||m.username||'?')[0]))}+'</span>'">`
+          : `<span>${esc(m.avatar||(m.username||'?')[0])}</span>`;
         return `<div class="cch-mem-pick on" data-uid="${m.user_id}" onclick="this.classList.toggle('on')">
           <div class="cch-mem-av">${av}</div>
           <span>${name}</span>
