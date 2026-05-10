@@ -44469,75 +44469,174 @@ function renderCollabChallenges(roomId, members, logs, habits){
       const tdStat = calcCollabToday(ch, members||[], logs||{});
       const totalDays = daysInRange(ch.start_date, ch.end_date).length;
 
+      // ── Today / participants info ──
       const tdVal = `${tdStat.markedCount}/${tdStat.total}`;
+      const todayPct = tdStat.total>0 ? Math.round(tdStat.markedCount/tdStat.total*100) : 0;
       const tdSub = prog.failed ? 'провален' :
-                    prog.win    ? 'успешно ✓' :
-                    tdStat.markedCount === tdStat.total ? 'все отметились ✓' :
+                    prog.win    ? 'успешно' :
+                    tdStat.markedCount === tdStat.total ? 'все отметились' :
                     `ждём ${tdStat.total - tdStat.markedCount}`;
 
+      const fin = prog.win || prog.failed;
       const cardCls = prog.failed?' failed':prog.win?' fin':'';
-      const statusTag = prog.failed
-        ? `<span class="cch-status-tag failed-tag">Провалено</span>`
-        : prog.win
-        ? `<span class="cch-status-tag win-tag">Выполнено</span>`
-        : `<span class="cch-dl">${daysLeft(ch.end_date)}</span>`;
 
+      // ── Streak (collab): дни подряд, когда все участники отметили все привычки ──
+      let _streak = 0;
+      try {
+        const t2 = today();
+        const lastDay = ch.end_date < t2 ? ch.end_date : t2;
+        const _allDays = daysInRange(ch.start_date, lastDay).reverse();
+        for(const _d of _allDays){
+          // Все участники отметили все привычки в этот день?
+          const partIds = ch.participant_ids || (members||[]).map(m=>m.user_id);
+          const allDoneByAll = partIds.every(uid =>
+            ch.habit_ids.every(hid => ((logs[uid]||{})[hid]||{})[_d])
+          );
+          if(allDoneByAll) _streak++; else break;
+        }
+      } catch(e){}
+
+      // ── Дни осталось ──
+      const daysLeftStr = fin ? 'Завершён' : daysLeft(ch.end_date);
+      const elapsed = prog.elapsed||0;
+
+      // ── Кнопка удаления (логика как была) ──
       const user2 = getUser2();
       const canDel = user2 && ch.created_by === user2.id;
-      const t2 = today();
-      const isActive = t2 >= ch.start_date && t2 <= ch.end_date; /* идёт прямо сейчас */
-      const notStarted = t2 < ch.start_date;
+      const t2c = today();
+      const isActive = t2c >= ch.start_date && t2c <= ch.end_date;
+      const notStarted = t2c < ch.start_date;
 
-      /* Кнопка удаления: показываем только создателю и только до/после активного периода */
       const delBtn = !canDel ? '' :
         isActive
-          ? `<div class="cch-lock-wrap" title="Нельзя удалить активный челлендж">
-               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-             </div>`
-          : `<button class="cch-del" onclick="_cchDel('${roomId}','${ch.id}')" title="${notStarted?'Удалить (не начат)':'Удалить (завершён)'}">${SVG_DEL}</button>`;
+          ? `<button class="dch-del" title="Нельзя удалить активный челлендж" disabled style="position:absolute;top:4px;right:4px;opacity:.4;cursor:not-allowed">
+               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+             </button>`
+          : `<button class="dch-del" onclick="_cchDel('${roomId}','${ch.id}')" title="${notStarted?'Удалить (не начат)':'Удалить (завершён)'}" style="position:absolute;top:4px;right:4px">${SVG_DEL}</button>`;
 
-      html += `<div class="cch-card${cardCls}">
-        <div class="cch-card-bg"></div>
-        <div class="cch-inner">
-          <div class="cch-title-row">
-            <div>
-              <div class="cch-name">${esc(ch.name)}</div>
-              ${ch.goal ? `<div class="cch-goal">${esc(ch.goal)}</div>` : ''}
+      // Иконка квеста — берём из первой привычки или target по умолчанию
+      const firstHab = habMap[ch.habit_ids[0]] || {};
+      const questIconSvg = (typeof window.habIconHTML === 'function')
+        ? window.habIconHTML(firstHab.icon || '🎯', 36, '#A78BFA')
+        : `<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <defs><linearGradient id="cchGrad${idx}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#A78BFA"/><stop offset="100%" stop-color="#F472B6"/></linearGradient></defs>
+            <circle cx="12" cy="12" r="10" stroke="url(#cchGrad${idx})"/><circle cx="12" cy="12" r="6" stroke="url(#cchGrad${idx})"/><circle cx="12" cy="12" r="2" stroke="url(#cchGrad${idx})"/>
+          </svg>`;
+
+      html += `<div class="dch-card${cardCls}">
+        <div class="dch-card-bg"></div>
+        <div class="dch-card-inner">
+
+          <!-- HEADER: бейджи + заголовок + аватар квеста -->
+          <div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:18px">
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:14px">
+                <div style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,rgba(139,92,246,.2),rgba(236,72,153,.15));border:0.5px solid rgba(139,92,246,.4);border-radius:8px;padding:5px 11px">
+                  <div style="width:6px;height:6px;border-radius:50%;background:linear-gradient(135deg,#8B5CF6,#EC4899);flex-shrink:0;${fin?'':'animation:dchDot 2s infinite'}"></div>
+                  <span style="font-size:10px;font-weight:700;color:rgba(196,181,253,.9);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap">${prog.failed?'Провален':prog.win?'Завершён':'Активный квест'}</span>
+                </div>
+                <div style="display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,rgba(245,200,66,.15),rgba(245,200,66,.07));border:0.5px solid rgba(245,200,66,.35);border-radius:8px;padding:5px 11px">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#F5C842" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  <span style="font-size:10px;font-weight:800;color:#F5C842;letter-spacing:.05em;white-space:nowrap">${(ch.participant_ids||members||[]).length} участников</span>
+                </div>
+                ${!fin?`<div style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.1);border-radius:8px;padding:5px 11px">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  <span style="font-size:10px;font-weight:800;color:rgba(255,255,255,.6);font-family:monospace;white-space:nowrap">${daysLeftStr}</span>
+                </div>`:''}
+              </div>
+              <div style="font-size:20px;font-weight:900;line-height:1.15;letter-spacing:.01em;color:#fff;margin-bottom:4px">${esc(ch.name)}</div>
+              <div style="font-size:11px;color:rgba(255,255,255,.22);font-weight:500">${fmtD(ch.start_date)} — ${fmtD(ch.end_date)} · Ежедневный</div>
+              ${ch.goal ? `<div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:6px;font-style:italic">${esc(ch.goal)}</div>` : ''}
             </div>
-            <div class="cch-title-right">
-              <div class="cch-dates">${fmtD(ch.start_date)} – ${fmtD(ch.end_date)}</div>
-              ${statusTag}
+            <div style="flex-shrink:0;width:72px;height:72px;border-radius:16px;background:linear-gradient(135deg,rgba(139,92,246,.2),rgba(236,72,153,.15));border:0.5px solid rgba(139,92,246,.3);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;margin-top:2px;color:#A78BFA">
+              <div style="position:absolute;inset:0;background:radial-gradient(circle at 35% 35%,rgba(167,139,250,.25),transparent 65%)"></div>
+              ${questIconSvg}
               ${delBtn}
             </div>
           </div>
 
-          <div class="cch-panels">
-            <div class="cch-panel">
-              <div class="cch-panel-lbl">${SVG_TARGET} Общий прогресс</div>
-              <div class="cch-panel-val">${prog.pct}%</div>
-              <div class="cch-panel-sub">${prog.done} из ${prog.total} дней · ${prog.elapsed} прошло</div>
+          <!-- STATS: 3 блока -->
+          <div style="display:grid;grid-template-columns:1fr 0.5px 1fr 0.5px 1fr;border-top:0.5px solid rgba(255,255,255,.06);border-bottom:0.5px solid rgba(255,255,255,.06);margin:0 -24px">
+            <div style="padding:16px 0;display:flex;flex-direction:column;align-items:center;text-align:center">
+              <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.22);margin-bottom:8px;display:flex;align-items:center;gap:4px">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>День
+              </div>
+              <div style="font-size:28px;font-weight:900;font-family:monospace;line-height:1;margin-bottom:6px;background:linear-gradient(90deg,#A78BFA,#F472B6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">${elapsed}/${totalDays}</div>
+              <div style="display:inline-flex;align-items:center;gap:4px;border-radius:10px;padding:3px 9px;border:0.5px solid rgba(167,139,250,.3);background:rgba(167,139,250,.1)">
+                <span style="font-size:10px;font-weight:700;color:#A78BFA;white-space:nowrap">${prog.done} из ${prog.total} дней</span>
+              </div>
             </div>
-            <div class="cch-panel today-p">
-              <div class="cch-panel-lbl">${SVG_USERS} Сегодня</div>
-              <div class="cch-panel-val">${tdVal}</div>
-              <div class="cch-panel-sub">${tdSub}</div>
+            <div style="background:rgba(255,255,255,.06)"></div>
+            <div style="padding:16px 0;display:flex;flex-direction:column;align-items:center;text-align:center">
+              <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.22);margin-bottom:8px;display:flex;align-items:center;gap:4px">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Сегодня
+              </div>
+              <div style="font-size:28px;font-weight:900;font-family:monospace;line-height:1;margin-bottom:6px;color:#fff">${tdVal}</div>
+              ${todayPct===100&&!fin
+                ?`<div style="display:inline-flex;align-items:center;gap:4px;border-radius:10px;padding:3px 9px;border:0.5px solid rgba(74,222,128,.3);background:rgba(74,222,128,.1)">
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span style="font-size:10px;font-weight:700;color:#4ADE80;white-space:nowrap">Все отметились</span>
+                  </div>`
+                :`<div style="font-size:10px;color:rgba(255,255,255,.25)">${tdSub}</div>`}
+            </div>
+            <div style="background:rgba(255,255,255,.06)"></div>
+            <div style="padding:16px 0;display:flex;flex-direction:column;align-items:center;text-align:center">
+              <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.22);margin-bottom:8px;display:flex;align-items:center;gap:4px">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(251,146,60,.5)" stroke-width="2.5"><path d="M12 2c0 6-6 8-6 14a6 6 0 0 0 12 0c0-6-6-8-6-14z"/></svg>Серия
+              </div>
+              <div style="font-size:28px;font-weight:900;font-family:monospace;line-height:1;margin-bottom:6px;color:#FB923C">${_streak}</div>
+              <div style="display:inline-flex;align-items:center;gap:4px;border-radius:10px;padding:3px 9px;border:0.5px solid rgba(251,146,60,.3);background:rgba(251,146,60,.1)">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#FB923C" stroke-width="2.5"><path d="M12 2c0 6-6 8-6 14a6 6 0 0 0 12 0c0-6-6-8-6-14z"/></svg>
+                <span style="font-size:10px;font-weight:700;color:#FB923C;white-space:nowrap">дней подряд</span>
+              </div>
             </div>
           </div>
 
-          <div>
-            <div class="cch-prog-head">
-              <span class="cch-prog-pct">${prog.pct}% выполнено</span>
-              <span class="cch-prog-label">${totalDays} дней · ${(ch.participant_ids||members||[]).length} участников</span>
+          <!-- ПРОГРЕСС БАР -->
+          <div style="padding:16px 0 14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <div>
+                <span style="font-size:13px;font-weight:900;font-family:monospace;background:linear-gradient(90deg,#A78BFA,#F472B6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">${prog.pct}%</span>
+                <span style="font-size:10px;color:rgba(255,255,255,.22);font-weight:600;text-transform:uppercase;letter-spacing:.07em;margin-left:6px">выполнено</span>
+              </div>
+              <span style="font-size:10px;color:rgba(255,255,255,.18)">${totalDays} дней</span>
             </div>
-            <div class="cch-prog-track">
-              <div class="cch-prog-fill" style="width:${prog.pct}%"></div>
+            <div style="height:22px;background:rgba(255,255,255,.025);border-radius:11px;border:0.5px solid rgba(255,255,255,.07);padding:3px;overflow:hidden">
+              <div style="height:100%;background:rgba(0,0,0,.25);border-radius:9px;overflow:hidden;position:relative">
+                <div style="height:100%;width:${prog.pct}%;border-radius:9px;background:linear-gradient(90deg,#5B21B6,#7C3AED,#8B5CF6,#A78BFA,#C084FC,#F472B6);position:relative;overflow:hidden;transition:width .9s cubic-bezier(.25,.8,.25,1)">
+                  <div style="position:absolute;top:0;left:0;right:0;height:45%;background:linear-gradient(180deg,rgba(255,255,255,.28),transparent);border-radius:9px 9px 0 0"></div>
+                  <div style="position:absolute;right:0;top:0;bottom:0;width:40px;background:linear-gradient(90deg,transparent,rgba(244,114,182,.55));border-radius:0 9px 9px 0"></div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div class="cch-chips">
-            ${ch.habit_ids.slice(0,4).map(id=>`<span class="cch-chip">${esc(habName(id))}</span>`).join('')}
-            ${ch.habit_ids.length>4?`<span class="cch-chip">+${ch.habit_ids.length-4}</span>`:''}
+          <!-- FOOTER -->
+          <div style="display:flex;align-items:center;justify-content:space-between;border-top:0.5px solid rgba(255,255,255,.05);padding-top:14px;flex-wrap:wrap;gap:8px">
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              ${ch.habit_ids.slice(0,3).map(id=>`<span style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.07);border-radius:8px;padding:5px 10px;font-size:10px;font-weight:600;color:rgba(255,255,255,.22);text-transform:uppercase;letter-spacing:.06em">${esc(habName(id))}</span>`).join('')}
+              ${ch.habit_ids.length>3?`<span style="display:inline-flex;align-items:center;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.07);border-radius:8px;padding:5px 10px;font-size:10px;color:rgba(255,255,255,.22)">+${ch.habit_ids.length-3}</span>`:''}
+            </div>
+            ${todayPct===100&&!fin
+              ?`<div style="display:inline-flex;align-items:center;gap:7px;background:linear-gradient(135deg,rgba(74,222,128,.15),rgba(34,197,94,.08));border:0.5px solid rgba(74,222,128,.35);border-radius:10px;padding:9px 16px">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span style="font-size:11px;font-weight:800;color:#4ADE80;letter-spacing:.06em;text-transform:uppercase">Все отметились</span>
+                </div>`
+              :prog.win
+              ?`<div style="display:inline-flex;align-items:center;gap:7px;background:linear-gradient(135deg,rgba(74,222,128,.15),rgba(34,197,94,.08));border:0.5px solid rgba(74,222,128,.35);border-radius:10px;padding:9px 16px">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span style="font-size:11px;font-weight:800;color:#4ADE80;letter-spacing:.06em;text-transform:uppercase">Челлендж пройден</span>
+                </div>`
+              :prog.failed
+              ?`<div style="display:inline-flex;align-items:center;gap:7px;background:linear-gradient(135deg,rgba(239,68,68,.15),rgba(239,68,68,.08));border:0.5px solid rgba(239,68,68,.35);border-radius:10px;padding:9px 16px">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  <span style="font-size:11px;font-weight:800;color:#EF4444;letter-spacing:.06em;text-transform:uppercase">Провален</span>
+                </div>`
+              :`<div style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.07);border-radius:10px;padding:9px 16px">
+                  <span style="font-size:11px;font-weight:600;color:rgba(255,255,255,.4);letter-spacing:.04em">ждём ${tdStat.total - tdStat.markedCount} из ${tdStat.total}</span>
+                </div>`}
           </div>
+
         </div>
       </div>`;
     });
