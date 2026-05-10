@@ -33696,9 +33696,17 @@ async function _chabFetchAll(user, sb){
 
       const profileMap = {};
       (profilesRes.data||[]).forEach(p=>{ profileMap[p.id]=p; });
-      const members = rawMembers.map(m=>({
-        ...m, users: profileMap[m.user_id] || { username:'?', avatar:'👤', avatar_url:null }
-      }));
+      const members = rawMembers.map(m=>{
+        const p = profileMap[m.user_id] || { username:'?', avatar:'👤', avatar_url:null };
+        return {
+          ...m,
+          users: p,
+          // Плоские поля — для нового кода (попап редактирования участников)
+          username:   p.username || '?',
+          avatar:     p.avatar || null,
+          avatar_url: p.avatar_url || null,
+        };
+      });
       const logs = {};
       (logsRes.data||[]).forEach(e=>{
         if(!logs[e.user_id]) logs[e.user_id]={};
@@ -33736,7 +33744,7 @@ async function _chabRefreshLogs(){
         // Запускаем ВСЕ запросы параллельно: members, habits, logs, challenges
         const [memsRes, habsRes, logsRes] = await Promise.all([
           sb.from('collab_habit_members')
-            .select('user_id,role,users:user_id(username,avatar,avatar_url)')
+            .select('user_id,role')
             .eq('room_id', room.id),
           sb.from('collab_habits')
             .select('*')
@@ -33757,14 +33765,34 @@ async function _chabRefreshLogs(){
         });
         rc.logs = logs;
 
-        // Members — преобразуем в плоскую структуру как ожидает остальной код
-        const freshMembers = (memsRes.data || []).map(m => ({
-          user_id:    m.user_id,
-          role:       m.role,
-          username:   m.users?.username || '?',
-          avatar:     m.users?.avatar || null,
-          avatar_url: m.users?.avatar_url || null,
-        }));
+        // Members — тянем профили отдельным запросом (надёжнее JOIN'а, тот зависит от FK)
+        const rawMembers = memsRes.data || [];
+        const memberIds = rawMembers.map(m => m.user_id);
+        let profileMap = {};
+        if(memberIds.length){
+          try {
+            const profsRes = await sb.from('users')
+              .select('id,username,avatar,avatar_url')
+              .in('id', memberIds);
+            (profsRes.data || []).forEach(p => { profileMap[p.id] = p; });
+          } catch(e){ console.warn('SWR profiles fetch:', e?.message); }
+        }
+        // Готовим member-объекты с ОБОИМИ форматами доступа:
+        //   - вложенный m.users.username (для старого кода)
+        //   - плоский m.username (для моего нового попапа редактирования)
+        const freshMembers = rawMembers.map(m => {
+          const p = profileMap[m.user_id] || { username:'?', avatar:'👤', avatar_url:null };
+          return {
+            user_id:    m.user_id,
+            role:       m.role,
+            // Вложенный — для совместимости со старым кодом
+            users:      p,
+            // Плоский — для нового
+            username:   p.username || '?',
+            avatar:     p.avatar || null,
+            avatar_url: p.avatar_url || null,
+          };
+        });
 
         // Сравниваем количество и состав. Если изменилось — пометка к перерисовке.
         const oldIds = (rc.members || []).map(m => m.user_id).sort().join('|');
@@ -45159,11 +45187,18 @@ window._cchEditMembers = function(roomId, challId){
 
   const memItems = members.length
     ? members.map(m => {
-        // Структура member плоская: username/avatar/avatar_url на верхнем уровне
-        const name = esc(m.username || '?');
-        const av = m.avatar_url
-          ? `<img alt="" src="${esc(m.avatar_url)}" onerror="this.style.display='none';this.parentElement.innerHTML='<span>'+${JSON.stringify(esc((m.avatar||m.username||'?')[0]))}+'</span>'">`
-          : `<span>${esc(m.avatar||(m.username||'?')[0])}</span>`;
+        // Поддерживаем ОБА формата:
+        //  - плоский (m.username / m.avatar / m.avatar_url) — новый код
+        //  - вложенный (m.users.username и т.д.) — старый формат из _chabFetchAll
+        const u = m.users || {};
+        const _username = m.username || u.username || '?';
+        const _avatar = m.avatar || u.avatar || null;
+        const _avatarUrl = m.avatar_url || u.avatar_url || null;
+
+        const name = esc(_username);
+        const av = _avatarUrl
+          ? `<img alt="" src="${esc(_avatarUrl)}" onerror="this.style.display='none';this.parentElement.innerHTML='<span>'+${JSON.stringify(esc(_avatar||(_username||'?')[0]))}+'</span>'">`
+          : `<span>${esc(_avatar||(_username||'?')[0])}</span>`;
         const isOn = currentIds.includes(m.user_id);
         return `<div class="cch-mem-pick${isOn?' on':''}" data-uid="${m.user_id}" onclick="this.classList.toggle('on')">
           <div class="cch-mem-av">${av}</div>
@@ -45303,11 +45338,16 @@ window._cchOpen = function(roomId){
   /* ── Выбор участников ── */
   const memItems = members.length
     ? members.map(m => {
-        // Структура member плоская: username/avatar/avatar_url на верхнем уровне
-        const name = esc(m.username || '?');
-        const av = m.avatar_url
-          ? `<img alt="" src="${esc(m.avatar_url)}" onerror="this.style.display='none';this.parentElement.innerHTML='<span>'+${JSON.stringify(esc((m.avatar||m.username||'?')[0]))}+'</span>'">`
-          : `<span>${esc(m.avatar||(m.username||'?')[0])}</span>`;
+        // Поддерживаем оба формата member-объекта
+        const u = m.users || {};
+        const _username = m.username || u.username || '?';
+        const _avatar = m.avatar || u.avatar || null;
+        const _avatarUrl = m.avatar_url || u.avatar_url || null;
+
+        const name = esc(_username);
+        const av = _avatarUrl
+          ? `<img alt="" src="${esc(_avatarUrl)}" onerror="this.style.display='none';this.parentElement.innerHTML='<span>'+${JSON.stringify(esc(_avatar||(_username||'?')[0]))}+'</span>'">`
+          : `<span>${esc(_avatar||(_username||'?')[0])}</span>`;
         return `<div class="cch-mem-pick on" data-uid="${m.user_id}" onclick="this.classList.toggle('on')">
           <div class="cch-mem-av">${av}</div>
           <span>${name}</span>
