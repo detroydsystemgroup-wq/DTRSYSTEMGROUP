@@ -44535,10 +44535,16 @@ function renderCollabChallenges(roomId, members, logs, habits){
                   <div style="width:6px;height:6px;border-radius:50%;background:linear-gradient(135deg,#8B5CF6,#EC4899);flex-shrink:0;${fin?'':'animation:dchDot 2s infinite'}"></div>
                   <span style="font-size:10px;font-weight:700;color:rgba(196,181,253,.9);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap">${prog.failed?'Провален':prog.win?'Завершён':'Активный квест'}</span>
                 </div>
-                <div style="display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,rgba(245,200,66,.15),rgba(245,200,66,.07));border:0.5px solid rgba(245,200,66,.35);border-radius:8px;padding:5px 11px">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#F5C842" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                  <span style="font-size:10px;font-weight:800;color:#F5C842;letter-spacing:.05em;white-space:nowrap">${(ch.participant_ids||members||[]).length} участников</span>
-                </div>
+                ${canDel
+                  ? `<button type="button" onclick="window._cchEditMembers('${roomId}','${ch.id}')" style="display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,rgba(245,200,66,.15),rgba(245,200,66,.07));border:0.5px solid rgba(245,200,66,.35);border-radius:8px;padding:5px 11px;cursor:pointer;transition:all .15s" onmouseover="this.style.background='linear-gradient(135deg,rgba(245,200,66,.22),rgba(245,200,66,.12))'" onmouseout="this.style.background='linear-gradient(135deg,rgba(245,200,66,.15),rgba(245,200,66,.07))'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#F5C842" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <span style="font-size:10px;font-weight:800;color:#F5C842;letter-spacing:.05em;white-space:nowrap">${(ch.participant_ids||members||[]).length} участников</span>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#F5C842" stroke-width="2.5" style="opacity:.7"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  </button>`
+                  : `<div style="display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,rgba(245,200,66,.15),rgba(245,200,66,.07));border:0.5px solid rgba(245,200,66,.35);border-radius:8px;padding:5px 11px">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#F5C842" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <span style="font-size:10px;font-weight:800;color:#F5C842;letter-spacing:.05em;white-space:nowrap">${(ch.participant_ids||members||[]).length} участников</span>
+                  </div>`}
                 ${!fin?`<div style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.1);border-radius:8px;padding:5px 11px">
                   <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                   <span style="font-size:10px;font-weight:800;color:rgba(255,255,255,.6);font-family:monospace;white-space:nowrap">${daysLeftStr}</span>
@@ -44675,6 +44681,164 @@ window._cchDel = async function(roomId, challId){
     try{ await sb.from('collab_challenges').delete().eq('id',challId).eq('created_by',user.id); }
     catch(e){ console.warn('_cchDel supabase:', e.message); }
   }
+};
+
+/* ── Редактирование участников челленджа ───────────────────
+   Открывает попап со списком всех участников комнаты.
+   Создатель может включать/выключать кого угодно, кнопка Сохранить
+   делает UPDATE participant_ids в БД.
+   При удалении участников из активного челленджа — confirm().
+═══════════════════════════════════════════════════════════ */
+let _cchMembersOv = null;
+
+window._cchEditMembers = function(roomId, challId){
+  if(_cchMembersOv) return;
+  const cache = window._chabCache || null;
+  const rc = cache?.perRoom?.[roomId] || {};
+  const members = rc.members || [];
+
+  // Найдём челлендж
+  const allChalls = [...(rc.challenges||[]), ...lsLoad(roomId)];
+  const ch = allChalls.find(c => c.id === challId);
+  if(!ch){ console.warn('_cchEditMembers: challenge not found', challId); return; }
+
+  // Проверка прав
+  const user = getUser2();
+  if(!user || ch.created_by !== user.id){
+    try{ showToast('Только создатель может редактировать участников'); }catch{}
+    return;
+  }
+
+  // Текущие участники челленджа: если participant_ids пуст/null — все участники комнаты
+  const currentIds = (ch.participant_ids && ch.participant_ids.length)
+    ? ch.participant_ids
+    : members.map(m => m.user_id);
+
+  const memItems = members.length
+    ? members.map(m => {
+        const u = m.users || {};
+        const name = esc(u.username || '?');
+        const av = u.avatar_url
+          ? `<img alt="" src="${esc(u.avatar_url)}" onerror="this.style.display='none'">`
+          : `<span>${esc((u.avatar||u.username||'?')[0])}</span>`;
+        const isOn = currentIds.includes(m.user_id);
+        return `<div class="cch-mem-pick${isOn?' on':''}" data-uid="${m.user_id}" onclick="this.classList.toggle('on')">
+          <div class="cch-mem-av">${av}</div>
+          <span>${name}</span>
+          <div class="cch-mem-chk">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+        </div>`;
+      }).join('')
+    : `<div style="font-size:12px;color:var(--t3)">Участники не найдены</div>`;
+
+  _cchMembersOv = document.createElement('div');
+  _cchMembersOv.className = 'cch-overlay';
+  _cchMembersOv.innerHTML = `<div class="cch-modal">
+    <div class="cch-grip"></div>
+    <div class="cch-mo-title">Участники челленджа</div>
+    <div style="font-size:12px;color:var(--t3);margin:-8px 0 14px;line-height:1.5">
+      «${esc(ch.name)}»<br>
+      <span style="font-size:10px;color:rgba(168,85,247,.6);font-weight:700">Снимите галочку — участник будет исключён</span>
+    </div>
+
+    <div class="cch-field">
+      <div class="cch-mem-grid" id="cchEditMemGrid">${memItems}</div>
+    </div>
+
+    <div class="cch-mo-actions">
+      <button class="cch-btn-cancel" onclick="_cchCloseEditMembers()">Отмена</button>
+      <button class="cch-btn-save" id="cchEditSaveBtn" onclick="_cchSaveMembers('${roomId}','${challId}')">Сохранить</button>
+    </div>
+  </div>`;
+
+  document.body.appendChild(_cchMembersOv);
+  _cchMembersOv.addEventListener('click', e=>{ if(e.target===_cchMembersOv) _cchCloseEditMembers(); });
+};
+
+window._cchCloseEditMembers = function(){
+  if(_cchMembersOv){ _cchMembersOv.remove(); _cchMembersOv=null; }
+};
+
+window._cchSaveMembers = async function(roomId, challId){
+  if(!_cchMembersOv) return;
+  const btn = document.getElementById('cchEditSaveBtn');
+  if(btn) btn.disabled = true;
+
+  // Собираем выбранных
+  const newIds = [...document.querySelectorAll('#cchEditMemGrid .cch-mem-pick.on')]
+    .map(el => el.getAttribute('data-uid'))
+    .filter(Boolean);
+
+  if(newIds.length === 0){
+    try{ showToast('Нужен хотя бы один участник'); }catch{}
+    if(btn) btn.disabled = false;
+    return;
+  }
+
+  // Найдём челлендж
+  const rc = window._chabCache?.perRoom?.[roomId] || {};
+  const allChalls = [...(rc.challenges||[]), ...lsLoad(roomId)];
+  const ch = allChalls.find(c => c.id === challId);
+  if(!ch){ _cchCloseEditMembers(); return; }
+
+  // Старый список
+  const oldIds = (ch.participant_ids && ch.participant_ids.length)
+    ? ch.participant_ids
+    : (rc.members||[]).map(m => m.user_id);
+
+  // Проверка: исключаем кого-то из активного челленджа?
+  const removed = oldIds.filter(id => !newIds.includes(id));
+  const t2 = today();
+  const isActive = t2 >= ch.start_date && t2 <= ch.end_date;
+
+  if(removed.length > 0 && isActive){
+    const names = removed.map(uid => {
+      const m = (rc.members||[]).find(mm => mm.user_id === uid);
+      return m?.users?.username || '?';
+    }).join(', ');
+    const ok = confirm(
+      `Исключить из активного челленджа: ${names}?\n\n` +
+      `Их прогресс будет удалён из подсчётов. Это действие нельзя отменить.`
+    );
+    if(!ok){ if(btn) btn.disabled = false; return; }
+  }
+
+  // 1. Обновляем в кеше
+  if(rc.challenges){
+    const idx = rc.challenges.findIndex(c => c.id === challId);
+    if(idx >= 0){ rc.challenges[idx] = { ...rc.challenges[idx], participant_ids: newIds }; }
+  }
+  window._chabSaveCache?.();
+
+  // 2. Обновляем в localStorage (если это локальный)
+  if(String(challId).startsWith('cch_ls_')){
+    const list = lsLoad(roomId);
+    const idx = list.findIndex(c => c.id === challId);
+    if(idx >= 0){ list[idx].participant_ids = newIds; lsSave(roomId, list); }
+  }
+
+  // 3. Обновляем в Supabase (если не локальный)
+  const sb = getSB2(), user = getUser2();
+  if(sb && user && !String(challId).startsWith('cch_ls_')){
+    try {
+      const { error } = await sb.from('collab_challenges')
+        .update({ participant_ids: newIds })
+        .eq('id', challId)
+        .eq('created_by', user.id);
+      if(error){
+        console.warn('_cchSaveMembers supabase:', error.message);
+        try{ showToast('Не удалось сохранить (нет связи?)'); }catch{}
+      }
+    } catch(e){
+      console.warn('_cchSaveMembers exception:', e.message);
+    }
+  }
+
+  // 4. Закрываем попап и перерисовываем
+  _cchCloseEditMembers();
+  refreshAllRooms();
+  try{ showToast('Участники обновлены ✓'); }catch{}
 };
 
 /* ── Модалка ─────────────────────────────────────────────── */
