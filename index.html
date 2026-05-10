@@ -16494,6 +16494,7 @@ async function doLogin(){
     return;
   }
   SB_USER=data.user;
+  try{ window.SB_USER = data.user; }catch{}
   _loadUserRetryCount = 0;
   await loadUser(data.user.id);
 }
@@ -16589,6 +16590,7 @@ async function finishReg(){
     if(loginData?.session){
       // Успешно — используем данные из нового логина (не мутируем объект Supabase)
       SB_USER = loginData.user;
+      try{ window.SB_USER = loginData.user; }catch{}
       _loadUserRetryCount = 0;
       regBuf = null;
       document.getElementById('catSel').style.display='none';
@@ -16634,6 +16636,7 @@ async function finishReg(){
   if(cErr){console.error('Category insert error:',cErr);}
 
   SB_USER=authData.user;
+  try{ window.SB_USER = authData.user; }catch{}
   regBuf=null;
   document.getElementById('catSel').style.display='none';
   _loadUserRetryCount = 0;
@@ -16675,6 +16678,7 @@ async function doLogout(){
     document.getElementById('msgVoiceRecUI')?.remove();
   }
   P=null;SB_USER=null;lgCache={};lgCacheTime={};activeConvUserId=null;
+  try{ window.SB_USER = null; }catch{}
   if(window._arenaBgInterval){ clearInterval(window._arenaBgInterval); window._arenaBgInterval=null; }
   // Sign out LAST — after all channel/resource cleanup to avoid auth errors on removeChannel
   await sb.auth.signOut();
@@ -16686,6 +16690,7 @@ async function doLogout(){
 // ══ DEMO ════════════════════════════════════════════════════
 function doDemo(){
   SB_USER={id:'demo',isDemoUser:true};
+  try{ window.SB_USER = SB_USER; }catch{}
   P={
     id:'demo',name:'Demo_Player',avatar:'🎯',
     joinedDate:'01.01.2025',
