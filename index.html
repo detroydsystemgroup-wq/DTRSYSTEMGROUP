@@ -7542,7 +7542,7 @@ body {
   transform: scale(1.08);
 }
 .chab-cell.done {
-  border-color: transparent !important;
+  /* Финальный бордер задаётся inline через цвет привычки (см. рендер ячейки в JS) */
   box-shadow: 0 3px 14px rgba(0,0,0,.3);
 }
 .chab-cell.today {
@@ -33405,9 +33405,10 @@ function _patchRoomCells(roomId, logs, myId){
       const color = h.color||'#a855f7';
       if(done){
         cellEl.classList.add('done');
-        cellEl.style.background=color; cellEl.style.borderColor=color;
-        cellEl.style.boxShadow=`0 3px 14px ${color}55`;
-        cellEl.innerHTML=`<span class="chab-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.95)" stroke-width="2.8" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></span>`;
+        cellEl.style.background = `linear-gradient(135deg,${color}40,${color}20)`;
+        cellEl.style.borderColor = `${color}70`;
+        cellEl.style.boxShadow = `0 0 0 2px ${color}20, 0 3px 14px ${color}35`;
+        cellEl.innerHTML = `<span class="chab-check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.8" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></span>`;
       } else {
         cellEl.classList.remove('done');
         cellEl.style.background=''; cellEl.style.borderColor=''; cellEl.style.boxShadow='';
@@ -33725,11 +33726,11 @@ async function buildRoomCard(room, myRole, user, members, habits, logs){
 
       return `<div class="${cls}"
         data-chab-cell="${room.id}|${h.id}|${key}"
-        style="${done?`background:${color};border-color:${color};box-shadow:0 3px 14px ${color}55`:todayStyle}"
+        style="${done?`background:linear-gradient(135deg,${color}40,${color}20);border-color:${color}70;box-shadow:0 0 0 2px ${color}20, 0 3px 14px ${color}35`:todayStyle}"
         ${clickFn ? `onclick="${clickFn}"` : ''}
         ${!done&&!future?`onmouseover="this.style.background='${color}18';this.style.borderColor='${color}55'" onmouseout="this.style.background='';this.style.borderColor=''"`:''}>
         ${done
-          ?`<span class="chab-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.95)" stroke-width="2.8" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></span>`
+          ?`<span class="chab-check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.8" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></span>`
           :future
             ?`<div style="width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.05)"></div>`
             :`<div style="width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.08);box-shadow:0 0 0 2px rgba(255,255,255,.05)"></div>`
@@ -33760,7 +33761,7 @@ async function buildRoomCard(room, myRole, user, members, habits, logs){
 
     return `<div class="${rowClass}" style="grid-template-columns:${gridCols}">
       <div class="chab-hab-row-name">
-        <div class="chab-hab-icon" style="background:${color}15;border:0.5px solid ${color}30">${h.icon||'🎯'}</div>
+        <div class="chab-hab-icon" style="background:${color}15;border:0.5px solid ${color}30;color:${color}">${typeof window.habIconHTML === 'function' ? window.habIconHTML(h.icon, 18, color) : (h.icon||'🎯')}</div>
         <div style="flex:1;min-width:0">
           <div class="chab-hab-title">${esc(h.name)}</div>
           <div class="chab-hab-streak">
@@ -33967,12 +33968,14 @@ window.chabToggleCell = async function(roomId, habitId, date, cellEl){
     }
 
     // Финальный вид ставим через 180мс — даём анимации проиграться поверх «нейтральной» ячейки
+    // Стиль приглушённый — такой же как у личных привычек (.hab-cell.cell-done):
+    //   фон = градиент 25%→12% непрозрачности, бордер = 44%, галочка цветная (не белая)
     setTimeout(()=>{
       cellEl.style.animation = '';
-      cellEl.style.background=color;
-      cellEl.style.borderColor=color;
-      cellEl.style.boxShadow=`0 3px 14px ${color}55`;
-      cellEl.innerHTML=`<span class="chab-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.95)" stroke-width="2.8" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></span>`;
+      cellEl.style.background = `linear-gradient(135deg,${color}40,${color}20)`;
+      cellEl.style.borderColor = `${color}70`;
+      cellEl.style.boxShadow = `0 0 0 2px ${color}20, 0 3px 14px ${color}35`;
+      cellEl.innerHTML = `<span class="chab-check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.8" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></span>`;
     }, 180);
   }
 
@@ -34006,8 +34009,10 @@ window.chabToggleCell = async function(roomId, habitId, date, cellEl){
       if(rc&&rc.logs&&rc.logs[user.id]&&rc.logs[user.id][habitId]) delete rc.logs[user.id][habitId][date];
     } else {
       cellEl.classList.add('done');
-      cellEl.style.background=color; cellEl.style.borderColor=color; cellEl.style.boxShadow=`0 3px 14px ${color}55`;
-      cellEl.innerHTML=`<span class="chab-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.95)" stroke-width="2.8" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></span>`;
+      cellEl.style.background = `linear-gradient(135deg,${color}40,${color}20)`;
+      cellEl.style.borderColor = `${color}70`;
+      cellEl.style.boxShadow = `0 0 0 2px ${color}20, 0 3px 14px ${color}35`;
+      cellEl.innerHTML = `<span class="chab-check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.8" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></span>`;
       if(rc&&rc.logs){ if(!rc.logs[user.id]) rc.logs[user.id]={}; if(!rc.logs[user.id][habitId]) rc.logs[user.id][habitId]={}; rc.logs[user.id][habitId][date]=true; }
     }
     try{showToast('Ошибка сохранения','❌');}catch{}
