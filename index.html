@@ -45200,9 +45200,11 @@ window._cchEditMembers = function(roomId, challId){
         const _avatarUrl = m.avatar_url || u.avatar_url || null;
 
         const name = esc(_username);
+        const fallbackChar = esc(_avatar || (_username||'?')[0]);
+        // onerror просто скрывает битую картинку; fallback-буква показывается через ::before-span
         const av = _avatarUrl
-          ? `<img alt="" src="${esc(_avatarUrl)}" onerror="this.style.display='none';this.parentElement.innerHTML='<span>'+${JSON.stringify(esc(_avatar||(_username||'?')[0]))}+'</span>'">`
-          : `<span>${esc(_avatar||(_username||'?')[0])}</span>`;
+          ? `<img alt="" src="${esc(_avatarUrl)}" onerror="this.style.display='none'">`
+          : `<span>${fallbackChar}</span>`;
         const isOn = currentIds.includes(m.user_id);
         return `<div class="cch-mem-pick${isOn?' on':''}" data-uid="${m.user_id}" onclick="this.classList.toggle('on')">
           <div class="cch-mem-av">${av}</div>
@@ -45349,9 +45351,10 @@ window._cchOpen = function(roomId){
         const _avatarUrl = m.avatar_url || u.avatar_url || null;
 
         const name = esc(_username);
+        const fallbackChar = esc(_avatar || (_username||'?')[0]);
         const av = _avatarUrl
-          ? `<img alt="" src="${esc(_avatarUrl)}" onerror="this.style.display='none';this.parentElement.innerHTML='<span>'+${JSON.stringify(esc(_avatar||(_username||'?')[0]))}+'</span>'">`
-          : `<span>${esc(_avatar||(_username||'?')[0])}</span>`;
+          ? `<img alt="" src="${esc(_avatarUrl)}" onerror="this.style.display='none'">`
+          : `<span>${fallbackChar}</span>`;
         return `<div class="cch-mem-pick on" data-uid="${m.user_id}" onclick="this.classList.toggle('on')">
           <div class="cch-mem-av">${av}</div>
           <span>${name}</span>
