@@ -34563,8 +34563,27 @@ window.chabDoCreate=async function(){
 
     hideChabModal();
     showToast('Трекер создан!','🤝');
-    _chabCache = null; // инвалидируем кеш — будет полный фетч
-    localStorage.removeItem(CHAB_CACHE_KEY);
+
+    // ── Точечная инвалидация: НЕ сносим _chabCache (там лежат челленджи других комнат).
+    // Просто добавляем новую комнату в кеш + ставим флаг для дофетча её данных.
+    try {
+      if(window._chabCache){
+        window._chabCache.rooms = window._chabCache.rooms || [];
+        window._chabCache.rooms.push(room);
+        window._chabCache.memberships = window._chabCache.memberships || [];
+        window._chabCache.memberships.push({room_id: room.id, role: 'owner'});
+        window._chabCache.perRoom = window._chabCache.perRoom || {};
+        // Заполняем минимум — реальные данные дофетчатся при следующем sync
+        window._chabCache.perRoom[room.id] = {
+          members: [{user_id: user.id, role: 'owner'}],
+          habits: [],
+          logs: {},
+          challenges: [],
+        };
+        if(typeof window._chabSaveCache === 'function') window._chabSaveCache();
+      }
+    } catch(e){ console.warn('chabDoCreate cache patch:', e?.message); }
+
     setTimeout(function(){
       renderCollabView();
       setTimeout(function(){ chabShowCode(code); }, 600);
@@ -44691,22 +44710,24 @@ setTimeout(()=>{
   position:fixed; inset:0;
   background:rgba(0,0,0,.65); backdrop-filter:blur(10px);
   z-index:10000;
-  display:flex; align-items:flex-end; justify-content:center;
+  display:flex; align-items:center; justify-content:center;
+  padding:20px;
   animation: cchOvIn .2s ease;
 }
 @keyframes cchOvIn { from{opacity:0} to{opacity:1} }
 .cch-modal {
   background:var(--bg,#09090b);
-  border-radius:22px 22px 0 0;
-  padding:10px 20px 44px;
+  border:0.5px solid rgba(255,255,255,.08);
+  border-radius:22px;
+  padding:28px 24px 24px;
   width:100%; max-width:520px;
   max-height:90vh; overflow-y:auto;
-  animation: cchMoIn .3s cubic-bezier(.34,1.2,.64,1);
+  box-shadow:0 24px 60px rgba(0,0,0,.55);
+  animation: cchMoIn .25s cubic-bezier(.34,1.2,.64,1);
 }
-@keyframes cchMoIn { from{transform:translateY(100%)} to{transform:none} }
+@keyframes cchMoIn { from{transform:scale(.92);opacity:0} to{transform:none;opacity:1} }
 .cch-grip {
-  width:38px; height:4px; background:rgba(255,255,255,.12);
-  border-radius:2px; margin:14px auto 20px;
+  display:none;
 }
 .cch-mo-title {
   font-size:18px; font-weight:900; color:var(--t1);
@@ -45279,7 +45300,7 @@ window._cchSaveMembers = async function(roomId, challId){
   if(removed.length > 0 && isActive){
     const names = removed.map(uid => {
       const m = (rc.members||[]).find(mm => mm.user_id === uid);
-      return m?.users?.username || '?';
+      return m?.username || m?.users?.username || '?';
     }).join(', ');
     const ok = confirm(
       `Исключить из активного челленджа: ${names}?\n\n` +
@@ -45288,7 +45309,13 @@ window._cchSaveMembers = async function(roomId, challId){
     if(!ok){ if(btn) btn.disabled = false; return; }
   }
 
-  // 1. Обновляем в кеше
+  // ── АНТИ-ЭХО ДЛЯ REALTIME ──
+  // Помечаем что сейчас мы сами сохраняем — в течение 3с игнорируем Realtime-эхо
+  // этого же изменения (иначе Realtime сразу же приходит обратно и перезаписывает кеш)
+  window._cchLocalWriteAt = Date.now();
+  window._cchLocalWriteChallId = challId;
+
+  // 1. Сразу обновляем в кеше (оптимистично)
   if(rc.challenges){
     const idx = rc.challenges.findIndex(c => c.id === challId);
     if(idx >= 0){ rc.challenges[idx] = { ...rc.challenges[idx], participant_ids: newIds }; }
@@ -45302,27 +45329,47 @@ window._cchSaveMembers = async function(roomId, challId){
     if(idx >= 0){ list[idx].participant_ids = newIds; lsSave(roomId, list); }
   }
 
-  // 3. Обновляем в Supabase (если не локальный)
+  // 3. Обновляем в Supabase — ЖДЁМ ответа с обновлённой строкой
   const sb = getSB2(), user = getUser2();
+  let dbSaved = false;
   if(sb && user && !String(challId).startsWith('cch_ls_')){
     try {
-      const { error } = await sb.from('collab_challenges')
+      const { data, error } = await sb.from('collab_challenges')
         .update({ participant_ids: newIds })
         .eq('id', challId)
-        .eq('created_by', user.id);
+        .eq('created_by', user.id)
+        .select();
       if(error){
-        console.warn('_cchSaveMembers supabase:', error.message);
-        try{ showToast('Не удалось сохранить (нет связи?)'); }catch{}
+        console.warn('_cchSaveMembers supabase error:', error.message, error);
+        try{ showToast('Не удалось сохранить — ' + (error.message||'ошибка БД')); }catch{}
+      } else if(!data || data.length === 0){
+        // RLS не пустил — UPDATE прошёл, но строк 0 (нет прав)
+        console.warn('_cchSaveMembers: UPDATE returned 0 rows (RLS?)', {challId, user_id: user.id});
+        try{ showToast('Нет прав на изменение этого челленджа'); }catch{}
+      } else {
+        // Успех — синхронизируем кеш с БД-версией (на случай если БД дополнила что-то)
+        dbSaved = true;
+        if(rc.challenges){
+          const idx = rc.challenges.findIndex(c => c.id === challId);
+          if(idx >= 0) rc.challenges[idx] = data[0];
+        }
+        window._chabSaveCache?.();
       }
     } catch(e){
       console.warn('_cchSaveMembers exception:', e.message);
+      try{ showToast('Сбой сохранения'); }catch{}
     }
+  } else if(String(challId).startsWith('cch_ls_')){
+    // Локальный челлендж — считаем что сохранено в localStorage
+    dbSaved = true;
   }
 
   // 4. Закрываем попап и перерисовываем
   _cchCloseEditMembers();
   refreshAllRooms();
-  try{ showToast('Участники обновлены ✓'); }catch{}
+  if(dbSaved){
+    try{ showToast('Участники обновлены ✓'); }catch{}
+  }
 };
 
 /* ── Модалка ─────────────────────────────────────────────── */
