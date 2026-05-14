@@ -44520,8 +44520,21 @@ setTimeout(()=>{
    COLLAB CHALLENGES
 ════════════════════════════════════════ */
 .cch-section {
-  margin-top: 12px;
-  margin-bottom: 20px;
+  position: relative;
+  margin: -8px 0 24px;
+  padding: 14px 0 14px 16px;
+  border-left: 2px solid rgba(168,85,247,.35);
+  border-radius: 0 0 0 8px;
+}
+.cch-section::before {
+  /* Уголок-«крюк» наверху для связи с карточкой комнаты выше */
+  content: '';
+  position: absolute;
+  left: -2px; top: -1px;
+  width: 14px; height: 12px;
+  border-left: 2px solid rgba(168,85,247,.35);
+  border-top: 2px solid rgba(168,85,247,.35);
+  border-radius: 8px 0 0 0;
 }
 .cch-hdr {
   display: flex; align-items: center;
@@ -44943,10 +44956,19 @@ function renderCollabChallenges(roomId, members, logs, habits){
   (habits||[]).forEach(h=>{ habMap[h.id] = h; });
   const habName = id => (habMap[id]||{}).title || (habMap[id]||{}).name || String(id).slice(0,8);
 
+  // Найдём имя комнаты для заголовка секции
+  let roomName = '';
+  let roomIcon = '🤝';
+  try {
+    const cache = window._chabCache;
+    const room = cache?.rooms?.find(r => r.id === roomId);
+    if(room){ roomName = room.name || ''; roomIcon = room.icon || '🤝'; }
+  } catch(e){}
+
   let html = `<div class="cch-hdr">
     <div class="cch-hdr-left">
       ${SVG_TROPHY}
-      <span class="cch-hdr-title">Челленджи трекера</span>
+      <span class="cch-hdr-title">Челленджи${roomName ? ' · <span style="color:#c084fc;font-weight:700">'+esc(roomName)+'</span>' : ''}</span>
       ${list.length ? `<span class="cch-count">${list.length}</span>` : ''}
     </div>
     <button class="cch-add-btn" onclick="_cchOpen('${roomId}')">
