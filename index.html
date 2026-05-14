@@ -7400,6 +7400,365 @@ body {
   text-transform: uppercase; color: var(--t3); margin-top: 2px;
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   COLLAB ROOM v2 — Block-structured layout
+   4 sections: Stats / Members / Habits / Challenges
+   Design language matches dashboard (cr- = collab-room)
+═══════════════════════════════════════════════════════════════════ */
+
+.cr-room {
+  display: flex; flex-direction: column;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.cr-room-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 4px;
+  margin-bottom: 6px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.cr-room-head-l { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.cr-room-icon-lg {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  background: rgba(168,85,247,.1);
+  border: 0.5px solid rgba(168,85,247,.22);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.cr-room-head-text { min-width: 0; }
+.cr-room-eyebrow {
+  font-size: 10px; font-weight: 600; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--t3);
+  margin-bottom: 4px;
+}
+.cr-room-name {
+  font-size: 18px; font-weight: 700;
+  color: var(--t1); letter-spacing: -.01em;
+  line-height: 1.15;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%;
+}
+.cr-room-acts { display: flex; gap: 8px; flex-shrink: 0; }
+.cr-room-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; border-radius: 9px;
+  background: rgba(255,255,255,.04);
+  border: 0.5px solid rgba(255,255,255,.1);
+  color: var(--t2);
+  font-size: 11px; font-weight: 600; letter-spacing: .02em;
+  cursor: pointer; font-family: inherit;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.cr-room-btn:hover { background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.18); color: var(--t1); }
+.cr-room-btn.is-danger { color: rgba(248,113,113,.7); border-color: rgba(248,113,113,.18); }
+.cr-room-btn.is-danger:hover { background: rgba(248,113,113,.08); border-color: rgba(248,113,113,.32); color: #f87171; }
+.cr-room-btn.is-icon { width: 30px; height: 30px; padding: 0; justify-content: center; }
+
+.cr-section {
+  position: relative;
+  background: #0D0D0F;
+  border: 0.5px solid rgba(255,255,255,.06);
+  border-radius: 18px;
+  padding: 20px;
+  overflow: hidden;
+}
+.cr-section::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(120% 60% at 0% 0%, var(--cr-glow, rgba(255,255,255,.04)) 0%, transparent 50%);
+  pointer-events: none;
+}
+.cr-section-inner { position: relative; }
+
+.cr-section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+.cr-section-head-l { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.cr-section-icon {
+  width: 32px; height: 32px;
+  border-radius: 9px;
+  background: var(--cr-icon-bg, rgba(255,255,255,.04));
+  border: 0.5px solid var(--cr-icon-bd, rgba(255,255,255,.1));
+  color: var(--cr-color, var(--t1));
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.cr-section-text { min-width: 0; }
+.cr-section-title {
+  font-size: 14px; font-weight: 700; color: var(--t1);
+  line-height: 1.2; letter-spacing: -.005em;
+}
+.cr-section-sub {
+  font-size: 11px; font-weight: 500; color: var(--t3);
+  margin-top: 2px; line-height: 1.3;
+}
+.cr-section-chip {
+  padding: 5px 11px; border-radius: 7px;
+  background: var(--cr-chip-bg, rgba(255,255,255,.04));
+  border: 0.5px solid var(--cr-chip-bd, rgba(255,255,255,.1));
+  color: var(--cr-color, var(--t2));
+  font-size: 10px; font-weight: 600; letter-spacing: .06em;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ── Section action button (right-side in head, e.g. "Новый") ── */
+.cr-section-act {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 11px; border-radius: 8px;
+  background: var(--cr-chip-bg, rgba(255,255,255,.04));
+  border: 0.5px solid var(--cr-chip-bd, rgba(255,255,255,.18));
+  color: var(--cr-color, var(--t2));
+  font-size: 11px; font-weight: 600; letter-spacing: .02em;
+  cursor: pointer; font-family: inherit;
+  transition: opacity .15s, transform .12s;
+}
+.cr-section-act:hover { opacity: .85; transform: translateY(-1px); }
+
+/* ── Color themes per section (set on .cr-section) ── */
+.cr-theme-gold   { --cr-color: #F5C842; --cr-icon-bg: rgba(245,200,66,.1); --cr-icon-bd: rgba(245,200,66,.22); --cr-chip-bg: rgba(245,200,66,.08); --cr-chip-bd: rgba(245,200,66,.2); --cr-glow: rgba(245,200,66,.04); }
+.cr-theme-purple { --cr-color: #c084fc; --cr-icon-bg: rgba(168,85,247,.12); --cr-icon-bd: rgba(168,85,247,.28); --cr-chip-bg: rgba(168,85,247,.1); --cr-chip-bd: rgba(168,85,247,.24); --cr-glow: rgba(168,85,247,.05); }
+.cr-theme-blue   { --cr-color: #60A5FA; --cr-icon-bg: rgba(96,165,250,.1); --cr-icon-bd: rgba(96,165,250,.25); --cr-chip-bg: rgba(96,165,250,.08); --cr-chip-bd: rgba(96,165,250,.22); --cr-glow: rgba(96,165,250,.04); }
+.cr-theme-pink   { --cr-color: #F472B6; --cr-icon-bg: rgba(236,72,153,.1); --cr-icon-bd: rgba(236,72,153,.25); --cr-chip-bg: rgba(236,72,153,.1); --cr-chip-bd: rgba(236,72,153,.28); --cr-glow: rgba(236,72,153,.04); }
+
+/* ═══ Stats section — metric cards ═══ */
+.cr-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+@media (max-width: 700px) { .cr-stats-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.cr-stat-card {
+  position: relative;
+  background: rgba(255,255,255,.02);
+  border: 0.5px solid rgba(255,255,255,.05);
+  border-radius: 12px;
+  padding: 14px 14px 12px;
+  overflow: hidden;
+}
+.cr-stat-card::before {
+  content: '';
+  position: absolute; top: 0; left: 12px; right: 12px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cr-stat-c, var(--t3)), transparent);
+}
+.cr-stat-lbl {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--t3);
+  display: flex; align-items: center; gap: 5px;
+  margin-bottom: 10px;
+}
+.cr-stat-lbl::before {
+  content: '';
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--cr-stat-c, var(--t3));
+  flex-shrink: 0;
+}
+.cr-stat-row {
+  display: flex; align-items: baseline; gap: 4px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.cr-stat-num {
+  font-size: 28px; font-weight: 500;
+  color: var(--t1); letter-spacing: -.02em;
+}
+.cr-stat-unit {
+  font-size: 13px; font-weight: 500; color: var(--t3);
+}
+.cr-stat-sub {
+  font-size: 11px; color: var(--t2);
+  margin-top: 6px;
+}
+
+/* ═══ Members (leaderboard) section ═══ */
+.cr-lb { display: flex; flex-direction: column; }
+.cr-lb-row {
+  display: grid;
+  grid-template-columns: 32px 32px minmax(0,1fr) 80px 48px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  margin-bottom: 2px;
+  transition: background .15s;
+}
+.cr-lb-row.is-me {
+  background: rgba(168,85,247,.06);
+  border: 0.5px solid rgba(168,85,247,.18);
+  padding: 9.5px 7.5px;
+}
+.cr-lb-row:hover:not(.is-me) { background: rgba(255,255,255,.025); }
+.cr-lb-rank {
+  font-size: 14px; text-align: center; color: var(--t2);
+  font-variant-numeric: tabular-nums; font-weight: 600;
+}
+.cr-lb-rank.is-medal { font-size: 17px; }
+.cr-lb-av {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: rgba(255,255,255,.04);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.cr-lb-av.is-me { background: rgba(168,85,247,.14); }
+.cr-lb-av img { width: 100%; height: 100%; object-fit: cover; }
+.cr-lb-info { min-width: 0; }
+.cr-lb-name {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 600; color: var(--t1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cr-lb-tag {
+  font-size: 9px; font-weight: 700; letter-spacing: .06em;
+  padding: 2px 6px; border-radius: 4px;
+  background: rgba(245,200,66,.14); color: #F5C842;
+  flex-shrink: 0;
+}
+.cr-lb-tag.is-owner { background: rgba(255,255,255,.05); color: var(--t3); }
+.cr-lb-meta {
+  font-size: 11px; color: var(--t3);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cr-lb-bar {
+  height: 5px;
+  background: rgba(255,255,255,.05);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.cr-lb-bar-fill {
+  height: 100%; border-radius: 3px;
+  background: var(--cr-bar-c, #A78BFA);
+  transition: width .6s cubic-bezier(.25,.8,.25,1);
+}
+.cr-lb-pct {
+  font-size: 14px; font-weight: 600;
+  color: var(--cr-bar-c, var(--t1));
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.cr-lb-kick {
+  width: 22px; height: 22px;
+  border-radius: 6px;
+  border: none; background: transparent;
+  color: rgba(255,255,255,.2);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-left: 4px;
+  transition: background .15s, color .15s;
+}
+.cr-lb-kick:hover { background: rgba(239,68,68,.12); color: #ef4444; }
+
+/* ═══ Habits matrix section ═══ */
+.cr-mx { width: 100%; }
+.cr-mx-head {
+  display: grid;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px 10px;
+  border-bottom: 0.5px solid rgba(255,255,255,.05);
+  margin-bottom: 4px;
+}
+.cr-mx-head-cell {
+  text-align: center;
+  font-size: 10px; font-weight: 600;
+  color: var(--t3); letter-spacing: .04em;
+}
+.cr-mx-head-cell.is-today { color: #c084fc; }
+.cr-mx-head-name {
+  font-size: 10px; font-weight: 600;
+  color: var(--t3); letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.cr-mx-row {
+  display: grid;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 4px;
+  border-radius: 10px;
+  margin-bottom: 2px;
+  transition: background .15s;
+}
+.cr-mx-row:hover { background: rgba(255,255,255,.015); }
+.cr-mx-row.is-at-risk { background: rgba(239,68,68,.04); }
+.cr-mx-row.is-perfect { background: rgba(74,222,128,.025); }
+.cr-mx-hab {
+  display: flex; align-items: center; gap: 9px; min-width: 0;
+}
+.cr-mx-hab-icon {
+  width: 26px; height: 26px;
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.cr-mx-hab-text { min-width: 0; flex: 1; }
+.cr-mx-hab-name {
+  font-size: 12px; font-weight: 600; color: var(--t1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  line-height: 1.2;
+}
+.cr-mx-hab-streak {
+  font-size: 10px; color: var(--t3);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cr-mx-hab-streak.is-active { color: #FB923C; font-weight: 600; }
+.cr-mx-cell {
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  background: rgba(255,255,255,.02);
+  border: 0.5px solid rgba(255,255,255,.06);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto;
+  cursor: default;
+  transition: background .15s, border-color .15s, transform .12s;
+}
+.cr-mx-cell.is-future { opacity: .5; }
+.cr-mx-cell.is-missed { border-color: rgba(239,68,68,.18); }
+.cr-mx-cell.is-today { border-width: 1.5px; cursor: pointer; }
+.cr-mx-cell.is-today:hover { transform: scale(1.08); }
+.cr-mx-cell-dot {
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.08);
+}
+.cr-mx-cell-dot.is-today { width: 6px; height: 6px; background: rgba(255,255,255,.15); }
+.cr-mx-pct {
+  font-size: 11px; font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.cr-mx-empty {
+  padding: 28px 16px;
+  text-align: center;
+}
+.cr-mx-empty-ttl { font-size: 13px; font-weight: 600; color: var(--t2); margin-bottom: 4px; }
+.cr-mx-empty-sub { font-size: 11px; color: var(--t3); line-height: 1.5; }
+
+/* ═══ Challenges section host ═══ */
+.cr-ch-empty {
+  padding: 28px 16px;
+  text-align: center;
+  background: rgba(255,255,255,.015);
+  border: 0.5px dashed rgba(255,255,255,.07);
+  border-radius: 14px;
+}
+.cr-ch-empty-ttl { font-size: 13px; font-weight: 600; color: var(--t2); margin-bottom: 4px; }
+.cr-ch-empty-sub { font-size: 11px; color: var(--t3); line-height: 1.5; }
+
+/* ── Hide legacy chab-* containers when v2 is in DOM ── */
+.cr-room ~ .cch-section { display: none; }
+
 /* ── Leaderboard ── */
 .chab-lb { border-bottom: 0.5px solid rgba(255,255,255,.06); }
 .chab-lb-row {
@@ -34290,115 +34649,309 @@ async function buildRoomCard(room, myRole, user, members, habits, logs){
 
   const svgDel=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>`;
 
-  return `<div class="chab-room" id="chab-room-${room.id}">
+  /* ═══════════════════════════════════════════════════════════════
+     COLLAB ROOM v2 — 4-block layout
+     Sections: Stats (gold) / Members (purple) / Habits (blue) / Challenges (pink)
+     Realtime DOM hooks preserved as nested <span>s with same IDs:
+       chab-hero-${roomId}        — outer section (background tint target)
+       chab-ring-arc-${roomId}    — kept as 0-size hidden circle (no-op patch)
+       chab-pct-num-${roomId}     — stats card "Мой день" value
+       chab-hero-title-${roomId}  — section subtitle (motivational message)
+       chab-hero-sub-${roomId}    — stats card "Мой день" sub-text
+       chab-segbar-${roomId}      — kept as hidden no-op container
+       chab-kpi-streak-${roomId}  — stats card "Дисциплина" value
+       chab-kpi-perfect-${roomId} — stats card "Идеал. дни" value
+  ═══════════════════════════════════════════════════════════════ */
 
-    <!-- ── HEADER ── -->
-    <div class="chab-room-head">
-      <div class="chab-room-icon">${room.icon||'🤝'}</div>
-      <div style="flex:1;min-width:0">
-        <div class="chab-room-title">${esc(room.name||'Совместный трекер')}</div>
-        <div class="chab-room-meta">${members.length} участников · ${habits.length} привычек</div>
+  const lbRowsV2 = scores.map((s,i)=>{
+    const u = s.users||{};
+    const isMe = s.user_id===myId;
+    const isMemberOwner = (members.find(m=>m.user_id===s.user_id)||{}).role==='owner';
+    const av = u.avatar_url
+      ? `<img alt="" src="${esc(u.avatar_url)}">`
+      : `<span style="font-size:14px">${u.avatar||'👤'}</span>`;
+    const medals=['🥇','🥈','🥉'];
+    const rank = medals[i] || (i+1);
+    const rankCls = i<3 ? ' is-medal' : '';
+    const barPct = Math.round(s.pct/maxPct*100);
+    const barColor = isMe ? '#A78BFA' : (i===0?'#A78BFA':'rgba(167,139,250,'+(0.55-i*0.05)+')');
+    const streakTxt = s.streak>0 ? `🔥 ${s.streak}` : '—';
+    const meta = `${s.todayDone}/${habits.length} сегодня · ${streakTxt} дисциплина · ${s.perfectDays}/${possibleDays} идеальных`;
+    const kickBtn = (isOwner && !isMe && !isMemberOwner)
+      ? `<button class="cr-lb-kick" onclick="chabKickMember('${room.id}','${s.user_id}','${escAttr(u.username||'участника')}');event.stopPropagation()" title="Исключить">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>` : '';
+    return `<div class="cr-lb-row${isMe?' is-me':''}">
+      <div class="cr-lb-rank${rankCls}">${rank}</div>
+      <div class="cr-lb-av${isMe?' is-me':''}">${av}</div>
+      <div class="cr-lb-info">
+        <div class="cr-lb-name">
+          <span>${esc(u.username||'?')}</span>
+          ${isMe?'<span class="cr-lb-tag">ТЫ</span>':''}
+          ${isMemberOwner&&!isMe?'<span class="cr-lb-tag is-owner">владелец</span>':''}
+          ${kickBtn}
+        </div>
+        <div class="cr-lb-meta">${meta}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <div class="chab-members">${avHtml}</div>
-        <div class="chab-room-acts">
-          <button class="chab-btn-outline" style="padding:5px 10px;font-size:11px" onclick="chabShowCode('${code}')">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-            Пригласить
+      <div class="cr-lb-bar"><div class="cr-lb-bar-fill" style="width:${barPct}%;--cr-bar-c:${barColor}"></div></div>
+      <div class="cr-lb-pct" style="--cr-bar-c:${isMe?'#c084fc':'var(--t1)'}">${s.pct}%</div>
+    </div>`;
+  }).join('');
+
+  /* ── Matrix v2 — compact 26px cells, 7-day grid ── */
+  const mxCols = `minmax(140px,1fr) repeat(7,32px) 44px${isOwner?' 24px':''}`;
+
+  const colHeadV2 = weekDates.map((d,i)=>{
+    const key = dateStr(d);
+    const isToday = key===today;
+    return `<div class="cr-mx-head-cell${isToday?' is-today':''}">${DLBL[i]}</div>`;
+  }).join('');
+
+  const habRowsV2 = habits.map(h=>{
+    const color = h.color||'#a855f7';
+    const myStreak = chabStreak(h.id, myId);
+    const myHabLog = myLog[h.id]||{};
+
+    let wDone=0, wPassed=0;
+    const cells = weekDates.map(d=>{
+      const key = dateStr(d);
+      const isToday = key===today;
+      const future = d>now && !isToday;
+      const done = !!(myHabLog[key]);
+      const missed = !future && !isToday && !done;
+      if(!future){ wPassed++; if(done) wDone++; }
+
+      const clickFn = isToday ? `chabToggleCell('${room.id}','${h.id}','${key}',this)` : '';
+      let cls = 'cr-mx-cell chab-cell mine';
+      if(done) cls += ' done';
+      if(future) cls += ' is-future future';
+      if(missed) cls += ' is-missed missed';
+      if(isToday) cls += ' is-today';
+
+      const inlineStyle = done
+        ? `background:${color}26;border-color:${color}5C`
+        : isToday
+          ? `border-color:${color}80`
+          : '';
+
+      let inner;
+      if(done){
+        inner = `<span class="chab-check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></span>`;
+      } else if(missed){
+        inner = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(239,68,68,.55)" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+      } else {
+        inner = `<div class="cr-mx-cell-dot${isToday?' is-today':''}"></div>`;
+      }
+
+      return `<div class="${cls}" data-chab-cell="${room.id}|${h.id}|${key}"
+        style="${inlineStyle}"
+        ${clickFn?`onclick="${clickFn}"`:''}>${inner}</div>`;
+    }).join('');
+
+    const weekPct = wPassed>0 ? Math.round(wDone/wPassed*100) : 0;
+    const doneToday = !!(myHabLog[today]);
+    const atRiskRow = myStreak>=3 && !doneToday;
+    const perfectRow = wPassed>0 && wDone===wPassed;
+    let rowClass = 'cr-mx-row chab-hab-row';
+    if(atRiskRow) rowClass += ' is-at-risk at-risk';
+    else if(perfectRow) rowClass += ' is-perfect perfect';
+
+    const streakHtml = myStreak>0
+      ? `<div class="cr-mx-hab-streak is-active">🔥 ${myStreak}</div>`
+      : `<div class="cr-mx-hab-streak">— дисциплина</div>`;
+
+    const iconHtml = typeof window.habIconHTML === 'function'
+      ? window.habIconHTML(h.icon, 14, color)
+      : (h.icon||'🎯');
+
+    const delCell = isOwner
+      ? `<button onclick="chabDeleteHabit('${room.id}','${h.id}')" title="Удалить привычку"
+          style="width:22px;height:22px;border-radius:6px;background:transparent;border:none;color:rgba(255,255,255,.18);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:background .15s,color .15s"
+          onmouseover="this.style.background='rgba(239,68,68,.12)';this.style.color='#ef4444'"
+          onmouseout="this.style.background='transparent';this.style.color='rgba(255,255,255,.18)'">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+        </button>` : '';
+
+    return `<div class="${rowClass}" style="grid-template-columns:${mxCols}">
+      <div class="cr-mx-hab">
+        <div class="cr-mx-hab-icon" style="background:${color}1a;border:0.5px solid ${color}38;color:${color}">${iconHtml}</div>
+        <div class="cr-mx-hab-text">
+          <div class="cr-mx-hab-name">${esc(h.name)}</div>
+          ${streakHtml}
+        </div>
+      </div>
+      ${cells}
+      <div class="cr-mx-pct" style="color:${weekPct>=100?color:weekPct>0?color:'var(--t3)'}">${weekPct}%</div>
+      ${delCell}
+    </div>`;
+  }).join('');
+
+  /* ── Realtime no-op hooks: invisible circle + segbar container ──
+     These exist so _chabRefreshHero() can still patch them without throwing,
+     even though the v2 layout doesn't render them visibly. */
+  const rtHooks = `<div style="position:absolute;width:0;height:0;overflow:hidden;visibility:hidden" aria-hidden="true">
+    <svg width="1" height="1"><circle id="chab-ring-arc-${room.id}" cx="0" cy="0" r="0"/></svg>
+    <div id="chab-segbar-${room.id}"></div>
+    <div id="chab-hero-title-${room.id}">${heroMsg}</div>
+  </div>`;
+
+  return `<div class="chab-room cr-room" id="chab-room-${room.id}">
+
+    <div class="cr-room-head">
+      <div class="cr-room-head-l">
+        <div class="cr-room-icon-lg">${room.icon||'🤝'}</div>
+        <div class="cr-room-head-text">
+          <div class="cr-room-eyebrow">Совместный трекер · ${members.length} участн. · ${habits.length} привыч.</div>
+          <div class="cr-room-name">${esc(room.name||'Совместный трекер')}</div>
+        </div>
+      </div>
+      <div class="cr-room-acts">
+        <button class="cr-room-btn" onclick="chabShowCode('${code}')">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          Пригласить
+        </button>
+        ${!isOwner?`<button class="cr-room-btn" onclick="chabLeaveRoom('${room.id}')" title="Выйти из трекера">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Выйти
+        </button>`:''}
+        <button class="cr-room-btn" onclick="chabSetMode('personal')" title="Мой трекер">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Мой
+        </button>
+        ${isOwner?`<button class="cr-room-btn is-danger is-icon" onclick="chabDeleteRoom('${room.id}')" title="Удалить трекер">${svgDel}</button>`:''}
+      </div>
+    </div>
+
+    <section class="cr-section cr-theme-gold" id="chab-hero-${room.id}">
+      <div class="cr-section-inner">
+        <div class="cr-section-head">
+          <div class="cr-section-head-l">
+            <div class="cr-section-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+            </div>
+            <div class="cr-section-text">
+              <div class="cr-section-title">Статистика</div>
+              <div class="cr-section-sub" id="chab-hero-sub-${room.id}">${heroMsg} · ${myDoneToday} из ${habits.length} привычек</div>
+            </div>
+          </div>
+          <div class="cr-section-chip">Неделя</div>
+        </div>
+
+        <div class="cr-stats-grid">
+          <div class="cr-stat-card" style="--cr-stat-c:#F5C842">
+            <div class="cr-stat-lbl">Мой день</div>
+            <div class="cr-stat-row">
+              <span class="cr-stat-num" id="chab-pct-num-${room.id}">${myTodayPct}</span><span class="cr-stat-unit">%</span>
+            </div>
+            <div class="cr-stat-sub">${myDoneToday} из ${habits.length} привычек</div>
+          </div>
+
+          <div class="cr-stat-card" style="--cr-stat-c:#FB923C">
+            <div class="cr-stat-lbl">Дисциплина</div>
+            <div class="cr-stat-row">
+              <span class="cr-stat-num" id="chab-kpi-streak-${room.id}">${myGlobalStreak>0?myGlobalStreak:'—'}</span><span class="cr-stat-unit">дн</span>
+            </div>
+            <div class="cr-stat-sub">подряд за неделю</div>
+          </div>
+
+          <div class="cr-stat-card" style="--cr-stat-c:#4ADE80">
+            <div class="cr-stat-lbl">Идеал. дни</div>
+            <div class="cr-stat-row">
+              <span class="cr-stat-num" id="chab-kpi-perfect-${room.id}">${myPerfectDays}</span><span class="cr-stat-unit">/ ${possibleDays}</span>
+            </div>
+            <div class="cr-stat-sub">все привычки выполнены</div>
+          </div>
+
+          <div class="cr-stat-card" style="--cr-stat-c:#A78BFA">
+            <div class="cr-stat-lbl">Привычек</div>
+            <div class="cr-stat-row">
+              <span class="cr-stat-num">${habits.length}</span>
+            </div>
+            <div class="cr-stat-sub">в трекере</div>
+          </div>
+        </div>
+
+        ${rtHooks}
+      </div>
+    </section>
+
+    <section class="cr-section cr-theme-purple">
+      <div class="cr-section-inner">
+        <div class="cr-section-head">
+          <div class="cr-section-head-l">
+            <div class="cr-section-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div class="cr-section-text">
+              <div class="cr-section-title">Участники</div>
+              <div class="cr-section-sub">Рейтинг по идеальным дням недели</div>
+            </div>
+          </div>
+          <div class="cr-section-chip">${members.length} ${members.length===1?'человек':members.length<5?'человека':'человек'}</div>
+        </div>
+
+        <div class="cr-lb">${lbRowsV2}</div>
+      </div>
+    </section>
+
+    <section class="cr-section cr-theme-blue">
+      <div class="cr-section-inner">
+        <div class="cr-section-head">
+          <div class="cr-section-head-l">
+            <div class="cr-section-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            </div>
+            <div class="cr-section-text">
+              <div class="cr-section-title">Привычки</div>
+              <div class="cr-section-sub">Сетка отметок · текущая неделя</div>
+            </div>
+          </div>
+          ${isOwner?`<button class="cr-section-act" onclick="chabAddHabit('${room.id}')">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Привычка
+          </button>`:`<div class="cr-section-chip">${habits.length} ${habits.length===1?'привычка':habits.length<5?'привычки':'привычек'}</div>`}
+        </div>
+
+        ${habits.length ? `
+          <div class="cr-mx chab-matrix-inner">
+            <div class="cr-mx-head" style="grid-template-columns:${mxCols}">
+              <div class="cr-mx-head-name">Привычка</div>
+              ${colHeadV2}
+              <div class="cr-mx-head-cell">%</div>
+              ${isOwner?'<div></div>':''}
+            </div>
+            ${habRowsV2}
+          </div>
+        ` : `
+          <div class="cr-mx-empty">
+            <div class="cr-mx-empty-ttl">Пока нет привычек</div>
+            <div class="cr-mx-empty-sub">${isOwner?'Добавь первую, чтобы начать отслеживать':'Владелец ещё не добавил привычки'}</div>
+          </div>
+        `}
+      </div>
+    </section>
+
+    <section class="cr-section cr-theme-pink">
+      <div class="cr-section-inner">
+        <div class="cr-section-head">
+          <div class="cr-section-head-l">
+            <div class="cr-section-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+            </div>
+            <div class="cr-section-text">
+              <div class="cr-section-title">Челленджи</div>
+              <div class="cr-section-sub">Совместные квесты с дедлайном</div>
+            </div>
+          </div>
+          <button class="cr-section-act" onclick="_cchOpen('${room.id}')">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Новый
           </button>
-          ${isOwner?`<button class="chab-btn-outline" style="padding:5px 10px;font-size:11px;color:var(--red);border-color:rgba(255,69,58,.2)" onclick="chabDeleteRoom('${room.id}')">${svgDel}</button>`:''}
         </div>
+
+        <div id="cch-sect-${room.id}" class="cch-section cr-ch-host"></div>
       </div>
-    </div>
-
-    <!-- ── HERO v2 ── -->
-    <div class="chab-hero-bar" id="chab-hero-${room.id}" style="background:linear-gradient(135deg,${heroColor}08 0%,transparent 60%)">
-
-      <!-- top strip: score pill + text -->
-      <div class="chab-hero-top">
-
-        <!-- Score ring -->
-        <div style="position:relative;flex-shrink:0;width:80px;height:80px;">
-          ${(()=>{
-            const r2=34,sz2=80,cx2=sz2/2,cy2=sz2/2;
-            const circ2=2*Math.PI*r2;
-            const fill2=circ2*(myTodayPct/100);
-            return `<svg id="chab-ring-svg-${room.id}" width="${sz2}" height="${sz2}" viewBox="0 0 ${sz2} ${sz2}" style="transform:rotate(-90deg)">
-              <circle cx="${cx2}" cy="${cy2}" r="${r2}" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="1"/>
-              <circle id="chab-ring-arc-${room.id}" cx="${cx2}" cy="${cy2}" r="${r2}" fill="none" stroke="${heroColor}" stroke-width="1"
-                stroke-dasharray="${fill2.toFixed(2)} ${(circ2-fill2).toFixed(2)}"
-                stroke-linecap="butt"
-                style="transition:stroke-dasharray 1.1s cubic-bezier(.4,0,.2,1)"/>
-            </svg>`;
-          })()}
-          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
-            <div id="chab-pct-num-${room.id}" class="chab-score-num" style="color:${heroColor}">${myTodayPct}%</div>
-            <div class="chab-score-lbl">Мой день</div>
-          </div>
-        </div>
-
-        <!-- Right text -->
-        <div class="chab-hero-main">
-          <div id="chab-hero-title-${room.id}" class="chab-hero-title">${heroMsg}</div>
-          <div id="chab-hero-sub-${room.id}" class="chab-hero-sub">${myDoneToday} из ${habits.length} привычек выполнено</div>
-          <div class="chab-hero-pbar">
-            ${mkSegBar(myDoneToday, habits.length, heroColor, `chab-segbar-${room.id}`)}
-          </div>
-        </div>
-
-      </div>
-
-      <!-- bottom KPI grid -->
-      <div class="chab-hero-kpis">
-        <div class="chab-hero-kpi">
-          <div id="chab-kpi-streak-${room.id}" class="chab-hero-kpi-val" style="color:var(--orange)">${myGlobalStreak>0?myGlobalStreak:'—'}</div>
-          <div style="display:flex;align-items:center;gap:3px">
-            ${myGlobalStreak>0?'<span style="font-size:12px">🔥</span>':''}
-            <div class="chab-hero-kpi-lbl">Дисциплина</div>
-          </div>
-        </div>
-        <div class="chab-hero-kpi">
-          <div class="chab-hero-kpi-val" style="color:#c084fc">${habits.length}</div>
-          <div class="chab-hero-kpi-lbl">Привычек</div>
-        </div>
-        <div class="chab-hero-kpi">
-          <div id="chab-kpi-perfect-${room.id}" class="chab-hero-kpi-val" style="color:#30d158">${myPerfectDays}/${possibleDays}</div>
-          <div class="chab-hero-kpi-lbl">Идеал. дней</div>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- ── LEADERBOARD ── -->
-    ${lbRows?`<div class="chab-lb">${lbRows}</div>`:''}
-
-    <!-- ── 7-DAY MATRIX ── -->
-    ${habits.length ? `
-    <div class="chab-matrix-label">Привычки · неделя</div>
-    <div class="chab-matrix">
-      <div class="chab-matrix-inner">
-        <div class="chab-matrix-head" style="grid-template-columns:${gridCols}">
-          <div style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t3)">Привычка</div>
-          ${colHead}
-          <div style="font-size:11px;text-align:center;color:var(--t3)">%</div>
-        </div>
-        ${habRows}
-      </div>
-    </div>
-    ` : ''}
-
-    <!-- ── ACTIONS ── -->
-    <div class="chab-actions-row">
-      ${isOwner?`<button class="chab-btn-purple" style="padding:7px 14px;font-size:12px" onclick="chabAddHabit('${room.id}')">+ Привычка</button>`:''}
-      ${!isOwner?`<button class="chab-btn-leave" onclick="chabLeaveRoom('${room.id}')">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        Выйти из трекера
-      </button>`:''}
-      <button class="chab-btn-outline" style="padding:7px 12px;font-size:11px;margin-left:auto" onclick="chabSetMode('personal')">← Мой трекер</button>
-    </div>
-
-    <!-- ── CHALLENGES (inline, inside room card) ── -->
-    <div id="cch-sect-${room.id}" class="cch-section"></div>
+    </section>
 
   </div>`;
 }
@@ -44530,6 +45083,10 @@ setTimeout(()=>{
 .cch-section:empty {
   display: none;
 }
+/* v2: внутри секции "Челленджи" уже есть свой контейнер — старые отступы лишние */
+.cr-theme-pink .cch-section {
+  margin-top: 0; padding-top: 0; border-top: 0;
+}
 .cch-hdr {
   display: flex; align-items: center;
   justify-content: space-between;
@@ -44945,6 +45502,9 @@ function renderCollabChallenges(roomId, members, logs, habits){
     roomCard.insertAdjacentElement('afterend', sect);
   }
 
+  /* v2: если слот находится внутри секции "Челленджи" — шапку не рисуем (она уже есть). */
+  const isInsideV2Section = !!sect.closest('.cr-theme-pink');
+
   const list = getChallenges(roomId);
   const habMap = {};
   (habits||[]).forEach(h=>{ habMap[h.id] = h; });
@@ -44959,7 +45519,7 @@ function renderCollabChallenges(roomId, members, logs, habits){
     if(room){ roomName = room.name || ''; roomIcon = room.icon || '🤝'; }
   } catch(e){}
 
-  let html = `<div class="cch-hdr">
+  let html = isInsideV2Section ? '' : `<div class="cch-hdr">
     <div class="cch-hdr-left">
       ${SVG_TROPHY}
       <span class="cch-hdr-title">Челленджи${roomName ? ' · <span style="color:#c084fc;font-weight:700">'+esc(roomName)+'</span>' : ''}</span>
@@ -44971,10 +45531,15 @@ function renderCollabChallenges(roomId, members, logs, habits){
   </div>`;
 
   if(!list.length){
-    html += `<div class="cch-empty">
-      <div class="cch-empty-ttl">Нет совместных челленджей</div>
-      <div class="cch-empty-sub">День засчитывается только когда<br><b>все участники</b> отметились</div>
-    </div>`;
+    html += isInsideV2Section
+      ? `<div class="cr-ch-empty">
+          <div class="cr-ch-empty-ttl">Нет совместных челленджей</div>
+          <div class="cr-ch-empty-sub">День засчитывается, только когда отметились все участники</div>
+        </div>`
+      : `<div class="cch-empty">
+          <div class="cch-empty-ttl">Нет совместных челленджей</div>
+          <div class="cch-empty-sub">День засчитывается только когда<br><b>все участники</b> отметились</div>
+        </div>`;
   } else {
     list.forEach((ch, idx) => {
       const prog   = calcCollabProgress(ch, members||[], logs||{});
