@@ -15849,6 +15849,19 @@ window.toggleLikeUser = async function(){
         </button>
       </div>
 
+      <!-- Habit picker for timer (временные привычки) -->
+      <div style="padding:8px 20px 0;position:relative" id="timerHabWrap">
+        <button id="timerHabBtn" onclick="dtrToggleHabPicker(event)"
+          style="width:100%;padding:10px 14px;border-radius:10px;border:0.5px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;outline:none;font-family:var(--font-display);transition:all .2s;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left">
+          <span id="timerHabIcon" style="display:flex;align-items:center;justify-content:center;width:20px;height:20px;font-size:15px;flex-shrink:0">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </span>
+          <span id="timerHabLabel" style="flex:1">Выбрать привычку (необязательно)</span>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;opacity:.35"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div id="timerHabPicker" style="display:none;position:absolute;top:calc(100% + 4px);left:20px;right:20px;background:var(--card);border:0.5px solid rgba(255,255,255,.12);border-radius:14px;padding:6px;box-shadow:0 16px 48px rgba(0,0,0,.7);z-index:500;max-height:260px;overflow-y:auto"></div>
+      </div>
+
       <!-- Mode: Free / Timer -->
       <div id="pomBtns" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px 20px 0">
         <button class="timer-mode-btn active" id="pomFreeBtn" onclick="setPomMode(0,this)"
@@ -27812,7 +27825,7 @@ async function _habSyncFromDB(){
     const dStr = d365.toISOString().slice(0,10);
     const [habsRes, logsRes] = await Promise.all([
       sbc.from('personal_habits').select('*').eq('user_id', user.id),
-      sbc.from('personal_habit_logs').select('habit_id,date').eq('user_id', user.id).gte('date', dStr),
+      sbc.from('personal_habit_logs').select('habit_id,date,secs,done').eq('user_id', user.id).gte('date', dStr),
     ]);
     if(habsRes.error){ console.warn('habSyncFromDB habits:', habsRes.error.message); return; }
 
@@ -27836,6 +27849,8 @@ async function _habSyncFromDB(){
       tod: h.tod,
       created: new Date(h.created_at).getTime(),
       archived: h.archived || undefined,
+      habType: h.hab_type || 'count',
+      dailyLimitHrs: (h.target_secs || 0) / 3600,
     }));
     _hWriteLocal(dbHabs);
 
@@ -27843,7 +27858,8 @@ async function _habSyncFromDB(){
     const dbLogs = {};
     (logsRes.data || []).forEach(e => {
       if(!dbLogs[e.habit_id]) dbLogs[e.habit_id] = {};
-      dbLogs[e.habit_id][e.date] = 1;
+      if(e.done) dbLogs[e.habit_id][e.date] = 1;            /* presence только для выполненных */
+      if((e.secs||0) > 0) dbLogs[e.habit_id][e.date + '_secs'] = e.secs;  /* накопленные секунды */
     });
     _lWriteLocal(dbLogs);
 
@@ -27877,6 +27893,8 @@ async function _habMigrateLocalToDB(habs, logs){
       tod:        h.tod || 'any',
       archived:   !!h.archived,
       created_at: h.created ? new Date(h.created).toISOString() : new Date().toISOString(),
+      hab_type:    h.habType || 'count',
+      target_secs: Math.round((h.dailyLimitHrs || 0) * 3600),
     }));
     const { error: hErr } = await sbc.from('personal_habits').upsert(habRows);
     if(hErr){ console.warn('migrate habits:', hErr.message); return; }
@@ -27935,6 +27953,8 @@ window._habSyncHabitsToDB = async function(targetHabs){
       tod:        h.tod || 'any',
       archived:   !!h.archived,
       created_at: h.created ? new Date(h.created).toISOString() : new Date().toISOString(),
+      hab_type:    h.habType || 'count',
+      target_secs: Math.round((h.dailyLimitHrs || 0) * 3600),
     }));
     if(upRows.length > 0){
       const { error: upErr } = await sbc.from('personal_habits').upsert(upRows);
@@ -27957,14 +27977,17 @@ window._habSyncLogsToDB = async function(targetLogs){
     const d365 = new Date(); d365.setDate(d365.getDate()-365);
     const dStr = d365.toISOString().slice(0,10);
     const { data, error } = await sbc.from('personal_habit_logs')
-      .select('habit_id,date').eq('user_id', user.id).gte('date', dStr);
+      .select('habit_id,date,secs').eq('user_id', user.id).gte('date', dStr);
     if(error){ console.warn('syncLogs get:', error.message); return; }
 
     // Строим Set ключей "habitId|date" для быстрого сравнения
     const dbSet = new Set((data||[]).map(e => e.habit_id + '|' + e.date));
+    /* DTR: дни с накопленными секундами (таймер) синком присутствия не удаляем */
+    const keepSecs = new Set((data||[]).filter(e => (e.secs||0) > 0).map(e => e.habit_id + '|' + e.date));
     const localSet = new Set();
     Object.keys(targetLogs || {}).forEach(hid => {
       Object.keys(targetLogs[hid] || {}).forEach(d => {
+        if(d.endsWith('_secs')) return;            /* DTR: '_secs' — секунды, не дата */
         if(targetLogs[hid][d]) localSet.add(hid + '|' + d);
       });
     });
@@ -27984,7 +28007,7 @@ window._habSyncLogsToDB = async function(targetLogs){
     }
 
     // 2. Есть в БД, нет в localStorage → DELETE
-    const toDelete = [...dbSet].filter(k => !localSet.has(k));
+    const toDelete = [...dbSet].filter(k => !localSet.has(k) && !keepSecs.has(k));
     if(toDelete.length > 0){
       // Удаляем по одному (или группами) — фильтр delete с OR сложный, проще пакетом
       for(const k of toDelete){
@@ -43248,6 +43271,12 @@ function ttkSaveElapsed(secs) {
       dailyAutoClosed = true;
     }
     localStorage.setItem('dtr_l3', JSON.stringify(logs));
+    /* DTR: секунды + флаг done в БД, чтобы цели читали прогресс кросс-девайсно */
+    if (sbc && uid) {
+      sbc.from('personal_habit_logs')
+        .upsert({ habit_id: hid, user_id: uid, date: today, secs: newSecs, done: !!logs[hid][today] }, { onConflict: 'habit_id,date' })
+        .then(function(r){ if (r && r.error) console.warn('ttk log upsert:', r.error.message); });
+    }
 
 
     if (dailyAutoClosed) {
@@ -46500,6 +46529,344 @@ DTR — Habit Timer Auto-Stop with Sound (local only)
   }
 
   LOG('module loaded');
+})();
+</script>
+
+
+<!-- ===== DTR GOALS MODULE ===== -->
+<style id="dtr-goals-css">
+.gl-wrap{padding:16px 16px 96px;max-width:760px;margin:0 auto}
+.gl-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px}
+.gl-h1{font-family:var(--font-display);font-size:23px;font-weight:800;color:var(--t1);letter-spacing:-.02em;line-height:1.1}
+.gl-sub{font-size:12px;color:var(--t3);margin-top:3px}
+.gl-add{display:inline-flex;align-items:center;gap:6px;padding:10px 14px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--gold-l),var(--gold-d));color:#1a1407;font-family:var(--font-display);font-weight:800;font-size:13px;cursor:pointer;box-shadow:var(--shadow-gold);transition:transform .15s;white-space:nowrap;flex-shrink:0}
+.gl-add:active{transform:scale(.95)}
+.gl-empty{text-align:center;padding:52px 20px;color:var(--t3);font-size:13px}
+.gl-empty svg{opacity:.28;margin-bottom:14px;color:var(--gold)}
+.gl-card{background:var(--card);border:0.5px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px;position:relative;cursor:pointer;transition:border-color .2s,transform .12s}
+.gl-card:hover{border-color:var(--glass-border)}
+.gl-card:active{transform:scale(.992)}
+.gl-card.done{border-color:rgba(34,197,94,.38)}
+.gl-card-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
+.gl-ico{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:21px;flex-shrink:0}
+.gl-title{font-family:var(--font-display);font-weight:800;font-size:16px;color:var(--t1);line-height:1.2;word-break:break-word}
+.gl-meta{font-size:11px;color:var(--t3);margin-top:3px}
+.gl-bar{height:8px;border-radius:6px;background:rgba(255,255,255,.06);overflow:hidden;margin:12px 0 7px}
+.gl-fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--gold-d),var(--gold));transition:width .7s cubic-bezier(.22,1,.36,1)}
+.gl-fill.done{background:linear-gradient(90deg,var(--green),var(--green-l))}
+.gl-prog-row{display:flex;justify-content:space-between;align-items:baseline;font-size:12px}
+.gl-prog-val{font-family:var(--font-mono);color:var(--t2)}
+.gl-pct{font-family:var(--font-display);font-weight:800;color:var(--gold)}
+.gl-pct.done{color:var(--green-l)}
+.gl-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:13px}
+.gl-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:8px;background:rgba(255,255,255,.04);border:0.5px solid var(--border);font-size:11px;color:var(--t2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* modal */
+.gl-ov{position:fixed;inset:0;background:rgba(0,0,0,.66);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:9000;display:none;align-items:flex-end;justify-content:center;animation:glOvIn .2s ease}
+@keyframes glOvIn{from{opacity:0}to{opacity:1}}
+@media(min-width:560px){.gl-ov{align-items:center;padding:20px}}
+.gl-modal{background:var(--panel);border:0.5px solid var(--border);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:92vh;overflow-y:auto;padding:22px 20px;padding-bottom:calc(22px + env(safe-area-inset-bottom,0px));box-shadow:var(--shadow-md);animation:glModIn .26s cubic-bezier(.22,1,.36,1)}
+@keyframes glModIn{from{transform:translateY(24px);opacity:.4}to{transform:translateY(0);opacity:1}}
+@media(min-width:560px){.gl-modal{border-radius:20px}}
+.gl-mt{font-family:var(--font-display);font-size:19px;font-weight:800;color:var(--t1);margin-bottom:4px}
+.gl-lbl{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin:16px 0 7px;display:block}
+.gl-field{width:100%;padding:11px 13px;border-radius:11px;border:0.5px solid var(--border);background:var(--card);color:var(--t1);font-family:var(--font-body);font-size:14px;outline:none;box-sizing:border-box;transition:border-color .15s}
+.gl-field:focus{border-color:var(--glass-border)}
+.gl-icons{display:flex;flex-wrap:wrap;gap:6px}
+.gl-ic{width:38px;height:38px;border-radius:10px;border:0.5px solid var(--border);background:var(--card);font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s}
+.gl-ic.on{border-color:var(--gold);background:var(--gold-glow)}
+.gl-colors{display:flex;flex-wrap:wrap;gap:9px;margin-top:9px}
+.gl-co{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .12s}
+.gl-co.on{border-color:var(--t1);transform:scale(1.12)}
+.gl-seg{display:flex;gap:6px}
+.gl-seg-btn{flex:1;padding:10px 4px;border-radius:10px;border:0.5px solid var(--border);background:var(--card);color:var(--t2);font-family:var(--font-display);font-weight:700;font-size:12px;cursor:pointer;transition:all .16s}
+.gl-seg-btn.on{background:var(--gold-glow);border-color:var(--glass-border);color:var(--gold)}
+.gl-hablist{display:flex;flex-direction:column;gap:6px;max-height:184px;overflow-y:auto}
+.gl-hab{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:10px;border:0.5px solid var(--border);background:var(--card);cursor:pointer;transition:all .15s}
+.gl-hab.on{border-color:var(--glass-border);background:var(--gold-glow)}
+.gl-hab-check{width:18px;height:18px;border-radius:6px;border:1.5px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#1a1407}
+.gl-hab.on .gl-hab-check{background:var(--gold);border-color:var(--gold)}
+.gl-hab-name{font-size:13px;color:var(--t1);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gl-hab-badge{margin-left:auto;font-size:10px;font-family:var(--font-mono);color:var(--t3);padding:2px 7px;border-radius:6px;background:rgba(255,255,255,.05);flex-shrink:0}
+.gl-hab-empty{font-size:12px;color:var(--t3);padding:8px 2px}
+.gl-newhab{display:flex;align-items:center;justify-content:center;gap:6px;padding:11px;border-radius:10px;border:1px dashed var(--border);background:transparent;color:var(--t2);font-family:var(--font-display);font-weight:700;font-size:12px;cursor:pointer;width:100%;margin-top:8px;transition:all .15s}
+.gl-newhab:hover{border-color:var(--glass-border);color:var(--gold)}
+.gl-modal-actions{display:flex;gap:10px;margin-top:22px}
+.gl-btn-save{flex:1;padding:13px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--gold-l),var(--gold-d));color:#1a1407;font-family:var(--font-display);font-weight:800;font-size:14px;cursor:pointer}
+.gl-btn-save:active{transform:scale(.98)}
+.gl-btn-cancel{padding:13px 18px;border-radius:12px;border:0.5px solid var(--border);background:transparent;color:var(--t2);font-family:var(--font-display);font-weight:700;font-size:14px;cursor:pointer}
+</style>
+<script>
+(function(){
+  'use strict';
+  function $(id){return document.getElementById(id);}
+  function glUID(){ var u=window.SB_USER; return (u && !u.isDemoUser && u.id) ? u.id : null; }
+  function glHabits(){ try{return JSON.parse(localStorage.getItem('dtr_h3')||'[]')||[];}catch(e){return [];} }
+  function glHabMap(){ var m={}; glHabits().forEach(function(h){m[h.id]=h;}); return m; }
+  function glEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function glToast(m,i){ try{ window.showToast && window.showToast(m,i); }catch(e){} }
+
+  var TYPE_META = {
+    count:  { label:'Выполнения', unit:'раз', word:'Сколько раз выполнить', step:'1',  dec:false },
+    hours:  { label:'Часы',       unit:'ч',   word:'Сколько часов накопить', step:'0.5',dec:true },
+    streak: { label:'Дни подряд', unit:'дн',  word:'Сколько дней подряд держать', step:'1', dec:false }
+  };
+  var GL_ICONS=['\uD83C\uDFAF','\uD83D\uDCDA','\uD83D\uDCAA','\uD83C\uDFC3','\uD83E\uDDE0','\uD83D\uDCB0','\uD83C\uDFA8','\uD83C\uDF31','\u26A1','\uD83D\uDD25','\u270D\uFE0F','\uD83E\uDDD8'];
+  var GL_COLORS=['#F5C842','#60A5FA','#22C55E','#A855F7','#F97316','#EF4444','#06B6D4','#FBBF24'];
+
+  var _glEditId=null, _glType='count', _glSel={}, _glColor='#F5C842', _glIcon='\uD83C\uDFAF', _glAwaitHab=false;
+
+  /* ---------- nav button + pane ---------- */
+  function glInjectNav(){
+    if($('goalsTabBtn')) return;
+    var habBtn=document.querySelector('.stab[data-tab="habits"]');
+    if(!habBtn||!habBtn.parentNode) return;
+    var b=document.createElement('div');
+    b.className='stab'; b.id='goalsTabBtn';
+    b.setAttribute('data-tab','goals'); b.setAttribute('role','tab');
+    b.setAttribute('aria-selected','false'); b.setAttribute('aria-label','Цели');
+    b.setAttribute('onclick',"showTab('goals',this)");
+    b.innerHTML='<div class="tab-icon-wrap"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.6"/></svg></div><span></span>';
+    habBtn.parentNode.insertBefore(b, habBtn.nextSibling);
+  }
+  function glInjectPane(){
+    if($('tab-goals')) return;
+    var anyPane=document.querySelector('.tc');
+    if(!anyPane||!anyPane.parentNode) return;
+    var p=document.createElement('div');
+    p.className='tc'; p.id='tab-goals';
+    p.innerHTML='<div class="gl-wrap"><div class="gl-head"><div><div class="gl-h1">Цели</div><div class="gl-sub">Привяжи привычки — прогресс растёт сам</div></div>'
+      +'<button class="gl-add" onclick="glOpenModal()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Новая цель</button></div>'
+      +'<div id="glList"></div></div>';
+    anyPane.parentNode.appendChild(p);
+  }
+
+  /* ---------- render list ---------- */
+  async function renderGoals(){
+    glInjectNav(); glInjectPane();
+    var list=$('glList'); if(!list) return;
+    var uid=glUID();
+    if(!uid){ list.innerHTML='<div class="gl-empty">Войди в аккаунт, чтобы ставить цели и синхронизировать прогресс.</div>'; return; }
+    if(!window.sb){ list.innerHTML='<div class="gl-empty">Нет подключения к базе.</div>'; return; }
+    list.innerHTML='<div class="gl-empty">Загрузка…</div>';
+    try{
+      var sb=window.sb;
+      var gRes=await sb.from('goals').select('*').eq('user_id',uid).neq('status','archived').order('created_at',{ascending:false});
+      if(gRes.error) throw gRes.error;
+      var goals=gRes.data||[];
+      if(!goals.length){ list.innerHTML=glEmptyHtml(); return; }
+      var pRes=await sb.from('goal_progress').select('*');
+      var prog={}; (pRes.data||[]).forEach(function(p){prog[p.goal_id]=p;});
+      var lRes=await sb.from('goal_habits').select('goal_id,habit_id').eq('user_id',uid);
+      var links={}; (lRes.data||[]).forEach(function(l){ (links[l.goal_id]=links[l.goal_id]||[]).push(l.habit_id); });
+      var hm=glHabMap(), html='';
+      for(var i=0;i<goals.length;i++){
+        var g=goals[i], p=prog[g.id]||{current_value:0,progress_pct:0};
+        var pct=Math.max(0,Math.min(100, +p.progress_pct||0));
+        var done=pct>=100;
+        if(done && g.status==='active'){
+          sb.from('goals').update({status:'done',completed_at:new Date().toISOString()}).eq('id',g.id).then(function(){});
+          g.status='done'; glToast('Цель достигнута!','\uD83C\uDF89');
+        }
+        html+=glCardHtml(g,p,pct,done,links[g.id]||[],hm);
+      }
+      list.innerHTML=html;
+      requestAnimationFrame(function(){ var els=list.querySelectorAll('.gl-fill'); for(var i=0;i<els.length;i++){ els[i].style.width=(els[i].dataset.w||0)+'%'; } });
+    }catch(e){
+      console.warn('renderGoals:', e&&e.message||e);
+      list.innerHTML='<div class="gl-empty">Не удалось загрузить цели. Обнови страницу и попробуй снова.</div>';
+    }
+  }
+  function glEmptyHtml(){
+    return '<div class="gl-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.6"/></svg>'
+      +'<div style="font-weight:700;color:var(--t2);margin-bottom:4px">Пока нет целей</div><div>Поставь первую цель и привяжи к ней привычки.</div></div>';
+  }
+  function glCardHtml(g,p,pct,done,habIds,hm){
+    var meta=TYPE_META[g.target_type]||TYPE_META.count;
+    var cur=+p.current_value||0;
+    var curS=(g.target_type==='hours')?(Math.round(cur*10)/10):Math.round(cur);
+    var chips='';
+    for(var i=0;i<habIds.length;i++){ var h=hm[habIds[i]]; if(h){ chips+='<span class="gl-chip">'+(h.icon?glEsc(h.icon)+' ':'')+glEsc(h.name)+'</span>'; } }
+    if(!chips) chips='<span class="gl-chip" style="opacity:.55">нет привычек</span>';
+    var dl=g.deadline?(' · до '+glEsc(g.deadline)):'';
+    var col=glEsc(g.color||'#F5C842');
+    return '<div class="gl-card'+(done?' done':'')+'" onclick="glOpenModal(\''+g.id+'\')">'
+      +'<div class="gl-card-top"><div class="gl-ico" style="background:'+col+'22;color:'+col+'">'+glEsc(g.icon||'\uD83C\uDFAF')+'</div>'
+      +'<div style="flex:1;min-width:0"><div class="gl-title">'+glEsc(g.title)+'</div><div class="gl-meta">'+meta.label+dl+'</div></div></div>'
+      +'<div class="gl-bar"><div class="gl-fill'+(done?' done':'')+'" data-w="'+pct+'" style="width:0%"></div></div>'
+      +'<div class="gl-prog-row"><span class="gl-prog-val">'+curS+' / '+glEsc(g.target_value)+' '+meta.unit+'</span><span class="gl-pct'+(done?' done':'')+'">'+Math.round(pct)+'%</span></div>'
+      +'<div class="gl-chips">'+chips+'</div></div>';
+  }
+
+  /* ---------- modal ---------- */
+  function glEnsureModal(){
+    if($('goalOv')) return;
+    var ov=document.createElement('div');
+    ov.className='gl-ov'; ov.id='goalOv';
+    ov.addEventListener('click',function(e){ if(e.target===ov) glClose(); });
+    ov.innerHTML='<div class="gl-modal">'
+      +'<div class="gl-mt" id="glMTitle">Новая цель</div>'
+      +'<label class="gl-lbl">Название</label>'
+      +'<input class="gl-field" id="glTitle" maxlength="60" placeholder="Например: Прочитать 30 книг" autocomplete="off">'
+      +'<label class="gl-lbl">Иконка</label><div class="gl-icons" id="glIcons"></div>'
+      +'<div class="gl-colors" id="glColors"></div>'
+      +'<label class="gl-lbl">Тип цели</label>'
+      +'<div class="gl-seg" id="glSeg">'
+        +'<button class="gl-seg-btn" data-t="count" onclick="glSetType(\'count\')">Выполнения</button>'
+        +'<button class="gl-seg-btn" data-t="hours" onclick="glSetType(\'hours\')">Часы</button>'
+        +'<button class="gl-seg-btn" data-t="streak" onclick="glSetType(\'streak\')">Дни подряд</button>'
+      +'</div>'
+      +'<label class="gl-lbl" id="glTgtLbl">Цель — раз</label>'
+      +'<input class="gl-field" id="glTarget" type="number" min="1" step="1" placeholder="30">'
+      +'<label class="gl-lbl">Дедлайн (необязательно)</label>'
+      +'<input class="gl-field" id="glDeadline" type="date">'
+      +'<label class="gl-lbl">Привычки</label><div class="gl-hablist" id="glHabList"></div>'
+      +'<button class="gl-newhab" onclick="glNewHabit()">+ Создать привычку</button>'
+      +'<div class="gl-modal-actions"><button class="gl-btn-cancel" onclick="glClose()">Отмена</button><button class="gl-btn-save" id="glSaveBtn" onclick="glSave()">Создать цель</button></div>'
+      +'<div id="glDelWrap" style="display:none;text-align:center;margin-top:14px"><button onclick="glDelete()" style="background:none;border:none;color:var(--red);font-size:12px;font-weight:700;cursor:pointer">Удалить цель</button></div>'
+      +'</div>';
+    document.body.appendChild(ov);
+  }
+  function glRenderIcons(){
+    var box=$('glIcons'); if(box){ box.innerHTML=GL_ICONS.map(function(ic){ return '<div class="gl-ic'+(ic===_glIcon?' on':'')+'" onclick="glPickIcon(\''+ic+'\')">'+ic+'</div>'; }).join(''); }
+    var cb=$('glColors'); if(cb){ cb.innerHTML=GL_COLORS.map(function(c){ return '<div class="gl-co'+(c===_glColor?' on':'')+'" style="background:'+c+'" onclick="glPickColor(\''+c+'\')"></div>'; }).join(''); }
+  }
+  function glRenderHabList(){
+    var box=$('glHabList'); if(!box) return;
+    var habs=glHabits();
+    if(!habs.length){ box.innerHTML='<div class="gl-hab-empty">Привычек пока нет. Создай первую кнопкой ниже.</div>'; return; }
+    box.innerHTML=habs.map(function(h){
+      var on=!!_glSel[h.id];
+      var badge=(h.habType==='time'&&h.dailyLimitHrs)?(Math.round(h.dailyLimitHrs*60)+' мин/таймер'):'';
+      return '<div class="gl-hab'+(on?' on':'')+'" onclick="glToggleHab(\''+h.id+'\')">'
+        +'<div class="gl-hab-check">'+(on?'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>':'')+'</div>'
+        +'<span style="font-size:15px">'+(h.icon?glEsc(h.icon):'\u2022')+'</span>'
+        +'<span class="gl-hab-name">'+glEsc(h.name)+'</span>'
+        +(badge?'<span class="gl-hab-badge">'+badge+'</span>':'')+'</div>';
+    }).join('');
+  }
+  function glApplyType(){
+    var m=TYPE_META[_glType]||TYPE_META.count;
+    var seg=document.querySelectorAll('#glSeg .gl-seg-btn');
+    for(var i=0;i<seg.length;i++){ seg[i].classList.toggle('on', seg[i].dataset.t===_glType); }
+    var lbl=$('glTgtLbl'); if(lbl) lbl.textContent='Цель — '+m.unit+' ('+m.word.toLowerCase()+')';
+    var inp=$('glTarget'); if(inp){ inp.step=m.step; }
+  }
+
+  window.glSetType=function(t){ _glType=t; glApplyType(); };
+  window.glPickIcon=function(ic){ _glIcon=ic; glRenderIcons(); };
+  window.glPickColor=function(c){ _glColor=c; glRenderIcons(); };
+  window.glToggleHab=function(id){ if(_glSel[id]) delete _glSel[id]; else _glSel[id]=true; glRenderHabList(); };
+
+  window.glOpenModal=async function(id){
+    glEnsureModal();
+    _glEditId=id||null; _glSel={}; _glAwaitHab=false;
+    _glType='count'; _glColor='#F5C842'; _glIcon='\uD83C\uDFAF';
+    $('glTitle').value=''; $('glTarget').value=''; $('glDeadline').value='';
+    $('glMTitle').textContent = id?'Редактировать цель':'Новая цель';
+    $('glSaveBtn').textContent = id?'Сохранить':'Создать цель';
+    $('glDelWrap').style.display = id?'block':'none';
+    if(id && window.sb){
+      try{
+        var uid=glUID();
+        var gr=await window.sb.from('goals').select('*').eq('id',id).single();
+        if(gr.data){
+          var g=gr.data;
+          _glType=g.target_type||'count'; _glColor=g.color||'#F5C842'; _glIcon=g.icon||'\uD83C\uDFAF';
+          $('glTitle').value=g.title||''; $('glTarget').value=g.target_value||''; $('glDeadline').value=g.deadline||'';
+        }
+        var lr=await window.sb.from('goal_habits').select('habit_id').eq('goal_id',id).eq('user_id',uid);
+        (lr.data||[]).forEach(function(l){ _glSel[l.habit_id]=true; });
+      }catch(e){ console.warn('glOpenModal load:',e&&e.message||e); }
+    }
+    glRenderIcons(); glApplyType(); glRenderHabList();
+    glShow();
+    setTimeout(function(){ try{$('glTitle').focus();}catch(e){} },120);
+  };
+  function glShow(){ var ov=$('goalOv'); if(ov) ov.style.display='flex'; }
+  window.glClose=function(){ var ov=$('goalOv'); if(ov) ov.style.display='none'; _glAwaitHab=false; };
+
+  window.glSave=async function(){
+    var uid=glUID();
+    if(!uid){ glToast('Нужно войти в аккаунт'); return; }
+    var title=($('glTitle').value||'').trim();
+    var target=parseFloat($('glTarget').value);
+    if(!title){ glToast('Введи название цели'); $('glTitle').focus(); return; }
+    if(!(target>0)){ glToast('Укажи целевое значение'); $('glTarget').focus(); return; }
+    var deadline=$('glDeadline').value||null;
+    var ids=Object.keys(_glSel);
+    var btn=$('glSaveBtn'); if(btn){ btn.disabled=true; btn.textContent='Сохранение…'; }
+    try{
+      var sb=window.sb, goalId=_glEditId;
+      var row={ user_id:uid, title:title, icon:_glIcon, color:_glColor, target_type:_glType, target_value:target, deadline:deadline };
+      if(goalId){
+        var ur=await sb.from('goals').update(row).eq('id',goalId).eq('user_id',uid);
+        if(ur.error) throw ur.error;
+        await sb.from('goal_habits').delete().eq('goal_id',goalId).eq('user_id',uid);
+      }else{
+        var ir=await sb.from('goals').insert(row).select('id').single();
+        if(ir.error) throw ir.error;
+        goalId=ir.data.id;
+      }
+      if(ids.length){
+        var rows=ids.map(function(hid){ return { goal_id:goalId, habit_id:hid, user_id:uid }; });
+        var lr=await sb.from('goal_habits').insert(rows);
+        if(lr.error) throw lr.error;
+      }
+      glClose(); glToast(_glEditId?'Цель обновлена':'Цель создана','\uD83C\uDFAF'); renderGoals();
+    }catch(e){
+      console.warn('glSave:',e&&e.message||e); glToast('Ошибка сохранения: '+(e&&e.message||''));
+    }finally{ if(btn){ btn.disabled=false; btn.textContent=_glEditId?'Сохранить':'Создать цель'; } }
+  };
+
+  window.glDelete=async function(){
+    if(!_glEditId) return;
+    if(!confirm('Удалить эту цель? Привычки и их история останутся.')) return;
+    try{
+      var uid=glUID();
+      var r=await window.sb.from('goals').delete().eq('id',_glEditId).eq('user_id',uid);
+      if(r.error) throw r.error;
+      glClose(); glToast('Цель удалена'); renderGoals();
+    }catch(e){ console.warn('glDelete:',e&&e.message||e); glToast('Не удалось удалить'); }
+  };
+
+  /* ---- create habit inline, then return to goal modal ---- */
+  window.glNewHabit=function(){
+    if(typeof window._hOpenModal!=='function'){ glToast('Модалка привычек недоступна'); return; }
+    _glAwaitHab=true;
+    var before=glHabits().length;
+    var ov=$('goalOv'); if(ov) ov.style.display='none';   /* спрятать, чтобы не перекрывать */
+    try{ window._hOpenModal(); }catch(e){ console.warn(e); }
+    setTimeout(function(){
+      var hov=$('habAddOv');
+      if(!hov){ _glAwaitHab=false; glShow(); return; }
+      var iv=setInterval(function(){
+        var d=hov.style.display;
+        if(d==='none'||d===''){
+          clearInterval(iv);
+          if(!_glAwaitHab) return;
+          _glAwaitHab=false;
+          var habs=glHabits();
+          if(habs.length>before){ _glSel[habs[habs.length-1].id]=true; }
+          glShow(); glRenderHabList();
+        }
+      },250);
+    },350);
+  };
+
+  /* ---- hook showTab ---- */
+  function glHook(){
+    if(window.showTab && !window.showTab.__glHooked){
+      var orig=window.showTab;
+      window.showTab=function(name){ var r=orig.apply(this,arguments); if(name==='goals'){ try{renderGoals();}catch(e){console.warn(e);} } return r; };
+      window.showTab.__glHooked=true;
+    }
+  }
+  function glInit(){ glInjectNav(); glInjectPane(); glHook(); }
+  if(document.readyState!=='loading') glInit(); else document.addEventListener('DOMContentLoaded',glInit);
+  /* повторная попытка — на случай, если nav/панели рендерятся позже */
+  setTimeout(glInit,1200);
+
+  window.renderGoals=renderGoals;
 })();
 </script>
 
