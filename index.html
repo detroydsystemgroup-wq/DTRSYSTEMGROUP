@@ -43394,6 +43394,12 @@ window._hSetUnit = function(unit, btn) {
         target.habType = habType;
         target.dailyLimitHrs = dailyLimitHrs;
         localStorage.setItem('dtr_h3', JSON.stringify(data));
+        /* DTR fix: оригинальный hSave успел отправить в БД старые значения (hab_type='count')
+           ДО этого патча. Повторно синхронизируем уже с корректными hab_type/target_secs,
+           иначе при следующей загрузке БД перезатрёт localStorage и привычка пропадёт из таймера. */
+        if (typeof window._habSyncHabitsToDB === 'function') {
+          setTimeout(function(){ try{ window._habSyncHabitsToDB(data); }catch(e){} }, 200);
+        }
       }
       /* Reset type UI */
       _habType = 'count'; _habUnit = 'min';
