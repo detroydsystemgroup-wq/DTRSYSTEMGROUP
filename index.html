@@ -17771,176 +17771,30 @@ function escAttr(str){
 //             size — диаметр ячейки в пикселях (для центрирования эффектов)
 //             style — какой вариант проигрывать (см. ниже)
 window.playHabitCheckAnim = function(cell, color, opts){
+  // Без звука. Простая плавная отметка.
+  if(!cell) return;
   opts = opts || {};
-  const size = opts.size || 40;
-  const half = size/2;
-  const style = opts.style || 'A';
-
-  // ── Web Audio: синтезируем тоны и шум на лету ───────────────
-  function getAC(){
-    if(!window._dtrAC){
-      try { window._dtrAC = new (window.AudioContext||window.webkitAudioContext)(); }
-      catch(e){ window._dtrAC = null; }
-    }
-    return window._dtrAC;
-  }
-  function playTone(freq, duration, type, gain, delay){
-    const ac = getAC(); if(!ac) return;
-    type = type||'sine'; gain = gain||0.08; delay = delay||0;
-    try{
-      const t0 = ac.currentTime + delay;
-      const osc = ac.createOscillator();
-      const g = ac.createGain();
-      osc.type = type;
-      osc.frequency.value = freq;
-      g.gain.setValueAtTime(0, t0);
-      g.gain.linearRampToValueAtTime(gain, t0 + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
-      osc.connect(g).connect(ac.destination);
-      osc.start(t0);
-      osc.stop(t0 + duration);
-    }catch(e){}
-  }
-  function playNoise(duration, gain, delay){
-    const ac = getAC(); if(!ac) return;
-    gain = gain||0.04; delay = delay||0;
-    try{
-      const t0 = ac.currentTime + delay;
-      const buf = ac.createBuffer(1, ac.sampleRate * duration, ac.sampleRate);
-      const data = buf.getChannelData(0);
-      for(let i=0;i<data.length;i++) data[i] = (Math.random()*2-1) * (1 - i/data.length);
-      const src = ac.createBufferSource();
-      const g = ac.createGain();
-      const filter = ac.createBiquadFilter();
-      filter.type = 'highpass'; filter.frequency.value = 2000;
-      src.buffer = buf;
-      g.gain.value = gain;
-      src.connect(filter).connect(g).connect(ac.destination);
-      src.start(t0);
-    }catch(e){}
-  }
-
-  if(style === 'A'){
-    // ═══ ВАРИАНТ A: ФЕЙЕРВЕРК ═══
-    playTone(523.25, 0.4, 'triangle', 0.06);
-    playTone(659.25, 0.4, 'triangle', 0.05, 0.03);
-    playTone(783.99, 0.5, 'triangle', 0.05, 0.06);
-    playNoise(0.18, 0.03);
-
-    const fill = document.createElement('div');
-    fill.style.cssText = `position:absolute;width:${size}px;height:${size}px;border-radius:50%;background:radial-gradient(circle,${color}88,${color}22);pointer-events:none;z-index:5;top:0;left:0;animation:rippleNew .55s ease-out forwards`;
+  var size = opts.size || 40;
+  try {
+    // Мягкая цветная заливка: плавно проявляется и затухает
+    var fill = document.createElement('div');
+    fill.style.cssText = 'position:absolute;top:0;left:0;width:'+size+'px;height:'+size+'px;border-radius:10px;background:'+color+';pointer-events:none;z-index:5';
     cell.appendChild(fill);
-    setTimeout(()=>fill.remove(), 600);
-
-    const ring = document.createElement('div');
-    ring.style.cssText = `position:absolute;width:${size}px;height:${size}px;border-radius:50%;border:3px solid ${color};pointer-events:none;z-index:6;top:0;left:0;box-sizing:border-box;animation:ringPulseA .65s ease-out forwards`;
-    cell.appendChild(ring);
-    setTimeout(()=>ring.remove(), 700);
-
-    const shapes = ['●','★','✦','◆','▲','✧'];
-    for(let i=0;i<16;i++){
-      const angle = (i/16)*Math.PI*2 + (Math.random()-0.5)*0.3;
-      const dist  = (size*0.7) + Math.random()*22;
-      const tx = Math.cos(angle)*dist;
-      const ty = Math.sin(angle)*dist;
-      const rot = (Math.random()-0.5)*720;
-      const fontSize = 6 + Math.random()*7;
-      const p = document.createElement('div');
-      p.textContent = shapes[i%shapes.length];
-      p.style.cssText =
-        `position:absolute;left:50%;top:50%;`+
-        `color:${color};font-size:${fontSize}px;`+
-        `text-shadow:0 0 6px ${color};`+
-        `pointer-events:none;z-index:10;`+
-        `--tx:${tx}px;--ty:${ty}px;--rot:${rot}deg;`+
-        `animation:confettiBurst .7s cubic-bezier(.2,.6,.3,1) ${i*8}ms forwards`;
-      cell.appendChild(p);
-      setTimeout(()=>p.remove(), 900);
+    if (typeof fill.animate === 'function') {
+      fill.animate(
+        [{ opacity: 0.30, transform: 'scale(0.92)' }, { opacity: 0, transform: 'scale(1.03)' }],
+        { duration: 360, easing: 'ease-out' }
+      ).onfinish = function(){ if(fill.parentNode) fill.remove(); };
+      // Лёгкое плавное «нажатие» самой ячейки
+      cell.animate(
+        [{ transform: 'scale(1)' }, { transform: 'scale(1.06)' }, { transform: 'scale(1)' }],
+        { duration: 260, easing: 'ease-out' }
+      );
+    } else {
+      // Фолбэк без Web Animations API
+      setTimeout(function(){ if(fill.parentNode) fill.remove(); }, 360);
     }
-
-    cell.style.animation = 'cellBounceNew .42s cubic-bezier(.34,1.5,.64,1)';
-
-  } else if(style === 'B'){
-    // ═══ ВАРИАНТ B: МАГИЯ ═══
-    playTone(880, 0.3, 'triangle', 0.05);
-    playTone(1318.5, 0.5, 'sine', 0.04, 0.08);
-    playTone(1760, 0.6, 'sine', 0.03, 0.18);
-
-    const glow = document.createElement('div');
-    glow.style.cssText = `position:absolute;width:${size}px;height:${size}px;border-radius:50%;background:radial-gradient(circle,${color}aa,${color}00 70%);pointer-events:none;z-index:5;top:0;left:0;animation:magicGlow .9s ease-out forwards`;
-    cell.appendChild(glow);
-    setTimeout(()=>glow.remove(), 950);
-
-    const glow2 = document.createElement('div');
-    glow2.style.cssText = `position:absolute;width:${size}px;height:${size}px;border-radius:50%;background:radial-gradient(circle,#ffffff66,#ffffff00 60%);pointer-events:none;z-index:6;top:0;left:0;animation:magicGlow .7s ease-out .1s forwards`;
-    cell.appendChild(glow2);
-    setTimeout(()=>glow2.remove(), 850);
-
-    for(let i=0;i<8;i++){
-      const orbitDeg = (i/8)*360 + (Math.random()-0.5)*20;
-      const orbitR = (size*0.6) + Math.random()*18;
-      const sp = document.createElement('div');
-      sp.textContent = i%2 ? '·' : '✦';
-      sp.style.cssText =
-        `position:absolute;left:50%;top:50%;`+
-        `color:${color};font-size:${i%2?14:9}px;`+
-        `text-shadow:0 0 8px ${color},0 0 4px #fff;`+
-        `pointer-events:none;z-index:10;`+
-        `--orbitDeg:${orbitDeg}deg;--orbitR:${orbitR}px;`+
-        `animation:magicOrbit .85s cubic-bezier(.4,.1,.6,1) ${i*30}ms forwards`;
-      cell.appendChild(sp);
-      setTimeout(()=>sp.remove(), 1100);
-    }
-
-    const tw = document.createElement('div');
-    tw.textContent = '✦';
-    tw.style.cssText = `position:absolute;left:50%;top:50%;color:#fff;font-size:18px;text-shadow:0 0 12px ${color};pointer-events:none;z-index:11;animation:magicTwinkle .6s ease-in-out forwards`;
-    cell.appendChild(tw);
-    setTimeout(()=>tw.remove(), 700);
-
-    cell.style.animation = 'cellSoftLift .55s ease-out';
-
-  } else if(style === 'C'){
-    // ═══ ВАРИАНТ C: УДАР ═══
-    playTone(60, 0.2, 'sine', 0.18);
-    playTone(1200, 0.05, 'square', 0.1, 0.01);
-    playNoise(0.08, 0.06);
-
-    const flash = document.createElement('div');
-    flash.style.cssText = `position:absolute;inset:0;border-radius:10px;background:${color};pointer-events:none;z-index:6;animation:flashStrike .25s ease-out forwards`;
-    cell.appendChild(flash);
-    setTimeout(()=>flash.remove(), 280);
-
-    const wave1 = document.createElement('div');
-    wave1.style.cssText = `position:absolute;width:${size}px;height:${size}px;border-radius:50%;border:4px solid ${color};pointer-events:none;z-index:5;top:0;left:0;box-sizing:border-box;animation:shockwave .45s cubic-bezier(.2,.7,.3,1) forwards`;
-    cell.appendChild(wave1);
-    setTimeout(()=>wave1.remove(), 500);
-
-    const wave2 = document.createElement('div');
-    wave2.style.cssText = `position:absolute;width:${size}px;height:${size}px;border-radius:50%;border:2px solid #fff;pointer-events:none;z-index:5;top:0;left:0;box-sizing:border-box;animation:shockwave .55s cubic-bezier(.2,.7,.3,1) .08s forwards`;
-    cell.appendChild(wave2);
-    setTimeout(()=>wave2.remove(), 650);
-
-    for(let i=0;i<6;i++){
-      const angle = (i/6)*Math.PI*2;
-      const dist = (size*0.8) + Math.random()*8;
-      const tx = Math.cos(angle)*dist;
-      const ty = Math.sin(angle)*dist;
-      const sh = document.createElement('div');
-      sh.style.cssText =
-        `position:absolute;left:50%;top:50%;`+
-        `width:3px;height:${10+Math.random()*4}px;border-radius:2px;`+
-        `background:linear-gradient(180deg,#fff,${color});`+
-        `pointer-events:none;z-index:10;`+
-        `--tx:${tx}px;--ty:${ty}px;`+
-        `transform-origin:center;`+
-        `animation:shardFly .35s cubic-bezier(.1,.7,.3,1) forwards`;
-      cell.appendChild(sh);
-      setTimeout(()=>sh.remove(), 400);
-    }
-
-    cell.style.animation = 'cellPunch .42s cubic-bezier(.3,1.4,.5,1)';
-  }
+  } catch(e){}
 };
 
 // Глобальный стиль анимации для отметки привычек.
